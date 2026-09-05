@@ -33,11 +33,16 @@ which prints the decision instead of calling the model, and the logic after the
 call through `CLAUDE_DRIFT_CHECK_FAKE_ANSWER`. Real assertions about real
 behaviour, and the cheapest tier that can find a genuine bug.
 
-**evaluation (live)** — the only tier that asks whether the prompts *work*. Each
-fixture's correct answer was fixed in `docs/superpowers/specs/` before the
-prompt ever saw it. A supervisor that returns `ok:true` unconditionally passes
-every other tier in this repository and fails here; so does a drift check that
-answers `NOTHING` to everything.
+**evaluation (live)** — asks whether the prompts *work* on fixed scenarios.
+The [adjudication decision](../docs/decisions/004-adversarial-evaluation.md)
+records how expectations are fixed before a run and disagreements are judged.
+Stable [drift expectations](eval/fixtures/drift/EXPECTATIONS.md) and
+[supervisor expectations](eval/fixtures/supervisor/EXPECTATIONS.md) live beside
+their fixtures. An always-accepting supervisor or always-quiet drift checker
+fails these live scenarios even when prompt structure and plumbing are valid.
+Offline tests establish deterministic behavior; live fixtures establish bounded
+model behavior; the separate dated calibration report records route evidence
+and limitations. None substitutes for the others.
 
 The super-plan tier asks the inverse planning questions: a request that
 tempts same-wave file overlap must still produce a lint-clean plan, and a
@@ -142,9 +147,9 @@ cost are written as `unavailable` when the adapter does not observe them. They
 are never estimated.
 
 These runs can make dozens of paid calls, and a native wave can add executor
-and supervisor calls. Review the current model prices before starting. Task 13
-adds and verifies the harness offline only; live calibration belongs to the
-separate calibration task.
+and supervisor calls. Review the current model prices before starting. Routine
+verification checks the harness offline; live calibration is a separate,
+explicitly authorized run.
 
 ### GPT-5.6 calibration result — 2026-09-04–05 UTC
 
@@ -198,11 +203,12 @@ single-run cases (F1, F2, F4, D1, D2) passed a second time in the same run.
 
 Worth stating plainly, because a green run is easy to over-read.
 
-- **Every fixture was written by the same mind that wrote the prompts.** They
-  test imagined failures. The three serious defects found on 2026-08-11 all came
-  from outside that imagination: a hash tool absent on another platform, a status
-  key inside a documentation fence, a wave-specific gate left in a generalised
-  path. No self-authored suite escapes its author's blind spots.
+- **Self-authored fixtures share the prompt author's blind spots.** The retained
+  adversarial drift cases and supervisor design constraints add an independent
+  author's perspective; their provenance and scoring limits are documented
+  beside the fixtures. Neither source establishes coverage of every real
+  failure. Apply the adjudication rules above rather than adjusting expectations
+  to protect a prompt.
 - **Default model is the cheapest one that measured reliable.** Every
   evaluation runs on Haiku 4.5 unless `EVAL_MODEL` says otherwise, with one
   exception: the super-plan tier defaults to Sonnet 5. Measured 2026-08-12,
@@ -258,7 +264,3 @@ caught it. Most of what has actually bitten us — a hash tool missing on anothe
 platform, a status key inside a documentation fence, a wave-specific gate left
 in a generalised path — was invisible to greps and obvious to a probe. Prefer
 the behaviour and evaluation tiers.
-
-The nine `task*.sh` / `sup-task*.sh` files that used to live under
-`docs/superpowers/plans/checks/` were consolidated here. They were named after
-plan tasks, which meant nothing once the plans were finished.

@@ -2,7 +2,7 @@
 # Tier 3 — does the DRIFT CHECK detect drift? Costs three model calls.
 #
 # Expectations fixed beforehand in
-# docs/superpowers/specs/2026-08-11-drift-detection-rehearsal.md. The scoring is
+# tests/eval/fixtures/drift/EXPECTATIONS.md. The scoring is
 # deliberately coarse and deliberately strict: the answer must NAME the task. An
 # unnamed complaint is the noise the prompt forbids, and counting it as a catch
 # would let the check pass by gesturing.

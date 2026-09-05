@@ -2,7 +2,7 @@
 # Tier 3 — does the SUPERVISOR judge correctly? Costs three model calls.
 #
 # Three fixtures whose right answers were fixed before the prompt ever saw them
-# (docs/superpowers/specs/2026-08-11-supervisor-rehearsal.md). Plumbing tests
+# (tests/eval/fixtures/supervisor/EXPECTATIONS.md). Plumbing tests
 # cannot ask this question: a supervisor that returns ok:true unconditionally
 # passes every one of them.
 set -uo pipefail
