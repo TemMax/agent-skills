@@ -242,7 +242,14 @@ if ! printf '%s' "$last_said" | grep -qiE '\b(i|we) (ran|verified|merged|pushed|
   silent "nothing-claimed"
 fi
 
-host="$(host_for_model "$model")"
+# Claude Stop omits model; its documented hook environment supplies the host.
+# https://code.claude.com/docs/en/hooks#reference-scripts-by-path
+# An explicit model still wins, and absence never supplies a Codex model id.
+if [ -z "$model" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+  host=claude
+else
+  host="$(host_for_model "$model")"
+fi
 judge=""
 case "$host" in
   claude)

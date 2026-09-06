@@ -8,6 +8,7 @@ cd "$(dirname "$0")/../../.." || exit 1
 
 HOOK="$(cd "$(dirname "$0")" && pwd)/drift-check"
 PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+STOP_FIXTURE="$(pwd)/tests/fixtures/hooks/claude-stop.json"
 fail=0
 
 WORK="$(mktemp -d)"
@@ -34,8 +35,9 @@ write_transcript() {  # $1 = content
   printf '%s\n' "$1" > "$WORK/transcript.jsonl"
 }
 
-# The payload carries the complete Stop contract; the transcript file is only
-# extra context for the model. $1 overrides the message and $2 the host model.
+# Synthetic model-bearing payload for explicit provider routing. Claude's
+# documented model-free Stop payload is exercised separately below.
+# $1 overrides the message and $2 the host model.
 run_hook() {
   local msg="${1-Summary: 2 tasks done, verified, nothing remaining.}"
   local model="${2-claude-fable-5-1}"
@@ -83,6 +85,24 @@ expect "active status, no live branches" "silent: no-live-branches" "$(run_hook)
 setup_repo; write_plan active "branch: wave/alpha"; write_transcript "$CLAIM"
 git -C "$WORK/repo" branch wave/alpha
 expect "active wave with a live branch" "would-call" "$(run_hook)"
+
+# Claude Stop has no model field. CLAUDE_PROJECT_DIR is supplied by the hook
+# environment; CLAUDE_PLUGIN_ROOT alone also locates this shared Codex plugin.
+# https://code.claude.com/docs/en/hooks#common-input-fields
+mkdir -p "$WORK/stop-tmp"
+run_stop_fixture() {
+  ( cd "$WORK/repo" && TMPDIR="$WORK/stop-tmp" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" \
+    "$HOOK" < "$STOP_FIXTURE" )
+}
+expect "documented Claude Stop without model reaches its judge" "would-call" \
+  "$(CLAUDE_PROJECT_DIR="$WORK/repo" DRIFT_CHECK_DRYRUN=1 run_stop_fixture)"
+expect "documented Claude Stop delivers its existing advice shape" \
+  '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":"- Task gamma has no verifier evidence."}}' \
+  "$(CLAUDE_PROJECT_DIR="$WORK/repo" DRIFT_CHECK_FAKE_ANSWER='- Task gamma has no verifier evidence.' run_stop_fixture)"
+expect "model-free Stop without a Claude host signal remains unknown" "silent: unknown-model" \
+  "$(CLAUDE_PROJECT_DIR= DRIFT_CHECK_DRYRUN=1 run_stop_fixture)"
+expect "model-free Codex Stop never guesses an active Codex model" "silent: unknown-model" \
+  "$(CLAUDE_PROJECT_DIR= CODEX_PLUGIN_ROOT="$PLUGIN_ROOT" DRIFT_CHECK_DRYRUN=1 run_stop_fixture)"
 
 # 4b. same as 4, but the plan declares its branch in the quoted JSON form
 setup_repo; write_plan active '  "branch": "wave/alpha",'; write_transcript "$CLAIM"
@@ -255,6 +275,11 @@ expect "Luna routes to Sol-high" "would-call: host=codex judge=gpt-5.6-sol effor
   "$(run_hook "$ROUTING_CLAIM" gpt-5.6-luna)"
 expect "unknown model is visible in dry-run" "silent: unknown-model" \
   "$(run_hook "$ROUTING_CLAIM" gpt-5.6-mini)"
+expect "explicit Codex identity wins over a Claude environment signal" \
+  "would-call: host=codex judge=gpt-5.6-terra effort=high" \
+  "$(CLAUDE_PROJECT_DIR="$WORK/repo" run_hook "$ROUTING_CLAIM" gpt-5.6-sol)"
+expect "unknown explicit model never borrows the Claude environment" "silent: unknown-model" \
+  "$(CLAUDE_PROJECT_DIR="$WORK/repo" run_hook "$ROUTING_CLAIM" future-model)"
 
 # 9e. provider output adapters and host-independent repeat suppression.
 CODEX_ADVICE='{"status":"advice","advice":["Task gamma has no verifier evidence."]}'

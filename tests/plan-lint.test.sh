@@ -31,6 +31,31 @@ out="$(node "$LINT" "$CLEAN" 2>&1)"; rc=$?
 expect "clean plan exits 0" "0" "$rc"
 contains "clean summary line" "OK: 0 error(s)" "$out"
 
+section "documented canonical plan"
+if node --input-type=module - plugins/orchestration/skills/super-plan/SKILL.md "$W/documented.md" <<'JS'
+import assert from 'node:assert/strict'
+import { readFileSync, writeFileSync } from 'node:fs'
+const [source, target] = process.argv.slice(2)
+const skill = readFileSync(source, 'utf8')
+const blocks = [...skill.matchAll(/^   ```json wave-plan\r?\n([\s\S]*?)^   ```$/gm)]
+assert.equal(blocks.length, 1, 'exactly one canonical wave-plan example is required')
+const json = blocks[0][1].replace(/^   /gm, '').trimEnd()
+const plan = JSON.parse(json)
+const prose = plan.waves.flatMap((wave) => wave.tasks)
+  .map((task) => '## Task ' + task.id + '\n\nExample task context.\n').join('\n')
+// The skill describes its header and task prose separately from the JSON.
+writeFileSync(target, 'status: draft\nbase: pending\n\n```json wave-plan\n'
+  + json + '\n```\n\n' + prose)
+JS
+then
+  out="$(node "$LINT" "$W/documented.md" 2>&1)"; rc=$?
+  expect "canonical SKILL.md example exits 0" "0" "$rc"
+  contains "canonical SKILL.md example is lint-clean" "OK: 0 error(s)" "$out"
+  if [ "$rc" -ne 0 ]; then printf '%s\n' "$out"; fi
+else
+  fail "canonical SKILL.md example could not be extracted"
+fi
+
 section "usage"
 node "$LINT" >/dev/null 2>&1; expect "no args exits 2" "2" "$?"
 

@@ -136,8 +136,9 @@ is deliberately narrower than a claim that every profile is a production route:
 The `gpt-5.6` alias normalizes only to `gpt-5.6-sol`; it is not a plan model
 ID. The dated record is
 [`tests/eval/gpt-5-6-results-2026-09-04.md`](tests/eval/gpt-5-6-results-2026-09-04.md):
-the default matrix recorded 87 rows (46 pass) with 0/24 required skill cells
-passing; its repeated critical run recorded 204 rows (97 pass, 107 fail).
+the final post-fix regression recorded 87 default rows (63 pass, 24 fail) with
+3/24 required skill cells passing; its critical run recorded 204 rows
+(162 pass, 42 fail).
 Therefore every GPT-5.6 seed route is **unsupported** and must delegate the
 routing decision upward to a separately supported provider route or an
 authorized calibration. The result does not turn invalid or failed cells into

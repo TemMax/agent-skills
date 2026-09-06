@@ -2,10 +2,11 @@
 // Deterministic state and mechanical verification for Codex-native waves.
 // This helper never calls a model or the network. It prints one JSON object.
 import {
-  existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -704,6 +705,33 @@ function runContractCommand(cmd, cwd) {
   }
 }
 
+function runContractSequence(repo, head, entries) {
+  const root = mkdtempSync(join(tmpdir(), 'codex-wave-verify-'))
+  const checkout = join(root, 'checkout')
+  let created = false
+  try {
+    const added = runGit(repo, ['worktree', 'add', '--detach', checkout, head])
+    if (added.exit !== 0) {
+      throw new NamedError('verification-worktree', added.stderr || added.error || 'checkout failed')
+    }
+    created = true
+    return entries.map((entry) => runContractCommand(entry.cmd, checkout))
+  } finally {
+    // This disposable checkout belongs only to this sequence attempt. Its
+    // generated and ignored artifacts must not reach the next attempt.
+    try {
+      if (created) {
+        const removed = runGit(repo, ['worktree', 'remove', '--force', checkout])
+        if (removed.exit !== 0) {
+          throw new NamedError('verification-worktree', removed.stderr || removed.error || 'cleanup failed')
+        }
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+}
+
 export function verifyTask(state, id) {
   const updated = clone(state)
   const task = requireTask(updated, id)
@@ -771,26 +799,38 @@ export function verifyTask(state, id) {
       evidence: path,
     })
   }
-  const mustRun = spec.contract.must_run.map((entry) => {
-    if (!preflightPassed) {
-      return { cmd: entry.cmd, evidence: entry.evidence, attempts: [], skipped: 'safety-preflight' }
+  const mustRun = spec.contract.must_run.map((entry) => ({
+    cmd: entry.cmd, evidence: entry.evidence, attempts: [],
+    ...(!preflightPassed ? { skipped: 'safety-preflight' } : {}),
+  }))
+  if (preflightPassed && mustRun.length > 0) {
+    const head = runGit(task.worktree, ['rev-parse', '--verify', 'HEAD^{commit}'])
+    if (head.exit !== 0 || !SHA.test(head.stdout.trim())) {
+      throw new NamedError('verification-worktree', head.stderr || head.error || 'task HEAD is not a commit')
     }
-    const attempts = [runContractCommand(entry.cmd, task.worktree)]
-    if (attempts[0].exit !== 0) attempts.push(runContractCommand(entry.cmd, task.worktree))
+    // Pin both complete attempts to the committed task head. Preceding
+    // commands may generate prerequisites or poison their successors.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const results = runContractSequence(updated.repoPath, head.stdout.trim(), mustRun)
+      results.forEach((result, index) => mustRun[index].attempts.push(result))
+      if (results.every((result) => result.exit === 0)) break
+    }
+  }
+  for (const recorded of mustRun) {
+    if (!preflightPassed) continue
+    const { cmd, attempts } = recorded
     if (attempts.at(-1).exit !== 0) violations.push({
       class: 'must_run',
-      rule: entry.cmd,
+      rule: cmd,
       evidence: 'exit ' + String(attempts.at(-1).exit) + '\n'
         + attempts.at(-1).stdout + attempts.at(-1).stderr,
     })
-    const recorded = { cmd: entry.cmd, evidence: entry.evidence, attempts }
     if (!outputEvidencePresent(task.reports.at(-1), recorded)) violations.push({
       class: 'report',
-      rule: 'must_run: ' + entry.cmd + ' requires pasted evidence',
+      rule: 'must_run: ' + cmd + ' requires pasted evidence',
       evidence: 'the executor report contains none of the verifier command output',
     })
-    return recorded
-  })
+  }
   const facts = {
     base: updated.base,
     branch: task.branch,

@@ -149,6 +149,10 @@ function withSecondTask(text) {
     + '\n## Task multiply-guard\n\nAdd the second independent guard.\n'
 }
 
+function withMustRun(text, commands) {
+  return text.replace(/"must_run": \[[^\n]+\]/, '"must_run": ' + JSON.stringify(commands))
+}
+
 function failed(rule = 'files_allowed: src/**', klass = 'files', extra = {}) {
   return {
     ok: false,
@@ -248,7 +252,7 @@ test('C4 record-executor stores only report text and advances to verify', () => 
   assert.equal(next(env.statePath).action, 'verify')
 })
 
-test('C5 verifier records diff, paths, commits, and both non-zero command attempts', () => {
+test('C5 verifier records diff, paths, commits, and both fresh non-zero command attempts', () => {
   const env = init({ planText: (text) => text.replace(
     'python3 -m unittest discover -s tests -t .',
     "if [ -f .retry-marker ]; then printf second-out; printf second-err >&2; exit 3; else touch .retry-marker; printf first-out; printf first-err >&2; exit 7; fi") })
@@ -268,9 +272,9 @@ test('C5 verifier records diff, paths, commits, and both non-zero command attemp
   assert.equal(facts.worktreeStatus, '')
   const command = facts.mustRun[0]
   assert.match(command.cmd, /^if \[ -f \.retry-marker \]/)
-  assert.deepEqual(command.attempts.map((a) => a.exit), [7, 3])
-  assert.deepEqual(command.attempts.map((a) => a.stdout), ['first-out', 'second-out'])
-  assert.deepEqual(command.attempts.map((a) => a.stderr), ['first-err', 'second-err'])
+  assert.deepEqual(command.attempts.map((a) => a.exit), [7, 7])
+  assert.deepEqual(command.attempts.map((a) => a.stdout), ['first-out', 'first-out'])
+  assert.deepEqual(command.attempts.map((a) => a.stderr), ['first-err', 'first-err'])
   assert.ok(facts.violations.some((v) => v.class === 'must_run'))
   assert.equal(next(env.statePath).action, 'spawn-supervisor')
 })
@@ -317,6 +321,73 @@ test('C5d missing required command evidence is a blocking mechanical fact', () =
   verify(env.statePath)
   const facts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
   assert.ok(facts.violations.some((v) => v.class === 'report' && /evidence/.test(v.rule)))
+  recordVerdict(env.statePath, clean())
+  assert.equal(next(env.statePath).action, 'spawn-executor')
+})
+
+test('C5e a self-healing failure fails both fresh checkouts and blocks merge-ready', () => {
+  const env = init({ planText: (text) => withMustRun(text, [{
+    cmd: 'if test -f __pycache__/ready; then printf warmed; else mkdir -p __pycache__; touch __pycache__/ready; printf missing-prerequisite; exit 1; fi',
+    evidence: 'required',
+  }]) })
+  const worktreesBefore = git(env.repo, 'worktree', 'list', '--porcelain')
+  prepareAttempt(env, 'must_run output:\nmissing-prerequisite')
+  const facts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.deepEqual(facts.mustRun[0].attempts.map((a) => a.exit), [1, 1])
+  assert.deepEqual(facts.mustRun[0].attempts.map((a) => a.stdout),
+    ['missing-prerequisite', 'missing-prerequisite'])
+  assert.ok(facts.violations.some((v) => v.class === 'must_run'))
+  assert.equal(existsSync(join(env.worktree, '__pycache__', 'ready')), false)
+  assert.equal(git(env.repo, 'worktree', 'list', '--porcelain').match(/^worktree /gm).length,
+    worktreesBefore.match(/^worktree /gm).length)
+  recordVerdict(env.statePath, clean())
+  assert.equal(next(env.statePath).action, 'spawn-executor')
+})
+
+test('C5f generator and tests share one fresh committed checkout without executor artifacts', () => {
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'test -f src/attempt-marker.txt && test ! -e __pycache__/fixture && mkdir -p __pycache__ && printf generated > __pycache__/fixture && pwd', evidence: 'optional' },
+    { cmd: 'test $(cat __pycache__/fixture) = generated && printf fixture-ok', evidence: 'required' },
+  ]) })
+  mkdirSync(join(env.worktree, '__pycache__'))
+  writeFileSync(join(env.worktree, '__pycache__', 'fixture'), 'executor-only')
+  prepareAttempt(env, 'must_run output:\nfixture-ok')
+  const facts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.deepEqual(facts.mustRun.map((entry) => entry.attempts.map((a) => a.exit)), [[0], [0]])
+  assert.equal(facts.mustRun[1].attempts[0].stdout, 'fixture-ok')
+  assert.deepEqual(facts.violations, [])
+  const checkout = facts.mustRun[0].attempts[0].stdout.trim()
+  assert.notEqual(checkout, env.worktree)
+  assert.equal(existsSync(checkout), false, 'temporary checkout must be removed')
+  assert.equal(existsSync(dirname(checkout)), false, 'temporary parent must be removed')
+  assert.equal(git(env.repo, 'worktree', 'list', '--porcelain').match(/^worktree /gm).length, 2)
+  assert.equal(readFileSync(join(env.worktree, '__pycache__', 'fixture'), 'utf8'), 'executor-only')
+  recordVerdict(env.statePath, clean())
+  assert.equal(next(env.statePath).action, 'merge-ready')
+})
+
+test('C5g a failing command poisons its successor in both complete sequence attempts', () => {
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'mkdir -p __pycache__ && pwd', evidence: 'optional' },
+    { cmd: 'if test -f __pycache__/poison; then rm __pycache__/poison; printf healed; else touch __pycache__/poison; printf poisoned; exit 1; fi', evidence: 'required' },
+    { cmd: 'if test -f __pycache__/poison; then printf successor-poisoned; exit 2; else printf successor-clean; fi', evidence: 'required' },
+  ]) })
+  prepareAttempt(env, 'must_run output:\npoisoned\nsuccessor-poisoned')
+  const facts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.deepEqual(facts.mustRun.map((entry) => entry.attempts.map((a) => a.exit)),
+    [[0, 0], [1, 1], [2, 2]])
+  assert.deepEqual(facts.mustRun[2].attempts.map((a) => a.stdout),
+    ['successor-poisoned', 'successor-poisoned'])
+  assert.equal(facts.violations.filter((v) => v.class === 'must_run').length, 2)
+  const checkouts = facts.mustRun[0].attempts.map((a) => a.stdout.trim())
+  assert.notEqual(checkouts[0], checkouts[1], 'retry must use another fresh checkout')
+  for (const checkout of checkouts) {
+    assert.notEqual(checkout, env.worktree)
+    assert.equal(existsSync(checkout), false)
+    assert.equal(existsSync(dirname(checkout)), false)
+  }
+  assert.equal(existsSync(join(env.worktree, '__pycache__', 'poison')), false)
+  assert.equal(git(env.repo, 'worktree', 'list', '--porcelain').match(/^worktree /gm).length, 2)
   recordVerdict(env.statePath, clean())
   assert.equal(next(env.statePath).action, 'spawn-executor')
 })
