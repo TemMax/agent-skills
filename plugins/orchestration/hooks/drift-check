@@ -1,19 +1,36 @@
 #!/usr/bin/env bash
-# Advisory "orchestrator drift" Stop hook.
+# Provider-aware "orchestrator drift" Stop hook.
 #
 # Asks a separate model whether the orchestrator has drifted from its own wave
-# plan, and surfaces the answer as additionalContext for the Stop event.
+# plan, and surfaces the answer in the active host's Stop continuation shape.
 #
-# Advisory only: it never blocks and never exits non-zero. Every failure path —
-# missing files, a finished wave, a model call that fails, times out, returns
-# empty, or answers off-contract — ends in "{}".
+# It never exits non-zero. Every unavailable path — missing files, a finished
+# wave, a model call that fails, times out, returns empty, or answers
+# off-contract — ends in "{}" and never claims a false clean verdict.
 #
-# Set CLAUDE_DRIFT_CHECK_DRYRUN=1 to print the gating decision instead of
-# calling the model. The gates are then testable in milliseconds, offline.
+# Set DRIFT_CHECK_DRYRUN=1 to print the gating decision instead of calling the
+# model. CLAUDE_DRIFT_CHECK_DRYRUN remains a compatibility fallback.
 
 set -u
 
-DRYRUN="${CLAUDE_DRIFT_CHECK_DRYRUN:-}"
+DRYRUN="${DRIFT_CHECK_DRYRUN:-${CLAUDE_DRIFT_CHECK_DRYRUN:-}}"
+ACTIVE="${DRIFT_CHECK_ACTIVE:-${CLAUDE_DRIFT_CHECK_ACTIVE:-}}"
+
+host_for_model() {
+  case "$1" in
+    gpt-*) printf codex ;;
+    claude-*) printf claude ;;
+    *) printf unknown ;;
+  esac
+}
+
+codex_judge_for() {
+  case "$1" in
+    gpt-5.6-sol|gpt-5.6) printf gpt-5.6-terra ;;
+    gpt-5.6-terra|gpt-5.6-luna) printf gpt-5.6-sol ;;
+    *) return 1 ;;
+  esac
+}
 
 # Silence, with the reason. The reason is only printed in dry-run: the harness
 # wants JSON, a human debugging the gates wants the reason.
@@ -27,10 +44,9 @@ silent() {
 }
 
 # --- gate 1: re-entrancy -----------------------------------------------------
-# This hook shells out to `claude -p`; that nested session loads the same enabled
-# plugins and would fire this very hook again, which would call `claude -p`
-# again. The nested run sees the marker and leaves immediately.
-if [ -n "${CLAUDE_DRIFT_CHECK_ACTIVE:-}" ]; then
+# This hook shells out to a provider judge; that nested session can load the
+# same plugin and fire this hook again. The inherited marker stops that loop.
+if [ -n "$ACTIVE" ]; then
   silent "reentrant"
 fi
 
@@ -169,6 +185,55 @@ except Exception:
     print("nosession")
 ' 2>/dev/null || echo nosession)"
 
+model="$(printf '%s' "$payload" | python3 -c '
+import json, sys
+try:
+    print(json.load(sys.stdin).get("model", "") or "")
+except Exception:
+    print("")
+' 2>/dev/null || true)"
+
+# Keep the existing append-only audit record. Successful advice retains the
+# original fields; unavailable checks add a status marker so absence cannot be
+# mistaken for a clean verdict.
+audit_entry() {
+  local audit_status="$1" audit_advice="$2" digest_ok="$3"
+  local log_dir="${TMPDIR:-/tmp}/claude-drift-log"
+  mkdir -p "$log_dir" 2>/dev/null
+  export DRIFT_DIGEST_OK="$digest_ok"
+  export DRIFT_SESSION="$session_id" DRIFT_PLAN="$plan_file" DRIFT_SAID="$last_said"
+  export DRIFT_AUDIT_STATUS="$audit_status"
+  export DRIFT_LOG="$log_dir/${session_id}.jsonl"
+  printf '%s' "$audit_advice" | python3 -c '
+import json, sys, os
+try:
+    entry = {
+        "session": os.environ.get("DRIFT_SESSION", ""),
+        "plan": os.environ.get("DRIFT_PLAN", ""),
+        "said": os.environ.get("DRIFT_SAID", "")[:400],
+        "advice": sys.stdin.read()[:2000],
+        "digest_ok": os.environ.get("DRIFT_DIGEST_OK", "") == "1",
+    }
+    status = os.environ.get("DRIFT_AUDIT_STATUS", "")
+    if status:
+        entry["status"] = status
+    path = os.environ["DRIFT_LOG"]
+    lines = []
+    if os.path.exists(path):
+        with open(path) as f:
+            lines = f.readlines()[-199:]
+    lines.append(json.dumps(entry) + "\n")
+    with open(path, "w") as f:
+        f.writelines(lines)
+except Exception:
+    pass
+' 2>/dev/null || true
+}
+
+audit_unavailable() {
+  audit_entry unavailable "drift-check unavailable" 0
+}
+
 if [ -z "$last_said" ]; then
   silent "nothing-said"
 fi
@@ -177,75 +242,166 @@ if ! printf '%s' "$last_said" | grep -qiE '\b(i|we) (ran|verified|merged|pushed|
   silent "nothing-claimed"
 fi
 
+# Claude Stop omits model; its documented hook environment supplies the host.
+# https://code.claude.com/docs/en/hooks#reference-scripts-by-path
+# An explicit model still wins, and absence never supplies a Codex model id.
+if [ -z "$model" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+  host=claude
+else
+  host="$(host_for_model "$model")"
+fi
+judge=""
+case "$host" in
+  claude)
+    judge="claude-haiku-4-5-20251001"
+    ;;
+  codex)
+    if ! judge="$(codex_judge_for "$model")"; then
+      if [ -n "$DRYRUN" ]; then
+        silent "unknown-model"
+      fi
+      audit_unavailable
+      silent "unknown-model"
+    fi
+    ;;
+  *)
+    if [ -n "$DRYRUN" ]; then
+      silent "unknown-model"
+    fi
+    audit_unavailable
+    silent "unknown-model"
+    ;;
+esac
+
 if [ -n "$DRYRUN" ]; then
-  printf 'would-call\n'
+  if [ "$host" = "codex" ]; then
+    printf 'would-call: host=codex judge=%s effort=high\n' "$judge"
+  else
+    printf 'would-call\n'
+  fi
   exit 0
 fi
 
 # --- the model call -----------------------------------------------------------
-# CLAUDE_DRIFT_CHECK_FAKE_ANSWER substitutes the model's reply so the logic that
-# runs AFTER the call — the output contract and the repeat memo — is testable
-# offline, the same seam CLAUDE_DRIFT_CHECK_DRYRUN gives the gates before it.
-if [ -n "${CLAUDE_DRIFT_CHECK_FAKE_ANSWER:-}" ]; then
-  answer="$CLAUDE_DRIFT_CHECK_FAKE_ANSWER"
-  claude_status=0
-else
-
-prompt_text="$(cat "$prompt_file" 2>/dev/null || true)"
-plan_text="$(cat "$plan_file" 2>/dev/null || true)"
-
-full_prompt="$(printf '%s\n\n---\nPlan (%s):\n%s\n\n---\nRecent transcript tail:\n%s\n\n---\nWhat the orchestrator said as it finished this turn:\n%s\n' \
-  "$prompt_text" "$plan_file" "$plan_text" "$transcript_tail" "$last_said")"
-
-tmp_out="$(mktemp 2>/dev/null || echo "/tmp/drift-check.$$")"
-# Run the model from a neutral directory. Everything it needs is in the prompt,
-# and invoking it inside the repository under discussion lets the session pick up
-# that repository's context: observed 2026-08-11 answering about the working tree
-# instead of doing the task, and once returning NOTHING where the same prompt
-# from a neutral cwd named the drift 5/5. The conversational failure is caught by
-# the output contract below; the silent one is not.
-neutral_dir="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}")"
-( cd "$neutral_dir" && CLAUDE_DRIFT_CHECK_ACTIVE=1 claude -p "$full_prompt" \
-  --model claude-haiku-4-5-20251001 </dev/null >"$tmp_out" 2>/dev/null ) &
-claude_pid=$!
-
-# The watchdog must not inherit our stdout: a caller using $(...) waits for every
-# process holding that pipe, and killing this subshell does not reap its own
-# `sleep` child. An orphaned sleep would hold the pipe for its full duration and
-# make the hook appear to take exactly the watchdog interval on every turn.
-(
-  sleep 45
-  kill -TERM "$claude_pid" 2>/dev/null
-) >/dev/null 2>&1 &
-watchdog_pid=$!
-
-wait "$claude_pid" 2>/dev/null
-claude_status=$?
-
-kill "$watchdog_pid" 2>/dev/null
-wait "$watchdog_pid" 2>/dev/null
-
-answer="$(cat "$tmp_out" 2>/dev/null || true)"
-rm -f "$tmp_out" 2>/dev/null
-[ -n "${neutral_dir:-}" ] && rmdir "$neutral_dir" 2>/dev/null
-
+# The generic fake-answer seam is primary; the Claude-prefixed name remains a
+# compatibility fallback. Presence is tracked separately so an empty fake can
+# exercise the unavailable path without making a provider call.
+fake_answer_set=0
+fake_answer=""
+if [ "${DRIFT_CHECK_FAKE_ANSWER+x}" = x ]; then
+  fake_answer_set=1
+  fake_answer="$DRIFT_CHECK_FAKE_ANSWER"
+elif [ "${CLAUDE_DRIFT_CHECK_FAKE_ANSWER+x}" = x ]; then
+  fake_answer_set=1
+  fake_answer="$CLAUDE_DRIFT_CHECK_FAKE_ANSWER"
 fi
 
-if [ "$claude_status" -ne 0 ] || [ -z "$answer" ]; then
+if [ "$fake_answer_set" -eq 1 ]; then
+  answer="$fake_answer"
+  model_status=0
+else
+  prompt_text="$(cat "$prompt_file" 2>/dev/null || true)"
+  plan_text="$(cat "$plan_file" 2>/dev/null || true)"
+  full_prompt="$(printf '%s\n\n---\nPlan (%s):\n%s\n\n---\nRecent transcript tail:\n%s\n\n---\nWhat the orchestrator said as it finished this turn:\n%s\n' \
+    "$prompt_text" "$plan_file" "$plan_text" "$transcript_tail" "$last_said")"
+
+  # A neutral directory keeps repository-local context from competing with the
+  # complete prompt supplied here.
+  neutral_dir="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}")"
+  if [ "$host" = "codex" ]; then
+    answer_file="$(mktemp 2>/dev/null || echo "/tmp/drift-check-answer.$$")"
+    schema="$plugin_root/hooks/drift-verdict.schema.json"
+    ( cd "$neutral_dir" && printf '%s' "$full_prompt" \
+      | DRIFT_CHECK_ACTIVE=1 timeout 300 codex exec \
+          --ephemeral --ignore-user-config --ignore-rules \
+          --skip-git-repo-check \
+          --sandbox read-only \
+          --model "$judge" \
+          -c 'model_reasoning_effort="high"' \
+          --output-schema "$schema" \
+          --output-last-message "$answer_file" \
+          - >/dev/null 2>/dev/null )
+    model_status=$?
+    answer="$(cat "$answer_file" 2>/dev/null || true)"
+    rm -f "$answer_file" 2>/dev/null
+  else
+    tmp_out="$(mktemp 2>/dev/null || echo "/tmp/drift-check.$$")"
+    ( cd "$neutral_dir" && DRIFT_CHECK_ACTIVE=1 CLAUDE_DRIFT_CHECK_ACTIVE=1 \
+      claude -p "$full_prompt" \
+        --model "$judge" \
+        --permission-mode plan \
+        --permission-prompts none \
+        --no-session-persistence \
+        </dev/null >"$tmp_out" 2>/dev/null ) &
+    claude_pid=$!
+
+    # The watchdog must not inherit our stdout: a caller using $(...) waits for
+    # every process holding that pipe, and killing this subshell does not reap
+    # its own `sleep` child.
+    (
+      sleep 45
+      kill -TERM "$claude_pid" 2>/dev/null
+    ) >/dev/null 2>&1 &
+    watchdog_pid=$!
+
+    wait "$claude_pid" 2>/dev/null
+    model_status=$?
+    kill "$watchdog_pid" 2>/dev/null
+    wait "$watchdog_pid" 2>/dev/null
+
+    answer="$(cat "$tmp_out" 2>/dev/null || true)"
+    rm -f "$tmp_out" 2>/dev/null
+  fi
+  [ -n "${neutral_dir:-}" ] && rmdir "$neutral_dir" 2>/dev/null
+fi
+
+if [ "$model_status" -ne 0 ] || [ -z "$answer" ]; then
+  audit_unavailable
   silent "model-failed"
 fi
 
-# The prompt allows exactly two shapes: bullet points, or the word NOTHING.
+if [ "$host" = "codex" ]; then
+  parsed="$(printf '%s' "$answer" | python3 -c '
+import json, sys
+try:
+    value = json.load(sys.stdin)
+    if not isinstance(value, dict) or set(value) != {"status", "advice"}:
+        raise ValueError
+    status = value["status"]
+    advice = value["advice"]
+    if status not in ("nothing", "advice") or not isinstance(advice, list):
+        raise ValueError
+    if any(not isinstance(item, str) or len(item) == 0 for item in advice):
+        raise ValueError
+    if status == "nothing" and not advice:
+        print("NOTHING", end="")
+    elif status == "advice" and advice:
+        print("\n".join(advice), end="")
+    else:
+        raise ValueError
+except Exception:
+    sys.exit(1)
+' 2>/dev/null)"
+  parsed_status=$?
+  if [ "$parsed_status" -ne 0 ]; then
+    audit_unavailable
+    silent "off-contract-answer"
+  fi
+  answer="$parsed"
+else
+  # Claude's established contract remains bullet points or the word NOTHING.
+  trimmed="$(printf '%s' "$answer" | tr -d '[:space:]')"
+  if [ "$trimmed" != "NOTHING" ] && ! printf '%s' "$answer" \
+       | sed -e 's/^[[:space:]]*//' | head -n1 \
+       | grep -qE '^([-*•]|[0-9]+[.)])[[:space:]]'; then
+    audit_unavailable
+    silent "off-contract-answer"
+  fi
+fi
+
 trimmed="$(printf '%s' "$answer" | tr -d '[:space:]')"
 if [ "$trimmed" = "NOTHING" ]; then
   silent "nothing-to-say"
-fi
-
-# Accept the list markers a model actually reaches for. Requiring exactly "-"
-# threw away real findings written with "*" or a number, silently.
-if ! printf '%s' "$answer" | sed -e 's/^[[:space:]]*//' | head -n1 \
-     | grep -qE '^([-*•]|[0-9]+[.)])[[:space:]]'; then
-  silent "off-contract-answer"
 fi
 
 # --- do not say the same thing twice ------------------------------------------
@@ -276,37 +432,18 @@ fi
 [ -n "$digest" ] && printf '%s' "$digest" > "$memo" 2>/dev/null
 
 # --- keep a record of what was advised ----------------------------------------
-# Advice that vanishes into a context window cannot be audited. Without a record
-# there is no way to ask the question that matters most about an advisory layer:
-# does the orchestrator act on it, or does it sail past? The log is append-only,
-# outside the repository, and never read back by the hook — it exists for the
-# human, not for the mechanism.
-log_dir="${TMPDIR:-/tmp}/claude-drift-log"
-mkdir -p "$log_dir" 2>/dev/null
-export DRIFT_DIGEST_OK="$([ -n "$digest" ] && echo 1 || echo 0)"
-export DRIFT_SESSION="$session_id" DRIFT_PLAN="$plan_file" DRIFT_SAID="$last_said"
-export DRIFT_LOG="$log_dir/${session_id}.jsonl"
-printf '%s' "$answer" | python3 -c '
-import json, sys, os
-try:
-    entry = {
-        "session": os.environ.get("DRIFT_SESSION", ""),
-        "plan": os.environ.get("DRIFT_PLAN", ""),
-        "said": os.environ.get("DRIFT_SAID", "")[:400],
-        "advice": sys.stdin.read()[:2000],
-        "digest_ok": os.environ.get("DRIFT_DIGEST_OK", "") == "1",
-    }
-    path = os.environ["DRIFT_LOG"]
-    lines = []
-    if os.path.exists(path):
-        with open(path) as f:
-            lines = f.readlines()[-199:]
-    lines.append(json.dumps(entry) + "\n")
-    with open(path, "w") as f:
-        f.writelines(lines)
-except Exception:
-    pass
-' 2>/dev/null || true
+# The append-only record keeps its established location and successful-advice
+# shape for both hosts.
+if [ -n "$digest" ]; then
+  digest_ok=1
+else
+  digest_ok=0
+fi
+audit_entry "" "$answer" "$digest_ok"
 
-printf '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":%s}}\n' "$escaped"
+if [ "$host" = "codex" ]; then
+  printf '{"decision":"block","reason":%s}\n' "$escaped"
+else
+  printf '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":%s}}\n' "$escaped"
+fi
 exit 0

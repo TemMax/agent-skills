@@ -6,7 +6,7 @@ base: pending
 ```json wave-plan
 { "waves": [
   { "wave": 1,
-    "supervisor": { "model": "opus", "effort": "high" },
+    "supervisor": { "model": "fable", "effort": "high" },
     "tasks": [
       { "id": "http-retry",
         "branch": "wave/http-retry",

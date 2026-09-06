@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+# Offline GitHub CLI fake for semantic evaluations. This file never delegates
+# to a real gh binary and never performs network I/O.
+set -euo pipefail
+
+self="${BASH_SOURCE[0]}"
+
+fixture_or_default() {
+  local fixture="${1:-}" default="$2"
+  if [ -n "$fixture" ]; then
+    [ -f "$fixture" ] || {
+      printf 'gh fake: fixture not found: %s\n' "$fixture" >&2
+      exit 66
+    }
+    command cat -- "$fixture"
+  else
+    printf '%s\n' "$default"
+  fi
+}
+
+has_post_method() {
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --method=POST) return 0 ;;
+    esac
+  done
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --method)
+        [ "${2:-}" = POST ] && return 0
+        shift 2
+        ;;
+      *) shift ;;
+    esac
+  done
+  return 1
+}
+
+validate_method_argv() {
+  local count=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --method)
+        [ "$#" -ge 2 ] && [ "$2" = POST ] || return 64
+        count=$((count + 1))
+        shift 2
+        ;;
+      --method=POST)
+        count=$((count + 1))
+        shift
+        ;;
+      --method=*) return 64 ;;
+      *) shift ;;
+    esac
+  done
+  [ "$count" -le 1 ] || return 64
+}
+
+log_write() {
+  [ -n "${GH_FAKE_LOG:-}" ] || {
+    printf 'gh fake: GH_FAKE_LOG is required for write-like calls\n' >&2
+    exit 64
+  }
+  python3 - "$GH_FAKE_LOG" "$@" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "a", encoding="utf-8") as stream:
+    json.dump({"argv": sys.argv[2:]}, stream, separators=(",", ":"))
+    stream.write("\n")
+PY
+}
+
+trace_call() {
+  [ -n "${GH_FAKE_TRACE:-}" ] || return 0
+  python3 - "$GH_FAKE_TRACE" "$@" <<'PY'
+import json, sys
+with open(sys.argv[1], "a", encoding="utf-8") as stream:
+    json.dump({"event": "call", "argv": sys.argv[2:]}, stream, separators=(",", ":"))
+    stream.write("\n")
+PY
+}
+
+trace_yield() {
+  [ -n "${GH_FAKE_TRACE:-}" ] || return 0
+  python3 - "$GH_FAKE_TRACE" "$1" "$2" <<'PY'
+import json, sys
+with open(sys.argv[1], "a", encoding="utf-8") as stream:
+    json.dump({"event": "yield", "page": int(sys.argv[2]), "fixture": sys.argv[3]},
+              stream, separators=(",", ":"))
+    stream.write("\n")
+PY
+}
+
+self_test() {
+  local work log trace output rc
+  work="$(mktemp -d)"
+  log="$work/writes.jsonl"
+  trace="$work/all-calls.jsonl"
+  trap 'rm -rf "$work"' RETURN
+  : > "$log"
+  : > "$trace"
+
+  output="$(GH_FAKE_LOG="$log" "$self" pr view 17 --json number,title)"
+  [ "$output" = '{"number":1,"title":"Offline fixture","headRefName":"feature","baseRefName":"main","url":"https://example.invalid/pr/1"}' ]
+
+  output="$(GH_FAKE_LOG="$log" "$self" api graphql -f query=threads)"
+  case "$output" in *'"hasNextPage":true'*'"endCursor":"PAGE_2"'*) ;; *) return 1 ;; esac
+  output="$(GH_FAKE_LOG="$log" GH_FAKE_TRACE="$trace" "$self" api graphql --paginate -f query=threads)"
+  case "$output" in *'"databaseId":101'*'"databaseId":102'*) ;; *) return 1 ;; esac
+  python3 - "$trace" <<'PY'
+import json, sys
+rows = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8")]
+assert rows == [
+    {"event": "call", "argv": ["api", "graphql", "--paginate", "-f", "query=threads"]},
+    {"event": "yield", "page": 1, "fixture": "graphql-page1"},
+    {"event": "yield", "page": 2, "fixture": "graphql-page2"},
+]
+PY
+  output="$(GH_FAKE_LOG="$log" "$self" api graphql -f query=threads -F cursor=PAGE_2)"
+  case "$output" in *'"hasNextPage":false'*) ;; *) return 1 ;; esac
+  case "$output" in *'"databaseId":102'*) ;; *) return 1 ;; esac
+
+  output="$(GH_FAKE_LOG="$log" "$self" pr checks 1 --json name,state)"
+  [ "$output" = '[{"name":"offline","state":"SUCCESS"}]' ]
+  [ ! -s "$log" ]
+
+  : > "$trace"
+  set +e
+  timeout 2 env GH_FAKE_LOG="$log" GH_FAKE_TRACE="$trace" \
+    "$self" api graphql --method >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 64 ]
+  [ ! -s "$log" ]
+  [ ! -s "$trace" ]
+  set +e
+  GH_FAKE_LOG="$log" GH_FAKE_TRACE="$trace" \
+    "$self" api graphql --method GET -f query=threads >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 64 ]
+  [ ! -s "$log" ]
+  [ ! -s "$trace" ]
+
+  set +e
+  GH_FAKE_LOG="$log" "$self" api graphql -XPOST -f query=forbidden >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 64 ]
+  set +e
+  GH_FAKE_LOG="$log" "$self" api graphql -X POST -f query=forbidden >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 64 ]
+  [ ! -s "$log" ]
+
+  output="$(GH_FAKE_LOG="$log" "$self" pr create --title Fixture --body-file body.md)"
+  [ "$output" = 'https://example.invalid/pr/1' ]
+  output="$(GH_FAKE_LOG="$log" "$self" api graphql --method POST -f query=reply)"
+  [ "$output" = '{"ok":true}' ]
+  output="$(GH_FAKE_LOG="$log" "$self" api graphql --method=POST -f query=reply-equals)"
+  [ "$output" = '{"ok":true}' ]
+
+  python3 - "$log" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    rows = [json.loads(line) for line in stream]
+assert rows == [
+    {"argv": ["pr", "create", "--title", "Fixture", "--body-file", "body.md"]},
+    {"argv": ["api", "graphql", "--method", "POST", "-f", "query=reply"]},
+    {"argv": ["api", "graphql", "--method=POST", "-f", "query=reply-equals"]},
+]
+PY
+
+  set +e
+  GH_FAKE_LOG="$log" "$self" repo delete example/repo >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 64 ]
+  [ "$(wc -l < "$log" | tr -d ' ')" = 3 ]
+  printf 'fake-gh self-test: PASS\n'
+}
+
+if [ "${1:-}" = --self-test ] && [ "$#" -eq 1 ]; then
+  self_test
+  exit
+fi
+
+validate_method_argv "$@" || {
+  rc=$?
+  printf 'gh fake: unsupported method argv:' >&2
+  printf ' %q' "$@" >&2
+  printf '\n' >&2
+  exit "$rc"
+}
+trace_call "$@"
+
+for arg in "$@"; do
+  case "$arg" in
+    -X|-X*)
+      printf 'gh fake: unsupported argv:' >&2
+      printf ' %q' "$@" >&2
+      printf '\n' >&2
+      exit 64
+      ;;
+  esac
+done
+
+if [ "${1:-}" = pr ] && [ "${2:-}" = view ]; then
+  fixture_or_default "${GH_FAKE_PR_VIEW_FILE:-}" \
+    '{"number":1,"title":"Offline fixture","headRefName":"feature","baseRefName":"main","url":"https://example.invalid/pr/1"}'
+  exit
+fi
+
+if [ "${1:-}" = api ] && has_post_method "$@"; then
+  log_write "$@"
+  printf '{"ok":true}\n'
+  exit
+fi
+
+if [ "${1:-}" = api ] && [ "${2:-}" = graphql ]; then
+  if [ "${3:-}" = --paginate ] || case " $* " in *' --paginate '*) true;; *) false;; esac; then
+    fixture_or_default "${GH_FAKE_GRAPHQL_PAGE1_FILE:-}" \
+      '{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"THREAD_1","isResolved":false,"comments":{"nodes":[{"databaseId":101,"body":"First page thread"}]}}],"pageInfo":{"hasNextPage":true,"endCursor":"PAGE_2"}}}}}}'
+    trace_yield 1 graphql-page1
+    fixture_or_default "${GH_FAKE_GRAPHQL_PAGE2_FILE:-}" \
+      '{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"THREAD_2","isResolved":false,"comments":{"nodes":[{"databaseId":102,"body":"Second page thread"}]}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}}'
+    trace_yield 2 graphql-page2
+    exit
+  fi
+  case " $* " in
+    *'PAGE_2'*)
+      fixture_or_default "${GH_FAKE_GRAPHQL_PAGE2_FILE:-}" \
+        '{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"THREAD_2","isResolved":false,"comments":{"nodes":[{"databaseId":102,"body":"Second page thread"}]}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}}'
+      trace_yield 2 graphql-page2
+      ;;
+    *)
+      fixture_or_default "${GH_FAKE_GRAPHQL_PAGE1_FILE:-}" \
+        '{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"THREAD_1","isResolved":false,"comments":{"nodes":[{"databaseId":101,"body":"First page thread"}]}}],"pageInfo":{"hasNextPage":true,"endCursor":"PAGE_2"}}}}}}'
+      trace_yield 1 graphql-page1
+      ;;
+  esac
+  exit
+fi
+
+if [ "${1:-}" = pr ] && [ "${2:-}" = create ]; then
+  log_write "$@"
+  printf 'https://example.invalid/pr/1\n'
+  exit
+fi
+
+if [ "${1:-}" = pr ] && [ "${2:-}" = checks ]; then
+  fixture_or_default "${GH_FAKE_PR_CHECKS_FILE:-}" \
+    '[{"name":"offline","state":"SUCCESS"}]'
+  exit
+fi
+
+printf 'gh fake: unsupported argv:' >&2
+printf ' %q' "$@" >&2
+printf '\n' >&2
+exit 64

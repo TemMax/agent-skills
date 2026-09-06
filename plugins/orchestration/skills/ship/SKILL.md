@@ -1,9 +1,9 @@
 ---
 name: ship
-description: 'Use when delivering a feature end-to-end — from a request to a reviewed pull request — through the full pipeline: super-plan turns it into contract-carrying waves, multi-model executes them supervised on a feature branch, critical-review reviews the PR and answers its threads. One confirmation up front (the feature branch will be pushed and a PR opened); the merge stays with the user. Triggers: "сделай под ключ", "доведи фичу до PR", "полный цикл", "ship this", "ship it", "end to end". Do NOT use for a single stage — invoke super-plan, multi-model or critical-review directly instead.'
+description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.5.0
+  version: 2.6.0
 ---
 
 # Shipping a Feature (ship)
@@ -12,20 +12,30 @@ One command, three shipped stages, one promise: what leaves this skill is a
 pushed feature branch with a reviewed pull request — never a touched default
 branch. **The merge stays with the user.**
 
-## Step 0 — Load Your Own Orchestrator Profile (before anything else)
+## Step 0 — load exactly one active-seat profile
 
-Your environment block states the model you are running as. Read it and load
-the ONE matching profile — the same profiles the multi-model skill uses:
+1. Read the `PLUGIN_RUNTIME_CONTEXT_V1` line for this plugin.
+2. If it carries a supported exact model id, load that id's relative profile.
+3. Otherwise use an exact model id explicitly supplied by the session.
+4. Otherwise load the generic profile and treat both model and effort as unknown.
 
-| Your model ID | Read this file |
+Never read a user config file to guess a session override. Never load more than one active-seat profile. A profile whose exact-id guard does not match must not be applied.
+
+| Exact model id | Relative profile |
 |---|---|
 | `claude-fable-5-1` | `../multi-model/references/orchestrator-fable-5-1.md` |
 | `claude-fable-5` | `../multi-model/references/orchestrator-fable-5.md` |
 | `claude-opus-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5.md` |
 | `claude-opus-4-8` (any suffix) | `../multi-model/references/orchestrator-opus-4-8.md` |
-| anything else | no profile exists — use the rules below only, and say so |
+| `gpt-5.6-sol` | `../multi-model/references/orchestrator-gpt-5-6-sol.md` |
+| `gpt-5.6-terra` | `../multi-model/references/orchestrator-gpt-5-6-terra.md` |
+| `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
+| unknown | `../multi-model/references/orchestrator-generic.md` |
 
-Read exactly one. Always reply to the user in the language the user writes in.
+The alias `gpt-5.6` selects Sol only after the runtime-context handler has
+normalized it to `gpt-5.6-sol`. An exact supplied effort may be used; otherwise
+effort is unknown and receives no effort-specific claim. Always reply to the
+user in the language the user writes in.
 
 ## What ship owns — and what it does not
 
@@ -59,7 +69,8 @@ skills' own gates do.
 
 Invoke **super-plan**. Its two gates (design, lint-clean plan) run inside it.
 The output is the plan file; its `status:` stays `draft` — transitions belong
-to execution.
+to execution. ship's canonical entry begins here: do not broaden it to resume
+from a pre-approved plan. After approval, consume the approved plan’s provider and preserve its exact model and effort ids verbatim; ship never re-routes or rewrites them.
 
 ## Stage 2 — Execute
 
@@ -69,7 +80,11 @@ to execution.
    recorded base expectations. A mismatch is fixed in the plan before any
    executor is spawned; the same run warms the build caches the wave's
    worktrees fork from cold.
-3. Invoke **multi-model** to run the plan: one runner invocation per wave —
+3. Invoke **multi-model** to run the plan. Only multi-model selects that adapter and owns all subagent execution: it uses the native Codex protocol for Codex plan waves and the Claude Workflow adapter for Claude plan waves.
+   ship never invokes provider CLIs, adapter workflows, or state helpers itself:
+   in particular, it never invokes `claude`, `codex`, Workflow, or
+   `codex-wave-state`; composition boundaries use capability names. multi-model
+   runs one runner invocation per wave —
    or parallel single-task invocations for a wave that would otherwise wait
    on a long pole, merging each `ok` branch as it lands. Either way,
    `defaultBranch` = the feature branch, `base` = the branch's pushed tip,
@@ -105,17 +120,19 @@ to execution.
    the "Not verified" section above. This step adds no gate and no new
    machinery — a missing or failing capability is not a ship failure.
 4. Invoke **critical-review** on the PR.
-5. Route every finding by behavior, not size:
+5. Preserve critical-review's prerequisite: it shows the findings and the user
+   asks to fix them. Then run its post-review fix phase for every approved finding that produces a fix, including an `own` finding with no PR threads.
+   Route within that phase by behavior, not size:
    - the fix **changes behavior** (code paths, tests, contracts, scripts) →
-     a fix-wave: a contract and a judge through the runner, merged and
-     pushed like any wave;
+     the selected multi-model with `publication: local` runs a supervised
+     fix-wave; merge its reviewed result locally into the feature branch and
+     verify it;
    - the fix **changes no behavior** (prose, docs, comments, config strings)
-     → the orchestrator applies it inline and commits.
+     → apply it inline, commit locally, and verify it.
    The line is what the change can break, not how many lines it takes.
-6. If the PR has review threads, run critical-review's post-review fix phase
-   end-to-end. Its own single gate — the exact reply texts, then
-   `push → replies → resolves` — is the only barrier before anything is
-   published.
+6. Keep every resulting fix commit local through apply, commit, and verification. critical-review's own single exact-text gate prepares the
+   replies (an empty set when there are no threads) and presents `push → replies → resolves`. Only after that approval does publication run `push → replies → resolves`; replies and resolves are naturally empty when
+   there are no threads.
 
 ## Stage 4 — Handoff
 

@@ -2,16 +2,18 @@
 # Tier 3 — does the DRIFT CHECK detect drift? Costs three model calls.
 #
 # Expectations fixed beforehand in
-# docs/superpowers/specs/2026-08-11-drift-detection-rehearsal.md. The scoring is
+# tests/eval/fixtures/drift/EXPECTATIONS.md. The scoring is
 # deliberately coarse and deliberately strict: the answer must NAME the task. An
 # unnamed complaint is the noise the prompt forbids, and counting it as a catch
 # would let the check pass by gesturing.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
+. tests/eval/model-cli.sh
 
 MODEL="${EVAL_MODEL:-claude-haiku-4-5-20251001}"
 PROMPT="$(cat plugins/orchestration/skills/multi-model/references/orchestrator-drift-prompt.md)"
+W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 
 PLAN='# Plan — sample feature
 base: aaaaaaa
@@ -28,7 +30,9 @@ tasks:
     contract: { must_run: [markdownlint docs] }'
 
 ask() {  # $1 = transcript tail
-  timeout 300 claude -p "$PROMPT
+  local prompt_file="$W/drift-prompt.md" answer_file="$W/drift-answer.md"
+  cat > "$prompt_file" <<EOF
+$PROMPT
 
 ---
 Plan:
@@ -36,7 +40,9 @@ $PLAN
 
 ---
 Recent transcript tail:
-$1" --model "$MODEL" </dev/null 2>/dev/null | tr -d '\r'
+$1
+EOF
+  EVAL_MODEL="$MODEL" eval_model_answer "$W" read-only "$prompt_file" "$answer_file" | tr -d '\r'
 }
 
 section "D1 — a task quietly abandoned"

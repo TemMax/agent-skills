@@ -14,6 +14,35 @@ for f in plugins/*/hooks/hooks.json; do
   check "valid JSON: $f" "python3 -c 'import json;json.load(open(\"$f\"))'"
 done
 
+section "Codex plugin manifests"
+check "Codex marketplace exists: .agents/plugins/marketplace.json" \
+  "[ -f '.agents/plugins/marketplace.json' ]"
+check "Codex marketplace parses: .agents/plugins/marketplace.json" \
+  "python3 -c 'import json;json.load(open(\".agents/plugins/marketplace.json\"))'"
+for p in plugins/*/; do
+  c="$p.codex-plugin/plugin.json"
+  check "Codex manifest exists: $c" "[ -f '$c' ]"
+  check "Codex manifest parses: $c" "python3 -c 'import json;json.load(open(\"$c\"))'"
+  skills="$(python3 -c "import json;print(json.load(open('$c'))['skills'])" 2>/dev/null)"
+  expect "Codex skills path: $(basename "$p")" "./skills/" "$skills"
+  cv="$(python3 -c "import json;print(json.load(open('$c'))['version'])" 2>/dev/null)"
+  av="$(python3 -c "import json;print(json.load(open('$p.claude-plugin/plugin.json'))['version'])" 2>/dev/null)"
+  expect "Claude/Codex version: $(basename "$p")" "$av" "$cv"
+  cdsc="$(python3 -c "import json;print(json.load(open('$c'))['description'])" 2>/dev/null)"
+  adsc="$(python3 -c "import json;print(json.load(open('$p.claude-plugin/plugin.json'))['description'])" 2>/dev/null)"
+  expect "Claude/Codex description parity: $(basename "$p")" "$adsc" "$cdsc"
+  contains "dual-host manifest description: $(basename "$p")" "Claude Code and Codex" "$cdsc"
+  case "$(basename "$p")" in
+    orchestration) contains "orchestration capability description" "machine-checkable contracts" "$cdsc" ;;
+    code-review) contains "code-review capability description" "evidence-based code review" "$cdsc" ;;
+  esac
+  if printf '%s' "$cdsc" | grep -Eq 'for Claude Code:|Grounded in Anthropic system cards'; then
+    fail "provider-neutral manifest description: $(basename "$p")" "$cdsc"
+  else
+    pass "provider-neutral manifest description: $(basename "$p")"
+  fi
+done
+
 section "Skill frontmatter parses and is complete"
 for f in plugins/*/skills/*/SKILL.md; do
   out="$(ruby -ryaml -e '
@@ -38,6 +67,50 @@ for p in plugins/*/; do
     sv="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
     expect "version agrees: $(basename "$p") $pv" "$pv" "$sv"
   done
+done
+
+section "Release versions and dual-host documentation"
+for f in \
+  plugins/orchestration/.claude-plugin/plugin.json \
+  plugins/orchestration/.codex-plugin/plugin.json; do
+  v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
+  expect "orchestration release version: $f" "2.6.0" "$v"
+done
+for f in plugins/orchestration/skills/*/SKILL.md; do
+  v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
+  expect "orchestration skill release version: $f" "2.6.0" "$v"
+done
+for f in \
+  plugins/code-review/.claude-plugin/plugin.json \
+  plugins/code-review/.codex-plugin/plugin.json; do
+  v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
+  expect "code-review release version: $f" "1.5.0" "$v"
+done
+for f in plugins/code-review/skills/*/SKILL.md; do
+  v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
+  expect "code-review skill release version: $f" "1.5.0" "$v"
+done
+for marker in \
+  "Claude Code installation" \
+  "Codex installation" \
+  "gpt-5.6-sol" \
+  "gpt-5.6-terra" \
+  "gpt-5.6-luna" \
+  "ChatGPT surfaces do not run Codex lifecycle hooks" \
+  "merge stays with the user"; do
+  check "README release marker: $marker" "grep -Fq '$marker' README.md"
+done
+for marker in \
+  "codex-wave-protocol.md" \
+  "codex-wave-state.mjs" \
+  "orchestrator-gpt-5-6-{sol,terra,luna}.md" \
+  "orchestrator-generic.md" \
+  "gpt-5-6-dossier.md" \
+  "reviewer-gpt-5-6-{sol,terra,luna}.md" \
+  "reviewer-generic.md" \
+  "gpt-5-6-reviewer-dossier.md" \
+  "code-review/hooks/"; do
+  check "README source/layout inventory: $marker" "grep -Fq '$marker' README.md"
 done
 
 section "Executables are executable"

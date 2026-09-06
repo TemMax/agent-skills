@@ -1,8 +1,8 @@
 {
   "name": "orchestration",
   "displayName": "Orchestration Skills",
-  "version": "2.5.0",
-  "description": "Orchestration for Claude Code, planning included: super-plan turns a feature into wave-ready tasks with machine-checkable contracts (validated by a shipped plan linter), and multi-model executes them as supervised waves — isolated executors judged against their contracts by a different model, with the escalation ladder shipped as tested code. Routes tasks to Haiku 4.5 / Sonnet 5 / Opus 5 / Opus 4.8 / Fable 5.1, picks reasoning effort, adapts to whichever model orchestrates. Grounded in Anthropic system cards.",
+  "version": "2.6.0",
+  "description": "Dual-host development orchestration for Claude Code and Codex: super-plan creates wave-ready tasks with machine-checkable contracts, multi-model executes isolated supervised waves through the host-native adapter, and ship carries approved plans through reviewed delivery while leaving merge authority with the user. Exact Claude and GPT-5.6 profiles provide evidence-scoped guidance with a conservative generic fallback.",
   "author": {
     "name": "TemMax",
     "url": "https://github.com/TemMax"

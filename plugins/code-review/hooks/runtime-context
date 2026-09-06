@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -u
+PLUGIN_NAME=code-review
+payload="$(cat 2>/dev/null || true)"
+printf '%s' "$payload" | python3 -c '
+import json, sys
+plugin, raw = sys.argv[1], sys.stdin.read()
+try:
+    data = json.loads(raw)
+except Exception:
+    print("{}")
+    raise SystemExit
+if not isinstance(data, dict):
+    print("{}")
+    raise SystemExit
+event = data.get("hook_event_name")
+model = data.get("model")
+if event not in {"SessionStart", "SubagentStart"} or not isinstance(model, str):
+    print("{}")
+    raise SystemExit
+if model == "gpt-5.6":
+    model = "gpt-5.6-sol"
+host = "codex" if model.startswith("gpt-") else "claude" if model.startswith("claude-") else "unknown"
+if host == "unknown":
+    print("{}")
+    raise SystemExit
+context = f"PLUGIN_RUNTIME_CONTEXT_V1 plugin={plugin} host={host} model={model} effort=unknown"
+print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": context}}, separators=(",", ":")))
+' "$PLUGIN_NAME"

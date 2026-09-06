@@ -7,12 +7,12 @@
     {
       "name": "orchestration",
       "source": "./plugins/orchestration",
-      "description": "Plan, execute and review as one pipeline: ship conducts super-plan (wave-native planning with a shipped plan linter) into supervised multi-model waves on a feature branch and a reviewed PR — isolated executors judged against machine-checkable contracts; the merge stays with the user. Every link also runs standalone. Adapts to whichever model orchestrates."
+      "description": "Claude Code and Codex orchestration: ship conducts super-plan (wave-native planning with a shipped plan linter) into supervised multi-model waves on a feature branch and a reviewed PR — isolated executors judged against machine-checkable contracts; the merge stays with the user. Every link also runs standalone."
     },
     {
       "name": "code-review",
       "source": "./plugins/code-review",
-      "description": "Critical code review of uncommitted changes or a GitHub PR, plus a post-review fix phase that answers and resolves the PR threads its findings came from. Adapts to whichever model reviews."
+      "description": "Claude Code and Codex critical review of uncommitted changes or a GitHub PR, with an optional post-review fix phase that answers and resolves the PR threads its findings came from."
     }
   ]
 }

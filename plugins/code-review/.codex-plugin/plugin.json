@@ -1,0 +1,19 @@
+{
+  "name": "code-review",
+  "version": "1.5.0",
+  "description": "Dual-host, evidence-based code review for Claude Code and Codex: inspect uncommitted changes or a GitHub pull request, read its description and threads, report evidence-backed findings by severity, and only when requested apply approved fixes and resolve addressed threads. Exact Claude and GPT-5.6 reviewer profiles share one contract with a conservative generic fallback.",
+  "author": {
+    "name": "TemMax",
+    "url": "https://github.com/TemMax"
+  },
+  "repository": "https://github.com/TemMax/claude-skills",
+  "keywords": [
+    "code-review",
+    "pull-request",
+    "review",
+    "critical-review",
+    "quality"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
+}

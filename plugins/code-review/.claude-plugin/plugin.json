@@ -1,8 +1,8 @@
 {
   "name": "code-review",
   "displayName": "Code Review Skills",
-  "version": "1.4.0",
-  "description": "Critical, evidence-based code review skill for Claude Code: review uncommitted working-tree changes or a GitHub PR (reading its description and all comment threads first), produce a tiered findings table (Blocker → Nit), then — on request and behind a single confirmation — apply the fixes, reply in the PR threads the findings came from, and resolve the ones fully addressed. One skill for every reviewer model — it detects its own model and loads the matching reviewer profile (Fable 5.1, Fable 5, Opus 5, or Opus 4.8). Grounded in Anthropic system cards.",
+  "version": "1.5.0",
+  "description": "Dual-host, evidence-based code review for Claude Code and Codex: inspect uncommitted changes or a GitHub pull request, read its description and threads, report evidence-backed findings by severity, and only when requested apply approved fixes and resolve addressed threads. Exact Claude and GPT-5.6 reviewer profiles share one contract with a conservative generic fallback.",
   "author": {
     "name": "TemMax",
     "url": "https://github.com/TemMax"

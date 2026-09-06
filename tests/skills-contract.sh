@@ -65,6 +65,56 @@ check "default path is invoking, not writing"  "grep -q 'invoke the shipped runn
 check "the filesystem constraint is named"     "grep -q 'supervisorPromptText' $MM"
 check "no ladder row resurrects the forgery class" "! grep -qi 'forged evidence' $MM"
 
+CP=plugins/orchestration/skills/multi-model/references/codex-wave-protocol.md
+CS=plugins/orchestration/skills/multi-model/references/codex-wave-state.mjs
+WR=plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs
+
+section "multi-model: Codex-native supervision preserves the shared contract"
+check "GPT waves use the Codex adapter"             "grep -qF 'references/codex-wave-protocol.md' $MM"
+check "no fresh Codex runner may be written"        "grep -qF 'Never write a fresh runner' $MM"
+check "Codex spawn arguments are explicit"          "grep -qF 'model and reasoning_effort' $MM"
+check "Codex helper declares exactly seven commands" \
+  "sed -n '/^\`\`\`text$/, /^\`\`\`$/p' $CP | grep -qFx 'init  next  record-executor  verify  supervisor-prompt  record-verdict  summary'"
+check "Codex supervisor uses a different exact model" "grep -qF 'different exact model' $CP"
+check "approved plan outranks profile during execution" \
+  "grep -qF 'approved plan is authoritative for adapter execution' $MM"
+check "Codex linter uses a sibling-skill path" \
+  "grep -qF '../super-plan/references/plan-lint.mjs' $CP"
+check "Codex helper path has a declared base" \
+  "grep -qF 'multi-model skill base directory' $CP"
+check "child reuse requires matching role model effort" \
+  "grep -qF 'same role, exact model, and exact effort' $CP"
+check "changed retry tuple uses fresh spawn" \
+  "grep -qF 'model or effort changes' $CP"
+check "missing followup_task falls back to a fresh spawn" \
+  "grep -qF 'followup_task is optional' $CP && grep -qF 'unavailable, use a fresh spawn_agent' $CP"
+check "native tool-unavailable requires a missing essential tool" \
+  "grep -qF 'tool-unavailable only when spawn_agent or wait_agent is unavailable' $CP"
+check "spawn identities are valid and collision-free" \
+  "grep -qF 'wave_<task_id>_<role>_<spawn_id>' $CP"
+check "executor and supervisor examples name model" \
+  "[ \$(grep -cF 'model: action.model' $CP) -eq 2 ]"
+check "executor and supervisor examples name effort" \
+  "[ \$(grep -cF 'reasoning_effort: action.effort' $CP) -eq 2 ]"
+check "omitted publication defaults exactly to normal push in its boundary" \
+  "sed -n '/^### Invocation publication contract$/,/^- Claude-only wave:/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication\` is optional: if omitted, it means exactly \`publication: push\` and preserves all normal behavior.'"
+check "local publication is explicit critical-review-only and never inferred" \
+  "sed -n '/^### Invocation publication contract$/,/^- Claude-only wave:/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Only \`publication: local\` must be explicit; only the enclosing critical-review post-review fix flow may request it; it is never inferred from host or model.'"
+check "Claude local completion integrates reviews and returns without push" \
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'With \`publication: local\`, merge branches in plan order only into the local feature branch, run the shared full-wave review, return the resulting local feature-branch commit(s), task branches, and verdict evidence, and do no push.'"
+check "Claude normal completion still pushes" \
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication: push\` merges branches in plan order, runs the shared full-wave review, and pushes exactly as normal.'"
+check "Codex local completion returns reviewed local artifacts without push" \
+  "sed -n '/^9[.] On \`merge-ready\`/,/^The action loop/p' $CP | tr '\\n' ' ' | tr -s ' ' | grep -qF 'In \`publication: local\` mode, merge only into the local feature branch, keep the shared full-wave review, return its resulting local commit(s), task branch names, helper summary, and verdict evidence to the caller, and do no push.'"
+check "Codex local completion cannot create an unpushed next base" \
+  "sed -n '/^9[.] On \`merge-ready\`/,/^The action loop/p' $CP | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Local mode does not derive or initialize a later wave from that unpushed base.'"
+check "Codex local transaction stops instead of publishing unsafe dependent bases" \
+  "sed -n '/^9[.] On \`merge-ready\`/,/^The action loop/p' $CP | tr '\\n' ' ' | tr -s ' ' | grep -qF 'If approved fixes need dependent bases that cannot safely fit in this one supervised wave, stop before publication.'"
+check "Codex normal completion still pushes before next base" \
+  "sed -n '/^9[.] On \`merge-ready\`/,/^The action loop/p' $CP | tr '\\n' ' ' | tr -s ' ' | grep -qF 'In normal \`publication: push\` mode, multi-model pushes and then derives the next wave'"
+check "publication remains outside Workflow and the state helper" \
+  "! grep -q 'publication' $WR && ! grep -q 'publication' $CS"
+
 section "multi-model: research fan-out is routed, never inherited"
 check "the research routing table exists"      "grep -q 'Research Routing' $MM"
 check "inheritance is named as the bug"        "grep -q 'spawn a research agent without naming its model' $MM"
@@ -115,20 +165,31 @@ done
 
 section "Both skills: rules must be findable by the model that needs them"
 check "critical-review names the fix-phase triggers" \
-  "sed -n '3p' $CR | grep -q 'answer the PR comments'"
-check "multi-model names Opus 5 as an executor" \
-  "sed -n '3p' $MM | grep -q 'Opus 5'"
+  "sed -n '3p' $CR | grep -qF 'optional follow-up fixes and thread resolution'"
+check "multi-model names Claude and GPT executors" \
+  "sed -n '3p' $MM | grep -qF 'routed across Claude or GPT-5.6 agents'"
 
 section "super-plan: planning that lands wave-ready"
 check "the skill exists"                        "[ -f $SP ]"
 check "the lint script ships"                   "[ -f plugins/orchestration/skills/super-plan/references/plan-lint.mjs ]"
 check "lint is mandatory before the plan gate"  "grep -q 'plan-lint.mjs' $SP"
 check "same-wave file overlap is forbidden"     "grep -q 'must not share files' $SP"
-check "questions are batched, not dripped"      "grep -q 'ONE batched AskUserQuestion' $SP"
+check "questions are batched, not dripped"      "grep -q 'Collect genuine product forks in one batch' $SP"
+check "questions use host-neutral interaction"  "grep -q 'host-native structured input tool' $SP"
 check "status transitions stay with execution"  "grep -q 'status transitions belong' $SP"
 check "headless mode records assumptions"       "grep -q 'Assumptions (would ask)' $SP"
 check "superpowers attribution survives"        "grep -q 'Jesse Vincent' $SP"
 check "the MIT notice ships"                    "[ -f plugins/orchestration/skills/super-plan/references/LICENSE-superpowers ]"
+check "plan model fields are provider-specific" \
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '| Codex | \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
+check "bare GPT alias is excluded from plan fields" \
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '\`gpt-5.6\` is never a plan id'"
+check "profile rather than host defaults routes every plan role" \
+  "grep -qF 'active profile chooses executor, supervisor, ladder, and effort' $SP"
+check "planning rejects a mixed-provider wave before Gate 2" \
+  "grep -qF 'mixed-provider wave is a planning defect to fix before Gate 2' $SP"
+check "Codex rework stays outside the model-transition ladder" \
+  "grep -qF 'same-model raised-effort rework is state-machine behavior' $SP && grep -qF 'ladder lists model transitions only' $SP"
 
 section "ship: the conductor that adds no machinery"
 check "the skill exists"                        "[ -f $SH ]"
@@ -138,19 +199,33 @@ check "fixes route on behavior, not size"       "grep -q 'what the change can br
 check "the merge stays with the user"           "grep -q 'merge stays with the user' $SH"
 check "wave bases are copied, never typed"      "grep -q 'rev-parse' $SH"
 check "thread phase keeps critical-review's gate" "grep -q 'push → replies → resolves' $SH"
+check "ship preserves the plan provider and exact model effort ids" \
+  "grep -qF 'consume the approved plan’s provider and preserve its exact model and effort ids verbatim' $SH"
+check "ship routes provider protocol selection through multi-model" \
+  "grep -qF 'native Codex protocol for Codex plan waves and the Claude Workflow adapter for Claude plan waves' $SH"
+check "ship does not take over provider execution" \
+  "grep -qF 'Only multi-model selects that adapter and owns all subagent execution' $SH && grep -qF 'ship never invokes provider CLIs, adapter workflows, or state helpers itself' $SH"
+check "post-review fixes include own findings without threads" \
+  "grep -qF 'every approved finding that produces a fix, including an \`own\` finding with no PR threads' $SH"
+check "review fix commits remain unpublished until critical-review approval" \
+  "grep -qF 'Keep every resulting fix commit local through apply, commit, and verification' $SH && grep -qF 'Only after that approval does publication run \`push → replies → resolves\`' $SH"
+check "post-review behavior fixes are not pushed like ordinary waves" \
+  "! sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' $SH | grep -qF 'pushed like any wave'"
+check "ship explicitly invokes review behavior fixes locally" \
+  "sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' $SH | grep -qF 'multi-model with \`publication: local\`'"
 
 section "Fable 5.1: every skill routes the new model ID to its own profile"
 OF=plugins/orchestration/skills/multi-model/references/orchestrator-fable-5-1.md
 RF=plugins/code-review/skills/critical-review/references/reviewer-fable-5-1.md
 
 check "Step 0: multi-model routes fable-5-1 to its profile" \
-  "grep -qF '| \`claude-fable-5-1\` | \`\${CLAUDE_SKILL_DIR}/references/orchestrator-fable-5-1.md\` |' $MM"
+  "grep -qF '| \`claude-fable-5-1\` | \`references/orchestrator-fable-5-1.md\` |' $MM"
 check "Step 0: super-plan routes fable-5-1 to its profile" \
   "grep -qF '| \`claude-fable-5-1\` | \`../multi-model/references/orchestrator-fable-5-1.md\` |' $SP"
 check "Step 0: ship routes fable-5-1 to its profile" \
   "grep -qF '| \`claude-fable-5-1\` | \`../multi-model/references/orchestrator-fable-5-1.md\` |' $SH"
 check "Step 0: critical-review routes fable-5-1 to its profile" \
-  "grep -qF '| \`claude-fable-5-1\` | \`\${CLAUDE_SKILL_DIR}/references/reviewer-fable-5-1.md\` |' $CR"
+  "grep -qF '| \`claude-fable-5-1\` | \`references/reviewer-fable-5-1.md\` |' $CR"
 
 check "the fable-5 row survives in multi-model"     "grep -qF '| \`claude-fable-5\` ' $MM"
 check "the fable-5 row survives in super-plan"      "grep -qF '| \`claude-fable-5\` ' $SP"
@@ -187,7 +262,7 @@ check "the reviewer dossier has a Fable 5.1 section" \
   "grep -q '^## Fable 5.1 as a reviewer of its own code' plugins/code-review/skills/critical-review/references/reviewer-dossier.md"
 
 check "README carries the fable-5.1 row"            "grep -qF '| \`claude-fable-5-1\` |' README.md"
-check "multi-model's model list names Fable 5.1"    "sed -n '3p' $MM | grep -qF 'Fable 5.1'"
+check "multi-model still routes Fable 5.1"         "grep -qF '| \`claude-fable-5-1\` | \`references/orchestrator-fable-5-1.md\` |' $MM"
 
 section "Opus 4.8 is addressable by its full model ID"
 

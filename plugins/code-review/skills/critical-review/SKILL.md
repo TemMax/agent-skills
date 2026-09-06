@@ -1,34 +1,52 @@
 ---
 name: critical-review
-description: 'Use when driving a critical, evidence-based review of uncommitted working-tree changes or a GitHub PR, produced by this session''s own model — including when the code under review was written by this very session. Works on whatever model this reviewing session runs on; it loads the matching reviewer profile itself. Also owns the post-review fix phase: once the user approves the findings, it applies and verifies the fixes, then behind one confirmation pushes them, replies in the PR threads those findings came from, and resolves the fully addressed ones. Triggers: "сделай ревью", "проревьюй изменения", "ревью ПР", "поправь замечания в ПР", "ответь на комментарии в ПР", "review my changes", "review this PR", "critical review", "review uncommitted changes", "fix the review findings", "answer the PR comments". Do NOT use for reviewing another agent''s output inside an orchestration wave (the orchestration plugin skills own that checklist).'
+description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.4.0
+  version: 1.5.0
 ---
 
 # Reviewing Changes Critically
 
-## Step 0 — Load Your Own Reviewer Profile (before reading any code)
+## Step 0 — load exactly one active-seat profile
 
-Your environment block states the model you are running as ("You are powered by
-the model named X. The exact model ID is Y"). Read it and load the ONE matching
-profile file:
+1. Read the `PLUGIN_RUNTIME_CONTEXT_V1` line for this plugin.
+2. If it carries a supported exact model id, load that id's relative profile.
+3. Otherwise use an exact model id explicitly supplied by the session.
+4. Otherwise load the generic profile and treat both model and effort as unknown.
 
-| Your model ID | Read this file |
+Never read a user config file to guess a session override. Never load more than one active-seat profile. A profile whose exact-id guard does not match must not be applied.
+
+| Exact model id | Relative profile |
 |---|---|
-| `claude-fable-5-1` | `${CLAUDE_SKILL_DIR}/references/reviewer-fable-5-1.md` |
-| `claude-fable-5` | `${CLAUDE_SKILL_DIR}/references/reviewer-fable-5.md` |
-| `claude-opus-5` (any context-window suffix) | `${CLAUDE_SKILL_DIR}/references/reviewer-opus-5.md` |
-| `claude-opus-4-8` (any context-window suffix, e.g. `[1m]`) | `${CLAUDE_SKILL_DIR}/references/reviewer-opus-4-8.md` |
-| anything else | no profile exists — use the model-agnostic rules below only, and say in the summary which model you are and that no profile matched |
+| `claude-fable-5-1` | `references/reviewer-fable-5-1.md` |
+| `claude-fable-5` | `references/reviewer-fable-5.md` |
+| `claude-opus-5` (any context-window suffix) | `references/reviewer-opus-5.md` |
+| `claude-opus-4-8` (any context-window suffix, e.g. `[1m]`) | `references/reviewer-opus-4-8.md` |
+| `gpt-5.6-sol` | `references/reviewer-gpt-5-6-sol.md` |
+| `gpt-5.6-terra` | `references/reviewer-gpt-5-6-terra.md` |
+| `gpt-5.6-luna` | `references/reviewer-gpt-5-6-luna.md` |
+| unknown | `references/reviewer-generic.md` |
 
-**Read exactly one file — the one matching your own model. Do not read the
-others: their effort guidance, documented failure modes and strengths belong to a
-different model and are not yours.**
+The alias `gpt-5.6` selects Sol only after the runtime-context handler has
+normalized it to `gpt-5.6-sol`. An exact supplied effort may be used; otherwise
+effort is unknown and receives no effort-specific claim.
 
-Your session's current reasoning effort is reported by the harness as
-**${CLAUDE_EFFORT}**. Your profile states the effort it expects; if that reported
-value is lower than your profile requires, act as your profile directs.
+### GPT-5.6 calibration gate — 2026-09-04–05 UTC
+
+No GPT-5.6 production consequential-review or supervisor route is supported.
+In the final post-fix `medium` critical repetitions, Sol passed clean 5/5 and
+planted defect 1/5, Terra passed 1/5 and 2/5, and Luna passed 2/5 and 1/5.
+Each model passed PR support 2/2 and supervisor support 8/8, but no model passed
+both required review guards 5/5; supporting rows do not establish a production
+reviewer or supervisor pairing. Historical `high` supervision and higher-effort
+probes also established no route. Return a model-selection request as
+`unsupported` with the mechanical evidence packet and delegate final judgment
+upward. Never silently substitute another GPT model, mix providers, or make
+`max` a default. An explicitly requested review may still report bounded
+evidence, but it must state that its GPT route is uncalibrated. Existing Claude
+review guidance is unchanged. Full counts and limitations:
+`tests/eval/gpt-5-6-results-2026-09-04.md`.
 
 ## Overview
 

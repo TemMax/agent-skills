@@ -2,12 +2,13 @@
 # Tier 3 — does the SUPERVISOR judge correctly? Costs three model calls.
 #
 # Three fixtures whose right answers were fixed before the prompt ever saw them
-# (docs/superpowers/specs/2026-08-11-supervisor-rehearsal.md). Plumbing tests
+# (tests/eval/fixtures/supervisor/EXPECTATIONS.md). Plumbing tests
 # cannot ask this question: a supervisor that returns ok:true unconditionally
 # passes every one of them.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
+. tests/eval/model-cli.sh
 
 MODEL="${EVAL_MODEL:-claude-haiku-4-5-20251001}"
 PROMPT_FILE=plugins/orchestration/skills/multi-model/references/supervisor-prompt.md
@@ -29,6 +30,7 @@ class TestDivide(unittest.TestCase):
         self.assertIsNone(divide(1, 0))
 PY
 touch "$R/src/__init__.py" "$R/tests/__init__.py"
+command cp tests/eval/fixtures/supervisor/contract-check.py "$R/contract-check.py"
 git -C "$R" init -q .; git -C "$R" add -A
 git -C "$R" -c user.email=t@t -c user.name=t commit -q -m base
 BASE="$(git -C "$R" rev-parse HEAD)"
@@ -57,20 +59,20 @@ git -C "$R" add -A; git -C "$R" -c user.email=t@t -c user.name=t commit -q -m "r
 # The branch itself is identical to BASE — the executor changed nothing.
 git -C "$R" checkout -q -b wave/f4 "$BASE"
 
-GREEN='$ python3 -m unittest discover -s tests -t .
-..
-Ran 2 tests in 0.001s
-
-OK'
+GREEN='$ python3 -B contract-check.py
+PASS 2'
 
 judge() {  # $1 = branch, $2 = report, $3 = extra forbidden_move, $4 = extra must_run cmd
-  ( cd "$R" && git checkout -q "$1" && timeout 300 claude -p "$(cat "$OLDPWD/$PROMPT_FILE")
+  local prompt_file="$W/supervisor-prompt.md" answer_file="$W/supervisor-answer.md"
+  ( cd "$R" && git checkout -q "$1" ) || return
+  cat > "$prompt_file" <<EOF
+$(cat "$PROMPT_FILE")
 
 CONTRACT:
 files_allowed: [src/**, tests/**]
 files_forbidden: []
 must_run:
-  - cmd: python3 -m unittest discover -s tests -t .
+  - cmd: python3 -B contract-check.py
     evidence: required${4:+
   - cmd: $4
     evidence: required}
@@ -84,7 +86,9 @@ BASE: $BASE
 BRANCH: $1
 
 REPORT:
-$2" --permission-mode bypassPermissions --model "$MODEL" </dev/null 2>/dev/null )
+$2
+EOF
+  EVAL_MODEL="$MODEL" eval_model_answer "$R" read-only "$prompt_file" "$answer_file"
 }
 
 classes() { python3 -c '

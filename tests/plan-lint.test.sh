@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.." || exit 1
 
 LINT=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
 CLEAN=tests/fixtures/plans/clean.md
+CODEX_CLEAN=tests/fixtures/plans/codex-clean.md
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 
 if ! command -v node >/dev/null 2>&1; then
@@ -29,6 +30,31 @@ section "clean plan"
 out="$(node "$LINT" "$CLEAN" 2>&1)"; rc=$?
 expect "clean plan exits 0" "0" "$rc"
 contains "clean summary line" "OK: 0 error(s)" "$out"
+
+section "documented canonical plan"
+if node --input-type=module - plugins/orchestration/skills/super-plan/SKILL.md "$W/documented.md" <<'JS'
+import assert from 'node:assert/strict'
+import { readFileSync, writeFileSync } from 'node:fs'
+const [source, target] = process.argv.slice(2)
+const skill = readFileSync(source, 'utf8')
+const blocks = [...skill.matchAll(/^   ```json wave-plan\r?\n([\s\S]*?)^   ```$/gm)]
+assert.equal(blocks.length, 1, 'exactly one canonical wave-plan example is required')
+const json = blocks[0][1].replace(/^   /gm, '').trimEnd()
+const plan = JSON.parse(json)
+const prose = plan.waves.flatMap((wave) => wave.tasks)
+  .map((task) => '## Task ' + task.id + '\n\nExample task context.\n').join('\n')
+// The skill describes its header and task prose separately from the JSON.
+writeFileSync(target, 'status: draft\nbase: pending\n\n```json wave-plan\n'
+  + json + '\n```\n\n' + prose)
+JS
+then
+  out="$(node "$LINT" "$W/documented.md" 2>&1)"; rc=$?
+  expect "canonical SKILL.md example exits 0" "0" "$rc"
+  contains "canonical SKILL.md example is lint-clean" "OK: 0 error(s)" "$out"
+  if [ "$rc" -ne 0 ]; then printf '%s\n' "$out"; fi
+else
+  fail "canonical SKILL.md example could not be extracted"
+fi
 
 section "usage"
 node "$LINT" >/dev/null 2>&1; expect "no args exits 2" "2" "$?"
@@ -118,5 +144,107 @@ mutate '"model": "sonnet"' '"model": "opus-4-8"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "unpinned full-looking id exits 1" "1" "$rc"
 contains "unpinned full-looking id named" "executor.model" "$out"
+
+section "Codex exact ids"
+while read -r executor supervisor rung; do
+  cp "$CLEAN" "$W/m.md"
+  python3 - "$W/m.md" "$executor" "$supervisor" "$rung" <<'PY'
+import sys
+p, executor, supervisor, rung = sys.argv[1:]
+s = open(p).read()
+s = s.replace('"model": "sonnet"', f'"model": "{executor}"')
+s = s.replace('"model": "haiku"', f'"model": "{executor}", "effort": "medium"')
+s = s.replace('"model": "fable"', f'"model": "{supervisor}"')
+s = s.replace('"ladder": ["opus"]', f'"ladder": ["{rung}"]')
+open(p, 'w').write(s)
+PY
+  out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+  expect "$executor plan exits 0" "0" "$rc"
+done <<'CASES'
+gpt-5.6-sol gpt-5.6-terra gpt-5.6-luna
+gpt-5.6-terra gpt-5.6-sol gpt-5.6-luna
+gpt-5.6-luna gpt-5.6-terra gpt-5.6-sol
+CASES
+
+cp "$CODEX_CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read().replace(', "effort": "high"', '', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Codex supervisor without effort exits 1" "1" "$rc"
+contains "Codex supervisor effort is required" "supervisor.effort: explicit" "$out"
+
+cp "$CODEX_CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read().replace(', "effort": "medium"', '', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Codex executor without effort exits 1" "1" "$rc"
+contains "Codex executor effort is required" "executor.effort: explicit" "$out"
+
+cp "$CODEX_CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read().replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-5.6-luna"]')
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Codex self-transition ladder exits 1" "1" "$rc"
+contains "Codex self-transition ladder is named" "ladder transitions must use distinct models" "$out"
+
+cp "$CODEX_CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read().replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-5.6-sol", "gpt-5.6-sol"]')
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Codex repeated-transition ladder exits 1" "1" "$rc"
+contains "Codex repeated-transition ladder is named" "ladder transitions must use distinct models" "$out"
+
+mutate '"model": "sonnet"' '"model": "gpt-5.6"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-5.6 alias exits 1" "1" "$rc"
+contains "gpt-5.6 alias is rejected" "executor.model" "$out"
+
+mutate '"model": "sonnet"' '"model": "gpt-5.6-mini"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-5.6-mini alias exits 1" "1" "$rc"
+contains "gpt-5.6-mini alias is rejected" "executor.model" "$out"
+
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"model": "sonnet"', '"model": "gpt-5.6-sol"')
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "mixed-provider wave exits 1" "1" "$rc"
+contains "mixed-provider wave is named" "mixes providers" "$out"
+
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"model": "sonnet"', '"model": "gpt-5.6-sol"')
+s = s.replace('"model": "haiku"', '"model": "gpt-5.6-luna"')
+s = s.replace('"model": "fable"', '"model": "gpt-5.6-terra"')
+s = s.replace('"ladder": ["opus"]', '"ladder": ["gpt-5.6-terra"]')
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "GPT supervisor collision exits 1" "1" "$rc"
+contains "GPT supervisor collision is named" "supervisor model also appears as executor or ladder rung" "$out"
 
 summary

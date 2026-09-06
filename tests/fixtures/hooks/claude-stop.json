@@ -1,0 +1,13 @@
+{
+  "session_id": "claude-stop-fixture",
+  "prompt_id": "550e8400-e29b-41d4-a716-446655440000",
+  "transcript_path": "/example/project/transcript.jsonl",
+  "cwd": "/example/project",
+  "permission_mode": "default",
+  "effort": { "level": "high" },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "Summary: all tasks done, nothing remaining.",
+  "background_tasks": [],
+  "session_crons": []
+}

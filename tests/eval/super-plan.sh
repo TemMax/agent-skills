@@ -9,6 +9,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
+. tests/eval/model-cli.sh
 
 # Default is Sonnet 5, not Haiku: measured 2026-08-18, Haiku 4.5 did not
 # reliably follow this skill (prose printed before the plan content, `branch`
@@ -18,7 +19,11 @@ cd "$(dirname "$0")/../.." || exit 1
 # markedly more reliable — clean on most runs, though one run out of several
 # still produced a P2 plan that failed lint. See tests/README.md, which is
 # the authoritative honest statement of what this tier proves.
-MODEL="${EVAL_MODEL:-claude-sonnet-5}"
+if [ "${EVAL_PROVIDER:-claude}" = codex ]; then
+  MODEL="${EVAL_MODEL:-gpt-5.6-sol}"
+else
+  MODEL="${EVAL_MODEL:-claude-sonnet-5}"
+fi
 SKILL=plugins/orchestration/skills/super-plan/SKILL.md
 LINT=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
@@ -45,6 +50,7 @@ plan() {  # $1 = feature request  → prints the model's plan file content
   # The prompt is piped over stdin, not passed as a positional argument: the
   # skill file's own text opens with the `---` frontmatter delimiter, and a
   # leading-dash positional argument gets parsed as an unknown CLI option.
+  local prompt_file="$W/plan-prompt.md" answer_file="$W/plan-answer.md"
   printf '%s' "$(cat "$SKILL")
 
 EVAL MODE: you are running headless under an evaluation harness — apply the
@@ -54,7 +60,8 @@ plan file content (markdown, all three layers), no prose before or after it.
 Do not wrap the output in an outer code fence.
 
 Feature request:
-$1" | timeout 600 claude -p --permission-mode bypassPermissions --model "$MODEL" 2>/dev/null
+$1" > "$prompt_file"
+  EVAL_MODEL="$MODEL" eval_model_answer "$R" read-only "$prompt_file" "$answer_file"
 }
 
 section "P1 — overlap temptation (both changes land in src/app.py)"

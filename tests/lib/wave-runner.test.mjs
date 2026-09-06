@@ -52,7 +52,7 @@ function waveArgs(over = {}) {
     defaultBranch: 'main',
     repoPath: '/tmp/simrepo',
     supervisorPromptText: SUP,
-    supervisor: { model: 'opus', effort: 'high' },
+    supervisor: { model: 'fable', effort: 'high' },
     tasks: [task()],
     ...over,
   }
@@ -159,9 +159,9 @@ test('S8d a null task entry fails closed, not with a crash', async () => {
   assert.equal(calls.length, 0)
 })
 
-test('S9a the pinned full ID claude-opus-4-8 runs executor and supervisor', async () => {
+test('S9a the pinned full ID claude-opus-4-8 runs as executor under a fable supervisor', async () => {
   const pinned = waveArgs({
-    supervisor: { model: 'claude-opus-4-8', effort: 'high' },
+    supervisor: { model: 'fable', effort: 'high' },
     tasks: [task({ executor: { model: 'claude-opus-4-8', effort: 'high' }, ladder: [] })],
   })
   const { result, calls } = await runWorkflow(SCRIPT, {
@@ -173,7 +173,35 @@ test('S9a the pinned full ID claude-opus-4-8 runs executor and supervisor', asyn
   assert.ok(calls.some((c) => c.opts.model === 'claude-opus-4-8'))
 })
 
-test('S9b an unpinned short form is rejected while the pinned ID elsewhere is not enough to save it', async () => {
+test('S9b the pinned full ID claude-opus-4-8 runs as supervisor over a short-ID ladder', async () => {
+  const pinned = waveArgs({
+    supervisor: { model: 'claude-opus-4-8', effort: 'high' },
+    tasks: [task({ executor: { model: 'sonnet', effort: 'medium' }, ladder: ['opus'] })],
+  })
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: pinned,
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  assert.equal(result.status, 'done')
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.ok(calls.some((c) => c.opts.model === 'claude-opus-4-8'))
+})
+
+test('S9c a ladder containing the supervisor model fails closed with zero agent calls', async () => {
+  const bad = waveArgs({
+    supervisor: { model: 'fable', effort: 'high' },
+    tasks: [task({ ladder: ['fable'] })],
+  })
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: bad,
+    agentStub: () => { throw new Error('no agent may be called') },
+  })
+  assert.equal(result.status, 'invalid-args')
+  assert.match(result.errors.join('; '), /supervisor model also appears as executor or ladder rung/)
+  assert.equal(calls.length, 0)
+})
+
+test('S9d an unpinned short form is rejected while the pinned ID elsewhere is not enough to save it', async () => {
   const bad = waveArgs()
   bad.tasks = [task({ executor: { model: 'opus-4-8' }, ladder: ['claude-sonnet-5'] })]
   const { result, calls } = await runWorkflow(SCRIPT, {
@@ -185,6 +213,18 @@ test('S9b an unpinned short form is rejected while the pinned ID elsewhere is no
   assert.match(all, /executor\.model/)
   assert.match(all, /ladder/)
   assert.equal(calls.length, 0)
+})
+
+test('S9e repeated or self-transitioning ladder models fail closed with zero agent calls', async () => {
+  for (const ladder of [['sonnet'], ['opus', 'opus']]) {
+    const { result, calls } = await runWorkflow(SCRIPT, {
+      args: waveArgs({ tasks: [task({ ladder })] }),
+      agentStub: () => { throw new Error('no agent may be called') },
+    })
+    assert.equal(result.status, 'invalid-args')
+    assert.match(result.errors.join('; '), /ladder transitions must use distinct models/)
+    assert.equal(calls.length, 0)
+  }
 })
 
 // ---------- S1–S7: the ladder itself ----------
@@ -296,9 +336,12 @@ test('S6 ladder exhausted → failed with the full attempt trace', async () => {
 })
 
 test('S6b absolute cap: six executor attempts, however long the ladder', async () => {
-  // 5 rungs × 2 would be 10; the queue holds exactly 6 verdicts, so a 7th
+  // 4 distinct rungs × 2 would be 8; the queue holds exactly 6 verdicts, so a 7th
   // supervisor call would throw and fail this test by itself.
-  const capArgs = waveArgs({ tasks: [task({ ladder: ['opus', 'opus', 'opus', 'opus'] })] })
+  const capArgs = waveArgs({ tasks: [task({
+    executor: { model: 'haiku', effort: 'medium' },
+    ladder: ['sonnet', 'opus', 'claude-opus-4-8'],
+  })] })
   const { result } = await runWorkflow(SCRIPT, {
     args: capArgs,
     agentStub: stub({ 't-one': [V.files(), V.report(), V.files(), V.report(), V.files(), V.report()] }),

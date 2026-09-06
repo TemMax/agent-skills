@@ -1,9 +1,9 @@
 ---
 name: super-plan
-description: 'Use when planning a feature, refactor or fix into wave-ready tasks for the multi-model skill — researching the codebase to decomposition depth, closing open questions (one batched round to the user for what code cannot answer), then writing a plan whose tasks carry machine-checkable contracts, grouped into waves by file-independence and validated by the shipped plan linter. Works on whatever model this session runs on; it loads the matching orchestrator profile itself. Triggers: "составь план", "спланируй фичу", "план под волны", "plan this feature", "make a wave plan", "super plan". Do NOT use for executing a plan (that is multi-model) or reviewing a diff (that is critical-review).'
+description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.5.0
+  version: 2.6.0
 ---
 
 # Planning Waves (super-plan)
@@ -12,20 +12,32 @@ The dialogue and no-placeholders planning discipline here is adapted from
 Jesse Vincent's superpowers (MIT — see `references/LICENSE-superpowers`);
 the output format and every contract rule are this plugin's own.
 
-## Step 0 — Load Your Own Orchestrator Profile (before anything else)
+## Step 0 — load exactly one active-seat profile
 
-Your environment block states the model you are running as. Read it and load
-the ONE matching profile — the same profiles the multi-model skill uses:
+1. Read the `PLUGIN_RUNTIME_CONTEXT_V1` line for this plugin.
+2. If it carries a supported exact model id, load that id's relative profile.
+3. Otherwise use an exact model id explicitly supplied by the session.
+4. Otherwise load the generic profile and treat both model and effort as unknown.
 
-| Your model ID | Read this file |
+Never read a user config file to guess a session override. Never load more than one active-seat profile. A profile whose exact-id guard does not match must not be applied.
+
+| Exact model id | Relative profile |
 |---|---|
 | `claude-fable-5-1` | `../multi-model/references/orchestrator-fable-5-1.md` |
 | `claude-fable-5` | `../multi-model/references/orchestrator-fable-5.md` |
 | `claude-opus-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5.md` |
 | `claude-opus-4-8` (any suffix) | `../multi-model/references/orchestrator-opus-4-8.md` |
-| anything else | no profile exists — use the rules below only, and say so |
+| `gpt-5.6-sol` | `../multi-model/references/orchestrator-gpt-5-6-sol.md` |
+| `gpt-5.6-terra` | `../multi-model/references/orchestrator-gpt-5-6-terra.md` |
+| `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
+| unknown | `../multi-model/references/orchestrator-generic.md` |
 
-Read exactly one. Always reply to the user in the language the user writes in.
+The alias `gpt-5.6` selects Sol only after the runtime-context handler has
+normalized it to `gpt-5.6-sol`. An exact supplied effort may be used; otherwise
+effort is unknown and receives no effort-specific claim. Always reply to the
+user in the language the user writes in.
+
+While authoring or amending a plan, the active profile chooses executor, supervisor, ladder, and effort. Never substitute unnamed host defaults. The profile also selects the plan host: each resulting wave is entirely Claude or entirely Codex across its supervisor, executors, and ladders.
 
 ## Process
 
@@ -39,19 +51,19 @@ Read exactly one. Always reply to the user in the language the user writes in.
    you — do not delegate decisions, executors silently fill gaps under
    ambiguity.
 2. **Decisions.** Everything derivable from the codebase you decide and
-   record. What code cannot answer — product behavior, trade-offs, scope
-   cuts — goes to the user as ONE batched AskUserQuestion (up to 4 forks);
-   a second batch only if the answers open new forks. Never drip questions
-   one at a time, and never resolve a product fork silently.
+   record. Collect genuine product forks in one batch. Use the host-native structured input tool
+   when it is available; otherwise ask one concise direct
+   question and wait. In headless mode, record the unresolved choices under
+   `Assumptions (would ask)` without silently deciding them.
 3. **Gate 1 — design.** Present a compact summary: architecture, the wave
    sketch (which tasks, which waves, why), decisions taken, forks the user
    answered. One approval, then stop touching the design.
 4. **Tasks.** Write them by multi-model's rules: closed (no "decide what's
    best"), self-contained (the executor sees nothing but its prompt), full
    code included where the solution is known. Each task carries the
-   five-key contract; models and efforts come from multi-model's routing
-   and effort tables, the wave's supervisor from its supervisor table
-   (chosen for the strongest executor in the wave). Group into waves by
+   five-key contract; the active profile chooses every model, effort,
+   supervisor, and ladder field, with the wave's supervisor chosen for the
+   strongest executor in the wave. Group into waves by
    file-independence: same-wave tasks must not share files — merge
    colliding tasks or split them across consecutive waves. Dependent
    chains are consecutive waves, never one wave.
@@ -80,7 +92,7 @@ Read exactly one. Always reply to the user in the language the user writes in.
    expectation; a mismatch is a contract defect caught before any executor
    is spawned.
 5. **Lint.** Run the shipped linter and fix every error yourself — the
-   user never edits the plan:
+   user never edits the plan. Lint runs before Gate 2. A mixed-provider wave is a planning defect to fix before Gate 2; never ask the linter or runner to guess a provider:
 
    ```
    node <this skill's base directory>/references/plan-lint.mjs <plan-file> --repo <repo>
@@ -120,7 +132,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    ```json wave-plan
    { "waves": [
      { "wave": 1,
-       "supervisor": { "model": "opus", "effort": "high" },
+       "supervisor": { "model": "fable", "effort": "high" },
        "tasks": [
          { "id": "http-retry",
            "branch": "wave/http-retry",
@@ -135,10 +147,22 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    ] }
    ```
 
-   Short model names, or the one pinned full ID `claude-opus-4-8` (the
-   only full ID the runner and this linter accept). `branch` is always
-   `wave/<id>`. The supervisor sits on the wave because execution is one
-   runner invocation per wave.
+   The model fields use the active profile's plan host and this exact table:
+
+   | Plan host | Allowed model fields |
+   |---|---|
+   | Claude | `haiku`, `sonnet`, `opus`, `fable`, `claude-opus-4-8` |
+   | Codex | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+
+   `gpt-5.6` is never a plan id. It is only an active-session alias after
+   runtime-context normalization, not a model field. Every Codex supervisor and executor names an explicit effort; the adapter never invents one. Every supervisor,
+   executor, and ladder entry in one wave uses the same row. A mixed-provider
+   wave is a planning defect to fix before Gate 2, not a request for the
+   linter or runner to guess a provider. `branch` is always `wave/<id>`. The
+   supervisor sits on the wave because execution is one runner invocation per
+   wave.
+
+   The ladder lists model transitions only. The executor and every ladder rung are distinct model transitions: never repeat the executor or a later rung. For Codex, same-model raised-effort rework is state-machine behavior, so do not invent duplicate same-model ladder entries.
 
 3. **The prose half** — one `## Task <id>` section per task: the
    substantive description and context, with full code where the solution
@@ -175,7 +199,7 @@ silently is the failure this mode exists to measure.
 | Mistake | Consequence | Correct |
 |---|---|---|
 | Two same-wave tasks sharing a file | Merge conflicts after isolation did its job | Merge the tasks or split the waves; lint enforces it |
-| Dripping questions one at a time | The user becomes the bottleneck | ONE batched AskUserQuestion for genuine forks |
+| Dripping questions one at a time | The user becomes the bottleneck | Collect genuine forks in one batch with the host-native question behavior |
 | Deciding a product fork silently | The most expensive wrong turn there is | Batch it to the user; in headless mode, record it |
 | Presenting a plan that fails lint | The user debugs your format | Lint first, fix every error, then present |
 | Setting `status: active` while planning | The drift hook pays for a wave that is not running | Leave `draft`; execution owns transitions |

@@ -1,17 +1,19 @@
 # claude-skills
 
-A Claude Code plugin marketplace (`temmax-skills`) with two plugins covering the
-full development pipeline: plan → supervised execution → review. Every rule in
-these skills is derived from the models' official Anthropic system cards, and
-the load-bearing logic ships as tested code, not prose — a wave runner, a plan
-linter, and a four-tier test suite (see `tests/README.md`).
+A dual Claude Code and Codex plugin marketplace (`temmax-skills`) with two
+plugins covering the full development pipeline: plan → supervised execution →
+review. Model-specific guidance is scoped to cited first-party Anthropic and
+OpenAI sources; shared safety rules stay provider-neutral. Load-bearing logic
+ships as tested code, not prose — a Claude wave runner, a Codex state/verifier
+helper, a plan linter, and the offline release suite (see `tests/README.md`).
 
 - **`orchestration`** — the full pipeline: `ship` conducts planning
   (`super-plan`) and execution (`multi-model`) into a reviewed PR. The
   orchestrator model researches, plans into contract-carrying waves, and
-  launches executor subagents (Haiku 4.5 / Sonnet 5 / Opus 5 / Opus 4.8 / Fable
-  5.1 as an explicit rung), each isolated in its own worktree and judged
-  against its contract by a different model.
+  launches executor subagents through the selected host adapter. Claude and
+  exact GPT-5.6 profiles plus a conservative generic fallback guide routing;
+  each executor is isolated in its own worktree and judged against its contract
+  by a different model.
 - **`code-review`** — critical, evidence-based review of uncommitted changes or
   a GitHub PR, performed by the session's own model.
 
@@ -116,13 +118,66 @@ calls.
 
 All skills always reply to the user in the language the user writes in.
 
+## Hosts, models, and lifecycle limits
+
+Both marketplaces expose the same plugin folders and `./skills/` paths. Claude
+Code and Codex discover the three orchestration skills (`super-plan`, `ship`,
+and `multi-model`) plus the `critical-review` skill. The exact-profile roster
+is deliberately narrower than a claim that every profile is a production route:
+
+| Host | Exact model IDs with a profile | Role / effort conclusion |
+|---|---|---|
+| Claude Code | `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
+| Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
+| Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
+| Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
+| Either | any other model ID | The generic profile applies; model and effort remain unknown and receive no effort-specific claim. |
+
+The `gpt-5.6` alias normalizes only to `gpt-5.6-sol`; it is not a plan model
+ID. The dated record is
+[`tests/eval/gpt-5-6-results-2026-09-04.md`](tests/eval/gpt-5-6-results-2026-09-04.md):
+the final post-fix regression recorded 87 default rows (63 pass, 24 fail) with
+3/24 required skill cells passing; its critical run recorded 204 rows
+(162 pass, 42 fail).
+Therefore every GPT-5.6 seed route is **unsupported** and must delegate the
+routing decision upward to a separately supported provider route or an
+authorized calibration. The result does not turn invalid or failed cells into
+support.
+
+Both Codex manifests intentionally retain their `hooks` fields, including the
+orchestration advisory drift hook. Lifecycle behavior is host-dependent;
+**ChatGPT surfaces do not run Codex lifecycle hooks**. Treat hooks as advisory
+where supported, never as a substitute for the plan, worktree, contract, and
+independent-supervisor safety model. The generic plugin validator bundled with
+some tooling is not authoritative for these manifests because it rejects the
+approved `hooks` field when PyYAML is unavailable; repository contracts and a
+real disposable Codex install rehearsal are the release checks.
+
 ## Installation
+
+### Claude Code installation
 
 ```
 /plugin marketplace add TemMax/claude-skills
 /plugin install orchestration@temmax-skills
 /plugin install code-review@temmax-skills
 ```
+
+### Codex installation
+
+Clone this repository, then register that checkout as the repository/team
+marketplace (replace the path, but keep the selector name):
+
+```bash
+codex plugin marketplace add /absolute/path/to/claude-skills
+codex plugin list --marketplace temmax-skills --available --json
+codex plugin add orchestration@temmax-skills --json
+codex plugin add code-review@temmax-skills --json
+codex plugin list --marketplace temmax-skills --json
+```
+
+The repository name and URLs remain `claude-skills` until the user performs a
+separate rename. Do not use a personal marketplace for this repository.
 
 ## Usage
 
@@ -192,7 +247,7 @@ To verify the plugins are installed, run `/plugin` and look for
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 2.5.0, code-review 1.4.0):
+orchestration 2.6.0, code-review 1.5.0):
 
 | Before | After |
 |---|---|
@@ -209,15 +264,39 @@ claude --plugin-dir /path/to/claude-skills/plugins/orchestration
 claude --plugin-dir /path/to/claude-skills/plugins/code-review
 ```
 
+Run the offline release suite before changing a plugin:
+
+```bash
+./tests/run.sh
+bash tests/eval/gpt-5-6-matrix.sh --self-test
+```
+
+The semantic matrix requires a fresh caller-owned result directory and calls
+the provider it configures; for example,
+`bash tests/eval/gpt-5-6-matrix.sh --critical --results /absolute/path/to/new-critical-run`.
+The bare `--critical` command intentionally exits before calls when no results
+directory is supplied. Do not supply a results directory, live flags, or
+provider credentials for routine release checks. Model calls, when expressly
+authorized for a fresh calibration, can be expensive: inspect the dated
+results' measured usage and cost caveats first.
+The final merge and any real PR/push remain user-authorized boundaries.
+
 ## Repository layout
 
 ```
 .claude-plugin/
   marketplace.json     # lets this repo act as its own marketplace
+.agents/plugins/
+  marketplace.json     # repository/team Codex marketplace
 plugins/
   orchestration/
     .claude-plugin/plugin.json
-    hooks/                       # orchestrator-drift Stop hook + offline tests
+    .codex-plugin/plugin.json
+    hooks/                       # orchestration lifecycle context and Stop gate
+      hooks.json                 # runtime identity plus orchestrator-drift Stop registration
+      runtime-context            # plugin-scoped Claude/Codex model context
+      drift-check                # provider-aware advisory Stop judge adapter
+      drift-check.test.sh        # offline drift behavior contract
     skills/
       ship/
         SKILL.md               # the pipeline conductor (no references of its own)
@@ -230,17 +309,29 @@ plugins/
         SKILL.md
         references/
           wave-runner.workflow.mjs   # the escalation ladder as code
+          codex-wave-protocol.md     # native Codex action loop
+          codex-wave-state.mjs       # deterministic Codex state and verifier
           supervisor-prompt.md
           orchestrator-{fable-5-1,fable-5,opus-5,opus-4-8}.md
+          orchestrator-gpt-5-6-{sol,terra,luna}.md
+          orchestrator-generic.md
           model-dossiers.md
+          gpt-5-6-dossier.md
   code-review/
     .claude-plugin/plugin.json
+    .codex-plugin/plugin.json
+    hooks/                       # code-review/hooks/ lifecycle context
+      hooks.json                 # independently installable runtime-context registration
+      runtime-context            # plugin-scoped Claude/Codex model context
     skills/
       critical-review/
         SKILL.md
         references/
           reviewer-{fable-5-1,fable-5,opus-5,opus-4-8}.md
+          reviewer-gpt-5-6-{sol,terra,luna}.md
+          reviewer-generic.md
           reviewer-dossier.md
+          gpt-5-6-reviewer-dossier.md
 tests/                           # structure / contracts / behaviour / live eval
   run.sh                         # ./tests/run.sh [--live]
 ```

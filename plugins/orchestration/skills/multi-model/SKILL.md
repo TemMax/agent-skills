@@ -1,37 +1,59 @@
 ---
 name: multi-model
-description: 'Use when orchestrating parallel development work through Workflow subagents on Haiku 4.5, Sonnet 5, Opus 4.8, Opus 5 and Fable 5.1 — including supervised waves, where each executor is isolated in its own worktree and its result is judged against a machine-checkable contract by a different model — decomposing a coding task into agent waves, routing tasks to models, picking reasoning effort, writing task prompts for executor agents, or reviewing their results. Works on whatever model this orchestrator session runs on; it loads the matching orchestrator profile itself. Triggers: "разбей на агентов", "запусти параллельно", "оркеструй задачу", "decompose into agents", "run in parallel", "delegate to subagents", "pick a model for this task". Do NOT use for single-agent work.'
+description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or GPT-5.6 agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.5.0
+  version: 2.6.0
 ---
 
 # Orchestrating Multi-Model Development
 
-## Step 0 — Load Your Own Orchestrator Profile (before anything else)
+## Step 0 — load exactly one active-seat profile
 
-Your environment block states the model you are running as ("You are powered by
-the model named X. The exact model ID is Y"). Read it and load the ONE matching
-profile file:
+1. Read the `PLUGIN_RUNTIME_CONTEXT_V1` line for this plugin.
+2. If it carries a supported exact model id, load that id's relative profile.
+3. Otherwise use an exact model id explicitly supplied by the session.
+4. Otherwise load the generic profile and treat both model and effort as unknown.
 
-| Your model ID | Read this file |
+Never read a user config file to guess a session override. Never load more than one active-seat profile. A profile whose exact-id guard does not match must not be applied.
+
+| Exact model id | Relative profile |
 |---|---|
-| `claude-fable-5-1` | `${CLAUDE_SKILL_DIR}/references/orchestrator-fable-5-1.md` |
-| `claude-fable-5` | `${CLAUDE_SKILL_DIR}/references/orchestrator-fable-5.md` |
-| `claude-opus-5` (any context-window suffix) | `${CLAUDE_SKILL_DIR}/references/orchestrator-opus-5.md` |
-| `claude-opus-4-8` (any context-window suffix, e.g. `[1m]`) | `${CLAUDE_SKILL_DIR}/references/orchestrator-opus-4-8.md` |
-| anything else | no profile exists — use the model-agnostic rules below only, and tell the user which model you are and that no profile matched |
+| `claude-fable-5-1` | `references/orchestrator-fable-5-1.md` |
+| `claude-fable-5` | `references/orchestrator-fable-5.md` |
+| `claude-opus-5` (any context-window suffix) | `references/orchestrator-opus-5.md` |
+| `claude-opus-4-8` (any context-window suffix, e.g. `[1m]`) | `references/orchestrator-opus-4-8.md` |
+| `gpt-5.6-sol` | `references/orchestrator-gpt-5-6-sol.md` |
+| `gpt-5.6-terra` | `references/orchestrator-gpt-5-6-terra.md` |
+| `gpt-5.6-luna` | `references/orchestrator-gpt-5-6-luna.md` |
+| unknown | `references/orchestrator-generic.md` |
 
-**Read exactly one file — the one matching your own model. Do not read the
-others: their session-effort guidance, documented failure modes and strengths
-belong to a different model and are not yours.** State which profile you loaded
-before planning. Your profile amends the numbered steps below; where it amends a
-step, the amendment wins.
+The alias `gpt-5.6` selects Sol only after the runtime-context handler has
+normalized it to `gpt-5.6-sol`. An exact supplied effort may be used; otherwise
+effort is unknown and receives no effort-specific claim. State which profile was
+loaded before planning. That profile amends the numbered steps below; where it
+amends a step, the amendment wins.
 
-Your session's current reasoning effort is reported by the harness as
-**${CLAUDE_EFFORT}**. Your profile states the effort it expects; if that reported
-value is lower than your profile requires, act as your profile directs before you
-plan.
+Profiles choose model and effort routes while authoring a wave plan or explicitly
+amending one. Once a lint-clean plan is explicitly user-approved, its exact
+provider, model, and effort fields are authoritative for adapter execution: do
+not re-route or reject that approved artifact against a seed profile. This never
+permits a mixed/unknown-provider wave or bypasses lint and user approval.
+
+### GPT-5.6 calibration gate — 2026-09-04–05 UTC
+
+No GPT-5.6 production wave route is supported. The final post-fix `medium`
+matrices recorded 63/87 passes in default mode and 162/204 in critical mode,
+with no infrastructure-class failures. Of eight required core cells per model,
+the default matrix passed Sol 2/8, Terra 0/8, and Luna 1/8; the critical base
+passed Sol 0/8, Terra 1/8, and Luna 1/8. No model passed all required paths,
+and `ship` remained 0/2 for every model in both bases. Historical `high`,
+`xhigh`, and `max` probes also established no route. During plan authoring,
+return the GPT route as `unsupported` with the evidence packet and delegate the
+routing decision upward. Do not substitute another GPT model, mix providers in
+one wave, or use `max` by default. Existing Claude routing below is unchanged.
+Full counts and limitations:
+`tests/eval/gpt-5-6-results-2026-09-04.md`.
 
 ## Overview
 
@@ -67,8 +89,11 @@ English does not mean English replies.
 5. **Write the wave plan file** (see Wave Plan Artifact) with `status: active`,
    and record the base SHA. You do this, not the user — the plan's lifecycle is
    yours to open and close, and nobody should have to hand-edit a field to make
-   supervision work.
-6. **Launch.** Independent tasks — in parallel via Workflow.
+   supervision work. Once it is lint-clean and explicitly approved, preserve its
+   exact provider/model/effort fields through execution; profile routes are not
+   a second execution-time planner.
+6. **Launch.** Select the host adapter below; independent tasks remain isolated
+   by the shared wave contract.
 7. **Review** (see the checklist below). Fixes — as one concrete list. Two misses
    in the same place — fix the task spec, don't repeat the prompt.
 8. **The final end-to-end review is the orchestrator's own.** Before it you may
@@ -413,14 +438,54 @@ block. Spending the supervisor's credibility on flaky tests buys nothing.
 | The contract cannot be satisfied | Stop immediately — no rework, no stronger model. Return the task to yourself to amend the contract (below) |
 | Stop | Hand the user the task, every verdict in order, and the branch name |
 
-### Running a wave — invoke the shipped runner, do not write one
+## Host adapter
 
-The ladder above is implemented once, in
+### Invocation publication contract
+
+`publication` is optional: if omitted, it means exactly `publication: push`
+and preserves all normal behavior. The choice belongs at this composition
+boundary, not in a host adapter, runner, helper, plan, or profile. Only
+`publication: local` must be explicit; only the enclosing critical-review
+post-review fix flow may request it; it is never inferred from host or model.
+
+Local mode never weakens lint, the pushed-base requirement, contracts,
+mechanical verification, supervision, verdicts, plan-order integration, or the
+full-wave review. Both adapters complete all of that work and return the
+resulting local feature-branch commit(s), task branch names, and state/verdict
+evidence to their caller, but local mode performs no push. The wave still forks
+from the current pushed PR head. Local mode is one publication transaction: if
+approved fixes need dependent bases that cannot safely fit in that one
+supervised wave, stop before publication rather than push around the gate.
+
+- Claude-only wave: invoke `references/wave-runner.workflow.mjs` exactly as
+  documented below.
+- GPT-5.6-only wave: read and follow
+  `references/codex-wave-protocol.md`; do not invoke Claude Workflow.
+- Mixed or unknown-provider wave: stop before spawning and return the linter or
+  identity error.
+
+Every Codex spawn names model and reasoning_effort from the exact returned
+action. Never write a fresh runner, hand-edit state, or replace a
+missing model with a default or alias. The shared contract, verifier,
+supervisor schema, escalation ladder, and result review remain single-sourced
+in this skill; the adapter selects only the host invocation.
+
+For a lint-clean, explicitly user-approved plan, the approved plan is authoritative for adapter execution.
+The adapter uses its exact provider, model,
+and effort fields without re-routing or rejecting them against seed-profile
+recommendations; lint and the mixed/unknown-provider stop still apply.
+
+### Claude-only wave — invoke the shipped runner
+
+For a Claude-only wave, the ladder above is implemented once, in
 `references/wave-runner.workflow.mjs`, and covered by the deterministic
 simulator tier in `tests/`. Your job is to assemble its inputs, not to
 re-implement its rules — every hand-written wave script is a fresh chance to
 get "two strikes escalate" subtly wrong, and the one hand-written run on
 record was rejected at launch four times before it worked.
+
+Its `opts.model` accepts the documented Claude short names and the one pinned full ID
+`claude-opus-4-8`; do not replace that identifier with an alias.
 
 1. **Preflight the contracts at the base.** Before the first wave forks, run
    each distinct `must_run` command once against the recorded base — route
@@ -470,6 +535,15 @@ carrying the isolation instructions — so the contract the executor reads and
 the contract the supervisor enforces are the same object and cannot diverge.
 Escalated rungs run at `high` effort.
 
+Claude adapter completion reads the multi-model publication contract after
+every task is `ok`. `publication: push` merges branches in plan order, runs the
+shared full-wave review, and pushes exactly as normal. With `publication: local`, merge branches in plan
+order only into the local feature branch, run the shared full-wave review,
+return the resulting local feature-branch commit(s), task branches, and verdict
+evidence, and do no push. The Claude adapter keeps the shipped Workflow
+implementation unchanged; publication stays at this composition boundary, not
+in the Workflow arguments or script.
+
 4. Act on the returned statuses, task by task:
    - `ok` — merge `wave/<id>` per the wave plan.
    - `contract-unsatisfiable` — run the amendment flow below (one amendment
@@ -486,9 +560,9 @@ Escalated rungs run at `high` effort.
    sibling's third attempt). The wave's full suite still runs once, after
    all of the wave's invocations settle, before the push.
 
-Write a custom wave script only when the runner genuinely cannot express the
-wave — and then follow "Delegating the Workflow Script Itself" below, because
-every rule listed there was learned from a rejection.
+Never write a custom wave script. If the shipped runner cannot express the
+wave, stop before spawning and return the unsupported requirement for a plan or
+adapter change.
 
 ### When the contract is what is broken
 
@@ -695,44 +769,6 @@ in an all-Claude pipeline, and the bound is the magnitude plus the contract's
 mechanical half — so it judges Opus 5, and Opus 5 judges it. Opus 5 may execute under supervision but
 does not supervise: the property that would justify it is unmeasured, and an
 unmeasured property is not a permission.
-
-## Delegating the Workflow Script Itself
-
-This applies only to the rare wave the shipped runner cannot express; the
-default path is invoking `references/wave-runner.workflow.mjs`, not writing a
-script. An executor asked to *write* a workflow script cannot read the
-`Workflow` tool's documentation — the tool is not in its prompt and not
-available to it. It will
-code against whatever it can infer, produce something plausible, and the script
-will be rejected at launch or, worse, run on assumptions that quietly void the
-result. Hand it these constraints in the task prompt, because it cannot discover
-them:
-
-- `meta` must be a **pure literal** — no concatenation, no variables, no template
-  strings. A wrapped description string is the most common rejection.
-- Exactly **one** `export` (the `meta` block). A second one makes the whole file
-  unparseable to the harness.
-- `Date.now()`, `new Date()` and `Math.random()` **throw** inside a script; they
-  would break resume. Timestamps come in through `args`.
-- `opts.model` takes the short names (`haiku`, `sonnet`, `opus`, `fable`) or
-  the one pinned full ID `claude-opus-4-8`. Workflow's `agent()` accepts
-  full model IDs — measured 2026-09-01, probe `wf_93d94701-ae1`:
-  `claude-opus-4-8` → Opus 4.8, `opus-4-8` rejected — and the runner and the
-  plan linter accept exactly that one full ID and no other.
-- The script's **return value** is the result. `console.log` is not a channel;
-  `log()` emits progress, not results.
-- `agent()` returns `null` when a subagent dies after retries — every call site
-  needs a guard, or one API error takes the whole wave down.
-- The tool-call layer may deliver `args` as a JSON-encoded string. Parse it
-  first — guarded, failing closed with a named error when the parse throws —
-  then validate; that is what the shipped runner does. A script that skips
-  both will read `args.foo` as `undefined` and run to a plausible,
-  meaningless result.
-
-Verified 2026-08-12 the hard way: a carefully built harness, dry-run by its
-author across seven scenarios, was still rejected four times at launch for four
-different items on this list. The author was not careless — the information was
-not reachable from where it stood.
 
 ## Result Review Checklist
 

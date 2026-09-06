@@ -1,0 +1,16 @@
+{
+  "name": "temmax-skills",
+  "owner": { "name": "TemMax" },
+  "plugins": [
+    {
+      "name": "orchestration",
+      "source": { "source": "local", "path": "./plugins/orchestration" },
+      "description": "Claude Code and Codex planning plus supervised multi-model development waves; lifecycle hooks are host-dependent."
+    },
+    {
+      "name": "code-review",
+      "source": { "source": "local", "path": "./plugins/code-review" },
+      "description": "Claude Code and Codex evidence-based code and pull-request reviews; lifecycle hooks are host-dependent."
+    }
+  ]
+}

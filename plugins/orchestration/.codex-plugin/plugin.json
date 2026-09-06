@@ -1,0 +1,20 @@
+{
+  "name": "orchestration",
+  "version": "2.6.0",
+  "description": "Dual-host development orchestration for Claude Code and Codex: super-plan creates wave-ready tasks with machine-checkable contracts, multi-model executes isolated supervised waves through the host-native adapter, and ship carries approved plans through reviewed delivery while leaving merge authority with the user. Exact Claude and GPT-5.6 profiles provide evidence-scoped guidance with a conservative generic fallback.",
+  "author": {
+    "name": "TemMax",
+    "url": "https://github.com/TemMax"
+  },
+  "repository": "https://github.com/TemMax/claude-skills",
+  "keywords": [
+    "orchestration",
+    "multi-agent",
+    "subagents",
+    "workflow",
+    "delegation",
+    "model-routing"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
+}
