@@ -267,3 +267,17 @@ their individual SHA-256 hashes. Parent rollout SHA-256:
 `782fd10a5225629ee7175732edec072e41a5da47e44b6d883575271c3d8c90ba`.
 Parent CLI usage: input 62,492; cached input 55,040; output 199; reasoning
 output 0. This excludes child usage and is not subscription consumption.
+
+The approved follow-up adds an opt-in wave-harness collector, keeping these
+diagnostics separate from the unchanged native-event scorer. Offline replay
+of the three saved probe files reproduced both model/effort pairs and identical
+ciphertext delivery, with plaintext still unverified. The first replay exposed
+the real root metadata's null `agent_path`; a failing regression test preceded
+the root-session identity fix. Both replay reports remain alongside the raw
+probe as `harness-replay/` and `harness-replay-root-fix/`. No new live run was
+needed; this follow-up does not retroactively qualify earlier wave cells.
+Independent review found a non-bijective spawn/start binding gap; a failing
+mutation test reproduced it before the fix. All 31 collector cases now pass;
+the full offline suite and the wave scorer self-test also passed. Final saved
+probe replay is retained as `harness-replay-final/`, still without plaintext
+qualification.

@@ -360,21 +360,46 @@ print("pass")
 PY
 }
 
-eval_codex_json() { # real-codex repo sandbox prompt answer output-variable
+eval_codex_json() { # real-codex repo sandbox prompt answer output-variable [new-rollout-directory]
   local real_codex="$1" repo="$2" sandbox="$3" prompt="$4" answer="$5" output_name="$6"
   local model="${EVAL_MODEL:-gpt-5.6-sol}" effort="${EVAL_EFFORT:-medium}"
   local limit="${EVAL_TIMEOUT:-600}" captured='' real_rc launch_cwd="$repo"
+  local rollout_dir="${7:-}" rollout_rc=0
+  local -a persistence=(--ephemeral) rollout_args=()
+  case "${EVAL_CODEX_ROLLOUTS:-0}" in
+    0) ;;
+    1)
+      [ -n "$rollout_dir" ] || return 2
+      [ ! -e "$rollout_dir" ] && [ ! -L "$rollout_dir" ] || return 73
+      [ -d "$(dirname "$rollout_dir")" ] || return 2
+      persistence=()
+      if [ -n "${EVAL_CODEX_SESSIONS_DIR:-}" ]; then
+        rollout_args=(--sessions "$EVAL_CODEX_SESSIONS_DIR")
+      fi
+      ;;
+    *) return 2 ;;
+  esac
   [ -x "$real_codex" ] || return 69
   case "$sandbox" in read-only|workspace-write) ;; *) return 2 ;; esac
   if [ "$sandbox" = workspace-write ]; then launch_cwd="$(dirname "$repo")"; fi
   : > "$answer" || return
   if captured="$(cd "$launch_cwd" && timeout "$limit" "$real_codex" exec --json \
-    --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check \
+    ${persistence[@]+"${persistence[@]}"} --ignore-user-config --ignore-rules --skip-git-repo-check \
     --sandbox "$sandbox" --model "$model" \
     -c "model_reasoning_effort=\"$effort\"" --output-last-message "$answer" - < "$prompt")"; then
     real_rc=0
   else
     real_rc=$?
+  fi
+  if [ "${EVAL_CODEX_ROLLOUTS:-0}" = 1 ]; then
+    # Same private stream as scoring, never a model-writable event-log path.
+    # A saved report (even partial/unverified) is diagnostic, not a passing cell.
+    if printf '%s\n' "$captured" | node "$ROOT/tests/eval/codex-rollouts.mjs" \
+      --output "$rollout_dir" ${rollout_args[@]+"${rollout_args[@]}"} >/dev/null; then
+      rollout_rc=0
+    else
+      rollout_rc=$?
+    fi
   fi
   if [ -z "$captured" ] || ! printf '%s\n' "$captured" | python3 -c '
 import json, sys
@@ -393,6 +418,7 @@ for line in lines:
     return 74
   fi
   printf -v "$output_name" '%s' "$captured"
+  [ "$real_rc" -ne 0 ] || [ "$rollout_rc" -eq 0 ] || return "$rollout_rc"
   return "$real_rc"
 }
 
@@ -656,7 +682,7 @@ record_codex_cell() { # scenario semantic expected repo base source-prompt
   event_file="$cell/codex-exec-events.jsonl"
   start="$(now_ms)"
   set +e
-  eval_codex_json "$REAL_CODEX" "$repo" workspace-write "$prompt" "$answer" event_json
+  eval_codex_json "$REAL_CODEX" "$repo" workspace-write "$prompt" "$answer" event_json "$cell/rollouts"
   eval_rc=$?
   set -e
   if [ -n "$event_json" ]; then
@@ -701,6 +727,9 @@ record_codex_cell() { # scenario semantic expected repo base source-prompt
   printf '%s\n' "$classification" > "$class_file"
   printf 'status=%s\nexit=%s\nelapsed_ms=%s\ncodex_events=%s\ncodex_event_diagnostic_capture=%s\ncodex_evidence_diagnostic_capture=%s\ninput_tokens=unavailable\noutput_tokens=unavailable\ncost=unavailable\nstate=%s\n' \
     "$status" "$eval_rc" "$elapsed" "$event_file" "$event_publish_rc" "$capture_rc" "${state_file:-unavailable}" > "$status_file"
+  if [ "${EVAL_CODEX_ROLLOUTS:-0}" = 1 ]; then
+    printf 'codex_rollouts=%s\n' "$cell/rollouts/report.json" >> "$status_file"
+  fi
   printf 'wave\t%s\t%s\t%s\t%s\t%s\tyes\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunavailable\tunavailable\tunavailable\n' \
     "$scenario" "$semantic" "${EVAL_PROVIDER:-codex}" "$EVAL_MODEL" "${EVAL_EFFORT:-medium}" "$status" "$classification" "$eval_rc" "$elapsed" \
     "$prompt" "$answer" "$class_file" "$status_file" >> "$ROWS"
@@ -1150,6 +1179,41 @@ SH
     capture_rc=$?
     set -e
     [ "$capture_rc" -eq 74 ] && [ -z "$bad_events" ]
+  done
+
+  # Opt-in retains sessions and adds diagnostics without changing native scoring.
+  local_rollout_events=''
+  EVAL_CODEX_ROLLOUTS=1 EVAL_CODEX_SESSIONS_DIR="$W/missing-sessions" \
+    CAPTURE_TEST_ARGS="$W/retained-args" CAPTURE_TEST_PWD="$W/retained-pwd" EVAL_TIMEOUT=5 \
+    eval_codex_json "$W/real-codex-stub" "$W/capture-model-repo" read-only \
+    "$W/capture-prompt.md" "$W/retained-answer.txt" local_rollout_events "$W/retained-rollouts"
+  if grep -q -- '--ephemeral' "$W/retained-args"; then
+    printf 'wave RED: opt-in still uses --ephemeral\n' >&2
+    exit 1
+  fi
+  [ "$local_rollout_events" = '{"type":"thread.started","thread_id":"offline-wrapper-test"}' ]
+  [ -s "$W/retained-rollouts/report.json" ]
+  [ "$(printf '%s\n' "$local_rollout_events" | classify_codex_events -)" = 'fail:unverified-native-actions' ]
+  set +e
+  EVAL_CODEX_ROLLOUTS=1 EVAL_CODEX_SESSIONS_DIR="$W/missing-sessions" CAPTURE_TEST_EXIT=19 \
+    CAPTURE_TEST_ARGS="$W/retained-failure-args" CAPTURE_TEST_PWD="$W/retained-failure-pwd" EVAL_TIMEOUT=5 \
+    eval_codex_json "$W/real-codex-stub" "$W/capture-model-repo" read-only \
+    "$W/capture-prompt.md" "$W/retained-failure-answer.txt" local_rollout_events "$W/retained-failure-rollouts"
+  retained_rc=$?
+  set -e
+  [ "$retained_rc" -eq 19 ] && [ -s "$W/retained-failure-rollouts/report.json" ]
+
+  # Bad options and reused destinations must be rejected before invoking Codex.
+  for opt in invalid reused missing-destination; do
+    set +e
+    EVAL_CODEX_ROLLOUTS="$([ "$opt" = invalid ] && printf invalid || printf 1)" \
+      CAPTURE_TEST_ARGS="$W/never-$opt" CAPTURE_TEST_PWD="$W/never-pwd-$opt" EVAL_TIMEOUT=5 \
+      eval_codex_json "$W/real-codex-stub" "$W/capture-model-repo" read-only \
+      "$W/capture-prompt.md" "$W/never-answer-$opt" local_rollout_events \
+      "$([ "$opt" = missing-destination ] || printf '%s' "$W/retained-rollouts")"
+    retained_rc=$?
+    set -e
+    [ "$retained_rc" -ne 0 ] && [ ! -e "$W/never-$opt" ]
   done
 
   printf 'wave Codex scorer self-test: PASS\n'
