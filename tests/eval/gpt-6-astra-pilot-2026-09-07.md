@@ -230,3 +230,40 @@ Raw evidence, fixture scripts, source patch and probe validator are retained in
 ignored `other/eval/astra-runtime-fixes-20260907.K0kOaz/` alongside the older
 failed runs. Ship event-log SHA-256:
 `3a2df21ddb00da07ff1a3bee868867175ce2cf5a483a9b858db7bf9f1d3633bd`.
+
+## Phase 4 — retained-rollout observability spike
+
+One approved, fresh Codex CLI 0.153.4 probe ran without `--ephemeral`, with an
+Astra/medium parent and exactly two fresh children: Luna/medium and Astra/high.
+Each child was asked only to return a distinct marker without tools or further
+delegation. The run exited 0 in 29 seconds (180-second cap); both markers and
+the parent's final marker matched. These role labels do not make an echo probe
+an implementation/supervision wave or a behavioral calibration cell.
+
+The public JSONL still omitted spawn calls. The saved parent rollout retained
+both `collaboration.spawn_agent` calls and call-linked `SubAgentActivity`
+records. Child rollouts independently recorded the requested model and effort
+in `turn_context`, with matching parent/thread/task identifiers and completion
+records. This verifies the route in local runtime records, not backend model
+attestation and not the launches in earlier ephemeral runs.
+
+V2 stored each task message as encrypted content. Parent call arguments and
+child input contained identical ciphertext, so delivery is traceable; exact
+plaintext binding to an approved helper prompt remains **unverified**. Expected
+echo responses do not establish byte-for-byte plaintext equality. No decryption
+or scorer relaxation was attempted; the full wave remains unqualified.
+
+A throwaway, probe-specific verifier passed offline replay of the three saved
+rollouts and rejected nine in-memory mutations: wrong model, effort, parent,
+task path, payload, missing/duplicate child, unbound call ID and missing
+completion. Replay output was byte-identical. This is feasibility evidence,
+not a production collector or adversarially qualified scorer. Runtime, skills
+and evaluation harness are unchanged; no further live calls were started.
+
+Raw evidence and the verifier remain local in ignored
+`other/eval/astra-rollout-probe-20260907.xKrBl6/`; only these three probe rollouts
+were captured, not unrelated session histories. `verification.json` records
+their individual SHA-256 hashes. Parent rollout SHA-256:
+`782fd10a5225629ee7175732edec072e41a5da47e44b6d883575271c3d8c90ba`.
+Parent CLI usage: input 62,492; cached input 55,040; output 199; reasoning
+output 0. This excludes child usage and is not subscription consumption.
