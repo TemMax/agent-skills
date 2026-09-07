@@ -73,3 +73,6 @@ usage gaps; discovery, offline validation, and single passes are insufficient.
 The repository's `tests/eval/gpt-6-astra-pilot-2026-09-07.md` records the bounded
 local pilot and its gaps. It does not qualify a live executor/supervisor pair
 or end-to-end orchestration route.
+Its follow-up records three passing Sol/high drift-hook fixtures, two timed-out
+native waves, and a ship attempt stopped by a malformed supervisor verdict.
+The full route remains unqualified; no passing publication is claimed.

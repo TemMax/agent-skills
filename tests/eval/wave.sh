@@ -445,14 +445,14 @@ classify_codex() { # expected immutable-cell base [events-source|-]
     printf 'fail:invalid-helper-summary'
     return
   fi
-  printf '%s\n' "$event_json" | python3 /dev/fd/3 "$expected" "$evidence" "$base" 3<<'PY'
+  printf '%s\n' "$event_json" | python3 /dev/fd/3 "$expected" "$evidence" "$base" "${EVAL_MODEL:-gpt-5.6-sol}" 3<<'PY'
 import hashlib
 import json
 import re
 import sys
 from pathlib import Path
 
-expected, evidence_arg, base = sys.argv[1:]
+expected, evidence_arg, base, orchestrator_model = sys.argv[1:]
 evidence = Path(evidence_arg)
 
 def text(name):
@@ -553,7 +553,7 @@ supervisor_prompt = collab[2].get("prompt") if len(collab) == 4 else None
 if supervisor_prompt != expected_supervisor_prompt or executor_model in supervisor_prompt:
     fail("unverified-native-actions")
 
-expected_supervisor = {"model": "gpt-5.6-terra", "effort": "high"}
+expected_supervisor = {"model": "gpt-6-astra" if orchestrator_model == "gpt-6-astra" else "gpt-5.6-terra", "effort": "high"}
 expected_executor = {"model": "gpt-5.6-luna", "effort": "medium"}
 if wave.get("supervisor") != expected_supervisor \
         or plan_task.get("executor") != expected_executor \
@@ -720,6 +720,10 @@ PY
   else
     command cp tests/fixtures/plans/codex-clean.md "$R/plan.md"
   fi
+  if [ "${EVAL_MODEL:-}" = gpt-6-astra ]; then
+    sed 's/"model": "gpt-5.6-terra"/"model": "gpt-6-astra"/' "$R/plan.md" > "$root/astra-plan.md"
+    command mv "$root/astra-plan.md" "$R/plan.md"
+  fi
   git -C "$R" init -q
   git -C "$R" add -A
   git -C "$R" commit -q -m base
@@ -791,6 +795,20 @@ PY
 if [ "${1:-}" = --self-test ]; then
   set -e
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+
+  EVAL_MODEL=gpt-6-astra evolve_test_wave "$W/astra" success
+  A_REPO="$TEST_REPO"; A_BASE="$TEST_BASE"
+  python3 - "$TEST_STATE" <<'PY'
+import json, sys
+state = json.load(open(sys.argv[1]))
+assert state["supervisor"] == {"model": "gpt-6-astra", "effort": "high"}
+assert state["tasks"]["divide-guard"]["rungs"] == ["gpt-5.6-luna", "gpt-5.6-sol"]
+PY
+  mkdir -p "$W/astra-cell"
+  capture_codex_evidence success "$A_REPO" "$A_BASE" "$W/astra/answer.txt" \
+    "$W/astra/codex-events.jsonl" "$W/astra-cell"
+  [ "$(EVAL_MODEL=gpt-6-astra classify_codex success "$W/astra-cell" "$A_BASE")" = pass ]
+  [ "$(EVAL_MODEL=gpt-5.6-sol classify_codex success "$W/astra-cell" "$A_BASE")" = 'fail:wrong-plan-model-tuple' ]
 
   evolve_test_wave "$W/success" success
   S_REPO="$TEST_REPO"; S_BASE="$TEST_BASE"
@@ -1151,6 +1169,8 @@ codex_probe() {
   init_codex_repo "$work/success" success
   success_repo="$R"; success_base="$BASE"
   cat > "$work/success-prompt.md" <<EOF
+PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=$EVAL_MODEL effort=unknown
+
 EVAL MODE: Read and apply the multi-model skill at $MULTI_SKILL and its Codex-native protocol at $CODEX_PROTOCOL. The lint-clean plan is $success_repo/plan.md, wave 1, repository $success_repo, exact pushed base $success_base. Use $PLAN_LINT and $CODEX_STATE exactly as the protocol directs. Use spawn_agent and wait_agent for executor and supervisor; followup_task is optional, and its absence requires a fresh spawn rather than tool-unavailable. Never invoke claude, Codex provider CLIs, or Workflow. Executor and supervisor must use the exact different model ids returned by the helper. The harness records native collaboration directly; do not create, edit, or report a trace file. If spawn_agent or wait_agent is unavailable, do not simulate native collaboration: record the fixed {"error":{"kind":"tool-unavailable"}} payload through the helper until terminal and report tool-unavailable. If available, complete the division-by-zero task through the normal publication: push flow: merge the successful task into master, run the shared full-wave review against that integrated state, then push master to the disposable origin. Preserve the state, mechanical verifier output, and terminal summary.
 EOF
   record_codex_cell codex-native-success success success "$success_repo" "$success_base" "$work/success-prompt.md" || rc=1
@@ -1158,6 +1178,8 @@ EOF
   init_codex_repo "$work/failure" failure
   failure_repo="$R"; failure_base="$BASE"
   cat > "$work/failure-prompt.md" <<EOF
+PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=$EVAL_MODEL effort=unknown
+
 EVAL MODE: Read and apply the multi-model skill at $MULTI_SKILL and its Codex-native protocol at $CODEX_PROTOCOL. The lint-clean plan is $failure_repo/plan.md, wave 1, repository $failure_repo, exact pushed base $failure_base. Use $PLAN_LINT and $CODEX_STATE exactly as directed. Use native spawn_agent and wait_agent only; followup_task is optional, and its absence requires a fresh spawn rather than tool-unavailable. Never invoke claude, Codex provider CLIs, or Workflow. The harness records native collaboration directly; do not create, edit, or report a trace file. The second must_run fails independently of all files_allowed; a truthful supervisor must preserve its real output and mark it unsatisfiable. Never merge a failing task. Only if spawn_agent or wait_agent is unavailable, record {"error":{"kind":"tool-unavailable"}} through the helper until terminal and report tool-unavailable; never simulate success.
 EOF
   record_codex_cell codex-independent-must-run failure failure "$failure_repo" "$failure_base" "$work/failure-prompt.md" || rc=1

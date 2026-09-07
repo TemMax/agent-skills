@@ -155,8 +155,8 @@ orchestrator; that pairing also needs calibration. Other profiles retain their
 existing rules. See [the role decision](docs/decisions/005-astra-active-seat.md)
 and the [Astra dossier](plugins/orchestration/skills/multi-model/references/gpt-6-astra-dossier.md).
 The [bounded Astra pilot](tests/eval/gpt-6-astra-pilot-2026-09-07.md) records
-offline checks, six live CLI cases, a preserved scorer disagreement, and the
-remaining end-to-end calibration gaps.
+offline checks, bounded live cases, preserved failures and scorer disagreement,
+and the remaining end-to-end calibration gaps.
 
 Both Codex manifests intentionally retain their `hooks` fields, including the
 orchestration advisory drift hook. Lifecycle behavior is host-dependent;

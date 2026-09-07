@@ -5,7 +5,7 @@ Source baseline: `35f31bf`; candidate versions: orchestration 2.7.0,
 code-review 1.6.0. The user requested budget restraint with 42% quota remaining.
 No full matrix, repeats, automatic model retries, or installed-plugin changes.
 
-## Scope and results
+## Scope and results — phase 1
 
 Six Codex CLI calls used disposable repositories, `--ephemeral`, ignored user
 config/rules, read-only model sandboxes, and a 180-second per-call timeout.
@@ -86,7 +86,7 @@ input/cached/output breakdown, billed usage, or subscription percentage, and
 excludes the parent session and native profile/review agents. Reviewer cells
 retain `unavailable` for missing detailed usage and cost; no values are inferred.
 
-## Not qualified by this pilot
+## Not qualified by phase 1
 
 No full native Astra-led executor wave, linted live planner output, end-to-end
 ship/PR lifecycle, Sol-on-Astra live drift judge, repeated clean/defect guard,
@@ -94,3 +94,82 @@ or effort comparison was run. GPT-5.6 routes remain unsupported under their
 older calibration; new Astra-led pairs remain explicit calibration candidates.
 The next budget checkpoint must choose those missing tests before any claim
 of all-skills production qualification.
+
+## Phase 2 — native waves, full ship attempt, actual drift hook
+
+The user authorized the remaining probes. Codex CLI version: 0.153.4.
+Runtime source stayed at `af8ac4c`; only the wave test harness changed during
+preparation. Its Astra fixture and frozen expected tuple now use Astra/high
+supervision, retaining Luna/medium execution and the Sol ladder. A red/green
+offline self-test covers that route and rejects treating it as the older tuple.
+After recording the results, `bash tests/run.sh` passed all offline tiers.
+Independent read-only review found no important issues in the harness diff;
+that review does not qualify the live route or its missing launch telemetry.
+
+| Probe | Limit / effort | Result |
+|---|---|---|
+| Native successful-wave fixture | 360 s; Astra/medium orchestrator | Timeout, exit 124; one executor report, clean mechanical facts, no recorded verdict |
+| Native impossible-contract fixture | 360 s; Astra/medium orchestrator | Timeout, exit 124; required independent command correctly red, no recorded verdict |
+| Full ship attempt from a new request | 540 s; Astra/medium orchestrator | Process exited 0 after reporting a blocked workflow; no PR, not a passing ship cell |
+| Actual Astra drift hook: dropped gamma | Sol/high | Pass: advice names gamma |
+| Actual Astra drift hook: unbacked beta | Sol/high | Pass: advice names beta |
+| Actual Astra drift hook: clean transcript | Sol/high | Pass: captured judge verdict is nothing; hook emits `{}` |
+
+The drift calls exercised the real hook's routing, schema and host output,
+not just its raw prompt. All three judge processes exited 0. The initial local
+capture-wrapper setup failed before model invocation; its log is retained.
+No live retry was used to replace a failed result.
+
+### What the ship attempt actually reached
+
+Unlike the older stubbed `tests/eval/ship.sh`, this attempt used the real source
+ship, planner and wave adapter. Only GitHub was replaced by a local fake.
+The model authored a plan, ran the linter, pushed a feature branch to a local
+bare origin, reproduced the expected-red base, obtained an implementation
+commit and clean mechanical verification, and requested separate supervision.
+
+The returned supervisor JSON contained these root fields:
+`ok`, `violations`, `pasteReproduced`, `remarks`. Its code verdict was clean,
+but the helper requires exactly `ok`, `violations`, `remarks`; paste evidence
+belongs within a violation. The helper rejected the response, and the
+orchestrator stopped without rewriting it, merging the task or creating a PR.
+Critical-review was not reached. The raw rejection remains a failure.
+
+The attempt also exposed relative-path persistence: `init` saved a relative
+plan path, so `next` failed after a cwd change and worked again from the repo.
+Pure offline replay confirmed both independent problems: the original verdict
+is rejected; a diagnostic three-key copy is accepted only from the proper cwd.
+No stored state or model verdict was normalized to manufacture a pass.
+
+Proposed follow-up, pending approval: normalize init paths, make the Codex
+supervisor output contract explicit without relaxing validation, then run a
+targeted output check and one fresh ship smoke. Neither fix is part of this
+phase's measured runtime source.
+
+### Evidence and measurement limits
+
+The CLI streams contain native wait events with empty receiver/state maps,
+but no spawn events. Model launch claims therefore cannot be independently
+qualified by this stream. Do not relax the existing native-event scorer to
+accept prose or plan metadata as proof of launches. The wave timeout failures
+and this telemetry limitation are distinct.
+
+Raw prompts, responses, helper snapshots, fixture scripts and logs are kept
+locally in ignored `other/eval/astra-e2e-20260907.td8Evk/`. The ship GitHub fake
+recorded only auth/repository reads; no PR call occurred. Its master remained
+at the original base, and the implementation stayed on its task branch.
+
+Ship `turn.completed.usage`: input 1,194,567; cached input 1,132,288;
+output 10,593; reasoning output 227. These are the reported CLI fields, not
+a verified parent-plus-children total. Wave timeouts have no terminal usage;
+the hook hides detailed usage. No aggregate cost or subscription percentage
+is inferred from this incomplete record.
+
+Ship event-log SHA-256:
+`f9f9c66052af9f2ecaa47887ac81246f3f709b581c1485e5d43843d57c6e9ebc`.
+Rejected supervisor JSON SHA-256:
+`86e67dfe0839b921926bfd44d2da83ff044c1508c3eab176ca2b0aa308e5fcd9`.
+
+Conclusion: drift has three bounded positive observations; the full route is
+**not qualified**. Safe refusal to publish a malformed verdict is useful
+evidence of the guard, not successful end-to-end delivery.
