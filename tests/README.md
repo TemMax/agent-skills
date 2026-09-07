@@ -51,6 +51,12 @@ ask)" rather than resolve it silently.
 
 ## GPT-5.6 all-skills matrix
 
+The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
+budget-bounded check, not an expansion of this matrix or production qualification.
+`tests/eval/critical-review.sh` accepts `EVAL_CASE=clean` for one clean-diff
+call and `EVAL_CASE=hard` for one planted-defect call when `EVAL_REPEAT=1`.
+Both require a fresh results directory and explicit live-call authorization.
+
 The full three-model matrix is deliberately separate from the normal
 `tests/run.sh --live` entry point, which explicitly skips
 `gpt-5-6-matrix.sh` and cannot silently expand into the expensive matrix.
@@ -141,6 +147,52 @@ completed command execution total; approved mode permits exactly two. Saved JSON
 context-bearing semantic probes inject the production hook context's literal
 `effort=unknown`; provider, model, and the matrix's actual effort are preserved
 separately as `EVALUATION_SESSION_METADATA_V1` and status evidence.
+
+### Optional Codex wave rollouts
+
+For an already authorized live wave run, set `EVAL_CODEX_ROLLOUTS=1` alongside
+`EVAL_PROVIDER=codex` and a fresh `EVAL_RESULTS_DIR`. This affects only
+`tests/eval/wave.sh`: it omits `--ephemeral` and adds
+`raw/<cell>/rollouts/report.json` plus private raw snapshots under
+`raw/<cell>/rollouts/rollouts/`. Default runs remain ephemeral; other evaluation
+tiers and Claude are unchanged. Enabling capture does not add model calls or
+retries. Invalid flag values and reused capture destinations stop before launch.
+The session-retention switch is documented in the
+[official non-interactive-mode guide](https://learn.chatgpt.com/docs/non-interactive-mode).
+
+The collector uses the CLI's exact `thread.started` UUID and the parent's
+direct-child activity IDs, never the latest session or a search through prompt
+text. It discovers filenames across date directories, including midnight
+crossings. The default source is `${CODEX_HOME:-$HOME/.codex}/sessions`;
+`EVAL_CODEX_SESSIONS_DIR` overrides the **read location only**, not where Codex
+writes sessions. Copies are mode 0600 inside a new mode-0700 directory, with
+SHA-256 hashes. Rollouts can contain sensitive prompts and tool output: keep
+results local/ignored. Original Codex history is retained, not cleaned up.
+
+The diagnostic format is deliberately limited to observed CLI 0.153.4 V2,
+isolated direct spawns and one turn per actor. It checks call/parent/child/turn
+links, requested model and effort against child `turn_context`, terminal records
+and identical ciphertext delivery. Unsupported versions, follow-up turns, nested
+delegation, missing or ambiguous evidence stay `unverified`; capture failures
+are recorded without automatic retries. `routing=verified-runtime-records`
+means spawn-request-to-child consistency, not agreement with the wave plan or
+backend attestation. `plaintextPromptBinding=unverified-encrypted` is never a
+full pass: the strict existing wave scorer does not consume these diagnostics.
+Local rollout files are not a tamper-proof trust anchor.
+
+Offline replay requires no model call and can use saved snapshots instead of
+the live session store (destination must not exist):
+
+```sh
+node tests/eval/codex-rollouts.mjs --sessions /path/to/saved/rollouts \
+  --output /path/to/new-diagnostic < /path/to/codex-exec-events.jsonl
+node --test tests/eval/codex-rollouts.test.mjs
+```
+
+Collector exit 0 means a report was written, including partial/unverified
+reports, **not** a qualified route. Exit 73 refuses an existing destination;
+74 indicates an argument or publication error. Read the report's separate
+capture, routing, delivery, plaintext and problem fields.
 
 Every run emits `summary.tsv` and `summary.md`; input tokens, output tokens, and
 cost are written as `unavailable` when the adapter does not observe them. They

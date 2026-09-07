@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
-  cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync,
+  cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync,
   rmSync, symlinkSync, writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -190,6 +190,25 @@ test('C1b a state file reached through an equivalent directory alias is accepted
   const action = next(aliasedState)
   assert.equal(action.action, 'spawn-executor')
   assert.equal(action.worktree, env.worktree)
+})
+
+test('C1e relative init paths survive later commands from a different cwd', () => {
+  const env = makeRepo()
+  const result = spawnSync(process.execPath, [CLI, 'init', '--plan', basename(env.plan),
+    '--wave', '1', '--repo', 'repo', '--base', env.base], {
+    cwd: env.root, encoding: 'utf8',
+  })
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  env.statePath = JSON.parse(result.stdout).state
+  // next and every remaining CLI call run from ROOT, not the init cwd.
+  const action = next(env.statePath)
+  assert.equal(action.action, 'spawn-executor')
+  assert.equal(realpathSync(action.worktree),
+    realpathSync(join(env.repo, '.worktrees', 'wave-divide-guard')))
+  assert.equal(git(action.worktree, 'rev-parse', 'HEAD'), env.base)
+  prepareAttempt(env)
+  recordVerdict(env.statePath, clean())
+  assert.equal(next(env.statePath).action, 'merge-ready')
 })
 
 test('C1c a mutating command reached through a state symlink updates the canonical file', () => {
@@ -420,6 +439,21 @@ test('C7 clean verdict yields merge-ready and done summary', () => {
   assert.equal(summary.status, 'done')
   assert.equal(summary.tasks[0].id, 'divide-guard')
   assert.equal(summary.tasks[0].status, 'ok')
+})
+
+test('C7b root-level violation metadata is rejected without changing verified state', () => {
+  const env = init()
+  prepareAttempt(env)
+  const before = readFileSync(env.statePath, 'utf8')
+  for (const field of ['pasteReproduced', 'satisfiable']) {
+    const result = invoke(['record-verdict', '--state', env.statePath,
+      '--task', 'divide-guard'], { ...clean(), [field]: true })
+    assert.notEqual(result.status, 0)
+    assert.match(result.json.errors.join('; '), /supervisor-result: expected the fixed verdict schema/)
+    assert.equal(readFileSync(env.statePath, 'utf8'), before)
+  }
+  recordVerdict(env.statePath, { ...clean(), remarks: ['The pasted output reproduced.'] })
+  assert.equal(next(env.statePath).action, 'merge-ready')
 })
 
 test('C8 first violation requests same-model rework with prior verdict', () => {
@@ -983,6 +1017,95 @@ test('C20 multi-task next skips ready-to-merge tasks until the wave is ready', (
   assert.equal(action.action, 'merge-ready')
   assert.deepEqual(action.tasks, ['divide-guard', 'multiply-guard'])
   assert.equal(ok(['summary', '--state', env.statePath]).status, 'done')
+})
+
+function withAstraSupervisor(text) {
+  return text.replace('"model": "gpt-5.6-terra", "effort": "high"',
+    '"model": "gpt-6-astra", "effort": "high"')
+}
+
+test('C21 Astra supervises each GPT-5.6 executor without replacing it', () => {
+  for (const model of ['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol']) {
+    const env = init({ planText: (text) => withAstraSupervisor(text)
+      .replace('"model": "gpt-5.6-luna"', '"model": "' + model + '"')
+      .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": []') })
+    assert.equal(next(env.statePath).model, model)
+    prepareAttempt(env)
+    const action = next(env.statePath)
+    assert.equal(action.action, 'spawn-supervisor')
+    assert.equal(action.model, 'gpt-6-astra')
+    assert.equal(action.effort, 'high')
+    recordVerdict(env.statePath, clean())
+    assert.equal(next(env.statePath).action, 'merge-ready')
+  }
+})
+
+test('C21b Astra never enters an executor or escalation slot', () => {
+  for (const mutate of [
+    (text) => text.replace('"model": "gpt-5.6-luna"', '"model": "gpt-6-astra"'),
+    (text) => text.replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]'),
+  ]) {
+    const env = init({ invalid: true, planText: mutate })
+    assert.equal(env.result.status, 1)
+    assert.match(env.result.json.errors.join('; '), /executor\.model|\.ladder/)
+    assert.equal(existsSync(join(env.repo, '.worktrees')), false)
+  }
+})
+
+test('C21c Astra supervision preserves the six-attempt GPT-only terminal stop', () => {
+  const env = init({ planText: (text) => withAstraSupervisor(text)
+    .replace('"ladder": ["gpt-5.6-sol"]',
+      '"ladder": ["gpt-5.6-terra", "gpt-5.6-sol"]') })
+  const expected = ['gpt-5.6-luna', 'gpt-5.6-luna', 'gpt-5.6-terra',
+    'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-5.6-sol']
+  for (const model of expected) {
+    const action = next(env.statePath)
+    assert.equal(action.action, 'spawn-executor')
+    assert.equal(action.model, model)
+    assert.notEqual(action.effort, 'max')
+    prepareAttempt(env)
+    recordVerdict(env.statePath, failed('same unresolved requirement'))
+  }
+  assert.equal(next(env.statePath).action, 'stop')
+  assert.equal(next(env.statePath).reason, 'failed')
+  assert.equal(state(env.statePath).tasks['divide-guard'].totalAttempts, 6)
+})
+
+test('C21d persisted Astra executor injection is rejected before a spawn', () => {
+  const env = init({ planText: withAstraSupervisor })
+  const saved = state(env.statePath)
+  saved.tasks['divide-guard'].rungs[0] = 'gpt-6-astra'
+  writeFileSync(env.statePath, JSON.stringify(saved))
+  const before = readFileSync(env.statePath, 'utf8')
+  const result = invoke(['next', '--state', env.statePath])
+  assert.equal(result.status, 1)
+  assert.match(result.json.errors.join('; '), /rungs/)
+  assert.equal(readFileSync(env.statePath, 'utf8'), before)
+})
+
+test('C21e plan linter accepts Astra only as a Codex supervisor with explicit effort', () => {
+  const env = makeRepo()
+  const original = readFileSync(env.plan, 'utf8')
+  const linter = join(ROOT, 'plugins/orchestration/skills/super-plan/references/plan-lint.mjs')
+  const cases = [
+    ['Astra supervisor', withAstraSupervisor(original), 0, /OK: 0 error/],
+    ['Astra executor', original.replace('"model": "gpt-5.6-luna"',
+      '"model": "gpt-6-astra"'), 1, /executor\.model/],
+    ['Astra rung', original.replace('"ladder": ["gpt-5.6-sol"]',
+      '"ladder": ["gpt-6-astra"]'), 1, /\.ladder/],
+    ['missing supervisor effort', withAstraSupervisor(original)
+      .replace('"model": "gpt-6-astra", "effort": "high"',
+        '"model": "gpt-6-astra"'), 1, /supervisor\.effort/],
+    ['mixed providers', withAstraSupervisor(original)
+      .replace('"model": "gpt-5.6-luna"', '"model": "sonnet"'),
+    1, /mixes providers/],
+  ]
+  for (const [label, markdown, status, message] of cases) {
+    writeFileSync(env.plan, markdown)
+    const result = spawnSync(process.execPath, [linter, env.plan], { encoding: 'utf8' })
+    assert.equal(result.status, status, label + ': ' + result.stdout + result.stderr)
+    assert.match(result.stdout, message, label)
+  }
 })
 
 let failedCount = 0

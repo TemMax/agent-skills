@@ -9,13 +9,14 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join, isAbsolute } from 'node:path'
 
 // Claude plans use short IDs except for the one pinned Opus ID accepted by
-// Workflow. Codex plans use only the exact public GPT-5.6 IDs.
+// Workflow. Codex executors use exact GPT-5.6 IDs; Astra is supervisor-only.
 const CLAUDE_MODELS = ['haiku', 'sonnet', 'opus', 'fable', 'claude-opus-4-8']
 const CODEX_MODELS = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const MODELS = [...CLAUDE_MODELS, ...CODEX_MODELS]
+const SUPERVISORS = [...MODELS, 'gpt-6-astra']
 const providerForModel = (model) => CLAUDE_MODELS.includes(model)
   ? 'claude'
-  : CODEX_MODELS.includes(model) ? 'codex' : null
+  : CODEX_MODELS.includes(model) || model === 'gpt-6-astra' ? 'codex' : null
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
@@ -85,8 +86,8 @@ if (plan) {
     plan.waves.forEach((w, wi) => {
       const at = 'waves[' + wi + ']'
       if (!w || typeof w !== 'object') { err(at + ': must be an object'); return }
-      if (!w.supervisor || !MODELS.includes(w.supervisor.model)) {
-        err(at + '.supervisor.model: one of ' + MODELS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
+      if (!w.supervisor || !SUPERVISORS.includes(w.supervisor.model)) {
+        err(at + '.supervisor.model: one of ' + SUPERVISORS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
       }
       if (w.supervisor && providerForModel(w.supervisor.model) === 'codex'
         && w.supervisor.effort === undefined) {

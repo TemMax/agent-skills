@@ -11,6 +11,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const CODEX_MODELS = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+const CODEX_SUPERVISORS = [...CODEX_MODELS, 'gpt-6-astra']
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 export const ACTIONS = ['spawn-executor', 'verify', 'spawn-supervisor', 'merge-ready', 'stop']
 
@@ -134,10 +135,10 @@ export function validateCodexWave(wave, index) {
   if (!supervisor || typeof supervisor !== 'object' || Array.isArray(supervisor)) {
     errors.push(at + '.supervisor: required')
   } else {
-    if (!CODEX_MODELS.includes(supervisor.model)) {
+    if (!CODEX_SUPERVISORS.includes(supervisor.model)) {
       errors.push(at + '.supervisor.model: ' + (CLAUDE_MODELS.includes(supervisor.model)
         ? 'host-mismatch: Claude model in Codex wave'
-        : 'one of ' + CODEX_MODELS.join('/')))
+        : 'one of ' + CODEX_SUPERVISORS.join('/')))
     }
     if (!EFFORTS.includes(supervisor.effort)) {
       errors.push(at + '.supervisor.effort: explicit value required; one of ' + EFFORTS.join('/'))
@@ -373,7 +374,7 @@ function validateStoredState(state, statePath) {
   if (!ownKeysAre(state.supervisor, ['model', 'effort'])) {
     err('supervisor', 'exact model and effort required')
   } else {
-    if (!CODEX_MODELS.includes(state.supervisor.model)) err('supervisor.model', 'unsupported Codex model')
+    if (!CODEX_SUPERVISORS.includes(state.supervisor.model)) err('supervisor.model', 'unsupported Codex model')
     if (!EFFORTS.includes(state.supervisor.effort)) err('supervisor.effort', 'unsupported effort')
   }
   if (!state.tasks || typeof state.tasks !== 'object' || Array.isArray(state.tasks)
@@ -865,6 +866,16 @@ export function buildSupervisorPrompt(state, id, promptText) {
   return promptText + [
     '',
     '',
+    'CODEX OUTPUT CONTRACT:',
+    'Return one JSON object with exactly these three root keys:',
+    '{"ok": boolean, "violations": array, "remarks": array of strings}.',
+    'For a clean result, use {"ok":true,"violations":[],"remarks":["evidence summary"]}.',
+    'Describe successful pasted-output comparisons in remarks.',
+    'For a failing result, use ok:false and put each finding in violations.',
+    'Each violation has rule, class and evidence strings, plus an optional quote string.',
+    'pasteReproduced and satisfiable are boolean fields inside the relevant violation;',
+    'include satisfiable on each must_run violation and explain it in that violation\'s evidence.',
+    '',
     'CONTRACT:',
     JSON.stringify(spec.contract, null, 2),
     '',
@@ -1038,6 +1049,8 @@ function gitAt(repo, args) {
 }
 
 function initCommand(options) {
+  // Persist cwd-independent paths before Git or state/worktree creation uses them.
+  options = { ...options, plan: resolve(options.plan), repo: resolve(options.repo) }
   const waveNumber = Number(options.wave)
   if (!Number.isInteger(waveNumber) || waveNumber < 1) {
     throw new NamedError('wave-number', 'must be a positive integer')

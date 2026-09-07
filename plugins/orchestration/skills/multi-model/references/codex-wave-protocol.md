@@ -1,6 +1,8 @@
 # Codex-native supervised wave protocol
 
-Use this protocol only for a GPT-5.6-only wave. It is the host adapter for the
+Use this protocol only for a Codex-only wave: GPT-5.6 executors and a GPT-5.6
+or `gpt-6-astra` supervisor. Astra is never an executor or ladder rung.
+This is the host adapter for the
 shared wave contract, mechanical verifier, supervisor verdict schema,
 escalation ladder, and result review in `SKILL.md`; it does not redefine any of
 them. Claude-only waves use `wave-runner.workflow.mjs` instead. A mixed or

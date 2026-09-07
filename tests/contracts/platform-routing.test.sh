@@ -14,7 +14,7 @@ HJ=plugins/orchestration/hooks/hooks.json
 section "skill discovery stays trigger-first and preserves boundaries"
 
 expect "multi-model discovery description" \
-  "description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or GPT-5.6 agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'" \
+  "description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'" \
   "$(sed -n '3p' "$MM")"
 expect "super-plan discovery description" \
   "description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'" \
@@ -44,6 +44,8 @@ check "config identity guessing is forbidden by every skill" \
 section "orchestration skills map every supported GPT id and generic fallback"
 
 for skill in "$SP" "$SH"; do
+  check "$skill maps Astra" \
+    "grep -qF '| \`gpt-6-astra\` | \`../multi-model/references/orchestrator-gpt-6-astra.md\` |' '$skill'"
   check "$skill maps Sol" \
     "grep -qF '| \`gpt-5.6-sol\` | \`../multi-model/references/orchestrator-gpt-5-6-sol.md\` |' '$skill'"
   check "$skill maps Terra" \
@@ -56,6 +58,8 @@ done
 
 check "multi-model maps Sol" \
   "grep -qF '| \`gpt-5.6-sol\` | \`references/orchestrator-gpt-5-6-sol.md\` |' '$MM'"
+check "multi-model maps Astra" \
+  "grep -qF '| \`gpt-6-astra\` | \`references/orchestrator-gpt-6-astra.md\` |' '$MM'"
 check "multi-model maps Terra" \
   "grep -qF '| \`gpt-5.6-terra\` | \`references/orchestrator-gpt-5-6-terra.md\` |' '$MM'"
 check "multi-model maps Luna" \
@@ -67,6 +71,10 @@ section "critical-review maps every supported GPT id and generic fallback"
 
 check "critical-review maps Sol" \
   "grep -qF '| \`gpt-5.6-sol\` | \`references/reviewer-gpt-5-6-sol.md\` |' '$CR'"
+check "critical-review maps Astra" \
+  "grep -qF '| \`gpt-6-astra\` | \`references/reviewer-gpt-6-astra.md\` |' '$CR'"
+check "Astra review fix waves explicitly withhold publication" \
+  "grep -qF 'with \`publication: local\`' plugins/code-review/skills/critical-review/references/reviewer-gpt-6-astra.md"
 check "critical-review maps Terra" \
   "grep -qF '| \`gpt-5.6-terra\` | \`references/reviewer-gpt-5-6-terra.md\` |' '$CR'"
 check "critical-review maps Luna" \

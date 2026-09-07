@@ -376,6 +376,7 @@ repeat_scenario() { # base iteration total
 
 case_enabled() { # selector target
   [ "$1" = all ] \
+    || { [ "$1" = clean ] && [ "$2" = clean ]; } \
     || { [ "$1" = hard ] && [ "$2" = defect ]; } \
     || { [ "$1" = pr ] && [ "$2" = pr ]; }
 }
@@ -863,6 +864,9 @@ PY
     fi
   done
   [ "$(repeat_scenario clean-diff 3 5)" = clean-diff-repeat-3 ]
+  case_enabled clean clean
+  ! case_enabled clean defect
+  ! case_enabled clean pr
   [ "$(reviewer_profile_path gpt-5.6-terra)" = plugins/code-review/skills/critical-review/references/reviewer-gpt-5-6-terra.md ]
   [ "$(runtime_context code-review gpt-5.6-terra)" = 'PLUGIN_RUNTIME_CONTEXT_V1 plugin=code-review host=codex model=gpt-5.6-terra effort=unknown' ]
   [ "$(evaluation_metadata codex gpt-5.6-terra high)" = 'EVALUATION_SESSION_METADATA_V1 provider=codex model=gpt-5.6-terra effort=high' ]
@@ -1195,7 +1199,7 @@ EOF
 REPEAT="${EVAL_REPEAT:-1}"
 case "$REPEAT" in ''|*[!0-9]*|0) printf 'critical-review: EVAL_REPEAT must be a positive integer\n' >&2; exit 64 ;; esac
 CASE="${EVAL_CASE:-all}"
-case "$CASE" in all|hard|pr) ;; *) printf 'critical-review: unsupported EVAL_CASE=%s\n' "$CASE" >&2; exit 64 ;; esac
+case "$CASE" in all|clean|hard|pr) ;; *) printf 'critical-review: unsupported EVAL_CASE=%s\n' "$CASE" >&2; exit 64 ;; esac
 rc=0
 if case_enabled "$CASE" clean; then
   for iteration in $(seq 1 "$REPEAT"); do

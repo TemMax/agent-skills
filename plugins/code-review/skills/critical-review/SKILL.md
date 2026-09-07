@@ -3,7 +3,7 @@ name: critical-review
 description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.5.0
+  version: 1.6.0
 ---
 
 # Reviewing Changes Critically
@@ -26,6 +26,7 @@ Never read a user config file to guess a session override. Never load more than 
 | `gpt-5.6-sol` | `references/reviewer-gpt-5-6-sol.md` |
 | `gpt-5.6-terra` | `references/reviewer-gpt-5-6-terra.md` |
 | `gpt-5.6-luna` | `references/reviewer-gpt-5-6-luna.md` |
+| `gpt-6-astra` | `references/reviewer-gpt-6-astra.md` |
 | unknown | `references/reviewer-generic.md` |
 
 The alias `gpt-5.6` selects Sol only after the runtime-context handler has
