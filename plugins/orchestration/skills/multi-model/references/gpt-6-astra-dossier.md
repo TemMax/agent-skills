@@ -75,4 +75,7 @@ local pilot and its gaps. It does not qualify a live executor/supervisor pair
 or end-to-end orchestration route.
 Its follow-up records three passing Sol/high drift-hook fixtures, two timed-out
 native waves, and a ship attempt stopped by a malformed supervisor verdict.
-The full route remains unqualified; no passing publication is claimed.
+After two focused runtime corrections, a fresh output probe and one functional
+ship smoke reached a fake PR and clean review. Native launch telemetry, repeated
+clean/defect qualification and real GitHub/CI remain unverified; the full route
+remains unqualified.

@@ -173,3 +173,60 @@ Rejected supervisor JSON SHA-256:
 Conclusion: drift has three bounded positive observations; the full route is
 **not qualified**. Safe refusal to publish a malformed verdict is useful
 evidence of the guard, not successful end-to-end delivery.
+
+## Phase 3 — approved runtime corrections
+
+The user approved both corrections, one fresh output probe and one new ship
+smoke. The runtime delta against `d4ecbe7` resolves plan/repo paths at CLI init
+and appends a Codex-only three-root-key JSON contract to supervisor prompts.
+The shared Claude prompt, strict verdict validator and model routing are
+unchanged. Existing relative-path states are not rewritten or migrated.
+
+The real CLI cwd regression failed before the path fix and now reaches
+`merge-ready` from a different cwd. Its path assertion compares canonical
+filesystem identities to accommodate macOS `/var` and `/private/var` aliases.
+A separate characterization rejects root-level `pasteReproduced` and
+`satisfiable` without changing stored state. All 62 state scenarios, the
+native-event scorer self-test and `bash tests/run.sh` passed. Independent
+read-only review found no important issues in the three-file runtime/test diff.
+
+A fresh Astra/high probe used the helper's complete new supervisor prompt
+against the original ship artifacts. It returned only `ok`, `violations`,
+`remarks`, describing the reproduced output in remarks. The untouched response
+passes `recordVerdict` on an in-memory state copy; the original malformed
+response still fails. No recorded verdict or state was repaired. This is one
+positive observation, not repeated wording qualification.
+
+Probe CLI usage: input 36,022; cached input 29,184; output 282; reasoning output
+0. It does not measure this parent session or subscription percentage.
+Probe JSON SHA-256:
+`6c1b176905acc20e9882629fd910ef043ff6fb084605b868a27b423c5f2840ed`.
+Measured helper SHA-256:
+`3eb428ca945bb10ad5e9edadb4ad74a45a776176bea3038e0e350eeab09bc4d9`.
+
+The single fresh ship run exited 0 within its 540-second limit. It authored
+and linted a new plan, reproduced the expected-red base, recorded one executor
+attempt, passed mechanical verification and recorded a clean three-key verdict.
+It integrated the task into the feature branch, created one fake PR and reached
+critical-review with no findings. Independent post-run checks confirmed both
+tests pass, tests are unchanged, and the only implementation change is
+`src/calc.py`. Local and remote feature heads agree; both master refs still
+equal the original base. Only fixture branches were pushed to the local bare
+origin; the plugin source branch was not pushed, merged or installed. Fixture
+Git commits use the normal hermetic test settings.
+
+This is a positive **functional smoke**, not a passing native-event calibration
+cell. The declared/recorded tuple is Luna/medium execution with Astra/high
+supervision, but the CLI still records only three empty native wait events
+and no spawn events. Those artifacts cannot independently prove exact child
+models or prompt binding. No scorer checks were relaxed; repeated clean/defect
+qualification, real GitHub/CI and native launch observability remain gaps.
+
+Ship CLI usage: input 1,188,237; cached input 1,128,576; output 11,663; reasoning
+output 111. These reported fields are not an audited parent-plus-children total
+or subscription consumption measurement. No further live calls were started.
+
+Raw evidence, fixture scripts, source patch and probe validator are retained in
+ignored `other/eval/astra-runtime-fixes-20260907.K0kOaz/` alongside the older
+failed runs. Ship event-log SHA-256:
+`3a2df21ddb00da07ff1a3bee868867175ce2cf5a483a9b858db7bf9f1d3633bd`.

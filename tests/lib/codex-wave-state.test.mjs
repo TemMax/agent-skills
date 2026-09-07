@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
-  cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync,
+  cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync,
   rmSync, symlinkSync, writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -190,6 +190,25 @@ test('C1b a state file reached through an equivalent directory alias is accepted
   const action = next(aliasedState)
   assert.equal(action.action, 'spawn-executor')
   assert.equal(action.worktree, env.worktree)
+})
+
+test('C1e relative init paths survive later commands from a different cwd', () => {
+  const env = makeRepo()
+  const result = spawnSync(process.execPath, [CLI, 'init', '--plan', basename(env.plan),
+    '--wave', '1', '--repo', 'repo', '--base', env.base], {
+    cwd: env.root, encoding: 'utf8',
+  })
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  env.statePath = JSON.parse(result.stdout).state
+  // next and every remaining CLI call run from ROOT, not the init cwd.
+  const action = next(env.statePath)
+  assert.equal(action.action, 'spawn-executor')
+  assert.equal(realpathSync(action.worktree),
+    realpathSync(join(env.repo, '.worktrees', 'wave-divide-guard')))
+  assert.equal(git(action.worktree, 'rev-parse', 'HEAD'), env.base)
+  prepareAttempt(env)
+  recordVerdict(env.statePath, clean())
+  assert.equal(next(env.statePath).action, 'merge-ready')
 })
 
 test('C1c a mutating command reached through a state symlink updates the canonical file', () => {
@@ -420,6 +439,21 @@ test('C7 clean verdict yields merge-ready and done summary', () => {
   assert.equal(summary.status, 'done')
   assert.equal(summary.tasks[0].id, 'divide-guard')
   assert.equal(summary.tasks[0].status, 'ok')
+})
+
+test('C7b root-level violation metadata is rejected without changing verified state', () => {
+  const env = init()
+  prepareAttempt(env)
+  const before = readFileSync(env.statePath, 'utf8')
+  for (const field of ['pasteReproduced', 'satisfiable']) {
+    const result = invoke(['record-verdict', '--state', env.statePath,
+      '--task', 'divide-guard'], { ...clean(), [field]: true })
+    assert.notEqual(result.status, 0)
+    assert.match(result.json.errors.join('; '), /supervisor-result: expected the fixed verdict schema/)
+    assert.equal(readFileSync(env.statePath, 'utf8'), before)
+  }
+  recordVerdict(env.statePath, { ...clean(), remarks: ['The pasted output reproduced.'] })
+  assert.equal(next(env.statePath).action, 'merge-ready')
 })
 
 test('C8 first violation requests same-model rework with prior verdict', () => {

@@ -866,6 +866,16 @@ export function buildSupervisorPrompt(state, id, promptText) {
   return promptText + [
     '',
     '',
+    'CODEX OUTPUT CONTRACT:',
+    'Return one JSON object with exactly these three root keys:',
+    '{"ok": boolean, "violations": array, "remarks": array of strings}.',
+    'For a clean result, use {"ok":true,"violations":[],"remarks":["evidence summary"]}.',
+    'Describe successful pasted-output comparisons in remarks.',
+    'For a failing result, use ok:false and put each finding in violations.',
+    'Each violation has rule, class and evidence strings, plus an optional quote string.',
+    'pasteReproduced and satisfiable are boolean fields inside the relevant violation;',
+    'include satisfiable on each must_run violation and explain it in that violation\'s evidence.',
+    '',
     'CONTRACT:',
     JSON.stringify(spec.contract, null, 2),
     '',
@@ -1039,6 +1049,8 @@ function gitAt(repo, args) {
 }
 
 function initCommand(options) {
+  // Persist cwd-independent paths before Git or state/worktree creation uses them.
+  options = { ...options, plan: resolve(options.plan), repo: resolve(options.repo) }
   const waveNumber = Number(options.wave)
   if (!Number.isInteger(waveNumber) || waveNumber < 1) {
     throw new NamedError('wave-number', 'must be a positive integer')
