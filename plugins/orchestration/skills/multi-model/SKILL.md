@@ -1,9 +1,9 @@
 ---
 name: multi-model
-description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or GPT-5.6 agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
+description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.6.0
+  version: 2.7.0
 ---
 
 # Orchestrating Multi-Model Development
@@ -26,6 +26,7 @@ Never read a user config file to guess a session override. Never load more than 
 | `gpt-5.6-sol` | `references/orchestrator-gpt-5-6-sol.md` |
 | `gpt-5.6-terra` | `references/orchestrator-gpt-5-6-terra.md` |
 | `gpt-5.6-luna` | `references/orchestrator-gpt-5-6-luna.md` |
+| `gpt-6-astra` | `references/orchestrator-gpt-6-astra.md` |
 | unknown | `references/orchestrator-generic.md` |
 
 The alias `gpt-5.6` selects Sol only after the runtime-context handler has
@@ -459,7 +460,7 @@ supervised wave, stop before publication rather than push around the gate.
 
 - Claude-only wave: invoke `references/wave-runner.workflow.mjs` exactly as
   documented below.
-- GPT-5.6-only wave: read and follow
+- Codex-only wave (GPT-5.6 executors; GPT-5.6 or Astra supervisor): read and follow
   `references/codex-wave-protocol.md`; do not invoke Claude Workflow.
 - Mixed or unknown-provider wave: stop before spawning and return the linter or
   identity error.

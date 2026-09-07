@@ -48,6 +48,8 @@ assert_empty() { # $1 = label, $2 = payload
 }
 
 CASES=(
+  'SessionStart preserves active Astra id|{"hook_event_name":"SessionStart","model":"gpt-6-astra"}|context|SessionStart|gpt-6-astra|codex'
+  'SubagentStart preserves Astra supervisor id|{"hook_event_name":"SubagentStart","model":"gpt-6-astra"}|context|SubagentStart|gpt-6-astra|codex'
   'SessionStart normalizes active Sol alias|{"hook_event_name":"SessionStart","model":"gpt-5.6"}|context|SessionStart|gpt-5.6-sol|codex'
   'SessionStart preserves Terra id|{"hook_event_name":"SessionStart","model":"gpt-5.6-terra"}|context|SessionStart|gpt-5.6-terra|codex'
   'SubagentStart preserves Luna id|{"hook_event_name":"SubagentStart","model":"gpt-5.6-luna"}|context|SubagentStart|gpt-5.6-luna|codex'

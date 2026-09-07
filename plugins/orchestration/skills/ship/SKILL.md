@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.6.0
+  version: 2.7.0
 ---
 
 # Shipping a Feature (ship)
@@ -30,6 +30,7 @@ Never read a user config file to guess a session override. Never load more than 
 | `gpt-5.6-sol` | `../multi-model/references/orchestrator-gpt-5-6-sol.md` |
 | `gpt-5.6-terra` | `../multi-model/references/orchestrator-gpt-5-6-terra.md` |
 | `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
+| `gpt-6-astra` | `../multi-model/references/orchestrator-gpt-6-astra.md` |
 | unknown | `../multi-model/references/orchestrator-generic.md` |
 
 The alias `gpt-5.6` selects Sol only after the runtime-context handler has

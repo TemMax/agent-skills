@@ -11,6 +11,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const CODEX_MODELS = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+const CODEX_SUPERVISORS = [...CODEX_MODELS, 'gpt-6-astra']
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 export const ACTIONS = ['spawn-executor', 'verify', 'spawn-supervisor', 'merge-ready', 'stop']
 
@@ -134,10 +135,10 @@ export function validateCodexWave(wave, index) {
   if (!supervisor || typeof supervisor !== 'object' || Array.isArray(supervisor)) {
     errors.push(at + '.supervisor: required')
   } else {
-    if (!CODEX_MODELS.includes(supervisor.model)) {
+    if (!CODEX_SUPERVISORS.includes(supervisor.model)) {
       errors.push(at + '.supervisor.model: ' + (CLAUDE_MODELS.includes(supervisor.model)
         ? 'host-mismatch: Claude model in Codex wave'
-        : 'one of ' + CODEX_MODELS.join('/')))
+        : 'one of ' + CODEX_SUPERVISORS.join('/')))
     }
     if (!EFFORTS.includes(supervisor.effort)) {
       errors.push(at + '.supervisor.effort: explicit value required; one of ' + EFFORTS.join('/'))
@@ -373,7 +374,7 @@ function validateStoredState(state, statePath) {
   if (!ownKeysAre(state.supervisor, ['model', 'effort'])) {
     err('supervisor', 'exact model and effort required')
   } else {
-    if (!CODEX_MODELS.includes(state.supervisor.model)) err('supervisor.model', 'unsupported Codex model')
+    if (!CODEX_SUPERVISORS.includes(state.supervisor.model)) err('supervisor.model', 'unsupported Codex model')
     if (!EFFORTS.includes(state.supervisor.effort)) err('supervisor.effort', 'unsupported effort')
   }
   if (!state.tasks || typeof state.tasks !== 'object' || Array.isArray(state.tasks)

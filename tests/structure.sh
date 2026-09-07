@@ -74,21 +74,21 @@ for f in \
   plugins/orchestration/.claude-plugin/plugin.json \
   plugins/orchestration/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "orchestration release version: $f" "2.6.0" "$v"
+  expect "orchestration release version: $f" "2.7.0" "$v"
 done
 for f in plugins/orchestration/skills/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "orchestration skill release version: $f" "2.6.0" "$v"
+  expect "orchestration skill release version: $f" "2.7.0" "$v"
 done
 for f in \
   plugins/code-review/.claude-plugin/plugin.json \
   plugins/code-review/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "code-review release version: $f" "1.5.0" "$v"
+  expect "code-review release version: $f" "1.6.0" "$v"
 done
 for f in plugins/code-review/skills/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "code-review skill release version: $f" "1.5.0" "$v"
+  expect "code-review skill release version: $f" "1.6.0" "$v"
 done
 for marker in \
   "Claude Code installation" \
@@ -96,6 +96,7 @@ for marker in \
   "gpt-5.6-sol" \
   "gpt-5.6-terra" \
   "gpt-5.6-luna" \
+  "gpt-6-astra" \
   "ChatGPT surfaces do not run Codex lifecycle hooks" \
   "merge stays with the user"; do
   check "README release marker: $marker" "grep -Fq '$marker' README.md"
@@ -106,9 +107,13 @@ for marker in \
   "orchestrator-gpt-5-6-{sol,terra,luna}.md" \
   "orchestrator-generic.md" \
   "gpt-5-6-dossier.md" \
+  "orchestrator-gpt-6-astra.md" \
+  "gpt-6-astra-dossier.md" \
   "reviewer-gpt-5-6-{sol,terra,luna}.md" \
   "reviewer-generic.md" \
   "gpt-5-6-reviewer-dossier.md" \
+  "reviewer-gpt-6-astra.md" \
+  "gpt-6-astra-reviewer-dossier.md" \
   "code-review/hooks/"; do
   check "README source/layout inventory: $marker" "grep -Fq '$marker' README.md"
 done

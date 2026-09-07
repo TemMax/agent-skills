@@ -11,7 +11,7 @@ helper, a plan linter, and the offline release suite (see `tests/README.md`).
   (`super-plan`) and execution (`multi-model`) into a reviewed PR. The
   orchestrator model researches, plans into contract-carrying waves, and
   launches executor subagents through the selected host adapter. Claude and
-  exact GPT-5.6 profiles plus a conservative generic fallback guide routing;
+  exact GPT-5.6 and GPT-6 Astra profiles plus a conservative generic fallback guide routing;
   each executor is isolated in its own worktree and judged against its contract
   by a different model.
 - **`code-review`** — critical, evidence-based review of uncommitted changes or
@@ -131,6 +131,7 @@ is deliberately narrower than a claim that every profile is a production route:
 | Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
+| Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. Astra is never an executor or escalation rung. |
 | Either | any other model ID | The generic profile applies; model and effort remain unknown and receive no effort-specific claim. |
 
 The `gpt-5.6` alias normalizes only to `gpt-5.6-sol`; it is not a plan model
@@ -143,6 +144,19 @@ Therefore every GPT-5.6 seed route is **unsupported** and must delegate the
 routing decision upward to a separately supported provider route or an
 authorized calibration. The result does not turn invalid or failed cells into
 support.
+
+When a skill starts on **Astra**, Astra remains in the active seat: it plans,
+coordinates, and reviews. A supervised implementation wave uses only Luna,
+Terra, or Sol, with a separate Astra supervisor. Sol exhaustion stops the task;
+it never escalates implementation to Astra. No session is switched to Astra
+automatically. A fresh Astra reviewer provides context separation, not a
+different-model check. The advisory drift hook selects Sol/high for an Astra
+orchestrator; that pairing also needs calibration. Other profiles retain their
+existing rules. See [the role decision](docs/decisions/005-astra-active-seat.md)
+and the [Astra dossier](plugins/orchestration/skills/multi-model/references/gpt-6-astra-dossier.md).
+The [bounded Astra pilot](tests/eval/gpt-6-astra-pilot-2026-09-07.md) records
+offline checks, six live CLI cases, a preserved scorer disagreement, and the
+remaining end-to-end calibration gaps.
 
 Both Codex manifests intentionally retain their `hooks` fields, including the
 orchestration advisory drift hook. Lifecycle behavior is host-dependent;
@@ -247,7 +261,7 @@ To verify the plugins are installed, run `/plugin` and look for
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 2.6.0, code-review 1.5.0):
+orchestration 2.7.0, code-review 1.6.0):
 
 | Before | After |
 |---|---|
@@ -314,9 +328,11 @@ plugins/
           supervisor-prompt.md
           orchestrator-{fable-5-1,fable-5,opus-5,opus-4-8}.md
           orchestrator-gpt-5-6-{sol,terra,luna}.md
+          orchestrator-gpt-6-astra.md
           orchestrator-generic.md
           model-dossiers.md
           gpt-5-6-dossier.md
+          gpt-6-astra-dossier.md
   code-review/
     .claude-plugin/plugin.json
     .codex-plugin/plugin.json
@@ -329,9 +345,11 @@ plugins/
         references/
           reviewer-{fable-5-1,fable-5,opus-5,opus-4-8}.md
           reviewer-gpt-5-6-{sol,terra,luna}.md
+          reviewer-gpt-6-astra.md
           reviewer-generic.md
           reviewer-dossier.md
           gpt-5-6-reviewer-dossier.md
+          gpt-6-astra-reviewer-dossier.md
 tests/                           # structure / contracts / behaviour / live eval
   run.sh                         # ./tests/run.sh [--live]
 ```

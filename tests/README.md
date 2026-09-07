@@ -51,6 +51,12 @@ ask)" rather than resolve it silently.
 
 ## GPT-5.6 all-skills matrix
 
+The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
+budget-bounded check, not an expansion of this matrix or production qualification.
+`tests/eval/critical-review.sh` accepts `EVAL_CASE=clean` for one clean-diff
+call and `EVAL_CASE=hard` for one planted-defect call when `EVAL_REPEAT=1`.
+Both require a fresh results directory and explicit live-call authorization.
+
 The full three-model matrix is deliberately separate from the normal
 `tests/run.sh --live` entry point, which explicitly skips
 `gpt-5-6-matrix.sh` and cannot silently expand into the expensive matrix.
