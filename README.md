@@ -132,7 +132,13 @@ is deliberately narrower than a claim that every profile is a production route:
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. Astra is never an executor or escalation rung. |
-| Either | any other model ID | The generic profile applies; model and effort remain unknown and receive no effort-specific claim. |
+| Either | any other model ID | The generic profile applies; missing identity/effort stay unknown, and no model-specific reliability claim follows. |
+
+When the host identifies the current session only as **GPT-6**, the skills load
+the Astra profile by compatibility and disclose that the exact ID is unknown.
+An exact ID takes priority; unsupported IDs or unresolved conflicts select
+generic. Quotes and available child-model lists are not session identity.
+This fallback needs no lifecycle hook and does not change models or effort.
 
 The `gpt-5.6` alias normalizes only to `gpt-5.6-sol`; it is not a plan model
 ID. The dated record is
@@ -261,7 +267,7 @@ To verify the plugins are installed, run `/plugin` and look for
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 2.7.0, code-review 1.6.0):
+orchestration 2.7.1, code-review 1.6.1):
 
 | Before | After |
 |---|---|
