@@ -1,8 +1,12 @@
 # GPT-6 Astra orchestrator profile
 
-## Exact model guard
+## Identity guard
 
-Apply only when the active session identifies `gpt-6-astra`. Otherwise stop
+Apply when Step 0 selects this profile from exact `gpt-6-astra` identity or
+host-family compatibility with bare `GPT-6`. Compatibility leaves the exact
+runtime ID unknown; it does not establish model-specific measured reliability
+or prove that a child uses a different model from its parent.
+Otherwise stop
 using this profile and load the matching profile or `orchestrator-generic.md`.
 Loading a skill does not switch the session model. Preserve an explicitly
 supplied session effort; otherwise keep effort unknown. Do not infer it from

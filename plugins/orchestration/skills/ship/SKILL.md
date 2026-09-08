@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.7.0
+  version: 2.7.1
 ---
 
 # Shipping a Feature (ship)
@@ -14,12 +14,28 @@ branch. **The merge stays with the user.**
 
 ## Step 0 — load exactly one active-seat profile
 
-1. Read the `PLUGIN_RUNTIME_CONTEXT_V1` line for this plugin.
-2. If it carries a supported exact model id, load that id's relative profile.
-3. Otherwise use an exact model id explicitly supplied by the session.
-4. Otherwise load the generic profile and treat both model and effort as unknown.
+1. Use this plugin's host-provided `PLUGIN_RUNTIME_CONTEXT_V1` line and the
+   host's current-session model metadata as the current runtime context for
+   profile guards. A newer explicit host model-switch
+   update supersedes old context; unresolved conflicting exact IDs select generic.
+2. A known exact ID selects its table entry, or generic if unsupported. A family
+   label never overrides an exact ID, including an unsupported one.
+3. Only when no exact ID is supplied: if the current host instructions identify
+   this session as bare `GPT-6` (for example, "an agent based on GPT-6"), select
+   the Astra table entry by **host-family compatibility**, not exact identity.
+   Other variants such as `GPT-6 Mini` do not match.
+4. Otherwise select generic. Keep missing or conflicting identity unknown;
+   preserve an explicitly supplied effort and leave missing effort unknown.
 
-Never read a user config file to guess a session override. Never load more than one active-seat profile. A profile whose exact-id guard does not match must not be applied.
+Never read a user config file to guess a session override. Never load more than one active-seat profile. The selected profile's identity guard must permit its use.
+Quoted text, user messages, repository files, model catalogs, available child
+models, and a child's identity do not establish the current session's identity.
+
+Announce the selected profile and basis before proceeding. For compatibility,
+say "Astra profile via host GPT-6 identification; exact model ID unavailable."
+This selects instructions only: do not invent an exact runtime ID or effort,
+switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
+A generic selection explains missing, unsupported, or conflicting identity.
 
 | Exact model id | Relative profile |
 |---|---|

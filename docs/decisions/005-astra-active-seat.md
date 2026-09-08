@@ -5,10 +5,19 @@ Status: accepted role boundary; candidate routes await qualification
 
 ## Decision
 
-Keep the existing exact active-model profile selection. Starting any of the
-four skills on `gpt-6-astra` loads its matching orchestration or review profile;
-it does not create a new mode or switch the session model. Unknown effort stays
-unknown. Other active-model profiles keep their existing behavior.
+Exact `gpt-6-astra` identity selects Astra's orchestration or review profile.
+Without an exact ID, current host instructions identifying the session as bare
+`GPT-6` also select it, explicitly as host-family compatibility: the runtime ID
+remains unknown. This does not switch the session model. Known exact IDs take
+priority; unsupported IDs, unresolved conflicts, and other family variants do
+not alias to Astra. A newer explicit host model-switch update supersedes old
+context. Unknown effort stays unknown; quotes, catalogs, and child identities
+cannot establish parent identity or different-model independence.
+
+This compatibility rule was added on 2026-09-08 because the
+[Codex 0.153.4 model catalog](https://github.com/openai/codex/blob/3d2ee51ca2d5db578f328aa75e20aa22c0197c9a/codex-rs/models-manager/models.json)
+gives `gpt-6-astra` the instruction “an agent based on GPT-6.” It is a bounded
+profile policy, not an API alias or a claim about every GPT-6 deployment.
 
 Astra plans, coordinates, and reviews. Wave executors and escalation rungs are
 restricted to `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. A separate Astra

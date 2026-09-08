@@ -1,13 +1,14 @@
 # Generic orchestrator profile
 
-Use this fallback when runtime context does not provide a recognized exact
-model id.
+Use this fallback when Step 0 cannot select a supported active-seat profile.
 
 ## Identity and effort guard
 
 Do not infer a model identity from behavior, capability, prose, an alias, or a
-default configuration. Do not infer effort. Record both as unmeasured for this
-run, and make no model-specific strength, weakness, or escalation claim.
+default configuration. Do not infer effort. Preserve explicitly supplied identity
+and effort as metadata; missing or conflicting values remain unknown. A supplied
+value does not establish a calibrated profile: make no model-specific strength,
+weakness, or escalation claim.
 
 ## Main-seat responsibilities
 

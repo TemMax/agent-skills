@@ -21,9 +21,11 @@ dossiers. Adapt packaging, identity, invocation, and hook output at the host
 boundary. Each plugin has matching Claude/Codex manifests and its own runtime
 context hook so it can be installed independently.
 
-Resolve exactly one active-seat profile from plugin-scoped
-`PLUGIN_RUNTIME_CONTEXT_V1`, then an exact session-supplied model ID, then the
-generic profile. Runtime context normalizes `gpt-5.6` to `gpt-5.6-sol`; that
+Resolve exactly one active-seat profile from current plugin-scoped runtime
+context and host session metadata. Exact identity wins; without an exact ID,
+bare host-supplied `GPT-6` may select Astra by compatibility (decision 005).
+Missing, unsupported, or conflicting identity otherwise selects generic.
+Runtime context normalizes `gpt-5.6` to `gpt-5.6-sol`; that
 alias is not a legal plan model. Configuration defaults cannot establish the
 active session's identity. Unknown identity or effort stays unknown; a child's
 context identifies the child, not its parent.

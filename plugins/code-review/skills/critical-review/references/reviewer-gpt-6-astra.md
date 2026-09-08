@@ -1,8 +1,11 @@
 # GPT-6 Astra reviewer profile
 
-## Exact model guard
+## Identity guard
 
-Apply only when the active session identifies `gpt-6-astra`. Otherwise stop
+Apply when Step 0 selects this profile from exact `gpt-6-astra` identity or
+host-family compatibility with bare `GPT-6`. Compatibility leaves the exact
+runtime ID unknown; it does not establish model-specific measured reliability.
+Otherwise stop
 using this profile and load the matching profile or `reviewer-generic.md`.
 The skill runs on the current session model; it does not switch models.
 Preserve an explicit session effort and leave an unknown effort unknown.
