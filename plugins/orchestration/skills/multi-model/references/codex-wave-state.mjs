@@ -895,7 +895,6 @@ export function buildSupervisorPrompt(state, id, promptText) {
   }
   const spec = taskSpec(state, id)
   const executorModel = task.rungs[task.rung]
-  const sameModelReview = executorModel === ASTRA
   const report = String(task.reports.at(-1)).split(executorModel)
     .join('[executor-model-redacted]')
   return promptText + [
@@ -910,11 +909,6 @@ export function buildSupervisorPrompt(state, id, promptText) {
     'Each violation has rule, class and evidence strings, plus an optional quote string.',
     'pasteReproduced and satisfiable are boolean fields inside the relevant violation;',
     'include satisfiable on each must_run violation and explain it in that violation\'s evidence.',
-    sameModelReview ? '' : null,
-    sameModelReview ? 'ASTRA REVIEW CONTEXT:' : null,
-    sameModelReview
-      ? 'Review the opted-in Astra executor in a fresh supervisor context using the same model.'
-      : null,
     '',
     'CONTRACT:',
     JSON.stringify(spec.contract, null, 2),
