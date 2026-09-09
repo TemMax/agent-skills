@@ -16,6 +16,7 @@ const CLI = join(ROOT, 'plugins', 'orchestration', 'skills', 'multi-model',
   'references', 'codex-wave-state.mjs')
 const FIXTURE = join(ROOT, 'tests', 'fixtures', 'plans', 'codex-clean.md')
 const {
+  buildSupervisorPrompt,
   recordExecutor: transitionRecordExecutor,
   recordVerdict: transitionRecordVerdict,
 } = await import(pathToFileURL(CLI).href)
@@ -1077,9 +1078,8 @@ test('C21a an explicitly justified initial Astra executor completes under fresh-
   assert.equal(review.reviewContext, 'fresh')
   assert.equal(review.sameModelReview, true)
   const prompt = ok(['supervisor-prompt', '--state', env.statePath, '--task', 'divide-guard']).prompt
-  assert.match(prompt, /fresh supervisor context/i)
-  assert.match(prompt, /same model/i)
-  assert.doesNotMatch(prompt, /different-model independence|self-review/i)
+  assert.match(prompt, /\[executor-model-redacted\] implemented the guard/i)
+  assert.doesNotMatch(prompt, /gpt-6-astra implemented the guard/i)
   recordVerdict(env.statePath, clean())
   assert.equal(next(env.statePath).action, 'merge-ready')
   const summary = ok(['summary', '--state', env.statePath])
@@ -1091,6 +1091,22 @@ test('C21a an explicitly justified initial Astra executor completes under fresh-
     reviewContext: 'fresh',
     sameModelReview: true,
   })
+})
+
+test('C21ab Astra supervisor prompt does not disclose the task author', () => {
+  const env = init({ planText: withInitialAstra })
+  prepareAttempt(env, 'gpt-6-astra implemented the guard')
+  const template = [
+    'Astra is an available supervisor model.',
+    'Same-model review requires a fresh role; it is not different-model independence.',
+  ].join('\n')
+  const prompt = buildSupervisorPrompt(state(env.statePath), 'divide-guard', template)
+  assert.match(prompt, /Astra is an available supervisor model/)
+  assert.match(prompt, /Same-model review requires a fresh role/)
+  assert.match(prompt, /not different-model independence/)
+  assert.match(prompt, /\[executor-model-redacted\] implemented the guard/)
+  assert.doesNotMatch(prompt, /ASTRA REVIEW CONTEXT:/)
+  assert.doesNotMatch(prompt, /Review the opted-in Astra executor/i)
 })
 
 test('C21aa an initial Astra executor may explicitly omit its empty ladder', () => {
