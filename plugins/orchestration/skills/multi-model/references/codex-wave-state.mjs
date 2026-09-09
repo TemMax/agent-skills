@@ -11,7 +11,9 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const CODEX_MODELS = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
-const CODEX_SUPERVISORS = [...CODEX_MODELS, 'gpt-6-astra']
+const ASTRA = 'gpt-6-astra'
+const CODEX_EXECUTOR_MODELS = [...CODEX_MODELS, ASTRA]
+const CODEX_SUPERVISORS = [...CODEX_MODELS, ASTRA]
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 export const ACTIONS = ['spawn-executor', 'verify', 'spawn-supervisor', 'merge-ready', 'stop']
 
@@ -165,31 +167,49 @@ export function validateCodexWave(wave, index) {
     if (!executor || typeof executor !== 'object' || Array.isArray(executor)) {
       errors.push(tat + '.executor: required')
     } else {
-      if (!CODEX_MODELS.includes(executor.model)) {
+      if (!CODEX_EXECUTOR_MODELS.includes(executor.model)) {
         errors.push(tat + '.executor.model: ' + (CLAUDE_MODELS.includes(executor.model)
           ? 'host-mismatch: Claude model in Codex wave'
-          : 'one of ' + CODEX_MODELS.join('/')))
+          : 'one of ' + CODEX_EXECUTOR_MODELS.join('/')))
       }
       if (!EFFORTS.includes(executor.effort)) {
         errors.push(tat + '.executor.effort: explicit value required; one of ' + EFFORTS.join('/'))
       }
     }
     if (task.ladder !== undefined && (!Array.isArray(task.ladder)
-      || task.ladder.some((model) => !CODEX_MODELS.includes(model)))) {
+      || task.ladder.some((model) => !CODEX_EXECUTOR_MODELS.includes(model)))) {
       const hostMismatch = Array.isArray(task.ladder)
         && task.ladder.some((model) => CLAUDE_MODELS.includes(model))
       errors.push(tat + '.ladder: ' + (hostMismatch ? 'host-mismatch: Claude model in Codex wave'
-        : 'array of ' + CODEX_MODELS.join('/')))
+        : 'array of ' + CODEX_EXECUTOR_MODELS.join('/')))
     }
-    if (executor && CODEX_MODELS.includes(executor.model) && Array.isArray(task.ladder)) {
-      const transitions = [executor.model, ...task.ladder]
+    const transitions = executor && CODEX_EXECUTOR_MODELS.includes(executor.model)
+      ? [executor.model, ...(Array.isArray(task.ladder) ? task.ladder : [])] : []
+    const usesAstra = transitions.includes(ASTRA)
+    const astraReasonValid = typeof task.astra_executor_reason === 'string'
+      && task.astra_executor_reason.trim() !== ''
+    if (usesAstra) {
+      if (!astraReasonValid) {
+        errors.push(tat + '.astra_executor_reason: non-empty string required for Astra execution')
+      }
+      if (transitions.at(-1) !== ASTRA) {
+        errors.push(tat + '.ladder: gpt-6-astra must be the final executor rung')
+      }
+      if (!supervisor || supervisor.model !== ASTRA) {
+        errors.push(tat + ': Astra execution requires exact gpt-6-astra supervisor')
+      }
+    } else if (Object.hasOwn(task, 'astra_executor_reason')) {
+      errors.push(tat + '.astra_executor_reason: only allowed when Astra is an executor or ladder rung')
+    }
+    if (transitions.length > 0) {
       if (new Set(transitions).size !== transitions.length) {
         errors.push(tat + '.ladder: ladder transitions must use distinct models across executor and ladder')
       }
     }
     if (supervisor && executor
       && [executor.model, ...(Array.isArray(task.ladder) ? task.ladder : [])]
-        .includes(supervisor.model)) {
+        .includes(supervisor.model)
+      && !(usesAstra && astraReasonValid && supervisor.model === ASTRA)) {
       errors.push(tat + ': supervisor model also appears as executor or ladder rung')
     }
     const contract = task.contract
@@ -408,7 +428,7 @@ function validateStoredState(state, statePath) {
   } catch (error) {
     err('planPath', error.message)
   }
-  if (!wave || !planWaveValid) return errors
+  if (!wave) return errors
   try {
     if (state.planDigest !== selectedPlanDigest(markdown, wave)) {
       err('plan digest', 'approved selected wave/task content changed; reinitialization required')
@@ -416,6 +436,7 @@ function validateStoredState(state, statePath) {
   } catch (error) {
     err('plan digest', error.message + '; reinitialization required')
   }
+  if (!planWaveValid) return errors
   const expectedSupervisor = {
     model: wave.supervisor.model,
     effort: wave.supervisor.effort,
@@ -444,13 +465,18 @@ function validateStoredState(state, statePath) {
     const expectedWorktree = join(state.repoPath, '.worktrees', 'wave-' + id)
     if (task.worktree !== expectedWorktree) err('tasks.' + id + '.worktree', 'does not match repo/task')
     const rungsValid = Array.isArray(task.rungs) && task.rungs.length > 0
-      && task.rungs.every((model) => CODEX_MODELS.includes(model))
+      && task.rungs.every((model) => CODEX_EXECUTOR_MODELS.includes(model))
       && new Set(task.rungs).size === task.rungs.length
     if (!rungsValid
-      || task.rungs.some((model) => !CODEX_MODELS.includes(model))) {
+      || task.rungs.some((model) => !CODEX_EXECUTOR_MODELS.includes(model))) {
       err('tasks.' + id + '.rungs', 'non-empty distinct supported Codex models required')
     } else {
-      if (task.rungs.includes(state.supervisor.model)) {
+      const usesAstra = task.rungs.includes(ASTRA)
+      if (usesAstra && (task.rungs.at(-1) !== ASTRA || state.supervisor.model !== ASTRA)) {
+        err('tasks.' + id + '.rungs', 'Astra requires a final rung and exact Astra supervisor')
+      }
+      if (task.rungs.includes(state.supervisor.model)
+        && !(usesAstra && state.supervisor.model === ASTRA)) {
         err('tasks.' + id + '.rungs', 'supervisor model also appears as executor or ladder rung')
       }
       if (spec) {
@@ -541,6 +567,7 @@ function currentEffort(state, id, task) {
 
 function executorPrompt(state, id, task, spec) {
   const prior = task.verdicts.at(-1)
+  const astraException = task.rungs[task.rung] === ASTRA
   return [
     '# Task: ' + id,
     '',
@@ -549,6 +576,9 @@ function executorPrompt(state, id, task, spec) {
     '',
     'The user already approved this exact wave plan and task. Begin implementation immediately;',
     'do not request another design or approval. The dead-end rules below still apply.',
+    astraException ? '' : null,
+    astraException ? '## Explicit Astra executor exception' : null,
+    astraException ? spec.astra_executor_reason : null,
     '',
     'You work in your own git worktree. You will not see any other task\'s',
     'edits; a quiet tree is expected, not a sign something is wrong.',
@@ -605,17 +635,21 @@ export function nextAction(state) {
         action: 'spawn-executor',
         model: task.rungs[task.rung],
         effort: currentEffort(state, id, task),
+        ...(task.rungs[task.rung] === ASTRA
+          ? { astraExecutorReason: spec.astra_executor_reason } : {}),
         ...(latest && latest.escalation ? { reason: latest.escalation } : {}),
         prompt: executorPrompt(state, id, task, spec),
       }
     }
     if (task.status === 'reported') return { ...common, action: 'verify' }
     if (task.status === 'verified') {
+      const sameModelReview = task.rungs[task.rung] === ASTRA
       return {
         ...common,
         action: 'spawn-supervisor',
         model: state.supervisor.model,
         effort: state.supervisor.effort,
+        ...(sameModelReview ? { reviewContext: 'fresh', sameModelReview: true } : {}),
       }
     }
     if (task.status === 'merge-ready') {
@@ -888,7 +922,7 @@ export function buildSupervisorPrompt(state, id, promptText) {
     '',
     'REPORT:',
     report,
-  ].join('\n')
+  ].filter((line) => line !== null).join('\n')
 }
 
 function validVerdict(verdict) {
@@ -1006,12 +1040,29 @@ export function recordVerdict(state, id, result) {
 
 export function summarize(state) {
   const stateTasks = Object.entries(state.tasks ?? {})
-  const tasks = stateTasks.map(([id, task]) => ({
-    id,
-    status: task.status === 'merge-ready' ? 'ok' : task.status,
-    branch: task.branch,
-    attempts: clone(task.verdicts),
-  }))
+  const tasks = stateTasks.map(([id, task]) => {
+    const usesAstra = task.rungs.includes(ASTRA)
+    const spec = usesAstra ? taskSpec(state, id) : null
+    const astraDispatched = usesAstra && (task.rungs[task.rung] === ASTRA
+      && task.attemptOnRung > 0 || task.verdicts.some((entry) => entry.model === ASTRA))
+    return {
+      id,
+      status: task.status === 'merge-ready' ? 'ok' : task.status,
+      branch: task.branch,
+      attempts: clone(task.verdicts),
+      ...(usesAstra ? {
+        astraExecutor: {
+          reason: spec.astra_executor_reason,
+          dispatched: astraDispatched,
+          ...(astraDispatched ? {
+            supervisorModel: state.supervisor.model,
+            reviewContext: 'fresh',
+            sameModelReview: true,
+          } : {}),
+        },
+      } : {}),
+    }
+  })
   return {
     status: stateTasks.length > 0 && stateTasks.every(([, task]) => task.status === 'merge-ready')
       ? 'done'

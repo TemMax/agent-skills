@@ -75,7 +75,7 @@ check "no fresh Codex runner may be written"        "grep -qF 'Never write a fre
 check "Codex spawn arguments are explicit"          "grep -qF 'model and reasoning_effort' $MM"
 check "Codex helper declares exactly seven commands" \
   "sed -n '/^\`\`\`text$/, /^\`\`\`$/p' $CP | grep -qFx 'init  next  record-executor  verify  supervisor-prompt  record-verdict  summary'"
-check "Codex supervisor uses a different exact model" "grep -qF 'different exact model' $CP"
+check "Codex supervisor is a fresh distinct role handle" "grep -qF 'distinct from executor handles' $CP"
 check "approved plan outranks profile during execution" \
   "grep -qF 'approved plan is authoritative for adapter execution' $MM"
 check "Codex linter uses a sibling-skill path" \
@@ -195,7 +195,7 @@ section "ship: the conductor that adds no machinery"
 check "the skill exists"                        "[ -f $SH ]"
 check "ship adds no machinery"                  "grep -q 'ship adds no machinery' $SH"
 check "exactly one ship-level gate"             "grep -q 'the only one ship adds' $SH"
-check "fixes route on behavior, not size"       "grep -q 'what the change can break' $SH"
+check "ship defers fix routing to critical-review" "grep -qF 'shared Post-Review Fix Protocol' $SH"
 check "the merge stays with the user"           "grep -q 'merge stays with the user' $SH"
 check "wave bases are copied, never typed"      "grep -q 'rev-parse' $SH"
 check "thread phase keeps critical-review's gate" "grep -q 'push → replies → resolves' $SH"
@@ -208,11 +208,11 @@ check "ship does not take over provider execution" \
 check "post-review fixes include own findings without threads" \
   "grep -qF 'every approved finding that produces a fix, including an \`own\` finding with no PR threads' $SH"
 check "review fix commits remain unpublished until critical-review approval" \
-  "grep -qF 'Keep every resulting fix commit local through apply, commit, and verification' $SH && grep -qF 'Only after that approval does publication run \`push → replies → resolves\`' $SH"
+  "grep -qF 'Critical-review keeps every resulting fix commit local' $SH && grep -qF 'Only after that approval does publication run in that order' $SH"
 check "post-review behavior fixes are not pushed like ordinary waves" \
   "! sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' $SH | grep -qF 'pushed like any wave'"
-check "ship explicitly invokes review behavior fixes locally" \
-  "sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' $SH | grep -qF 'multi-model with \`publication: local\`'"
+check "ship does not duplicate review-fix routing" \
+  "sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' $SH | grep -qF 'ship never adds inline prose routing or a parallel routing table'"
 
 section "Fable 5.1: every skill routes the new model ID to its own profile"
 OF=plugins/orchestration/skills/multi-model/references/orchestrator-fable-5-1.md
@@ -245,7 +245,7 @@ check "the 5.1 orchestrator profile routes research off-seat" \
   "grep -q 'Research Routing' $OF"
 check "the 5.1 profile pins no fixed effort level" \
   "grep -qF 'No fixed level is pinned' $OF"
-check "the 5.1 profile records its medium peak"    "grep -qF 'peaks at medium' $OF"
+check "the 5.1 profile records conditional medium guidance" "grep -qF 'Conditional effort guidance' $OF"
 
 check "the judge-bias rule survives"                "grep -qF 'told the author is Claude' $MM"
 check "the judge-bias citation survives"            "grep -qF 'p. 124' $MM"

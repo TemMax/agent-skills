@@ -18,7 +18,10 @@ Astra owns research synthesis, task decomposition, contracts, coordination,
 and integrated review in `super-plan`, `multi-model`, and `ship`. Delegate
 implementation to named GPT-5.6 executors in isolated worktrees. Reading code,
 running checks, and preparing task contracts are still the orchestrator's work.
-Do not turn an executor failure into an inline implementation by Astra.
+Do not turn an executor failure into an inline implementation by Astra. A
+separately approved Astra executor exception may be initial or final-rung only,
+with `astra_executor_reason: "<concrete reason>"`; it requires a fresh separate
+Astra supervisor and remains uncalibrated.
 
 ## Candidate routing and calibration
 
@@ -44,8 +47,8 @@ the orchestrator's account of why its plan should succeed.
 The helper permits at most two attempts per rung and six executor attempts
 per task. Under Astra supervision, a terminal Sol failure stops: return the
 verdicts and propose a scoped plan amendment. Reinitialize only after approval;
-do not silently reset counters, increase effort to `max`, or add Astra as a
-fourth executor. Unsatisfiable contracts and unavailable tools retain their
+do not silently reset counters, increase effort to `max`, or add Astra as an
+unapproved fourth executor. Unsatisfiable contracts and unavailable tools retain their
 existing distinct stop paths.
 
 An approved, lint-clean plan still controls execution exactly. This profile

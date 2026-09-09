@@ -28,12 +28,11 @@ Use fresh artifact inspection even if this session planned the work. A fresh
 Astra agent reduces inherited context, but is not a different-model check of
 Astra's own work. Neither self-preference nor reviewer neutrality is measured.
 
-For an approved behavior-changing fix wave, invoke multi-model with `publication: local`:
-GPT-5.6 executors, a separate Astra supervisor, and the exact approved plan.
-Astra is not an executor or escalation rung. Keep returned commits local for
-critical-review's verification and final publication gate; only its approval
-permits push, then replies, then resolves. Small prose-only fixes still follow the
-shared inline-fix rule; they do not justify a new behavior-changing wave.
+For approved fixes, use critical-review's shared Post-Review Fix Protocol; this
+profile adds no inline exception or routing table. A separately approved Astra
+executor or rung requires `astra_executor_reason: "<concrete reason>"`; that
+metadata does not authorize it. A fresh separate Astra supervisor may judge that
+exception, but it is fresh-context separation, not different-model independence.
 
 This skill is not the wave supervisor. That role uses multi-model's separate
 supervisor prompt and mechanical verifier, not a critical-review invocation.

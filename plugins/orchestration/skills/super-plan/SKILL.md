@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.7.1
+  version: 2.8.0
 ---
 
 # Planning Waves (super-plan)
@@ -171,9 +171,12 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    | Claude | `haiku`, `sonnet`, `opus`, `fable`, `claude-opus-4-8` |
    | Codex | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 
-   Codex also permits `gpt-6-astra` **only in `supervisor.model`**, never as an
-   executor or ladder rung. It belongs to the same Codex provider row; its
-   active profile defines candidate routes and their calibration limits.
+   Codex also permits `gpt-6-astra` as supervisor and, only when separately
+   approved with `astra_executor_reason: "<concrete reason>"`, as the initial
+   executor or final explicit ladder rung. That metadata records a reason; it
+   never establishes authorization. A selected Astra executor requires a fresh
+   separate Astra supervisor. Its active profile defines candidate routes and
+   calibration limits.
 
    `gpt-5.6` is never a plan id. It is only an active-session alias after
    runtime-context normalization, not a model field. Every Codex supervisor and executor names an explicit effort; the adapter never invents one. Every supervisor,

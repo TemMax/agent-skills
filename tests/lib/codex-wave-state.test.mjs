@@ -16,6 +16,7 @@ const CLI = join(ROOT, 'plugins', 'orchestration', 'skills', 'multi-model',
   'references', 'codex-wave-state.mjs')
 const FIXTURE = join(ROOT, 'tests', 'fixtures', 'plans', 'codex-clean.md')
 const {
+  buildSupervisorPrompt,
   recordExecutor: transitionRecordExecutor,
   recordVerdict: transitionRecordVerdict,
 } = await import(pathToFileURL(CLI).href)
@@ -1024,7 +1025,27 @@ function withAstraSupervisor(text) {
     '"model": "gpt-6-astra", "effort": "high"')
 }
 
-test('C21 Astra supervises each GPT-5.6 executor without replacing it', () => {
+function withAstraReason(text, reason = 'Only Astra can exercise the required executor capability.') {
+  return text.replace('"ladder": ["gpt-5.6-sol"],',
+    '"ladder": ["gpt-5.6-sol"],\n        "astra_executor_reason": ' + JSON.stringify(reason) + ',')
+}
+
+function withInitialAstra(text) {
+  return withAstraSupervisor(withAstraReason(text)
+    .replace('"model": "gpt-5.6-luna"', '"model": "gpt-6-astra"')
+    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": []'))
+}
+
+function withoutLadder(text) {
+  return text.replace(/        "ladder": \[[^\n]*\],\n/, '')
+}
+
+function withAstraRung(text) {
+  return withAstraSupervisor(withAstraReason(text)
+    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]'))
+}
+
+test('C21 Astra supervises each ordinary GPT-5.6 executor without replacing it', () => {
   for (const model of ['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol']) {
     const env = init({ planText: (text) => withAstraSupervisor(text)
       .replace('"model": "gpt-5.6-luna"', '"model": "' + model + '"')
@@ -1040,19 +1061,143 @@ test('C21 Astra supervises each GPT-5.6 executor without replacing it', () => {
   }
 })
 
-test('C21b Astra never enters an executor or escalation slot', () => {
-  for (const mutate of [
-    (text) => text.replace('"model": "gpt-5.6-luna"', '"model": "gpt-6-astra"'),
-    (text) => text.replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]'),
-  ]) {
+test('C21a an explicitly justified initial Astra executor completes under fresh-context Astra review', () => {
+  const env = init({ planText: withInitialAstra })
+  const dispatch = next(env.statePath)
+  assert.equal(dispatch.action, 'spawn-executor')
+  assert.equal(dispatch.model, 'gpt-6-astra')
+  assert.equal(dispatch.effort, 'medium')
+  assert.equal(dispatch.astraExecutorReason,
+    'Only Astra can exercise the required executor capability.')
+  assert.match(dispatch.prompt, /explicit Astra executor exception/i)
+  prepareAttempt(env, 'gpt-6-astra implemented the guard')
+  const review = next(env.statePath)
+  assert.equal(review.action, 'spawn-supervisor')
+  assert.equal(review.model, 'gpt-6-astra')
+  assert.equal(review.effort, 'high')
+  assert.equal(review.reviewContext, 'fresh')
+  assert.equal(review.sameModelReview, true)
+  const prompt = ok(['supervisor-prompt', '--state', env.statePath, '--task', 'divide-guard']).prompt
+  assert.match(prompt, /\[executor-model-redacted\] implemented the guard/i)
+  assert.doesNotMatch(prompt, /gpt-6-astra implemented the guard/i)
+  recordVerdict(env.statePath, clean())
+  assert.equal(next(env.statePath).action, 'merge-ready')
+  const summary = ok(['summary', '--state', env.statePath])
+  assert.equal(summary.status, 'done')
+  assert.deepEqual(summary.tasks[0].astraExecutor, {
+    reason: 'Only Astra can exercise the required executor capability.',
+    dispatched: true,
+    supervisorModel: 'gpt-6-astra',
+    reviewContext: 'fresh',
+    sameModelReview: true,
+  })
+})
+
+test('C21ab Astra supervisor prompt does not disclose the task author', () => {
+  const env = init({ planText: withInitialAstra })
+  prepareAttempt(env, 'gpt-6-astra implemented the guard')
+  const template = [
+    'Astra is an available supervisor model.',
+    'Same-model review requires a fresh role; it is not different-model independence.',
+  ].join('\n')
+  const prompt = buildSupervisorPrompt(state(env.statePath), 'divide-guard', template)
+  assert.match(prompt, /Astra is an available supervisor model/)
+  assert.match(prompt, /Same-model review requires a fresh role/)
+  assert.match(prompt, /not different-model independence/)
+  assert.match(prompt, /\[executor-model-redacted\] implemented the guard/)
+  assert.doesNotMatch(prompt, /ASTRA REVIEW CONTEXT:/)
+  assert.doesNotMatch(prompt, /Review the opted-in Astra executor/i)
+})
+
+test('C21aa an initial Astra executor may explicitly omit its empty ladder', () => {
+  const env = init({ planText: (text) => withoutLadder(withInitialAstra(text)) })
+  const dispatch = next(env.statePath)
+  assert.equal(dispatch.model, 'gpt-6-astra')
+  assert.equal(dispatch.astraExecutorReason,
+    'Only Astra can exercise the required executor capability.')
+})
+
+test('C21b an explicitly justified Sol-to-Astra ladder dispatches Astra last at high effort', () => {
+  const env = init({ planText: (text) => withAstraRung(text)
+    .replace('"model": "gpt-5.6-luna"', '"model": "gpt-5.6-sol"') })
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal(next(env.statePath).model, 'gpt-5.6-sol')
+    prepareAttempt(env)
+    recordVerdict(env.statePath, failed('unresolved requirement ' + attempt))
+  }
+  const dispatch = next(env.statePath)
+  assert.equal(dispatch.action, 'spawn-executor')
+  assert.equal(dispatch.model, 'gpt-6-astra')
+  assert.equal(dispatch.effort, 'high')
+  assert.equal(dispatch.astraExecutorReason,
+    'Only Astra can exercise the required executor capability.')
+  prepareAttempt(env)
+  assert.equal(next(env.statePath).sameModelReview, true)
+  recordVerdict(env.statePath, clean())
+  assert.equal(next(env.statePath).action, 'merge-ready')
+})
+
+test('C21c Astra executor opt-in rejects missing, malformed, unused and non-terminal reasons', () => {
+  const cases = [
+    ['initial Astra without opt-in', (text) => withAstraSupervisor(text)
+      .replace('"model": "gpt-5.6-luna"', '"model": "gpt-6-astra"')
+      .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": []'), /astra_executor_reason/],
+    ['initial Astra without ladder or opt-in', (text) => withoutLadder(withAstraSupervisor(text)
+      .replace('"model": "gpt-5.6-luna"', '"model": "gpt-6-astra"')),
+    /astra_executor_reason/],
+    ['Astra rung without opt-in', (text) => withAstraSupervisor(text)
+      .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]'),
+    /astra_executor_reason/],
+    ['whitespace opt-in', (text) => withAstraSupervisor(withAstraReason(text, '   ')
+      .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]')),
+    /astra_executor_reason/],
+    ['non-string opt-in', (text) => withAstraRung(text)
+      .replace('"astra_executor_reason": "Only Astra can exercise the required executor capability."',
+        '"astra_executor_reason": 42'), /astra_executor_reason/],
+    ['unused opt-in', withAstraReason, /astra_executor_reason.*only allowed/],
+    ['Astra not final', (text) => withAstraSupervisor(withAstraReason(text)
+      .replace('"ladder": ["gpt-5.6-sol"]',
+        '"ladder": ["gpt-6-astra", "gpt-5.6-sol"]')), /final.*rung/],
+  ]
+  for (const [label, mutate, message] of cases) {
     const env = init({ invalid: true, planText: mutate })
-    assert.equal(env.result.status, 1)
-    assert.match(env.result.json.errors.join('; '), /executor\.model|\.ladder/)
-    assert.equal(existsSync(join(env.repo, '.worktrees')), false)
+    assert.equal(env.result.status, 1, label)
+    assert.match(env.result.json.errors.join('; '), message, label)
+    assert.equal(existsSync(join(env.repo, '.worktrees')), false, label)
   }
 })
 
-test('C21c Astra supervision preserves the six-attempt GPT-only terminal stop', () => {
+test('C21d Astra execution requires exact Astra supervision and explicit efforts', () => {
+  const cases = [
+    ['other supervisor', (text) => withAstraReason(text)
+      .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]'),
+    /requires exact gpt-6-astra supervisor/],
+    ['missing initial effort', (text) => withInitialAstra(text)
+      .replace('"model": "gpt-6-astra", "effort": "medium"',
+        '"model": "gpt-6-astra"'), /executor\.effort.*required/],
+    ['missing supervisor effort', (text) => withInitialAstra(text)
+      .replace('"model": "gpt-6-astra", "effort": "high"',
+        '"model": "gpt-6-astra"'), /supervisor\.effort.*required/],
+  ]
+  for (const [label, mutate, message] of cases) {
+    const env = init({ invalid: true, planText: mutate })
+    assert.equal(env.result.status, 1, label)
+    assert.match(env.result.json.errors.join('; '), message, label)
+  }
+})
+
+test('C21e an ordinary collision in another task remains invalid', () => {
+  const env = init({ invalid: true, planText: (text) => withSecondTask(text)
+    .replace('{ "id": "multiply-guard",\n        "branch": "wave/multiply-guard",\n'
+      + '        "executor": { "model": "gpt-5.6-luna", "effort": "medium" }',
+    '{ "id": "multiply-guard",\n        "branch": "wave/multiply-guard",\n'
+      + '        "executor": { "model": "gpt-5.6-terra", "effort": "medium" }') })
+  assert.equal(env.result.status, 1)
+  assert.match(env.result.json.errors.join('; '),
+    /tasks\[1\].*supervisor model also appears as executor or ladder rung/)
+})
+
+test('C21f Astra supervision preserves the six-attempt terminal stop', () => {
   const env = init({ planText: (text) => withAstraSupervisor(text)
     .replace('"ladder": ["gpt-5.6-sol"]',
       '"ladder": ["gpt-5.6-terra", "gpt-5.6-sol"]') })
@@ -1071,8 +1216,8 @@ test('C21c Astra supervision preserves the six-attempt GPT-only terminal stop', 
   assert.equal(state(env.statePath).tasks['divide-guard'].totalAttempts, 6)
 })
 
-test('C21d persisted Astra executor injection is rejected before a spawn', () => {
-  const env = init({ planText: withAstraSupervisor })
+test('C21g persisted Astra executor injection is rejected before a spawn', () => {
+  const env = init()
   const saved = state(env.statePath)
   saved.tasks['divide-guard'].rungs[0] = 'gpt-6-astra'
   writeFileSync(env.statePath, JSON.stringify(saved))
@@ -1083,16 +1228,77 @@ test('C21d persisted Astra executor injection is rejected before a spawn', () =>
   assert.equal(readFileSync(env.statePath, 'utf8'), before)
 })
 
-test('C21e plan linter accepts Astra only as a Codex supervisor with explicit effort', () => {
+test('C21h changing or removing an initialized Astra reason invalidates the plan digest', () => {
+  for (const mutate of [
+    (text) => text.replace('Only Astra can exercise the required executor capability.',
+      'A different post-initialization rationale.'),
+    (text) => text.replace(/        "astra_executor_reason": [^\n]+\n/, ''),
+  ]) {
+    const env = init({ planText: withInitialAstra })
+    writeFileSync(env.plan, mutate(readFileSync(env.plan, 'utf8')))
+    const before = readFileSync(env.statePath)
+    const result = invoke(['next', '--state', env.statePath])
+    assert.equal(result.status, 1)
+    assert.match(result.json.errors.join('; '), /plan digest.*reinitialization/)
+    assert.deepEqual(readFileSync(env.statePath), before)
+  }
+})
+
+test('C21i opted-in Astra mechanical rejection overrides a clean supervisor verdict', () => {
+  const env = init({ planText: (text) => withInitialAstra(text)
+    .replace('python3 -m unittest discover -s tests -t .', 'printf astra-mechanical-failure; exit 9') })
+  writeFileSync(join(env.worktree, 'src', 'divide.py'),
+    'def divide(a, b):\n    return None if b == 0 else a / b\n')
+  git(env.worktree, 'add', 'src/divide.py')
+  git(env.worktree, 'commit', '-m', 'guard division')
+  recordExecutor(env.statePath, { report: 'must_run output:\nastra-mechanical-failure' })
+  verify(env.statePath)
+  recordVerdict(env.statePath, clean())
+  assert.equal(next(env.statePath).action, 'spawn-executor')
+  assert.ok(state(env.statePath).tasks['divide-guard'].verdicts.at(-1)
+    .verdict.violations.some((violation) => violation.class === 'must_run'))
+})
+
+test('C21ia summary does not claim same-model review when a Sol executor finishes before Astra', () => {
+  const env = init({ planText: (text) => withAstraRung(text)
+    .replace('"model": "gpt-5.6-luna"', '"model": "gpt-5.6-sol"') })
+  prepareAttempt(env)
+  recordVerdict(env.statePath, clean())
+  const astra = ok(['summary', '--state', env.statePath]).tasks[0].astraExecutor
+  assert.deepEqual(astra, {
+    reason: 'Only Astra can exercise the required executor capability.',
+    dispatched: false,
+  })
+})
+
+test('C21j plan linter enforces the same Astra executor opt-in contract', () => {
   const env = makeRepo()
   const original = readFileSync(env.plan, 'utf8')
   const linter = join(ROOT, 'plugins/orchestration/skills/super-plan/references/plan-lint.mjs')
   const cases = [
     ['Astra supervisor', withAstraSupervisor(original), 0, /OK: 0 error/],
-    ['Astra executor', original.replace('"model": "gpt-5.6-luna"',
-      '"model": "gpt-6-astra"'), 1, /executor\.model/],
-    ['Astra rung', original.replace('"ladder": ["gpt-5.6-sol"]',
-      '"ladder": ["gpt-6-astra"]'), 1, /\.ladder/],
+    ['Astra executor opt-in', withInitialAstra(original), 0, /OK: 0 error/],
+    ['Astra rung opt-in', withAstraRung(original), 0, /OK: 0 error/],
+    ['Astra executor without reason', withAstraSupervisor(original)
+      .replace('"model": "gpt-5.6-luna"', '"model": "gpt-6-astra"')
+      .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": []'),
+    1, /astra_executor_reason/],
+    ['Astra rung without reason', withAstraSupervisor(original)
+      .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]'),
+    1, /astra_executor_reason/],
+    ['whitespace Astra reason', withAstraRung(original)
+      .replace('Only Astra can exercise the required executor capability.', '   '),
+    1, /astra_executor_reason/],
+    ['non-string Astra reason', withAstraRung(original)
+      .replace('"astra_executor_reason": "Only Astra can exercise the required executor capability."',
+        '"astra_executor_reason": false'), 1, /astra_executor_reason/],
+    ['unused Astra reason', withAstraReason(original), 1, /astra_executor_reason.*only allowed/],
+    ['Astra before final rung', withAstraSupervisor(withAstraReason(original)
+      .replace('"ladder": ["gpt-5.6-sol"]',
+        '"ladder": ["gpt-6-astra", "gpt-5.6-sol"]')), 1, /final executor rung/],
+    ['non-Astra supervisor', withAstraReason(original)
+      .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]'),
+    1, /requires exact gpt-6-astra supervisor/],
     ['missing supervisor effort', withAstraSupervisor(original)
       .replace('"model": "gpt-6-astra", "effort": "high"',
         '"model": "gpt-6-astra"'), 1, /supervisor\.effort/],
