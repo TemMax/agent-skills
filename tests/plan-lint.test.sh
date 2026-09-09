@@ -26,6 +26,16 @@ open(dst, 'w').write(s.replace(old, new, 1))
 PY
 }
 
+codex_mutate() {  # $1 = old, $2 = new  → writes $W/m.md
+  python3 - "$CODEX_CLEAN" "$W/m.md" "$1" "$2" <<'PY'
+import sys
+src, dst, old, new = sys.argv[1:5]
+s = open(src).read()
+assert old in s, 'mutation target missing: ' + old
+open(dst, 'w').write(s.replace(old, new, 1))
+PY
+}
+
 section "clean plan"
 out="$(node "$LINT" "$CLEAN" 2>&1)"; rc=$?
 expect "clean plan exits 0" "0" "$rc"
@@ -246,5 +256,83 @@ PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "GPT supervisor collision exits 1" "1" "$rc"
 contains "GPT supervisor collision is named" "supervisor model also appears as executor or ladder rung" "$out"
+
+section "explicit Astra executor exception"
+
+python3 - "$CODEX_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-5.6-terra", "effort": "high"',
+              '"model": "gpt-6-astra", "effort": "high"')
+s = s.replace('"model": "gpt-5.6-luna", "effort": "medium"',
+              '"model": "gpt-6-astra", "effort": "medium"')
+s = s.replace('"ladder": ["gpt-5.6-sol"],',
+              '"ladder": [],\n        "astra_executor_reason": "Required executor capability.",')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "justified initial Astra executor exits 0" "0" "$rc"
+contains "justified initial Astra executor is clean" "OK: 0 error(s)" "$out"
+
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read().replace('        "ladder": [],\n', '')
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "justified initial Astra without ladder exits 0" "0" "$rc"
+contains "justified initial Astra without ladder is clean" "OK: 0 error(s)" "$out"
+
+python3 - "$CODEX_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-5.6-terra", "effort": "high"',
+              '"model": "gpt-6-astra", "effort": "high"')
+s = s.replace('"ladder": ["gpt-5.6-sol"],',
+              '"ladder": ["gpt-6-astra"],\n        "astra_executor_reason": "Required final escalation.",')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "justified final Astra rung exits 0" "0" "$rc"
+contains "justified final Astra rung is clean" "OK: 0 error(s)" "$out"
+
+codex_mutate '"model": "gpt-5.6-luna", "effort": "medium"' \
+  '"model": "gpt-6-astra", "effort": "medium"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Astra executor without opt-in exits 1" "1" "$rc"
+contains "Astra executor without opt-in names reason" "astra_executor_reason" "$out"
+
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read().replace('        "ladder": ["gpt-5.6-sol"],\n', '')
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Astra executor without ladder or opt-in exits 1" "1" "$rc"
+contains "Astra executor without ladder still requires reason" "astra_executor_reason" "$out"
+
+codex_mutate '"ladder": ["gpt-5.6-sol"],' '"ladder": ["gpt-5.6-sol"],
+        "astra_executor_reason": "   ",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "unused whitespace Astra reason exits 1" "1" "$rc"
+contains "unused whitespace Astra reason is named" "astra_executor_reason" "$out"
+
+python3 - "$CODEX_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-5.6-terra", "effort": "high"',
+              '"model": "gpt-6-astra", "effort": "high"')
+s = s.replace('"ladder": ["gpt-5.6-sol"],',
+              '"ladder": ["gpt-6-astra", "gpt-5.6-sol"],\n        "astra_executor_reason": "Required escalation.",')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "non-terminal Astra rung exits 1" "1" "$rc"
+contains "non-terminal Astra rung is named" "final executor rung" "$out"
 
 summary
