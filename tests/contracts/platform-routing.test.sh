@@ -73,8 +73,8 @@ check "critical-review maps Sol" \
   "grep -qF '| \`gpt-5.6-sol\` | \`references/reviewer-gpt-5-6-sol.md\` |' '$CR'"
 check "critical-review maps Astra" \
   "grep -qF '| \`gpt-6-astra\` | \`references/reviewer-gpt-6-astra.md\` |' '$CR'"
-check "Astra review fix waves explicitly withhold publication" \
-  "grep -qF 'with \`publication: local\`' plugins/code-review/skills/critical-review/references/reviewer-gpt-6-astra.md"
+check "Astra review fixes use the shared routing protocol" \
+  "grep -qF 'shared Post-Review Fix Protocol' plugins/code-review/skills/critical-review/references/reviewer-gpt-6-astra.md"
 check "critical-review maps Terra" \
   "grep -qF '| \`gpt-5.6-terra\` | \`references/reviewer-gpt-5-6-terra.md\` |' '$CR'"
 check "critical-review maps Luna" \
@@ -184,12 +184,12 @@ check "ship does not own provider invocation machinery" \
   "grep -qF 'ship never invokes provider CLIs, adapter workflows, or state helpers itself' '$SH'"
 check "ship fixes own findings even without review threads" \
   "grep -qF 'every approved finding that produces a fix, including an \`own\` finding with no PR threads' '$SH'"
-check "ship holds every review fix commit locally through verification" \
-  "grep -qF 'Keep every resulting fix commit local through apply, commit, and verification' '$SH'"
+check "ship defers fix routing to critical-review" \
+  "grep -qF 'shared Post-Review Fix Protocol' '$SH' && grep -qF 'ship never adds inline prose routing or a parallel routing table' '$SH'"
 check "critical-review gate is the first review-fix publication point" \
-  "grep -qF 'Only after that approval does publication run \`push → replies → resolves\`' '$SH' && ! sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' '$SH' | grep -qF 'pushed like any wave'"
-check "ship requests local publication for behavior-changing review fixes" \
-  "sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' '$SH' | grep -qF 'multi-model with \`publication: local\`'"
+  "grep -qF 'Only after that approval does publication run in that order' '$SH' && ! sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' '$SH' | grep -qF 'pushed like any wave'"
+check "ship keeps delegated review fixes local" \
+  "grep -qF 'Critical-review keeps every resulting fix commit local' '$SH'"
 
 section "provider-aware Stop drift registration is strict and complete"
 

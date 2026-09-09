@@ -3,7 +3,7 @@ name: critical-review
 description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.6.1
+  version: 1.7.0
 ---
 
 # Reviewing Changes Critically
@@ -279,15 +279,25 @@ is read-only, as Review Method item 6 requires.
 
 1. **Record the starting point**: `git rev-parse HEAD`. Note whether the
    working tree already had uncommitted changes before this phase began.
-2. **Apply and commit** the approved fixes — one logical fix per commit,
-   staging only the paths that fix touched, so pre-existing uncommitted work
-   is never swept into a fix commit. Commits are created *before the gate*,
-   because a reply cites a commit SHA and the gate must show the exact text
-   that will be published, not a placeholder.
-3. **Verify** what is cheap: build, tests, linter. A verification failure
-   halts the flow before the gate — return to the user with the output. The
-   fix commits exist locally; nothing has been pushed or posted.
-4. **Preflight** write capability (below).
+2. **Route every approved fix; the coordinator never authors a fix**, including
+   prose. Each route names an explicit available host, model, supported effort,
+   bounded paths and contract, with rationale from multi-model's shared routing
+   rules — never severity, coordinator identity, or inherited child defaults.
+   If any required skill, host, model, or effort is unavailable, stop and report
+   that bounded route; never fall back to self-implementation. Behavior changes,
+   including instruction/config text that changes actual behavior, use
+   multi-model with `publication: local` and supervised execution. Only genuinely
+   non-behavior prose, comments, or docs use one bounded explicitly routed
+   subagent instead of a supervised wave.
+   The returned evidence is not authority to publish.
+3. **Integrate, commit, and verify** returned approved fixes — one logical fix
+   per commit, staging only paths the fix touched, so pre-existing uncommitted
+   work is never swept into a fix commit. Do not silently push an uncommitted
+   standalone base to manufacture a wave base. Commits precede the gate because
+   replies cite real SHAs. A verification failure halts before the gate and
+   returns its output; no commit has been pushed or posted.
+4. **Preflight** write capability (below). `degrade` concerns only PR capability,
+   never unavailable delegated execution.
 5. **Gate** — present the package once, and wait.
 6. **Execute**, only on approval, in strict order:
    `push` → replies → resolves. Replying before the push is forbidden: the
@@ -431,7 +441,7 @@ gh api graphql \
 |---|---|
 | Verification (build/tests) fails | Halt before the gate; report the output; fix commits exist locally, nothing pushed or posted |
 | User cancels at the gate | `git reset --soft <starting HEAD>`; fixes stay in the working tree; nothing left the machine |
-| No `gh`, or not authenticated | Fixes and verification still run; the gate degrades to the push only, and carries the reply texts for manual use |
+| No `gh`, or not authenticated | Delegated fixes and verification still run; the gate degrades to the push only, and carries reply texts for manual use |
 | `viewerCanResolve: false` on a thread | That thread gets its reply; its resolve is dropped from the package, with the reason stated |
 | `viewerCanReply: false` on a thread | Listed in the gate as untouchable, with its prepared text for manual use |
 | Node count ≠ `totalCount` after pagination | Stop with an explicit error; never present a partial thread inventory as complete |

@@ -59,7 +59,10 @@ and compaction are host capabilities; this plugin does not implement them.
 ## Routing hypotheses and limits
 
 Astra leads the existing four skills when it is the active session model.
-GPT-5.6 models implement the wave; a separate Astra judges their artifacts.
+GPT-5.6 models ordinarily implement the wave; a separate Astra judges their
+artifacts. A separately approved Astra initial executor or final rung is an
+uncalibrated exception, requiring a fresh Astra supervisor for context
+separation rather than different-model independence.
 The Sol-`high` drift checker is a candidate for detecting departures from the
 plan, not a replacement for the wave supervisor. Mechanical verification
 remains authoritative.
