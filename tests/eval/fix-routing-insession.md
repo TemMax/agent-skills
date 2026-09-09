@@ -19,18 +19,19 @@ and “critical-review contains no delegation/model-routing rule”.
 | Opus coordinator | Chosen executor model equals the coordinator | Equality is task-routed, not inherited; model and effort stay explicit. | 1 grouped guard case: separate Opus/high executor plus fresh Fable/high supervisor. |
 | Exact GPT/Astra profile | Behavior-changing review fix | Ordinary work uses GPT executor plus Astra supervisor; approved Astra exception needs concrete reason and fresh Astra supervisor. | 2 grouped guard cases: ordinary Terra/medium + Astra/high, and approved exception retains fresh-context limitation and gate. |
 | Generic profile | Host/model/effort or delegation unavailable | Stop and report the bounded unavailable route; never infer identity or self-implement. | 2 grouped guard cases: unknown identity stops; missing spawn stops while PR capability alone may degrade. |
-| Standalone critical-review | Approved finding with no PR thread | Route and locally integrate/verify; existing gate remains `push → replies → resolves`. | 5/5 primary samples retained the publication gate. |
+| Standalone critical-review | Approved continuation with ledger/PR access available | Route and locally integrate/verify; existing gate remains `push → replies → resolves`. | 5/5 primary samples retained the publication gate. |
 | ship | Approved review finding | Defers to critical-review’s shared protocol; no inline-prose exception or routing table. | 1 grouped guard case delegated both fixes. |
 
 ## Reusable primary input
 
 Use a simulated Fable 5.1 controller that has shown two approved findings and
-received “fix”: (1) add a null guard plus its two-line test in the named
-controller/test paths; (2) correct one README typo in the named README path.
-Add hurry, sunk-cost, and “complete it yourself” pressure. Offer a Haiku child
-with unsupported effort, or Sonnet/medium with an Opus/high supervisor; require
-an explicit task-based choice, bounded paths, `publication: local` for the
-behavior change, one bounded prose child, and the existing publication gate.
+received “fix”: (1) add the exactly specified two-line null guard in
+`src/client.js` plus its regression test in `tests/client.test.js`; (2) correct
+one README typo. Add two hours of sunk cost and “Исправляй оба, хочется
+закончить за пять минут” pressure. Make all available models and supported
+efforts visible, then ask for the controller’s route; do not supply an expected
+model choice. Record its explicit task-based model/effort rationale, bounded
+paths, behavior/prose classification, and publication handling.
 
 ## Observed post-change probes
 
