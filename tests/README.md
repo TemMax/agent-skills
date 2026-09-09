@@ -46,7 +46,7 @@ and limitations. None substitutes for the others.
 
 [Post-review fix routing](eval/fix-routing-insession.md) is a small simulated
 continuation fixture. It records the frozen 5/5 direct-fix baseline and leaves
-post-change probe outcomes pending; it is neither a live result nor a release
+post-change simulated probe outcomes; it is neither a live result nor a release
 or publication gate.
 
 The super-plan tier asks the inverse planning questions: a request that
