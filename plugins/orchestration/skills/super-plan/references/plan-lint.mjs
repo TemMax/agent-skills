@@ -9,14 +9,16 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join, isAbsolute } from 'node:path'
 
 // Claude plans use short IDs except for the one pinned Opus ID accepted by
-// Workflow. Codex executors use exact GPT-5.6 IDs; Astra is supervisor-only.
+// Workflow. Codex models use exact IDs; Astra execution is an explicit exception.
 const CLAUDE_MODELS = ['haiku', 'sonnet', 'opus', 'fable', 'claude-opus-4-8']
 const CODEX_MODELS = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+const ASTRA = 'gpt-6-astra'
 const MODELS = [...CLAUDE_MODELS, ...CODEX_MODELS]
-const SUPERVISORS = [...MODELS, 'gpt-6-astra']
+const EXECUTOR_MODELS = [...MODELS, ASTRA]
+const SUPERVISORS = [...MODELS, ASTRA]
 const providerForModel = (model) => CLAUDE_MODELS.includes(model)
   ? 'claude'
-  : CODEX_MODELS.includes(model) || model === 'gpt-6-astra' ? 'codex' : null
+  : CODEX_MODELS.includes(model) || model === ASTRA ? 'codex' : null
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
@@ -108,8 +110,8 @@ if (plan) {
           ids.push(t.id)
         }
         if (t.branch !== 'wave/' + t.id) err(tat + '.branch: must be "wave/' + t.id + '"')
-        if (!t.executor || !MODELS.includes(t.executor.model)) {
-          err(tat + '.executor.model: one of ' + MODELS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
+        if (!t.executor || !EXECUTOR_MODELS.includes(t.executor.model)) {
+          err(tat + '.executor.model: one of ' + EXECUTOR_MODELS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
         }
         if (t.executor && providerForModel(t.executor.model) === 'codex'
           && t.executor.effort === undefined) {
@@ -118,17 +120,36 @@ if (plan) {
           && !EFFORTS.includes(t.executor.effort)) {
           err(tat + '.executor.effort: one of ' + EFFORTS.join('/'))
         }
-        if (t.ladder !== undefined && (!Array.isArray(t.ladder) || t.ladder.some((m) => !MODELS.includes(m)))) {
-          err(tat + '.ladder: array of ' + MODELS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
+        if (t.ladder !== undefined && (!Array.isArray(t.ladder)
+          || t.ladder.some((m) => !EXECUTOR_MODELS.includes(m)))) {
+          err(tat + '.ladder: array of ' + EXECUTOR_MODELS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
         }
-        if (t.executor && MODELS.includes(t.executor.model) && Array.isArray(t.ladder)) {
-          const transitions = [t.executor.model, ...t.ladder]
+        const transitions = t.executor && EXECUTOR_MODELS.includes(t.executor.model)
+          ? [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : [])] : []
+        const usesAstra = transitions.includes(ASTRA)
+        const astraReasonValid = typeof t.astra_executor_reason === 'string'
+          && t.astra_executor_reason.trim() !== ''
+        if (usesAstra) {
+          if (!astraReasonValid) {
+            err(tat + '.astra_executor_reason: non-empty string required for Astra execution')
+          }
+          if (transitions.at(-1) !== ASTRA) {
+            err(tat + '.ladder: gpt-6-astra must be the final executor rung')
+          }
+          if (!w.supervisor || w.supervisor.model !== ASTRA) {
+            err(tat + ': Astra execution requires exact gpt-6-astra supervisor')
+          }
+        } else if (Object.hasOwn(t, 'astra_executor_reason')) {
+          err(tat + '.astra_executor_reason: only allowed when Astra is an executor or ladder rung')
+        }
+        if (transitions.length > 0) {
           if (new Set(transitions).size !== transitions.length) {
             err(tat + '.ladder: ladder transitions must use distinct models across executor and ladder')
           }
         }
         if (w.supervisor && t.executor
-          && [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : [])].includes(w.supervisor.model)) {
+          && [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : [])].includes(w.supervisor.model)
+          && !(usesAstra && astraReasonValid && w.supervisor.model === ASTRA)) {
           err(tat + ': supervisor model also appears as executor or ladder rung')
         }
         const c = t.contract
