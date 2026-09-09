@@ -32,11 +32,13 @@ context compaction cannot erase identifiers. A thread finding carries
 `own`. Reply only to the recorded originating thread. Communicate `own` fixes
 through commit messages, never a related-looking thread.
 
-For approved fixes, record the starting HEAD and existing user changes, apply
-and commit each logical fix using scoped staging, and run available verification.
-A failed check halts before publication. In ship's composition, behavior changes
-use a supervised wave with `publication: local`; non-behavior changes may be
-applied inline. Both yield verified local commits before the publication gate.
+For approved fixes, record the starting HEAD and existing user changes, then
+route every fix explicitly. The coordinator never authors a fix, including prose:
+behavior changes use a supervised `publication: local` wave; genuinely
+non-behavior prose uses one bounded routed subagent. Instruction/config text
+that changes behavior is behavior-changing. Integrate and commit returned work
+using scoped staging, then run available verification. A failed check halts
+before publication. Missing delegation stops; PR capability alone may degrade.
 
 Preflight authentication, identity, `viewerCanReply`, and `viewerCanResolve`.
 Prepare one package with the diff, real SHAs, verification evidence and limits,

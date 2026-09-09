@@ -95,9 +95,9 @@ proceed. Never ask the user to restart at a different effort.
 | Task | Model | Why |
 | --- | --- | --- |
 | Compiled-binary vulnerability discovery, or anything your cyber classifier blocks | Opus 4.8 executor (`claude-opus-4-8`), right away | Blocked for you at every access level (p. 52); the silent fallback is Opus 4.8 anyway (p. 46), so route it openly |
-| Untrusted content whose compromise reaches secrets or irreversible actions | Yourself (`fable`) | Most injection-robust model to date: IPI 0.1% at k=1, 1.0% at k=15, and none of 2,826 directly served coding requests broke (pp. 83, 86). Opus 5 stays the cost default |
-| Live browser content without additional safeguards | Sonnet 5 | Browser injection 0.28% against your 2.64% raw (p. 89) |
-| Scoped coding on a Fable 5.1 executor | Fable 5.1 at medium effort, plus the scope line | The score peaks at medium; higher effort buys out-of-scope edits (p. 169) |
+| Untrusted content whose compromise reaches secrets or irreversible actions | separate fable executor | Explicit specialized choice: IPI 0.1% at k=1, 1.0% at k=15, and none of 2,826 directly served coding requests broke (pp. 83, 86). Opus 5 stays the cost default |
+| Live browser content without additional safeguards | Sonnet 5 | Browser injection 0.28% against the documented Fable raw rate (p. 89) |
+| Explicit approved initial or specialized Fable executor | Fable 5.1 at medium effort, plus the scope line | Conditional effort guidance after the specialized choice; it does not override an approved rung's effort. Higher effort buys out-of-scope edits (p. 169) |
 
 ## Your Own Documented Quirks (Fable 5.1)
 

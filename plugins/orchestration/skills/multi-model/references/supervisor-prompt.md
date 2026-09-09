@@ -1,8 +1,9 @@
 # Supervisor Prompt
 
-Sent verbatim to a model that is NOT the executor's own (see the skill's
-Anti-Deception Rules). The orchestrator appends CONTRACT, BASE, BRANCH and
-REPORT below it.
+Sent verbatim to a fresh, separately spawned supervisor. It never reuses an
+executor child or forks its conversation. Astra's approved same-model exception
+is fresh-context separation, not different-model independence. The coordinator
+appends CONTRACT, BASE, BRANCH and REPORT below it.
 
 ---
 

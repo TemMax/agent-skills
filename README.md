@@ -131,7 +131,7 @@ is deliberately narrower than a claim that every profile is a production route:
 | Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
-| Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. Astra is never an executor or escalation rung. |
+| Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. A separately approved Astra initial executor or final rung is uncalibrated and requires a fresh Astra supervisor. |
 | Either | any other model ID | The generic profile applies; missing identity/effort stay unknown, and no model-specific reliability claim follows. |
 
 When the host identifies the current session only as **GPT-6**, the skills load
@@ -152,9 +152,10 @@ authorized calibration. The result does not turn invalid or failed cells into
 support.
 
 When a skill starts on **Astra**, Astra remains in the active seat: it plans,
-coordinates, and reviews. A supervised implementation wave uses only Luna,
-Terra, or Sol, with a separate Astra supervisor. Sol exhaustion stops the task;
-it never escalates implementation to Astra. No session is switched to Astra
+coordinates, and reviews. A supervised implementation wave ordinarily uses only
+Luna, Terra, or Sol, with a separate Astra supervisor. A separately approved
+Astra initial executor or final rung requires `astra_executor_reason` and a
+fresh Astra supervisor; Sol exhaustion never promotes, resets, or raises effort
 automatically. A fresh Astra reviewer provides context separation, not a
 different-model check. The advisory drift hook selects Sol/high for an Astra
 orchestrator; that pairing also needs calibration. Other profiles retain their

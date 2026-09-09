@@ -19,11 +19,13 @@ This compatibility rule was added on 2026-09-08 because the
 gives `gpt-6-astra` the instruction “an agent based on GPT-6.” It is a bounded
 profile policy, not an API alias or a claim about every GPT-6 deployment.
 
-Astra plans, coordinates, and reviews. Wave executors and escalation rungs are
-restricted to `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. A separate Astra
-agent supervises their artifacts. The linter and state machine distinguish the
-supervisor allowlist from the executor allowlist, including persisted state.
-Exhausting Sol stops the task rather than promoting Astra to executor.
+Astra plans, coordinates, and reviews. Ordinary executors and escalation rungs
+remain `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. A separately approved
+exception may place Astra initially or as the final explicit rung with
+`astra_executor_reason: "<concrete reason>"`; that metadata never authorizes
+the exception. It requires a fresh separate Astra supervisor; no terminal-Sol
+promotion, reset, or automatic max applies. Same-model Astra review is fresh
+context separation, not different-model independence.
 
 The advisory drift hook uses Sol/high to assess an Astra orchestrator. This is
 a candidate distinct-model advisory route, not evidence that Sol is qualified

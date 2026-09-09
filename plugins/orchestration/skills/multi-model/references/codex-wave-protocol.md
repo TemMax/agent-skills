@@ -1,7 +1,8 @@
 # Codex-native supervised wave protocol
 
-Use this protocol only for a Codex-only wave: GPT-5.6 executors and a GPT-5.6
-or `gpt-6-astra` supervisor. Astra is never an executor or ladder rung.
+Use this protocol only for a Codex-only wave. Astra is ordinarily a supervisor;
+a separately approved initial executor or final rung needs
+`astra_executor_reason: "<concrete reason>"`, which never authorizes it.
 This is the host adapter for the
 shared wave contract, mechanical verifier, supervisor verdict schema,
 escalation ladder, and result review in `SKILL.md`; it does not redefine any of
@@ -123,14 +124,18 @@ init  next  record-executor  verify  supervisor-prompt  record-verdict  summary
    and existing supervisor prompt. Do not name or reveal executor identity in
    the supervisor prompt.
 
-6. For `spawn-supervisor`, use the returned `model` and `effort`. It is the
-   different exact model selected by `next`; never choose an alternative based
-   on a label, availability guess, or default. The same tuple rule applies to
+6. For `spawn-supervisor`, use the returned `model` and `effort`; never choose
+   an alternative based on a label, availability guess, or default. The same
+   tuple rule applies to
    supervisor retries: use `followup_task` only for the same role, exact model,
-   and exact effort on an available supervisor child. On a changed model or
+   and exact effort on an available supervisor child. Supervisor handles remain
+   distinct from executor handles and never fork executor conversations,
+   including an approved Astra same-model exception. On a changed model or
    effort, or no suitable live child, spawn a fresh supervisor. Pass the
    helper-returned supervisor prompt as its only task text, require its fixed
-   verdict JSON, and pass that JSON unchanged to the recorder:
+   verdict JSON, and pass that JSON unchanged to the recorder. A supervisor
+   action after actual Astra execution carries helper evidence `sameModelReview:true` and
+   `reviewContext:"fresh"`; an unused approved rung proves neither fact:
 
    ```js
    const task_id = action.task.replaceAll("-", "_")

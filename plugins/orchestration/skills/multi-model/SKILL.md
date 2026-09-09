@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.7.1
+  version: 2.8.0
 ---
 
 # Orchestrating Multi-Model Development
@@ -74,12 +74,16 @@ Full counts and limitations:
 
 ## Overview
 
-The orchestrator (this session's model) researches, plans, writes task specs, and
-verifies; the executors (Haiku 4.5 / Sonnet 5 / Opus 5 / Opus 4.8, and Fable 5.1
-as an explicit rung) implement. Core
-principle: **decisions belong to the orchestrator, execution belongs to the
-agents**. Every rule below is derived from the models' official system cards; the
-facts and numbers live in `references/model-dossiers.md`.
+The orchestrator researches, plans, routes, integrates, verifies, and publishes;
+executors implement. Core principle: **decisions belong to the coordinator,
+execution belongs to separately routed agents**. Every child has an explicit
+model and supported effort selected from the shared routing rules; never inherit
+either from the coordinator or infer identity from labels. Model equality is
+allowed when task routing justifies it, not because of coordinator identity.
+Fable is a separate fable executor only for an explicit reasoned specialized
+choice or approved rung, never a blanket scoped-coding route. Effort advice is
+conditional on an already justified selection. Every rule below is derived from
+the models' official system cards; facts and numbers live in the dossiers.
 
 Always reply to the user in the language the user writes in — this skill being in
 English does not mean English replies.
@@ -188,7 +192,7 @@ is your profile's business, not this table's.
 | Sonnet 5 | obvious solution, but the code must be read | routine implementation per spec | default for non-trivial work | hardest execution tasks; plateau! |
 | Opus 5 executor | unusually strong on simple/scoped tasks | well-specified work | default for non-trivial work | avoid — overthinking/self-verification risk |
 | Opus 4.8 executor (`claude-opus-4-8`) | — | most well-specified tasks (min effort ≈ Opus 4.7 max) | debugging, verification, long horizon | research-grade only |
-| Fable 5.1 executor (explicit ladder rung only) | scoped, closed tasks | **peak on scoped coding** (FrontierCode, p. 169) — always with a scope/brevity line | long-horizon work | xhigh ≈ max at 19–25% fewer tokens (pp. 193–194); out-of-scope edits rise with effort — the scope line is mandatory |
+| Fable 5.1 executor (explicit specialized choice or approved rung) | scoped, closed tasks | **peak on scoped coding** (FrontierCode, p. 169) — always with a scope/brevity line | long-horizon work | xhigh ≈ max at 19–25% fewer tokens (pp. 193–194); out-of-scope edits rise with effort — the scope line is mandatory |
 
 Signal rule: wanting to give Sonnet xhigh because the task is open-ended → that
 means switching the model to Opus or returning to the Decisions stage, not effort.
@@ -331,9 +335,11 @@ is a check it may decide
 it already satisfied; a check in the control flow around it is one it never gets
 a vote on. A stage can also do what advice cannot: reject and re-run.
 
-Send `references/supervisor-prompt.md` to a model that is not the executor's own
-(see Anti-Deception Rules), with the contract, the report, the base SHA and the
-branch.
+Send `references/supervisor-prompt.md` to a fresh separate supervisor with the
+contract, report, base SHA and branch. It never reuses an executor child or forks
+its conversation, even when model and effort match. Astra's separately approved
+executor exception uses a fresh Astra supervisor and is fresh-context separation,
+not different-model independence; other supervisor restrictions remain.
 
 ### Mechanical verification before the judge
 
@@ -373,7 +379,8 @@ then abandoned supervision entirely.
 
 ### Choosing the supervisor — Quick Reference
 
-Two hard rules, then the table. Never the executor's own model (self-preference:
+Two hard rules, then the table. Use a fresh separate supervisor; outside the
+separately approved Astra exception, never the executor's own model (self-preference:
 measured zero for Opus 4.8 and Fable 5, unmeasured for Opus 5 — so Opus 5 never
 judges Opus 5; measured small but non-zero for Fable 5.1 — 0.1 points out of 10,
 lenient when told the author is Claude, p. 124 — which is why the runner's judge
@@ -390,7 +397,7 @@ everything the executor did.
 | Sonnet 5 | Opus 5 | high |
 | Opus 5 | Fable 5.1 via `fable` (fallback: Opus 4.8 via `claude-opus-4-8`) | high |
 | Opus 4.8 | Opus 5 or Fable 5.1 | high |
-| Fable 5.1 (explicit ladder rung only) | Opus 5 | high |
+| Fable 5.1 (explicit specialized choice or approved rung) | Opus 5 | high |
 
 The short name `fable` resolves to whichever Fable the harness serves — Fable
 5.1 as of September 2026; Fable 5 is no longer addressable and keeps its profile
@@ -476,7 +483,8 @@ supervised wave, stop before publication rather than push around the gate.
 
 - Claude-only wave: invoke `references/wave-runner.workflow.mjs` exactly as
   documented below.
-- Codex-only wave (GPT-5.6 executors; GPT-5.6 or Astra supervisor): read and follow
+- Codex-only wave (GPT-5.6 executors, or separately approved Astra initial/final
+  rung; GPT-5.6 or Astra supervisor): read and follow
   `references/codex-wave-protocol.md`; do not invoke Claude Workflow.
 - Mixed or unknown-provider wave: stop before spawning and return the linter or
   identity error.
@@ -762,7 +770,7 @@ Each of these comes from a measured failure, not from general caution.
 |---|---|
 | State the prohibitions to the executor loudly and explicitly | Explicit "don't work around — report" lowers fabrication: Fable 17.4% → 9.1% (pp. 161–163), Opus 4.8 9.4% → 2.8% (pp. 109–110) |
 | Do NOT disclose the supervisor's specific checks to the executor | Grader awareness reaches 24–30% and changes behavior at the surface level (Fable pp. 171–181) |
-| The supervisor is never the executor's own model | Opus 5's self-preference bias as a judge is unmeasured; Opus 4.8 (pp. 122–124) and Fable 5 (pp. 202–203) have measured zero; Fable 5.1 has a measured 0.1/10 (p. 124) |
+| Fresh separate supervision; same-model only for approved Astra exception | Opus 5's self-preference bias as a judge is unmeasured; Astra exception evidence is uncalibrated; Opus 4.8 (pp. 122–124) and Fable 5 (pp. 202–203) have measured zero; Fable 5.1 has a measured 0.1/10 (p. 124) |
 | A claim without command output is a violation | Caveat laundering: "I verified this myself" while spot-checking only ancillary facts (pp. 37–39) |
 | Attach verdicts; never paraphrase an executor report in their place | Opus 5 relays subagent claims unverified (p. 81) |
 | Stopping early with open plan items is a violation | Fable stops on spurious token-budget concerns, 2.43M tokens unspent (pp. 170–171) |
@@ -778,7 +786,8 @@ two, that it diffs the tests against the recorded base SHA, that it greps for
 the forbidden moves. An executor told the rules complies with the rules; an
 executor told how compliance is measured optimizes for the measurement.
 
-**Choosing the supervisor's model.** Never the executor's own. Prefer a judge
+**Choosing the supervisor's model.** Outside the approved Astra exception, never
+the executor's own. Prefer a judge
 with measured zero self-preference — Opus 4.8 (pp. 122–124); `fable` (Fable 5.1)
 carries a measured 0.1/10 lenience when told the author is Claude (p. 124);
 the judge prompt never states the executor's model, inference remains possible
@@ -816,7 +825,7 @@ Opus 5 relays subagent claims unverified (p. 81).
 | Numeric example in the spec computed in your head | The example contradicts the formula, the agent stalls | Compute with a tool or give only the formula |
 | Not warning about parallel file changes | The agent treats the wave as an anomaly, wastes steps | List the files its neighbors modify |
 | Documentation assigned to no one | README silently goes stale | An explicit docs task in the decomposition |
-| Supervising with the executor's own model | A judge with unmeasured self-preference grants its own work a discount for free | Opus 4.8 or Fable 5.1, never the executor's model; never name the executor to the judge |
+| Reusing an executor as supervisor | The role can inherit its own work; Astra same-model exception is only fresh-context separation | Fresh distinct role handle; outside approved Astra, use Opus 4.8 or Fable 5.1 and never name the executor to the judge |
 | Telling the executor how compliance is measured | Grader awareness turns compliance performative at the surface | Rules explicit, method undisclosed |
 | Accepting a claim with no command output | The cheapest fabrication passes untouched | `evidence: required`, and compare it with your own re-run |
 | Asking a supervisor to judge whether a mismatch was dishonest | It cannot know, and it reaches for the heaviest label — four fixes failed the same way | Record `pasteReproduced` as a fact; let repetition across attempts carry the consequence |

@@ -28,6 +28,9 @@ No measured self-preference, false-positive/negative rate, or best effort for
 this plugin was found in these sources. GPT-5.6-only calibration cannot be
 inherited by Astra. Preserve raw failures and manually adjudicate scorer
 disagreements; formatting compliance and finding a real bug are separate facts.
+An approved same-model Astra executor/supervisor exception is likewise
+uncalibrated: a fresh supervisor provides context separation, not a measured
+different-model independence claim.
 
 The repository's `tests/eval/gpt-6-astra-pilot-2026-09-07.md` records one clean
 pass and one correctly identified planted defect rejected by the frozen scorer's

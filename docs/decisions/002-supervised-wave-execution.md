@@ -47,8 +47,11 @@ Claude verifier falls back to full model supervision. Codex runs its mechanical
 verifier in the helper, and a clean verdict cannot override blocking facts.
 Merge readiness requires the final clean facts and clean supervisor verdict.
 
-The supervisor is a different exact model from every executor/ladder rung, and
-its input omits executor identity. Give executors the full rules and explicit
+The supervisor is fresh and separately spawned from every executor, never
+reusing an executor handle or conversation, and its input omits executor
+identity. Astra alone may use a separately approved same-model executor with a
+fresh Astra supervisor; this is context separation, not different-model
+independence. Give executors the full rules and explicit
 stop/report boundaries while withholding the supervisor's detection method.
 The supervisor checks the diff, prohibited changes, and truth of report answers;
 independent verifier output may satisfy command re-execution. Its standalone
@@ -77,7 +80,10 @@ post-review fix flow may explicitly request `publication: local`: complete
 isolation, verification, supervision, and local integration, then return commits
 and evidence without pushing. It still starts at the pushed PR head and cannot
 create dependent unpushed wave bases to bypass the publication gate.
-`ship` composes the existing skills on a feature branch; the final PR merge
+Every approved review fix is explicitly routed with model, supported effort and
+bounded contract; coordinators never self-implement, including prose. Missing
+delegation stops locally; `degrade` is only PR-capability handling. `ship`
+composes the existing skills on a feature branch; the final PR merge
 remains the user's decision.
 
 ## Consequences

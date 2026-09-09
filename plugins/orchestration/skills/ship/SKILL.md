@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.7.1
+  version: 2.8.0
 ---
 
 # Shipping a Feature (ship)
@@ -138,25 +138,18 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    machinery — a missing or failing capability is not a ship failure.
 4. Invoke **critical-review** on the PR.
 5. Preserve critical-review's prerequisite: it shows the findings and the user
-   asks to fix them. Then run its post-review fix phase for every approved finding that produces a fix, including an `own` finding with no PR threads.
-   Route within that phase by behavior, not size:
-   - the fix **changes behavior** (code paths, tests, contracts, scripts) →
-     the selected multi-model with `publication: local` runs a supervised
-     fix-wave; merge its reviewed result locally into the feature branch and
-     verify it;
-   - the fix **changes no behavior** (prose, docs, comments, config strings)
-     → apply it inline, commit locally, and verify it.
-   The line is what the change can break, not how many lines it takes.
-6. Keep every resulting fix commit local through apply, commit, and verification. critical-review's own single exact-text gate prepares the
-   replies (an empty set when there are no threads) and presents `push → replies → resolves`. Only after that approval does publication run `push → replies → resolves`; replies and resolves are naturally empty when
-   there are no threads.
+   asks to fix them. Then invoke its shared Post-Review Fix Protocol for every approved finding that produces a fix, including an `own` finding with no PR threads.
+   ship never adds inline prose routing or a parallel routing table.
+6. Critical-review keeps every resulting fix commit local through integration and
+   verification, then presents its single exact-text `push → replies → resolves`
+   gate. Only after that approval does publication run in that order.
 
 ## Stage 4 — Handoff
 
 ship ends at: PR open, review clean or every finding routed, threads
 answered. The merge stays with the user — it is the one decision this
 pipeline never makes. Report: the branch, the PR link, waves run, verdicts
-and reworks, what was fixed inline versus by wave, and anything left open.
+and reworks, routed fix evidence, and anything left open.
 
 ## Failure map
 
@@ -176,7 +169,7 @@ and reworks, what was fixed inline versus by wave, and anything left open.
 |---|---|---|
 | Re-implementing a stage inline | Silent divergence from tested behavior | Invoke the link skill |
 | Merging the PR yourself | The one decision that is not yours | The merge stays with the user |
-| Routing a behavior change inline because it is small | A code fix lands with no judge | Behavior → fix-wave, whatever the size |
+| Routing a fix inline because it is small | The coordinator authors an unreviewed change | Invoke critical-review's shared route, whatever the size |
 | Adding a second ship-level gate mid-flow | The pipeline stops being automatic | One gate up front; the links keep their own |
 | Basing a wave on a hand-typed sha | A corrupted base already burned a wave once | Copy the tip verbatim from `git rev-parse` output |
 | Opening the PR before the suite is green | The reviewers review a broken branch | Suite first, PR second |
