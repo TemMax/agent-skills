@@ -7,7 +7,7 @@
     "name": "TemMax",
     "url": "https://github.com/TemMax"
   },
-  "repository": "https://github.com/TemMax/claude-skills",
+  "repository": "https://github.com/TemMax/agent-skills",
   "keywords": [
     "code-review",
     "pull-request",

@@ -1,6 +1,6 @@
-# claude-skills
+# agent-skills
 
-A dual Claude Code and Codex plugin marketplace (`temmax-skills`) with two
+A dual Claude Code and Codex plugin marketplace (`temmax`) with two
 plugins covering the full development pipeline: plan → supervised execution →
 review. Model-specific guidance is scoped to cited first-party Anthropic and
 OpenAI sources; shared safety rules stay provider-neutral. Load-bearing logic
@@ -179,9 +179,9 @@ real disposable Codex install rehearsal are the release checks.
 ### Claude Code installation
 
 ```
-/plugin marketplace add TemMax/claude-skills
-/plugin install orchestration@temmax-skills
-/plugin install code-review@temmax-skills
+/plugin marketplace add TemMax/agent-skills
+/plugin install orchestration@temmax
+/plugin install code-review@temmax
 ```
 
 ### Codex installation
@@ -190,15 +190,40 @@ Clone this repository, then register that checkout as the repository/team
 marketplace (replace the path, but keep the selector name):
 
 ```bash
-codex plugin marketplace add /absolute/path/to/claude-skills
-codex plugin list --marketplace temmax-skills --available --json
-codex plugin add orchestration@temmax-skills --json
-codex plugin add code-review@temmax-skills --json
-codex plugin list --marketplace temmax-skills --json
+codex plugin marketplace add /absolute/path/to/agent-skills
+codex plugin list --marketplace temmax --available --json
+codex plugin add orchestration@temmax --json
+codex plugin add code-review@temmax --json
+codex plugin list --marketplace temmax --json
 ```
 
-The repository name and URLs remain `claude-skills` until the user performs a
-separate rename. Do not use a personal marketplace for this repository.
+Do not use a personal marketplace for this repository.
+
+### Migrating from the old names
+
+The repository was `TemMax/claude-skills` and the marketplace `temmax-skills`.
+GitHub redirects the old repository URL, but the marketplace rename is not
+redirected: `...@temmax-skills` selectors stop resolving, so re-register once.
+
+Claude Code:
+
+```
+/plugin marketplace remove temmax-skills
+/plugin marketplace add TemMax/agent-skills
+/plugin install orchestration@temmax
+/plugin install code-review@temmax
+```
+
+Codex (after `git pull` in your checkout, or a fresh clone):
+
+```bash
+codex plugin remove orchestration@temmax-skills --json
+codex plugin remove code-review@temmax-skills --json
+codex plugin marketplace remove temmax-skills --json
+codex plugin marketplace add /absolute/path/to/agent-skills
+codex plugin add orchestration@temmax --json
+codex plugin add code-review@temmax --json
+```
 
 ## Usage
 
@@ -281,8 +306,8 @@ The `-opus` slash commands no longer exist. Use the base name on any model.
 ## Local development
 
 ```bash
-claude --plugin-dir /path/to/claude-skills/plugins/orchestration
-claude --plugin-dir /path/to/claude-skills/plugins/code-review
+claude --plugin-dir /path/to/agent-skills/plugins/orchestration
+claude --plugin-dir /path/to/agent-skills/plugins/code-review
 ```
 
 Run the offline release suite before changing a plugin:
