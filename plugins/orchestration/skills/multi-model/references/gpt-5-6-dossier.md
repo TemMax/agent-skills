@@ -1,5 +1,9 @@
 # GPT-5.6 orchestration evidence dossier
 
+For current operational choices, use [codex-routing.md](codex-routing.md).
+Historical seed hypotheses below do not override that policy or establish
+a blanket prohibition on bounded executor work.
+
 This is the pre-calibration evidence ledger for the GPT-5.6 orchestration
 profiles. It separates System Card measurements, current product-documentation
 facts, seed hypotheses, and unmeasured properties. The seed routes are not

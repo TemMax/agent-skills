@@ -1,7 +1,9 @@
 # GPT-6 Astra orchestration evidence dossier
 
-Reviewed 2026-09-07. Status: exact-ID integration and candidate routing;
+Reviewed 2026-09-07. Evidence status: exact-ID integration and candidate routing;
 production reliability of the Astra-led routes is not yet calibrated.
+Operational policy is maintained separately in [codex-routing.md](codex-routing.md):
+uncalibrated reliability is not a blanket prohibition on supervised use.
 
 ## Sources
 

@@ -9,7 +9,8 @@ from capability, prose, or the API alias.
 
 ## Session effort
 
-No calibrated Sol orchestration effort is supported. In the final post-fix
+Preserve explicitly supplied session effort; missing effort remains unknown.
+No optimal Sol orchestration effort was established. In the final post-fix
 `medium` run, Sol passed 2/8 in the default matrix and 0/8 in the critical base
 across `super-plan`, native wave, critical review, and `ship` success/failure
 paths. Historical `high` probes also failed every required path. `xhigh` and
@@ -23,8 +24,8 @@ The final default and critical bases each passed profile routing 8/8 and safety
 verifier guards each passed 5/5; the supervisor's five clean guards and three
 violation guards passed 8/8; drift passed 7/7. The fresh final matrices had no
 infrastructure-class failures, so their remaining failed rows are not promoted
-to passes. These supporting results do not rescue the failed core routes. See
-`tests/eval/gpt-5-6-results-2026-09-04.md`.
+to passes. These are workflow observations, not a ban on bounded executor work. See the
+packaged [evidence limits](gpt-calibration-evidence.md).
 
 ## Main-seat responsibilities
 
@@ -37,13 +38,11 @@ to passes. These supporting results do not rescue the failed core routes. See
 
 ## Delegation and supervision
 
-- Do not author a production GPT-5.6 executor/supervisor route from this
-  profile. Return `unsupported` with the evidence packet and delegate the
-  routing decision upward.
-- A separately supported Claude route requires a new provider-specific wave;
-  never mix providers or silently substitute a different GPT model.
-- If future calibration establishes a route, its fixed supervisor must differ
-  from every executor/ladder model. Changing the pairing requires a new wave.
+- Use [shared Codex routing](codex-routing.md) for available executors,
+  independent Astra/high supervision, explicit efforts and bounded escalation.
+  It governs routing across profiles without a separate calibration gate.
+- Preserve isolated worktrees, task contracts, mechanical checks and fresh
+  independent verdicts. Never mix providers or silently reroute an approved plan.
 
 ## Autonomy and verification guards
 
@@ -59,16 +58,14 @@ artifacts from the current run.
 
 The 2026-09-04–05 UTC runs did not establish Sol as an orchestrator, a production
 executor/supervisor pair, or a quality gain from higher effort. It also did not
-measure cross-model self-preference. Do not restore a seed route from model
-positioning or System Card capability scores. The former seed route was
-terminal after one raised-effort rework; that historical cap is not a supported
-route.
+measure cross-model self-preference. Model positioning and System Card scores do not certify routing reliability.
+Operational selection follows shared Codex routing with independent verification.
 
 ## Common mistakes
 
 - Treating the flagship label as proof that every task belongs on Sol.
 - Generalizing Sol-only persistence, controllability, or metagaming findings to
   Terra or Luna.
-- Restoring the Sol/Terra seed pair despite its unsupported calibration.
+- Treating failed workflow qualification as a blanket executor prohibition.
 - Promoting `xhigh` or `max` after the hard fixture failed 0/1.
 - Calling work complete from a confident summary without inspecting artifacts.

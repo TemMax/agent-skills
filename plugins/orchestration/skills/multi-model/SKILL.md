@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.8.0
+  version: 2.8.1
 ---
 
 # Orchestrating Multi-Model Development
@@ -57,20 +57,17 @@ provider, model, and effort fields are authoritative for adapter execution: do
 not re-route or reject that approved artifact against a seed profile. This never
 permits a mixed/unknown-provider wave or bypasses lint and user approval.
 
-### GPT-5.6 calibration gate — 2026-09-04–05 UTC
+### GPT calibration evidence and Codex routing
 
-No GPT-5.6 production wave route is supported. The final post-fix `medium`
-matrices recorded 63/87 passes in default mode and 162/204 in critical mode,
-with no infrastructure-class failures. Of eight required core cells per model,
-the default matrix passed Sol 2/8, Terra 0/8, and Luna 1/8; the critical base
-passed Sol 0/8, Terra 1/8, and Luna 1/8. No model passed all required paths,
-and `ship` remained 0/2 for every model in both bases. Historical `high`,
-`xhigh`, and `max` probes also established no route. During plan authoring,
-return the GPT route as `unsupported` with the evidence packet and delegate the
-routing decision upward. Do not substitute another GPT model, mix providers in
-one wave, or use `max` by default. Existing Claude routing below is unchanged.
-Full counts and limitations:
-`tests/eval/gpt-5-6-results-2026-09-04.md`.
+For Codex plan authoring, load [codex-routing.md](references/codex-routing.md).
+It governs executor, research, supervisor and effort selection across active-seat
+profiles; the Claude quick-reference tables below apply to Claude waves only.
+Historical calibration informs task scope and verification, not a blanket veto
+or an additional user calibration gate. The final `medium` matrices recorded
+63/87 default and 162/204 critical passes; failures remain failures. These
+workflow fixtures did not measure GPT-5.6 executors under independent Astra
+supervision. Read the packaged [evidence and limitations](references/gpt-calibration-evidence.md)
+before making claims about what those counts establish.
 
 ## Overview
 
@@ -119,7 +116,8 @@ English does not mean English replies.
    in the same place — fix the task spec, don't repeat the prompt.
 8. **The final end-to-end review is the orchestrator's own.** Before it you may
    launch an Opus verifier, but the verdict is the orchestrator's.
-9. **Completion.** At most 3 iterations per task, then escalation. At the end a
+9. **Completion.** Claude: at most 3 iterations per task, then escalation. Codex
+   uses the native helper's bounded attempts from shared Codex routing. At the end a
    summary: done / verified / remaining. **Set the wave plan's `status: done`**
    in the same breath — an open plan keeps the drift hook paying for a wave that
    ended.
@@ -655,6 +653,9 @@ A supervisor invocation is an agent with tools — a diff, the commands, the
 greps — so it is not one model request. The tiers also invert: a Haiku 4.5 task
 is supervised by Opus 5 (see the supervisor table above), making the supervisor
 the expensive half.
+
+For Codex waves, the shared routing policy always requires the separate model
+supervisor, including mechanical tasks. The cost shortcut below is Claude-only.
 
 Run full agentic supervision for tasks whose contract has `must_run` commands or
 `files_forbidden` entries that matter: migrations, shared helpers,

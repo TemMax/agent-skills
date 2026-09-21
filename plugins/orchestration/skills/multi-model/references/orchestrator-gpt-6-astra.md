@@ -23,19 +23,13 @@ separately approved Astra executor exception may be initial or final-rung only,
 with `astra_executor_reason: "<concrete reason>"`; it requires a fresh separate
 Astra supervisor and remains uncalibrated.
 
-## Candidate routing and calibration
+## Operational routing and calibration limits
 
-These are explicit candidates for user-authorized calibration, not measured
-production routes. The GPT-5.6-only failures do not qualify these new pairings;
-they also do not measure an Astra-led workflow. Existing GPT-5.6 and Claude
-active-seat profiles retain their own rules. Report an uncalibrated route as
-such; do not turn a smoke pass into a reliability claim.
-
-| Task | Initial executor | Effort | Optional subsequent rungs |
-|---|---|---|---|
-| Narrow mechanical edit with a complete contract | `gpt-5.6-luna` | `medium` | Terra, then Sol |
-| Ordinary implementation with several affected call sites | `gpt-5.6-terra` | `medium` | Sol |
-| Difficult bug or implementation with substantial reasoning | `gpt-5.6-sol` | `high` | None |
+Use [shared Codex routing](codex-routing.md) for task-tier selection, availability,
+efforts and ladders. These operational choices need no separate calibration
+permission; ordinary task and plan approvals apply. GPT-5.6-only workflow
+failures did not measure this Astra-led pairing. Disclose unmeasured reliability
+without turning it into a veto or turning a smoke pass into a reliability claim.
 
 Every wave uses a separate `gpt-6-astra` supervisor at explicit `high` effort.
 Write full exact IDs in the plan; escalated rungs use `high`. Pick the initial
@@ -72,7 +66,7 @@ they do not waive fresh independent verification.
 
 ## Not measured
 
-`medium`/`high` are initial calibration candidates, not an optimal effort
+`medium`/`high` are operational starting points, not a measured optimal effort
 curve. The System Card does not measure this planner, supervisor pairing,
 drift checker, or end-to-end `ship` route. Its lower deception and injection
 rates are not proof of reviewer accuracy or absence of self-preference.
@@ -82,5 +76,5 @@ commands, and reproducible outputs.
 ## Evidence
 
 Read `gpt-6-astra-dossier.md` when assessing the model-specific claims above.
-The current candidate status is recorded in the dossier; only dated local
-calibration can promote a role.
+The dossier records evidence limits. Only dated local calibration can support
+a measured reliability claim; operational use follows shared Codex routing.

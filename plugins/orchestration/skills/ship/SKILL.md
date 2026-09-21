@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.8.0
+  version: 2.8.1
 ---
 
 # Shipping a Feature (ship)
@@ -53,6 +53,14 @@ The alias `gpt-5.6` selects Sol only after the runtime-context handler has
 normalized it to `gpt-5.6-sol`. An exact supplied effort may be used; otherwise
 effort is unknown and receives no effort-specific claim. Always reply to the
 user in the language the user writes in.
+
+For Codex, load [shared route selection](../multi-model/references/codex-routing.md).
+Available GPT-5.6 executors with a fresh Astra/high supervisor form an operational
+route through super-plan and multi-model without a separate calibration gate.
+Check actual capabilities before launch; preserve the approvals below. Invoke
+Stage 3 critical-review in a fresh Astra/high child for independent final review,
+including when the main seat uses a GPT-5.6 profile. Missing required review
+capability stops the route; it never authorizes self-review or publication.
 
 ## What ship owns — and what it does not
 

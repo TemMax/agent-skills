@@ -19,9 +19,15 @@ require fresh artifacts before completion.
 
 ## Delegation and supervision
 
+When the host exposes exact Codex child IDs and efforts, use
+[shared Codex routing](codex-routing.md) while keeping this seat's identity
+unknown. Child capability does not establish coordinator identity. This route
+does not require a separate historical-calibration approval.
+
 Select a named subagent from task capability and explicit task requirements,
 not by pretending a measured routing result exists. If a different-model
-supervisor cannot be established from exact runtime identities, report the
+supervisor relative to every executor/ladder model cannot be established from
+exact child identities, report the
 missing capability and fail closed rather than inventing a model ladder.
 
 ## Autonomy and verification guards

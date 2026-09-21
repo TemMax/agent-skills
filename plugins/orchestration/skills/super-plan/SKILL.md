@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.8.0
+  version: 2.8.1
 ---
 
 # Planning Waves (super-plan)
@@ -55,6 +55,12 @@ effort is unknown and receives no effort-specific claim. Always reply to the
 user in the language the user writes in.
 
 While authoring or amending a plan, the active profile chooses executor, supervisor, ladder, and effort. Never substitute unnamed host defaults. The profile also selects the plan host: each resulting wave is entirely Claude or entirely Codex across its supervisor, executors, and ladders.
+
+For Codex, load the shared [route selection](../multi-model/references/codex-routing.md)
+before choosing children. It governs routing across profiles: use available
+explicit executors and independent Astra supervision without a separate
+calibration gate. Historical fixture failures inform verification; they do not
+block writing a concrete plan for the existing design and plan approvals.
 
 ## Process
 
@@ -175,8 +181,8 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    approved with `astra_executor_reason: "<concrete reason>"`, as the initial
    executor or final explicit ladder rung. That metadata records a reason; it
    never establishes authorization. A selected Astra executor requires a fresh
-   separate Astra supervisor. Its active profile defines candidate routes and
-   calibration limits.
+   separate Astra supervisor. Shared Codex routing defines operational choices
+   and evidence limits; the Astra executor exception still needs approval.
 
    `gpt-5.6` is never a plan id. It is only an active-session alias after
    runtime-context normalization, not a model field. Every Codex supervisor and executor names an explicit effort; the adapter never invents one. Every supervisor,
