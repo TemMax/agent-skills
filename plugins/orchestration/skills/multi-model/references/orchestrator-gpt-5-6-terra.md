@@ -9,7 +9,8 @@ identity from capability or cost.
 
 ## Session effort
 
-No calibrated Terra orchestration effort is supported. In the final post-fix
+Preserve explicitly supplied session effort; missing effort remains unknown.
+No optimal Terra orchestration effort was established. In the final post-fix
 `medium` run, Terra passed 0/8 in the default matrix and 1/8 in the critical base
 across `super-plan`, native wave, critical review, and `ship` success/failure
 paths. Historical `high` probes also established no route. No Terra `xhigh` or
@@ -22,8 +23,8 @@ The final default and critical bases each passed profile routing 8/8 and safety
 verifier guards each passed 5/5; the supervisor's five clean guards and three
 violation guards passed 8/8; drift passed 6/7. The fresh final matrices had no
 infrastructure-class failures, so their remaining failed rows are not promoted
-to passes. These supporting results do not rescue the failed core routes. See
-`tests/eval/gpt-5-6-results-2026-09-04.md`.
+to passes. These are workflow observations, not a ban on bounded executor work. See the
+packaged [evidence limits](gpt-calibration-evidence.md).
 
 ## Main-seat responsibilities
 
@@ -36,13 +37,11 @@ to passes. These supporting results do not rescue the failed core routes. See
 
 ## Delegation and supervision
 
-- Do not author a production GPT-5.6 executor/supervisor route from this
-  profile. Return `unsupported` with the evidence packet and delegate the
-  routing decision upward.
-- A separately supported Claude route requires a new provider-specific wave;
-  never mix providers or silently substitute a different GPT model.
-- If future calibration establishes a route, its fixed supervisor must differ
-  from every executor/ladder model. Changing the pairing requires a new wave.
+- Use [shared Codex routing](codex-routing.md) for available executors,
+  independent Astra/high supervision, explicit efforts and bounded escalation.
+  It governs routing across profiles without a separate calibration gate.
+- Preserve isolated worktrees, task contracts, mechanical checks and fresh
+  independent verdicts. Never mix providers or silently reroute an approved plan.
 
 ## Autonomy and verification guards
 
@@ -59,12 +58,12 @@ The 2026-09-04–05 UTC runs did not establish Terra as an orchestrator, a produ
 executor/supervisor pair, or a quality gain from higher effort. It also did not
 measure cross-model self-preference. The System Card's Sol-only persistence,
 false-verification, credential-misuse, controllability, and metagaming
-observations are not Terra findings. The former seed route was terminal after one raised-effort rework; that historical cap is not a supported route.
+observations are not Terra findings.
 
 ## Common mistakes
 
 - Treating the balance-of-intelligence-and-cost label as a measured routing
   result.
-- Restoring the Terra/Sol seed pair despite its unsupported calibration.
-- Substituting another GPT model instead of returning the unsupported route.
+- Treating failed workflow qualification as a blanket executor prohibition.
+- Silently substituting models after plan approval or skipping independent review.
 - Accepting a summary or hidden-reasoning claim in place of artifacts.

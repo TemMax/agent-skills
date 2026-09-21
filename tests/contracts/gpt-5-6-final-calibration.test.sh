@@ -28,8 +28,10 @@ check "report records clean final infrastructure classification" \
 
 check "orchestration gate uses final matrix totals" \
   "grep -qF '63/87' '$ORCHESTRATION' && grep -qF '162/204' '$ORCHESTRATION'"
-check "orchestration gate keeps every GPT route unsupported" \
-  "sed -n '/^### GPT-5.6 calibration gate/,/^## Overview/p' '$ORCHESTRATION' | grep -qF 'unsupported'"
+check "orchestration does not ban every GPT production route" \
+  "! grep -qF 'No GPT-5.6 production wave route is supported' '$ORCHESTRATION'"
+check "orchestration ships its routing evidence" \
+  "test -f '$ORCHESTRATION_REFS/codex-routing.md' && test -f '$ORCHESTRATION_REFS/gpt-calibration-evidence.md'"
 check "orchestration profiles retain model-specific final core scores" \
   "one_line '$ORCHESTRATION_REFS/orchestrator-gpt-5-6-sol.md' | grep -qF '2/8 in the default matrix and 0/8 in the critical base' && one_line '$ORCHESTRATION_REFS/orchestrator-gpt-5-6-terra.md' | grep -qF '0/8 in the default matrix and 1/8 in the critical base' && one_line '$ORCHESTRATION_REFS/orchestrator-gpt-5-6-luna.md' | grep -qF '1/8 in the default matrix and 1/8 in the critical base'"
 

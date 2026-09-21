@@ -50,12 +50,10 @@ check "dossier states judge bias is not measured" \
 check "reasoning self-report is not evidence" \
   "grep -qF 'Hidden chain-of-thought and model self-report are not verification evidence.' '$DOSSIER'"
 
-check "Luna ladder skips Terra" \
-  "grep -qF 'only to Sol' '$LUNA' && ! grep -qF 'escalate to Terra' '$LUNA'"
-check "Terra ladder is terminal" \
-  "grep -qF 'terminal after one raised-effort rework' '$TERRA'"
-check "Sol ladder is terminal" \
-  "grep -qF 'terminal after one raised-effort rework' '$SOL'"
+for id in sol terra luna; do
+  check "$id uses shared Codex routing without a calibration veto" \
+    "grep -qF 'codex-routing.md' '$REFS/orchestrator-gpt-5-6-$id.md' && ! grep -qF 'Return \`unsupported\`' '$REFS/orchestrator-gpt-5-6-$id.md'"
+done
 check "generic profile makes no effort guess" "grep -qF 'Do not infer effort' '$GENERIC'"
 
 summary
