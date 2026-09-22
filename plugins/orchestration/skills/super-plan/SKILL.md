@@ -88,8 +88,13 @@ block writing a concrete plan for the existing design and plan approvals.
    best"), self-contained (the executor sees nothing but its prompt), full
    code included where the solution is known. Each task carries the
    five-key contract; the active profile chooses every model, effort,
-   supervisor, and ladder field, with the wave's supervisor chosen for the
-   strongest executor in the wave. Group into waves by
+   supervisor, and ladder field, with the wave's supervisor chosen for
+   the strongest model any task in the wave can run —
+   every executor AND every ladder rung —
+   from multi-model's supervisor table; a supervisor that also appears
+   as an executor or rung is a lint error (a `claude-sonnet-5` executor
+   with a `claude-opus-5-5` rung takes the Opus 5.5 row:
+   `claude-fable-5-1`). Group into waves by
    file-independence: same-wave tasks must not share files — merge
    colliding tasks or split them across consecutive waves. Dependent
    chains are consecutive waves, never one wave.

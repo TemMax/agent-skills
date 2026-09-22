@@ -57,6 +57,8 @@ check "the ladder has a terminal rung"         "grep -q 'already the strongest' 
 check "blocking threshold above suspicion"     "grep -q 'Blocking correct work' $MM"
 check "supervisor prompt is referenced"        "grep -q 'references/supervisor-prompt.md' $MM"
 check "supervisor routing table exists"        "grep -q 'Choosing the supervisor' $MM"
+check "supervisor row picked by strongest model, rungs included" \
+  "grep -qF 'ladder rungs included' $MM"
 check "the judge is never the executor's own"  "grep -qF \"never the executor's own model\" $MM"
 check "the wave runner ships as a file" \
   "[ -f plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs ]"
@@ -197,6 +199,8 @@ check "planning rejects a mixed-provider wave before Gate 2" \
   "grep -qF 'mixed-provider wave is a planning defect to fix before Gate 2' $SP"
 check "Codex rework stays outside the model-transition ladder" \
   "grep -qF 'same-model raised-effort rework is state-machine behavior' $SP && grep -qF 'ladder lists model transitions only' $SP"
+check "wave supervisor is chosen over executors and ladder rungs" \
+  "grep -qF 'every executor AND every ladder rung' $SP"
 
 section "ship: the conductor that adds no machinery"
 check "the skill exists"                        "[ -f $SH ]"
