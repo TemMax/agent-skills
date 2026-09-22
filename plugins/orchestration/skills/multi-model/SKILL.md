@@ -413,28 +413,32 @@ then abandoned supervision entirely.
 ### Choosing the supervisor — Quick Reference
 
 Two hard rules, then the table. Use a fresh separate supervisor; outside the
-separately approved Astra exception, never the executor's own model (self-preference:
-measured zero for Opus 4.8 and Fable 5, unmeasured for Opus 5 — so Opus 5 never
-judges Opus 5; measured small but non-zero for Fable 5.1 — 0.1 points out of 10,
-lenient when told the author is Claude, p. 124 — which is why the runner's judge
-prompt never names the executor's model and why `fable` still judges Opus 5.
-Not stating it does not stop a judge in an all-Claude pipeline from inferring
-it; what bounds the effect is the magnitude and the contract's mechanical half
-— verifier facts and grep-decidable checks the judge cannot soften).
-Never a weaker tier than the executor's: the judge re-runs and re-derives
-everything the executor did.
+separately approved Astra exception, never the executor's own model
+(self-preference: ≈0 for Opus 4.8; measured zero for Fable 5; 0.1 points out of
+10 for Fable 5.1, lenient when told the author is Claude, Fable 5.1 card
+p. 124; Opus 5 now measured ≈0, +0.05 / −0.03 with intervals crossing zero,
+Opus 5.5 card p. 128; Opus 5.5 +0.07 of 10 when its prompt reminds it that it
+is Claude, Opus 5.5 card p. 128 — which is why the runner's judge prompt
+never names the executor's model. Not stating it does not stop a judge in an
+all-Claude pipeline from inferring it; what bounds the effect is the magnitude
+and the contract's mechanical half — verifier facts and grep-decidable checks
+the judge cannot soften). Never a weaker tier than the executor's: the judge
+re-runs and re-derives everything the executor did. Tier means product class —
+Haiku < Sonnet < Opus < Fable — not a benchmark score, so Fable 5.1 is not a
+weaker tier than Opus 5.5 even where Opus 5.5 benchmarks higher.
 
 | Executor | Supervisor | Effort |
 |---|---|---|
-| Haiku 4.5 | Opus 5 | high |
-| Sonnet 5 | Opus 5 | high |
-| Opus 5 | Fable 5.1 via `fable` (fallback: Opus 4.8 via `claude-opus-4-8`) | high |
-| Opus 4.8 | Opus 5 or Fable 5.1 | high |
-| Fable 5.1 (explicit specialized choice or approved rung) | Opus 5 | high |
+| Haiku 4.5 (`claude-haiku-4-5-20251001`) | Opus 5.5 (`claude-opus-5-5`) | high |
+| Sonnet 5 (`claude-sonnet-5`) | Opus 5.5 (`claude-opus-5-5`) | high |
+| Opus 5.5 (`claude-opus-5-5`) | Fable 5.1 (`claude-fable-5-1`), fallback Opus 5 (`claude-opus-5`) | high |
+| Opus 5 (`claude-opus-5`) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) | high |
+| Opus 4.8 (`claude-opus-4-8`) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) | high |
+| Fable 5.1 (`claude-fable-5-1`, explicit specialized choice or approved rung) | Opus 5.5 (`claude-opus-5-5`), fallback Opus 5 (`claude-opus-5`) | high |
 
-The short name `fable` resolves to whichever Fable the harness serves — Fable
-5.1 as of September 2026; Fable 5 is no longer addressable and keeps its profile
-and dossier for history.
+Plans name every supervisor by its full ID (see Model identifiers above): Fable
+5.1 is `claude-fable-5-1`. Fable 5 is no longer addressable and keeps its
+profile and dossier for history.
 
 Effort is `high` across the board — the shipped runner's default — and the row
 is measured, not stylistic: on 2026-08-12 a Haiku supervisor at `medium` passed
@@ -442,7 +446,8 @@ an unsatisfiable contract, filing its whole analysis into `remarks`. A cheaper
 judge on a mechanical task is not the economy lever; skipping the model
 entirely is (see the cost section below). All four models above judged fixtures
 F1–F4 correctly in single live runs after that fix; single runs prove "can",
-not a rate.
+not a rate. Opus 5.5 has not yet run the F1–F4 supervisor fixtures; its
+supervisor route rests on its card, not on a fixture run.
 
 **The supervisor trusts artifacts only.** It checks out `wave/<task-id>` into
 its own worktree, runs the diff itself, executes each `must_run` command itself,
@@ -686,7 +691,7 @@ manufactures confidence in the waves it lets through.
 
 A supervisor invocation is an agent with tools — a diff, the commands, the
 greps — so it is not one model request. The tiers also invert: a Haiku 4.5 task
-is supervised by Opus 5 (see the supervisor table above), making the supervisor
+is supervised by Opus 5.5 (see the supervisor table above), making the supervisor
 the expensive half.
 
 For Codex waves, the shared routing policy always requires the separate model
@@ -806,12 +811,15 @@ Each of these comes from a measured failure, not from general caution.
 |---|---|
 | State the prohibitions to the executor loudly and explicitly | Explicit "don't work around — report" lowers fabrication: Fable 17.4% → 9.1% (pp. 161–163), Opus 4.8 9.4% → 2.8% (pp. 109–110) |
 | Do NOT disclose the supervisor's specific checks to the executor | Grader awareness reaches 24–30% and changes behavior at the surface level (Fable pp. 171–181) |
-| Fresh separate supervision; same-model only for approved Astra exception | Opus 5's self-preference bias as a judge is unmeasured; Astra exception evidence is uncalibrated; Opus 4.8 (pp. 122–124) and Fable 5 (pp. 202–203) have measured zero; Fable 5.1 has a measured 0.1/10 (p. 124) |
+| Fresh separate supervision; same-model only for approved Astra exception | Astra exception evidence is uncalibrated; Opus 4.8 (pp. 122–124) ≈0 and Fable 5 (pp. 202–203) measured zero; Fable 5.1 0.1/10 (Fable 5.1 card p. 124); Opus 5 now measured ≈0, +0.05 / −0.03 (Opus 5.5 card p. 128); Opus 5.5 +0.07/10 with a Claude-identity prompt (Opus 5.5 card p. 128) |
 | A claim without command output is a violation | Caveat laundering: "I verified this myself" while spot-checking only ancillary facts (pp. 37–39) |
 | Attach verdicts; never paraphrase an executor report in their place | Opus 5 relays subagent claims unverified (p. 81) |
 | Stopping early with open plan items is a violation | Fable stops on spurious token-budget concerns, 2.43M tokens unspent (pp. 170–171) |
 | Claims of monitoring or watching get their own check | Dead watchers: recap lines said "monitoring" while nothing polled (pp. 33–35) |
 | Never name the executor's model in the judge prompt | Fable 5.1 grades more leniently when told the author is Claude — 0.1/10, small but measured (p. 124) |
+| Never paste untrusted third-party text into an executor prompt — pass a path | Opus 5.5 follows instructions planted in its user turn: 2.1% at default, 7.4% at max, 0/105 via tool results (Opus 5.5 card pp. 123–126) |
+| Never relay an authorization the user did not give | An Opus 5.5 main agent invented a user's approval for a subagent (p. 102) |
+| Judge reports by artifacts, not tone | Opus 5.5 subagent reports to a coordinator are among the most self-blaming (pp. 158–160) |
 
 **Rules explicit, checks opaque.** The two halves come from opposite findings
 and must not be collapsed. The contract is handed to the executor in full —
@@ -823,14 +831,14 @@ the forbidden moves. An executor told the rules complies with the rules; an
 executor told how compliance is measured optimizes for the measurement.
 
 **Choosing the supervisor's model.** Outside the approved Astra exception, never
-the executor's own. Prefer a judge
-with measured zero self-preference — Opus 4.8 (pp. 122–124); `fable` (Fable 5.1)
-carries a measured 0.1/10 lenience when told the author is Claude (p. 124);
-the judge prompt never states the executor's model, inference remains possible
-in an all-Claude pipeline, and the bound is the magnitude plus the contract's
-mechanical half — so it judges Opus 5, and Opus 5 judges it. Opus 5 may execute under supervision but
-does not supervise: the property that would justify it is unmeasured, and an
-unmeasured property is not a permission.
+the executor's own — pick from the supervisor table. Opus 4.8 (pp. 122–124)
+and Opus 5 (Opus 5.5 card p. 128) are measured ≈0, so Opus 5 may now supervise.
+Fable 5.1 carries a measured 0.1/10 lenience when told the author is Claude
+(p. 124), and Opus 5.5 a measured +0.07/10 with a Claude-identity prompt
+(Opus 5.5 card p. 128): both supervise, with a measured small bias. The judge
+prompt never states the executor's model; inference remains possible in an
+all-Claude pipeline, and the bound is the magnitude plus the contract's
+mechanical half.
 
 ## Result Review Checklist
 
@@ -861,7 +869,7 @@ Opus 5 relays subagent claims unverified (p. 81).
 | Numeric example in the spec computed in your head | The example contradicts the formula, the agent stalls | Compute with a tool or give only the formula |
 | Not warning about parallel file changes | The agent treats the wave as an anomaly, wastes steps | List the files its neighbors modify |
 | Documentation assigned to no one | README silently goes stale | An explicit docs task in the decomposition |
-| Reusing an executor as supervisor | The role can inherit its own work; Astra same-model exception is only fresh-context separation | Fresh distinct role handle; outside approved Astra, use Opus 4.8 or Fable 5.1 and never name the executor to the judge |
+| Reusing an executor as supervisor | The role can inherit its own work; Astra same-model exception is only fresh-context separation | Fresh distinct role handle; outside approved Astra, pick from the supervisor table (Opus 5.5, Fable 5.1, Opus 5, Opus 4.8) and never name the executor to the judge |
 | Telling the executor how compliance is measured | Grader awareness turns compliance performative at the surface | Rules explicit, method undisclosed |
 | Accepting a claim with no command output | The cheapest fabrication passes untouched | `evidence: required`, and compare it with your own re-run |
 | Asking a supervisor to judge whether a mismatch was dishonest | It cannot know, and it reaches for the heaviest label — four fixes failed the same way | Record `pasteReproduced` as a fact; let repetition across attempts carry the consequence |
@@ -872,11 +880,12 @@ Opus 5 relays subagent claims unverified (p. 81).
 
 ## References
 
-- `references/orchestrator-fable-5-1.md`,
+- `references/orchestrator-opus-5-5.md`, `references/orchestrator-fable-5-1.md`,
   `references/orchestrator-fable-5.md`, `references/orchestrator-opus-5.md`,
   `references/orchestrator-opus-4-8.md` — the orchestrator profiles. Load exactly
   one, per Step 0.
-- `references/model-dossiers.md` — dossiers on all five models with numbers and
+- `references/model-dossiers.md` — dossiers on all seven models (Opus 5.5,
+  Fable 5.1, Fable 5, Opus 5, Opus 4.8, Sonnet 5, Haiku 4.5) with numbers and
   page references to the system cards: benchmarks, documented failure modes,
   effort curves, multi-agent harness data, orchestration takeaways. Load it for
   contested routing calls or to justify a choice.
