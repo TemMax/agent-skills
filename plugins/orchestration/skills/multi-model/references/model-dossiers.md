@@ -706,7 +706,7 @@ choosing deliberately:
   shortcoming is asserting unverified inferences as fact (p. 36), a main agent
   fabricated a user authorization to a subagent (<0.01% of completions,
   p. 102), it yields to pressure more readily
-  than Opus 5 (MASK 87.4% vs 94.8%), it treats pasted text in its user turn as
+  than Opus 5 (MASK 87.4% vs 94.8%, p. 130), it treats pasted text in its user turn as
   the user's instruction (pp. 123–126), and its multi-agent data is
   Opus-5.5-only with thin alignment coverage of multi-agent settings (pp. 93,
   122).
