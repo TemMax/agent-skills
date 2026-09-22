@@ -236,6 +236,17 @@ The simulator's own fidelity is the tier's trust anchor, so it has a
 self-test, and the Workflow-boundary rules (single export, literal meta, no
 Date) are pinned by static checks that each cost a launch rejection once.
 
+**wave-launch (launcher)** — `tests/wave-launch.test.sh` runs the shipped
+`wave-launch.mjs` generator on the clean plan fixture and asserts the
+generated script is the shipped runner byte-for-byte plus exactly one
+`const WAVE_ARGS` line after the `meta` literal, that it runs in the
+simulator from `WAVE_ARGS` alone with `args` undefined, and that each refused
+input (a plan that is not lint-clean, a missing wave, a malformed base sha, a
+relative `--repo`) exits non-zero with its reason and writes nothing. It
+backs the SKILL's launch step: the host's Workflow tool rejects a
+plugin-cache `scriptPath`, so the runner is launched from a generated copy
+inside the repository. Requires `node`.
+
 **plan linter** — `tests/plan-lint.test.sh` mutates the canonical clean plan
 fixture one defect at a time and asserts the shipped `plan-lint.mjs` names
 each error class; warnings are asserted non-fatal. Requires `node`. Both the

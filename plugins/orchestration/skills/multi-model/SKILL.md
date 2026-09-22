@@ -381,8 +381,10 @@ the judge. A cheap verifier agent (default `claude-sonnet-5`/`low`, overridable 
 `args.verifier`) checks out the branch and records facts: does the branch
 carry commits at all, which paths changed, what each `must_run` command
 returns when actually run, and whether the report pastes output where the
-contract says `evidence: required`. The runner — not a model — then applies
-the deterministic half of the contract: a branch with no commits, a path
+contract says `evidence: required`. The verifier runs each `must_run` as one
+`bash -c` command line and records that line's exit status, so negated
+(`! grep …`) and piped commands are judged as written. The runner — not a
+model — then applies the deterministic half of the contract: a branch with no commits, a path
 outside `files_allowed`, a red `must_run`, or missing pasted evidence
 bounces straight back to the executor as a rework, and no judge is paid for
 discovering it. Transcript mining across five real sessions found "work
@@ -563,34 +565,57 @@ rejects aliases by name.
    nonexistent build target), each costing an executor attempt plus an
    Opus verdict. The same run warms the build caches every worktree in the
    wave will fork from cold.
-2. Read `references/supervisor-prompt.md`. Workflow scripts cannot read files,
-   so its full text travels inside `args.supervisorPromptText`.
-3. Invoke the runner (`args` should be a real JSON object; the tool-call layer often delivers it
-   as a JSON-encoded string, which the runner parses and validates — only
-   unparseable or invalid input is rejected, by name):
+2. **Generate the launch script** from the lint-clean plan:
+
+   ```
+   node <this skill's base directory>/references/wave-launch.mjs <plan> --wave <n> \
+     --base <pushed sha> --repo <abs repo> --default-branch <branch>
+   ```
+
+   Optional: `--verifier <model>:<effort>`, `--out <path>`. It refuses a plan
+   that is not lint-clean, writes nothing on any failure, and on success
+   prints one absolute path (default
+   `<repo>/.worktrees/launch/wave-<n>.workflow.mjs`).
+3. **Invoke it** with `Workflow({ scriptPath: "<printed path>" })` and no
+   `args`. Resume with the same `scriptPath` and `resumeFromRunId`.
+
+   Why a generated file and not the runner's own path: the host's Workflow
+   tool accepts `scriptPath` only inside the working directory or an added
+   directory. Verified 2026-09-22: a plugin-cache path is rejected ("scriptPath
+   must be a script path this tool returned, or a file you can already read").
+   And workflow scripts cannot read files, so the full wave input — including
+   `supervisorPromptText`, the text of `references/supervisor-prompt.md` —
+   must travel inside the script; hand-copying tens of KB of args into a tool
+   call invites transcription errors.
+
+   The generated file is the shipped `references/wave-runner.workflow.mjs`
+   byte-for-byte plus one `const WAVE_ARGS = {...}` line after its `meta`
+   literal; the runner reads `typeof WAVE_ARGS !== 'undefined' ? WAVE_ARGS :
+   args`. It is therefore not a custom wave script, and the rule below still
+   holds.
+
+   For reference, the runner input the generator builds and embeds as
+   `WAVE_ARGS` (you do not write this by hand):
 
 ```
-Workflow({
-  scriptPath: "<this skill's base directory>/references/wave-runner.workflow.mjs",
-  args: {
-    base: "<pushed fork-point sha>",          // see Wave Isolation above
-    defaultBranch: "main",
-    repoPath: "/abs/path/to/repo",
-    supervisorPromptText: "<text of supervisor-prompt.md>",
-    supervisor: { model: "claude-opus-5-5", effort: "high" },
-    verifier: { model: "claude-sonnet-5", effort: "low" },   // optional; this is the default
-    tasks: [{
-      id: "auth-fix",
-      description: "<the substantive ask>",
-      context: "<files, lines, conventions>",
-      contract: { files_allowed: [...], files_forbidden: [...],
-                  must_run: [{ cmd: "...", evidence: "required" }],
-                  forbidden_moves: [...], report_must_answer: [...] },
-      executor: { model: "claude-sonnet-5", effort: "medium" },
-      ladder: ["claude-opus-5-5"]      // rungs AFTER the first; omit for the routing default
-    }]
-  }
-})
+{
+  base: "<pushed fork-point sha>",          // see Wave Isolation above
+  defaultBranch: "main",
+  repoPath: "/abs/path/to/repo",
+  supervisorPromptText: "<text of supervisor-prompt.md>",
+  supervisor: { model: "claude-opus-5-5", effort: "high" },   // the wave's plan entry
+  verifier: { model: "claude-sonnet-5", effort: "low" },     // only with --verifier; this is the default
+  tasks: [{                                                  // the wave's plan tasks, minus `branch`
+    id: "auth-fix",
+    description: "<the task's `## Task auth-fix` prose section>",
+    context: "<files, lines, conventions>",   // optional; copied if the plan task has it
+    contract: { files_allowed: [...], files_forbidden: [...],
+                must_run: [{ cmd: "...", evidence: "required" }],
+                forbidden_moves: [...], report_must_answer: [...] },
+    executor: { model: "claude-sonnet-5", effort: "medium" },
+    ladder: ["claude-opus-5-5"]      // rungs AFTER the first; omit for the routing default
+  }]
+}
 ```
 
 The runner assembles each executor's prompt from the task object — the six
@@ -612,6 +637,7 @@ in the Workflow arguments or script.
    - `ok` — merge `wave/<id>` per the wave plan.
    - `contract-unsatisfiable` — run the amendment flow below (one amendment
      per task; removing or weakening a check goes to the user as a yes/no),
+     regenerate the launch script from the edited plan with the same command,
      then re-invoke with `resumeFromRunId`: the runner is deterministic, so
      every unchanged task replays from cache and only the amended one runs.
    - `failed` / `error` — hand the user the task, every verdict in order, and
