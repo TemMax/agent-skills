@@ -93,7 +93,7 @@ mutate '"branch": "wave/docs-sync"' '"branch": "docs-sync"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "bad branch named" 'must be "wave/docs-sync"' "$out"
 
-mutate '"model": "haiku"' '"model": "claude-haiku-4-5"'
+mutate '"model": "claude-haiku-4-5-20251001"' '"model": "claude-haiku-4-5"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "long model id rejected" "executor.model" "$out"
 
@@ -140,20 +140,50 @@ contains "missing command warned" 'command "definitely-not-a-real-binary-xyz" fo
 
 section "the pinned full id"
 
-mutate '"model": "sonnet"' '"model": "claude-opus-4-8"'
+mutate '"model": "claude-sonnet-5"' '"model": "claude-opus-4-8"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "pinned full id in executor.model exits 0" "0" "$rc"
 contains "pinned full id in executor.model is clean" "OK: 0 error(s)" "$out"
 
-mutate '"ladder": ["opus"]' '"ladder": ["claude-opus-4-8"]'
+mutate '"ladder": ["claude-opus-5-5"]' '"ladder": ["claude-opus-4-8"]'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "pinned full id in ladder exits 0" "0" "$rc"
 contains "pinned full id in ladder is clean" "OK: 0 error(s)" "$out"
 
-mutate '"model": "sonnet"' '"model": "opus-4-8"'
+mutate '"model": "claude-sonnet-5"' '"model": "opus-4-8"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "unpinned full-looking id exits 1" "1" "$rc"
 contains "unpinned full-looking id named" "executor.model" "$out"
+
+section "Claude full ids only"
+
+for alias in haiku sonnet opus fable; do
+  mutate '"model": "claude-sonnet-5"' "\"model\": \"$alias\""
+  out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+  expect "alias $alias as executor.model exits 1" "1" "$rc"
+  contains "alias $alias as executor.model is named an alias" "is an alias" "$out"
+done
+
+mutate '"model": "claude-fable-5-1"' '"model": "fable"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "alias supervisor exits 1" "1" "$rc"
+contains "alias supervisor is named an alias" "supervisor.model: \"fable\" is an alias" "$out"
+
+for full in claude-opus-5 claude-fable-5-1; do
+  cp "$CLEAN" "$W/m.md"
+  python3 - "$W/m.md" "$full" <<'PY'
+import sys
+p, full = sys.argv[1:]
+s = open(p).read()
+s = s.replace('"model": "claude-fable-5-1"', '"model": "claude-opus-5-5"', 1)
+s = s.replace('"ladder": ["claude-opus-5-5"]', '"ladder": ["claude-sonnet-5"]', 1)
+s = s.replace('"model": "claude-sonnet-5"', f'"model": "{full}"', 1)
+open(p, 'w').write(s)
+PY
+  out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+  expect "$full as explicit executor exits 0" "0" "$rc"
+  contains "$full as explicit executor is clean" "OK: 0 error(s)" "$out"
+done
 
 section "Codex exact ids"
 while read -r executor supervisor rung; do
@@ -162,10 +192,10 @@ while read -r executor supervisor rung; do
 import sys
 p, executor, supervisor, rung = sys.argv[1:]
 s = open(p).read()
-s = s.replace('"model": "sonnet"', f'"model": "{executor}"')
-s = s.replace('"model": "haiku"', f'"model": "{executor}", "effort": "medium"')
-s = s.replace('"model": "fable"', f'"model": "{supervisor}"')
-s = s.replace('"ladder": ["opus"]', f'"ladder": ["{rung}"]')
+s = s.replace('"model": "claude-sonnet-5"', f'"model": "{executor}"')
+s = s.replace('"model": "claude-haiku-4-5-20251001"', f'"model": "{executor}", "effort": "medium"')
+s = s.replace('"model": "claude-fable-5-1"', f'"model": "{supervisor}"')
+s = s.replace('"ladder": ["claude-opus-5-5"]', f'"ladder": ["{rung}"]')
 open(p, 'w').write(s)
 PY
   out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -220,12 +250,12 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "Codex repeated-transition ladder exits 1" "1" "$rc"
 contains "Codex repeated-transition ladder is named" "ladder transitions must use distinct models" "$out"
 
-mutate '"model": "sonnet"' '"model": "gpt-5.6"'
+mutate '"model": "claude-sonnet-5"' '"model": "gpt-5.6"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-5.6 alias exits 1" "1" "$rc"
 contains "gpt-5.6 alias is rejected" "executor.model" "$out"
 
-mutate '"model": "sonnet"' '"model": "gpt-5.6-mini"'
+mutate '"model": "claude-sonnet-5"' '"model": "gpt-5.6-mini"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-5.6-mini alias exits 1" "1" "$rc"
 contains "gpt-5.6-mini alias is rejected" "executor.model" "$out"
@@ -235,7 +265,7 @@ python3 - "$W/m.md" <<'PY'
 import sys
 p = sys.argv[1]
 s = open(p).read()
-s = s.replace('"model": "sonnet"', '"model": "gpt-5.6-sol"')
+s = s.replace('"model": "claude-sonnet-5"', '"model": "gpt-5.6-sol"')
 open(p, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -247,10 +277,10 @@ python3 - "$W/m.md" <<'PY'
 import sys
 p = sys.argv[1]
 s = open(p).read()
-s = s.replace('"model": "sonnet"', '"model": "gpt-5.6-sol"')
-s = s.replace('"model": "haiku"', '"model": "gpt-5.6-luna"')
-s = s.replace('"model": "fable"', '"model": "gpt-5.6-terra"')
-s = s.replace('"ladder": ["opus"]', '"ladder": ["gpt-5.6-terra"]')
+s = s.replace('"model": "claude-sonnet-5"', '"model": "gpt-5.6-sol"')
+s = s.replace('"model": "claude-haiku-4-5-20251001"', '"model": "gpt-5.6-luna"')
+s = s.replace('"model": "claude-fable-5-1"', '"model": "gpt-5.6-terra"')
+s = s.replace('"ladder": ["claude-opus-5-5"]', '"ladder": ["gpt-5.6-terra"]')
 open(p, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?

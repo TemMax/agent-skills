@@ -155,12 +155,12 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    ```json wave-plan
    { "waves": [
      { "wave": 1,
-       "supervisor": { "model": "fable", "effort": "high" },
+       "supervisor": { "model": "claude-fable-5-1", "effort": "high" },
        "tasks": [
          { "id": "http-retry",
            "branch": "wave/http-retry",
-           "executor": { "model": "sonnet", "effort": "medium" },
-           "ladder": ["opus"],
+           "executor": { "model": "claude-sonnet-5", "effort": "medium" },
+           "ladder": ["claude-opus-5-5"],
            "contract": {
              "files_allowed": ["src/http/**"],
              "files_forbidden": [],
