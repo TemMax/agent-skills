@@ -280,9 +280,18 @@ check "the linter tier rejects the bare short form" \
   "grep -qF '\"model\": \"opus-4-8\"' tests/plan-lint.test.sh"
 check "the skill names the ID in the supervisor row" \
   "grep -qF 'fallback: Opus 4.8 via \`claude-opus-4-8\`' $MM"
-check "the skill's opts.model rule names the pin"   "grep -qF 'pinned full ID' $MM"
+check "the skill's opts.model rule rejects aliases by name" \
+  "grep -qF 'rejects aliases by name.' $MM"
 check "the old not-addressable wording is gone"     "! grep -q 'not addressable' $MM"
 check "the fable-5.1 profile names the pinned ID"   "grep -qF 'claude-opus-4-8' $OF"
 check "the opus-5 profile names the pinned ID"      "grep -qF 'claude-opus-4-8' $OP5"
+check "Step 0: multi-model routes opus-5-5 to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`references/orchestrator-opus-5-5.md\` |' $MM"
+check "the Model identifiers section names its probe" \
+  "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | grep -qF 'wf_e635018e-8f3'"
+check "the Agent-tool exception names alias and full ID" \
+  "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'a spawn through it names the alias AND the full ID from this table.'"
+check "untrusted text is never pasted into an executor prompt" \
+  "sed -n '/^## Task Prompt Template/,/^## Supervised Waves$/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Never paste untrusted third-party text'"
 
 summary
