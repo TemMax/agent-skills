@@ -8,17 +8,39 @@ export const meta = {
 
 // Escalation policy tested by tests/lib/wave-runner.test.mjs — change the
 // numbers there and here together.
-// 'claude-opus-4-8' is the one full ID the harness resolves (Workflow's agent() accepts full IDs; 'opus-4-8' is rejected — probe wf_93d94701-ae1, 2026-09-01). Explicit rung only: not in LADDER_ORDER.
-const MODELS = ['haiku', 'sonnet', 'opus', 'fable', 'claude-opus-4-8']
+// Full Claude model IDs only. Aliases (haiku/sonnet/opus/fable) re-point
+// silently when a model ships — on 2026-09-22 `opus` moved from Opus 5 to
+// Opus 5.5 — so the runner rejects them by name. Workflow agent() accepts
+// every ID below (probe wf_e635018e-8f3, 2026-09-22).
+const MODELS = [
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-5',
+  'claude-opus-5-5',
+  'claude-opus-5',
+  'claude-opus-4-8',
+  'claude-fable-5-1',
+]
+const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
-const LADDER_ORDER = ['haiku', 'sonnet', 'opus']
+// The default ladder. claude-opus-5, claude-opus-4-8 and claude-fable-5-1 are
+// explicit rungs only: a task reaches them by naming them in executor.model or
+// ladder, never by default escalation.
+const LADDER_ORDER = ['claude-haiku-4-5-20251001', 'claude-sonnet-5', 'claude-opus-5-5']
 const MAX_ATTEMPTS_PER_RUNG = 2
 const MAX_ATTEMPTS_PER_TASK = 6
 
-const VERIFIER_DEFAULT = { model: 'sonnet', effort: 'low' }
+const VERIFIER_DEFAULT = { model: 'claude-sonnet-5', effort: 'low' }
 const VERIFY_MARKER = '# Mechanical verification (facts only)'
 
 function invalid(errors) { return { status: 'invalid-args', errors, tasks: [] } }
+
+// An alias is named as such, so the caller learns why a familiar name fails.
+function modelError(field, value, expected) {
+  if (ALIASES.includes(value)) {
+    return field + ': "' + value + '" is an alias — aliases re-point silently; use a full ID: ' + MODELS.join('/')
+  }
+  return field + ': ' + expected + ' ' + MODELS.join('/')
+}
 
 // Fail closed: a bad wave returns named errors and spawns nothing.
 // The tool-call layer routinely delivers args as a JSON-encoded string (seen
@@ -49,14 +71,14 @@ if (typeof wave.supervisorPromptText !== 'string' || !wave.supervisorPromptText.
   errors.push('supervisorPromptText: must be the text of references/supervisor-prompt.md (missing, or the wrong file was read)')
 }
 if (!wave.supervisor || !MODELS.includes(wave.supervisor.model)) {
-  errors.push('supervisor.model: one of ' + MODELS.join('/'))
+  errors.push(modelError('supervisor.model', wave.supervisor && wave.supervisor.model, 'one of'))
 }
 if (wave.supervisor && wave.supervisor.effort !== undefined && !EFFORTS.includes(wave.supervisor.effort)) {
   errors.push('supervisor.effort: one of ' + EFFORTS.join('/'))
 }
 if (wave.verifier !== undefined) {
   if (!wave.verifier || !MODELS.includes(wave.verifier.model)) {
-    errors.push('verifier.model: one of ' + MODELS.join('/'))
+    errors.push(modelError('verifier.model', wave.verifier && wave.verifier.model, 'one of'))
   }
   if (wave.verifier && wave.verifier.effort !== undefined && !EFFORTS.includes(wave.verifier.effort)) {
     errors.push('verifier.effort: one of ' + EFFORTS.join('/'))
@@ -101,13 +123,14 @@ if (!Array.isArray(wave.tasks) || wave.tasks.length === 0) {
       }
     }
     if (!t.executor || !MODELS.includes(t.executor.model)) {
-      errors.push(at + '.executor.model: one of ' + MODELS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
+      errors.push(modelError(at + '.executor.model', t.executor && t.executor.model, 'one of'))
     }
     if (t.executor && t.executor.effort !== undefined && !EFFORTS.includes(t.executor.effort)) {
       errors.push(at + '.executor.effort: one of ' + EFFORTS.join('/'))
     }
     if (t.ladder !== undefined && (!Array.isArray(t.ladder) || t.ladder.some((m) => !MODELS.includes(m)))) {
-      errors.push(at + '.ladder: an array of ' + MODELS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
+      const alias = Array.isArray(t.ladder) ? t.ladder.find((m) => ALIASES.includes(m)) : undefined
+      errors.push(modelError(at + '.ladder', alias, 'an array of'))
     }
     if (t.executor && MODELS.includes(t.executor.model) && Array.isArray(t.ladder)) {
       const transitions = [t.executor.model, ...t.ladder]
