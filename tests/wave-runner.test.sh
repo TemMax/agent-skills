@@ -17,6 +17,7 @@ check "no Date or random (breaks resume)"   "! grep -qE 'Date\\.|new Date|Math\\
 check "every full model id is one of the six accepted IDs" "! grep -o 'claude-[a-z0-9.-]*' $W | grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|opus-5-5|opus-5|opus-4-8|fable-5-1)' | grep -q ."
 check "the MODELS array holds no alias" "sed -n '/^const MODELS = \\[/,/^\\]/p' $W | grep -qF \"'claude-sonnet-5'\" && ! sed -n '/^const MODELS = \\[/,/^\\]/p' $W | grep -qE \"'(haiku|sonnet|opus|fable)'\""
 check "result leaves via top-level return"  "grep -qE '^return ' $W"
+check "launch hook reads embedded WAVE_ARGS" "grep -qF \"typeof WAVE_ARGS !== 'undefined'\" $W"
 
 section "Ladder semantics, simulated on the shipped file"
 if command -v node >/dev/null 2>&1; then
