@@ -4,6 +4,8 @@
 import assert from 'node:assert/strict'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { runWorkflow } from './workflow-sim.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -564,6 +566,59 @@ test('V7 a repeated rule mixed with a fresh one goes to the judge, not another b
   assert.equal(result.tasks[0].attempts[0].kind, 'mechanical')
   assert.equal(supCalls(calls, 't-one').length, 1)
   assert.match(supCalls(calls, 't-one')[0].prompt, /VERIFIER FACTS/)
+})
+
+// ---------- L: launch hook and verifier exit-status rule ----------
+
+// Mirrors the launch generator: insert `const WAVE_ARGS = <json>` after the
+// first line that is exactly `}` following `export const meta = {`.
+async function runEmbedded(waveInput, agentStub) {
+  const lines = (await readFile(SCRIPT, 'utf8')).split('\n')
+  const start = lines.indexOf('export const meta = {')
+  assert.ok(start >= 0, 'meta block not found')
+  const end = lines.indexOf('}', start)
+  assert.ok(end > start, 'meta block end not found')
+  lines.splice(end + 1, 0, 'const WAVE_ARGS = ' + JSON.stringify(waveInput))
+  const dir = await mkdtemp(join(tmpdir(), 'wave-launch-'))
+  const copy = join(dir, 'wave-runner.workflow.mjs')
+  try {
+    await writeFile(copy, lines.join('\n'))
+    return await runWorkflow(copy, { args: undefined, agentStub })
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
+test('L1 embedded WAVE_ARGS with args undefined runs exactly like the same object passed as args', async () => {
+  const embedded = await runEmbedded(waveArgs(), stub({ 't-one': [V.ok()] }))
+  const passed = await runWorkflow(SCRIPT, { args: waveArgs(), agentStub: stub({ 't-one': [V.ok()] }) })
+  assert.equal(embedded.result.status, 'done')
+  assert.equal(embedded.result.tasks[0].status, 'ok')
+  assert.deepEqual(embedded.result, passed.result)
+  assert.deepEqual(embedded.calls, passed.calls)
+  // An invalid embedded object fails closed exactly as an invalid passed one.
+  const bad = waveArgs({ tasks: [] })
+  const noAgent = () => { throw new Error('no agent may be called') }
+  const badEmbedded = await runEmbedded(bad, noAgent)
+  const badPassed = await runWorkflow(SCRIPT, { args: bad, agentStub: noAgent })
+  assert.equal(badEmbedded.result.status, 'invalid-args')
+  assert.deepEqual(badEmbedded.result, badPassed.result)
+  assert.equal(badEmbedded.calls.length, 0)
+})
+
+test('L2 the verifier prompt records the exit status of the whole command line', async () => {
+  const { calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  const v = verifyCalls(calls, 't-one')
+  assert.ok(v.length > 0)
+  const p = v[0].prompt
+  assert.ok(p.includes("bash -c '<cmd>'"), 'names bash -c')
+  assert.ok(p.includes('whole command line'), 'says whole command line')
+  assert.ok(p.includes('leading ! negates'), 'mentions the leading !')
+  assert.ok(p.includes('never of a command inside it'), 'forbids inner exit codes')
+  assert.ok(!p.includes("Record each command's exit code"), 'old ambiguous sentence is gone')
 })
 
 let failed = 0
