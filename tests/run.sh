@@ -27,6 +27,7 @@ for t in tests/contracts/*.test.sh; do
   run "contracts — $(basename "$t" .test.sh)" bash "$t"
 done
 run "behaviour — wave-runner reference implementation (simulated)" bash tests/wave-runner.test.sh
+run "behaviour — wave launcher generator" bash tests/wave-launch.test.sh
 run "behaviour — plan linter on fixture mutants"                   bash tests/plan-lint.test.sh
 run "behaviour — Codex native wave state" bash tests/codex-wave-state.test.sh
 run "behaviour — model CLI adapter" bash tests/eval/model-cli.test.sh
