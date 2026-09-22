@@ -169,6 +169,12 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "alias supervisor exits 1" "1" "$rc"
 contains "alias supervisor is named an alias" "supervisor.model: \"fable\" is an alias" "$out"
 
+mutate '"ladder": ["claude-opus-5-5"]' '"ladder": ["opus"]'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "alias in ladder exits 1" "1" "$rc"
+contains "alias in ladder is named an alias" "ladder" "$out"
+contains "alias in ladder is named an alias" "is an alias" "$out"
+
 for full in claude-opus-5 claude-fable-5-1; do
   cp "$CLEAN" "$W/m.md"
   python3 - "$W/m.md" "$full" <<'PY'
