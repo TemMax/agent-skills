@@ -250,7 +250,23 @@ if (repo && plan && Array.isArray(plan.waves)) {
       }
       for (const m of (t.contract.must_run || [])) {
         if (!m || typeof m.cmd !== 'string' || m.cmd === '') continue
-        const bin = m.cmd.trim().split(/\s+/)[0]
+        const tokens = m.cmd.trim().split(/\s+/)
+        let i = 0
+        while (i < tokens.length) {
+          const tok = tokens[i]
+          if (tok === '!') {
+            i++
+          } else if (tok === '(' || tok.startsWith('(')) {
+            tokens[i] = tok.slice(1)
+            if (tokens[i] === '') i++
+          } else if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tok)) {
+            i++
+          } else {
+            break
+          }
+        }
+        const bin = i < tokens.length ? tokens[i] : ''
+        if (bin === '') continue
         const found = bin.includes('/')
           ? existsSync(isAbsolute(bin) ? bin : join(repo, bin))
           : pathDirs.some((d) => existsSync(join(d, bin)))

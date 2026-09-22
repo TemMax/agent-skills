@@ -138,6 +138,21 @@ expect "repo warnings exit 0" "0" "$rc"
 contains "missing path prefix warned" 'prefix "src/http" does not exist' "$out"
 contains "missing command warned" 'command "definitely-not-a-real-binary-xyz" found neither' "$out"
 
+mutate '"cmd": "true"' '"cmd": "! grep -q x README.md"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"; rc=$?
+expect "negated grep must_run exits 0" "0" "$rc"
+check "negated grep produces no found-neither warning" '! grep -qF "found neither" <<<"$out"'
+
+mutate '"cmd": "true"' '"cmd": "FOO=1 true"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"; rc=$?
+expect "env-assignment must_run exits 0" "0" "$rc"
+check "env-assignment produces no found-neither warning" '! grep -qF "found neither" <<<"$out"'
+
+mutate '"cmd": "true"' '"cmd": "! definitely-not-a-real-binary-xyz"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"; rc=$?
+expect "negated missing command exits 0" "0" "$rc"
+contains "negated missing command warned" 'command "definitely-not-a-real-binary-xyz" found neither' "$out"
+
 section "the pinned full id"
 
 mutate '"model": "claude-sonnet-5"' '"model": "claude-opus-4-8"'
