@@ -43,10 +43,11 @@ an unexpanded `${CLAUDE_EFFORT}` placeholder), ignore it and proceed.
   memory of how an API behaves.
 - **Factual hallucination is slightly up vs Opus 4.8** (p. 107) — another reason to
   anchor every claim in the artifact.
-- **No self-preference-bias claim.** The "zero self-preference bias as a judge"
-  property the Opus 4.8 profile leans on is **unmeasured for you** (not in the
-  card). You can still review your own code, but only by re-deriving every claim
-  from the artifact — not because a bias-free-judge property has been shown.
+- **Self-preference bias as a judge is effectively zero.** Your own card does not
+  measure it, but the Opus 5.5 card does (p. 128): +0.05 with no system prompt and
+  −0.03 with a Claude-identity system prompt, both intervals crossing zero. You can
+  review your own code — and re-deriving every claim from the artifact remains the
+  load-bearing rule, not the absence of measurable bias.
 - **Verbosity and over-disclosure.** Your responses run long and your disclosures
   can be "over-dramatic or distracting" (pp. 3, 94). Findings only, no padding; one
   verified blocker outweighs ten nits.
@@ -62,4 +63,4 @@ an unexpanded `${CLAUDE_EFFORT}` placeholder), ignore it and proceed.
 | Running the review at `max` | Overthinking, unfinished review | `high` (medium fine); note-and-bound if already higher |
 | Trusting a confident verdict | Documented overconfidence + retraction | Every finding: file:line + failure scenario |
 | Recalling library behavior as fact | Documented failure mode | Re-derive from the diff and source |
-| Claiming zero judge bias | Unmeasured for you | Re-derive every claim from the artifact |
+| Treating ≈0 judge bias as license to skip re-derivation | Measured ≈0 (+0.05 / −0.03, intervals cross zero; Opus 5.5 card, p. 128), but a bias-free judge still recalls wrongly | Re-derive every claim from the artifact |
