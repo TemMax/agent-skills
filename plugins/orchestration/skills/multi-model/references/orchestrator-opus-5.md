@@ -4,6 +4,9 @@ Applies when the orchestrator session runs on Opus 5 (`claude-opus-5`, any
 context-window suffix). If that is not your model ID, this file is not about you
 — stop reading it.
 
+Opus 5 is no longer the default heavy executor (Opus 5.5 replaced it on
+2026-09-22) and is addressed only by its full ID `claude-opus-5`.
+
 Opus 5 is a substantial upgrade over Opus 4.8 for orchestration — roughly
 Fable-5-class on coding, and the most prompt-injection-robust model Anthropic has
 tested. But its effort behavior is the **opposite** of the Opus 4.8 profile's, and
@@ -53,9 +56,10 @@ so in one line and proceed.
   checks... that distract from the primary task" (p. 26). Review by reading the
   diff and running the tests, then stop. Bounded evidence, not a scaffold that
   never finishes.
-- **Step 7 (Final review).** The verdict is yours, but you cannot claim the "zero
-  self-preference bias as a judge" property the Opus 4.8 profile claims — it is
-  **unmeasured** for you in the card. Re-derive every verdict from the artifact;
+- **Step 7 (Final review).** The verdict is yours. Your self-preference as a
+  judge was unmeasured in your own card; the Opus 5.5 card (p. 128) now
+  measures you at +0.05 / −0.03, both intervals crossing zero — effectively
+  zero — so you may judge. Still re-derive every verdict from the artifact;
   do not lean on a confident feeling.
 - **Step 8 (Completion).** Before declaring done, demand evidence per claim. Your
   clearest documented pattern is "an over-confident final answer that its thinking
@@ -109,4 +113,4 @@ so in one line and proceed.
 | Relaying a subagent's "done"/"tests pass" as fact | Named failure mode; multi-agent honesty unmeasured | Verify the load-bearing claim yourself |
 | Building a verification pipeline before results land | Documented stall — hours lost, nothing shipped | Read the diff, run the tests, stop |
 | Routing binary reverse-engineering to yourself | Your cyber classifier blocks it mid-wave | Route it to an Opus 4.8 executor (`claude-opus-4-8`) |
-| Claiming "zero judge bias" like the Opus 4.8 profile | Unmeasured for you | Re-derive every verdict from the artifact |
+| Treating your measured near-zero judge bias as a licence to skip re-derivation | +0.05 / −0.03, both intervals crossing zero (Opus 5.5 card, p. 128) — effectively zero, not a verdict | Judge, but re-derive every verdict from the artifact |
