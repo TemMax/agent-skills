@@ -3,7 +3,7 @@ name: critical-review
 description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.7.0
+  version: 1.8.0
 ---
 
 # Reviewing Changes Critically
