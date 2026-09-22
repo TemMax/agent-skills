@@ -8,9 +8,18 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { join, isAbsolute } from 'node:path'
 
-// Claude plans use short IDs except for the one pinned Opus ID accepted by
-// Workflow. Codex models use exact IDs; Astra execution is an explicit exception.
-const CLAUDE_MODELS = ['haiku', 'sonnet', 'opus', 'fable', 'claude-opus-4-8']
+// Claude plans name models by full ID only; aliases re-point silently when
+// a model ships (probe wf_e635018e-8f3, 2026-09-22: `opus` moved to Opus
+// 5.5). Codex models use exact IDs; Astra execution is an explicit exception.
+const CLAUDE_MODELS = [
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-5',
+  'claude-opus-5-5',
+  'claude-opus-5',
+  'claude-opus-4-8',
+  'claude-fable-5-1',
+]
+const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const CODEX_MODELS = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const ASTRA = 'gpt-6-astra'
 const MODELS = [...CLAUDE_MODELS, ...CODEX_MODELS]
@@ -19,6 +28,9 @@ const SUPERVISORS = [...MODELS, ASTRA]
 const providerForModel = (model) => CLAUDE_MODELS.includes(model)
   ? 'claude'
   : CODEX_MODELS.includes(model) || model === ASTRA ? 'codex' : null
+const aliasError = (field, model) => field + ': "' + model
+  + '" is an alias — aliases re-point silently; use a full ID ('
+  + CLAUDE_MODELS.join(', ') + ')'
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
@@ -89,7 +101,9 @@ if (plan) {
       const at = 'waves[' + wi + ']'
       if (!w || typeof w !== 'object') { err(at + ': must be an object'); return }
       if (!w.supervisor || !SUPERVISORS.includes(w.supervisor.model)) {
-        err(at + '.supervisor.model: one of ' + SUPERVISORS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
+        err(w.supervisor && CLAUDE_ALIASES.includes(w.supervisor.model)
+          ? aliasError(at + '.supervisor.model', w.supervisor.model)
+          : at + '.supervisor.model: one of ' + SUPERVISORS.join('/'))
       }
       if (w.supervisor && providerForModel(w.supervisor.model) === 'codex'
         && w.supervisor.effort === undefined) {
@@ -111,7 +125,9 @@ if (plan) {
         }
         if (t.branch !== 'wave/' + t.id) err(tat + '.branch: must be "wave/' + t.id + '"')
         if (!t.executor || !EXECUTOR_MODELS.includes(t.executor.model)) {
-          err(tat + '.executor.model: one of ' + EXECUTOR_MODELS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
+          err(t.executor && CLAUDE_ALIASES.includes(t.executor.model)
+            ? aliasError(tat + '.executor.model', t.executor.model)
+            : tat + '.executor.model: one of ' + EXECUTOR_MODELS.join('/'))
         }
         if (t.executor && providerForModel(t.executor.model) === 'codex'
           && t.executor.effort === undefined) {
@@ -122,7 +138,10 @@ if (plan) {
         }
         if (t.ladder !== undefined && (!Array.isArray(t.ladder)
           || t.ladder.some((m) => !EXECUTOR_MODELS.includes(m)))) {
-          err(tat + '.ladder: array of ' + EXECUTOR_MODELS.join('/') + ' (short names, or the pinned full ID claude-opus-4-8)')
+          const alias = Array.isArray(t.ladder) && t.ladder.find((m) => CLAUDE_ALIASES.includes(m))
+          err(alias
+            ? aliasError(tat + '.ladder', alias)
+            : tat + '.ladder: array of ' + EXECUTOR_MODELS.join('/'))
         }
         const transitions = t.executor && EXECUTOR_MODELS.includes(t.executor.model)
           ? [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : [])] : []
