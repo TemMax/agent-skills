@@ -22,9 +22,15 @@ eval_model() {
   case "$provider" in
     claude)
       case "$sandbox" in
+        # Not plan mode: plan mode injects the host's own plan-mode system
+        # prompt, and models discard the harness's EVAL MODE instruction as an
+        # injection (measured 2026-09-22: Haiku 4.5 F3 0/5 in plan mode, 5/5
+        # with this allowlist). "read-only" here means no file-editing tools;
+        # Bash stays because the supervisor fixture must run commands.
         read-only)
           (cd "$cwd" && timeout "$limit" claude -p --model "$model" --effort "$effort" \
-            --permission-mode plan --permission-prompts none --no-session-persistence \
+            --permission-mode dontAsk --permission-prompts none --no-session-persistence \
+            --allowedTools 'Read,Glob,Grep,Bash' --disallowedTools 'Edit,Write,NotebookEdit' \
             < "$prompt_file" > "$answer_file")
           ;;
         workspace-write)

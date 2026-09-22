@@ -311,6 +311,17 @@ Worth stating plainly, because a green run is easy to over-read.
   here — a run proves a case *can* pass, not that it reliably does.
   `EVAL_MODEL=claude-haiku-4-5-20251001` still runs it on Haiku for anyone
   who wants to see the weaker model's failure modes firsthand.
+- **Harness modes changed 2026-09-22, after two measured defects.** The
+  Claude `read-only` adapter no longer uses plan mode: plan mode injects the
+  host's own plan-mode system prompt, and models discarded the harness's EVAL
+  MODE instruction as an injection — Haiku 4.5 F3 went 0/5 in plan mode and
+  5/5 with `--permission-mode dontAsk`, an allowlist of `Read,Glob,Grep,Bash`
+  and `Edit,Write,NotebookEdit` disallowed. "read-only" there means no
+  file-editing tools; Bash stays because the supervisor fixture must run
+  commands. The super-plan tier now runs `workspace-write` so the planner can
+  apply the skill's Lint step for real on a draft in the fixture's temp dir;
+  the old "Write NOTHING to disk" instruction made that step impossible.
+  Measured the same day: Sonnet 5 3/3 runs, 18/18 checks.
 - **ship's live fixture has no external side effects.** It uses a disposable
   repository, a local bare remote, and the self-testing fake `gh`. The success
   case checks the ordered handoffs through fake PR creation; the failure case
