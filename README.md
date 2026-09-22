@@ -36,14 +36,25 @@ to exactly one profile file and forbids reading the others:
 
 | Model ID | orchestration profile | code-review profile |
 |---|---|---|
+| `claude-opus-5-5` (any context suffix) | `references/orchestrator-opus-5-5.md` | `references/reviewer-opus-5-5.md` |
 | `claude-fable-5-1` | `references/orchestrator-fable-5-1.md` | `references/reviewer-fable-5-1.md` |
 | `claude-fable-5` | `references/orchestrator-fable-5.md` | `references/reviewer-fable-5.md` |
 | `claude-opus-5` (any context suffix) | `references/orchestrator-opus-5.md` | `references/reviewer-opus-5.md` |
 | `claude-opus-4-8` (any context suffix, e.g. `[1m]`) | `references/orchestrator-opus-4-8.md` | `references/reviewer-opus-4-8.md` |
 | anything else | none — model-agnostic rules only, and the skill says so | same |
 
-Opus 5 is the **default heavy executor and verifier**; Opus 4.8 is retained only
-for compiled-binary reverse-engineering (Opus 5's Fable-class cyber classifier
+Opus 5.5 (`claude-opus-5-5`) is the **default heavy executor, verifier, and
+open-research route**: an upgrade to Opus 5 on every evaluation in its summary
+table at a lower list price ($4 / $20 per million input/output tokens vs Opus
+5's $5 / $25), and it matches Fable 5.1 as the most injection-robust route
+through tool results (IPI 0.1% at k=1). Untrusted text must still be handed to
+it by path, not pasted: compliance with instructions planted in pasted text
+rises from 2.1% at default effort to 7.4% at max. Grounded in the Claude Opus
+5.5 system card (230 pp., September 2026).
+
+Opus 5 (`claude-opus-5`) is the **previous default heavy executor and
+verifier**, retained as the supervisor fallback; Opus 4.8 is retained only for
+compiled-binary reverse-engineering (Opus 5's Fable-class cyber classifier
 blocks it) and as the cyber-refusal fallback. Opus 5's effort rule **inverts**
 Opus 4.8's — higher effort makes it *worse* on long-horizon work (documented
 overthinking / self-verification loops), so its profile runs at `high`, not
@@ -116,6 +127,16 @@ Both skills also ship a dossier (`references/model-dossiers.md`,
 modes, and page references to the system cards — loaded on demand for contested
 calls.
 
+**Full model IDs.** Plans and runner args name full Claude IDs, never
+aliases: `claude-haiku-4-5-20251001`, `claude-sonnet-5`, `claude-opus-5-5`,
+`claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1`. Aliases are rejected
+by name because they re-point silently — on 2026-09-22 `opus` moved from
+Opus 5 to Opus 5.5, so every route still written as `opus` would have changed
+model without an edit. The one alias-only surface is the Claude Code Agent
+tool, whose schema accepts only aliases; that exception is covered by the
+probe-dated alias mapping in `multi-model`'s Model identifiers table, which is
+re-verified whenever a new Claude model ships.
+
 All skills always reply to the user in the language the user writes in.
 
 ## Hosts, models, and lifecycle limits
@@ -127,7 +148,7 @@ is deliberately narrower than a claim that every profile is a production route:
 
 | Host | Exact model IDs with a profile | Role / effort conclusion |
 |---|---|---|
-| Claude Code | `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
+| Claude Code | `claude-opus-5-5`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
 | Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
@@ -288,6 +309,13 @@ short summary plus one findings table tiered Blocker / Important / Medium / Low
 
 To verify the plugins are installed, run `/plugin` and look for
 `orchestration` and `code-review` with their skills listed.
+
+## Breaking in 3.0.0
+
+Claude aliases (`opus`, `sonnet`, `fable`, `haiku`) are no longer accepted in
+plans or runner args — name the full Claude ID instead (see Full model IDs
+above). The linter and the runner reject an alias by name rather than
+resolving it, because an alias can re-point to a different model silently.
 
 ## Migration from 1.x
 
