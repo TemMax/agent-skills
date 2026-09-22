@@ -1314,8 +1314,11 @@ test('C21j plan linter enforces the same Astra executor opt-in contract', () => 
       .replace('"model": "gpt-6-astra", "effort": "high"',
         '"model": "gpt-6-astra"'), 1, /supervisor\.effort/],
     ['mixed providers', withAstraSupervisor(original)
-      .replace('"model": "gpt-5.6-luna"', '"model": "sonnet"'),
+      .replace('"model": "gpt-5.6-luna"', '"model": "claude-sonnet-5"'),
     1, /mixes providers/],
+    ['Claude alias in a Codex plan', withAstraSupervisor(original)
+      .replace('"model": "gpt-5.6-luna"', '"model": "sonnet"'),
+    1, /is an alias/],
   ]
   for (const [label, markdown, status, message] of cases) {
     writeFileSync(env.plan, markdown)
