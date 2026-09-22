@@ -238,7 +238,13 @@ Date) are pinned by static checks that each cost a launch rejection once.
 
 **plan linter** — `tests/plan-lint.test.sh` mutates the canonical clean plan
 fixture one defect at a time and asserts the shipped `plan-lint.mjs` names
-each error class; warnings are asserted non-fatal. Requires `node`.
+each error class; warnings are asserted non-fatal. Requires `node`. Both the
+linter and the runner accept Claude models by full ID only —
+`claude-haiku-4-5-20251001`, `claude-sonnet-5`, `claude-opus-5-5`,
+`claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` — and reject the aliases
+`haiku`, `sonnet`, `opus` and `fable` by name, because an alias re-points
+silently when a model ships (probe wf_e635018e-8f3, 2026-09-22, in
+`tests/eval/wave-insession.md`).
 
 ## Repeating the guards
 
@@ -286,7 +292,7 @@ Worth stating plainly, because a green run is easy to over-read.
   plan format — observed failures included prose printed before the plan
   content despite an explicit instruction not to, `branch` values that did
   not match `wave/<id>`, a `ladder` array holding branch names instead of
-  short model names, and a same-wave file overlap that survived to lint — on
+  model names (short names then; plans now take full IDs only), and a same-wave file overlap that survived to lint — on
   some runs, while other runs were fully clean. Sonnet 5 was markedly more
   reliable (clean on most runs, including every run of the overlap-temptation
   fixture) but not flawless either: one run out of several produced a P2 plan

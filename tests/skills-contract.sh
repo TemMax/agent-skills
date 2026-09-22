@@ -272,6 +272,33 @@ check "the reviewer dossier has a Fable 5.1 section" \
 check "README carries the fable-5.1 row"            "grep -qF '| \`claude-fable-5-1\` |' README.md"
 check "multi-model still routes Fable 5.1"         "grep -qF '| \`claude-fable-5-1\` | \`references/orchestrator-fable-5-1.md\` |' $MM"
 
+section "Opus 5.5 is supported"
+OO55=plugins/orchestration/skills/multi-model/references/orchestrator-opus-5-5.md
+RO55=plugins/code-review/skills/critical-review/references/reviewer-opus-5-5.md
+
+check "Step 0: multi-model routes opus-5-5 (any suffix) to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`references/orchestrator-opus-5-5.md\` |' $MM"
+check "Step 0: super-plan routes opus-5-5 (any suffix) to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`../multi-model/references/orchestrator-opus-5-5.md\` |' $SP"
+check "Step 0: ship routes opus-5-5 (any suffix) to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`../multi-model/references/orchestrator-opus-5-5.md\` |' $SH"
+check "Step 0: critical-review routes opus-5-5 (any suffix) to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`references/reviewer-opus-5-5.md\` |' $CR"
+
+check "the orchestrator opus-5.5 profile ships"     "[ -f $OO55 ]"
+check "the orchestrator opus-5.5 profile gates on its model id" "grep -qF 'claude-opus-5-5' $OO55"
+check "the orchestrator opus-5.5 profile tells a mismatched model to stop" \
+  "grep -qF 'stop reading it' $OO55"
+check "the reviewer opus-5.5 profile ships"         "[ -f $RO55 ]"
+check "the reviewer opus-5.5 profile gates on its model id" "grep -qF 'claude-opus-5-5' $RO55"
+check "the reviewer opus-5.5 profile tells a mismatched model to stop" \
+  "grep -qF 'stop reading it' $RO55"
+
+check "the multi-model dossier has an Opus 5.5 section" \
+  "grep -q '^## Opus 5.5' plugins/orchestration/skills/multi-model/references/model-dossiers.md"
+check "the reviewer dossier has an Opus 5.5 section" \
+  "grep -q '^## Opus 5.5 as a reviewer of its own code' plugins/code-review/skills/critical-review/references/reviewer-dossier.md"
+
 section "Claude models are addressed by full IDs"
 
 PL=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
@@ -299,6 +326,14 @@ check "the Model identifiers section names its probe" \
   "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | grep -qF 'wf_e635018e-8f3'"
 check "the Agent-tool exception names alias and full ID" \
   "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'a spawn through it names the alias AND the full ID from this table.'"
+for id in claude-haiku-4-5-20251001 claude-sonnet-5 claude-opus-5-5 claude-opus-5 claude-opus-4-8 claude-fable-5-1; do
+  check "the linter accepts $id" "grep -qF \"'$id'\" $PL"
+done
+check "the linter rejects aliases by name"         "grep -qF 'is an alias' $PL"
+check "the linter's CLAUDE_MODELS lists no bare alias" \
+  "sed -n '/^const CLAUDE_MODELS = \\[/,/^\\]/p' $PL | grep -qF \"'claude-opus-5-5'\" && ! sed -n '/^const CLAUDE_MODELS = \\[/,/^\\]/p' $PL | grep -qE \"'(haiku|sonnet|opus|fable)'\""
+check "the runner's MODELS lists no bare alias" \
+  "sed -n '/^const MODELS = \\[/,/^\\]/p' $WR | grep -qF \"'claude-opus-5-5'\" && ! sed -n '/^const MODELS = \\[/,/^\\]/p' $WR | grep -qE \"'(haiku|sonnet|opus|fable)'\""
 check "untrusted text is never pasted into an executor prompt" \
   "sed -n '/^## Task Prompt Template/,/^## Supervised Waves$/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Never paste untrusted third-party text'"
 

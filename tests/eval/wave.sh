@@ -1294,7 +1294,7 @@ sup = open('plugins/orchestration/skills/multi-model/references/supervisor-promp
 json.dump({
     "base": base, "defaultBranch": branch, "repoPath": repo,
     "supervisorPromptText": sup,
-    "supervisor": {"model": "sonnet", "effort": "medium"},
+    "supervisor": {"model": "claude-sonnet-5", "effort": "medium"},
     "tasks": [{
         "id": "divide-guard",
         "description": "Make divide() return None when the divisor is zero, so the whole suite passes.",
@@ -1305,7 +1305,7 @@ json.dump({
             "forbidden_moves": ["weakening, deleting or skipping an existing test"],
             "report_must_answer": ["What happens when the divisor is zero?"]
         },
-        "executor": {"model": "haiku", "effort": "medium"}, "ladder": []
+        "executor": {"model": "claude-haiku-4-5-20251001", "effort": "medium"}, "ladder": []
     }]
 }, open(out, "w"))
 PY

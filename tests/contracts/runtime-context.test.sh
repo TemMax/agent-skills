@@ -54,6 +54,7 @@ CASES=(
   'SessionStart preserves Terra id|{"hook_event_name":"SessionStart","model":"gpt-5.6-terra"}|context|SessionStart|gpt-5.6-terra|codex'
   'SubagentStart preserves Luna id|{"hook_event_name":"SubagentStart","model":"gpt-5.6-luna"}|context|SubagentStart|gpt-5.6-luna|codex'
   'SessionStart exposes Claude model|{"hook_event_name":"SessionStart","model":"claude-fable-5-1"}|context|SessionStart|claude-fable-5-1|claude'
+  'SessionStart preserves Opus 5.5 context-window suffix|{"hook_event_name":"SessionStart","model":"claude-opus-5-5[1m]"}|context|SessionStart|claude-opus-5-5[1m]|claude'
   'empty payload emits no context|{}|empty'
   'malformed payload emits no context|not-json|empty'
   'JSON null emits no context|null|empty'
