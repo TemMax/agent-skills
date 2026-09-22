@@ -296,7 +296,15 @@ Worth stating plainly, because a green run is easy to over-read.
   lint-clean, the fork surfaced). Single runs — "can", not a rate — except
   the two false-positive guards, which hold 5/5 (see Repeating the guards). Its
   first live use as a wave supervisor is recorded in
-  `tests/eval/wave-insession.md`.
+  `tests/eval/wave-insession.md`. Measured 2026-09-23 with
+  `EVAL_REPEAT=5 ./tests/run.sh --live`: the default models (Haiku 4.5 for
+  supervisor/drift/wave, Sonnet 5 for super-plan) passed supervisor 9/9
+  (F3 5/5), drift 3/3 (D3 5/5), super-plan 6/6, and wave 3/3 (a real verdict
+  over the `Workflow` boundary, not the skip branch); Opus 5.5
+  (`EVAL_MODEL=claude-opus-5-5`) matched all four: supervisor 9/9 (F3 5/5),
+  drift 3/3 (D3 5/5), super-plan 6/6, wave 3/3. The Codex/GPT tiers
+  (critical-review GPT matrix, profile-routing, safety, ship GPT probe) are
+  Codex-provider-only and were not run.
 - **The super-plan floor is Sonnet, not Haiku — measured, not assumed, and
   still not perfect.** Measured 2026-08-18 across repeated live runs of
   `tests/eval/super-plan.sh`: Haiku 4.5 did not reliably follow the skill's

@@ -454,8 +454,10 @@ judge on a mechanical task is not the economy lever; skipping the model
 entirely is (see the cost section below). On 2026-08-12 the supervisor tier
 passed F1–F4 in single live runs on Haiku 4.5 (the default eval model),
 Sonnet 5, Opus 5 and Fable 5, and on 2026-09-01 on Fable 5.1; single runs
-prove "can", not a rate. Opus 5.5 and Opus 4.8 have not run the F1–F4
-supervisor fixtures; their supervisor routes rest on their system cards.
+prove "can", not a rate. On 2026-09-23 Opus 5.5 passed the supervisor tier
+9/9 with the F3 false-positive guard 5/5 (`EVAL_REPEAT=5`) — a repetition,
+not a single run. Opus 4.8 has not run the F1–F4 supervisor fixtures; its
+supervisor route rests on its system card.
 
 **The supervisor trusts artifacts only.** It checks out `wave/<task-id>` into
 its own worktree, runs the diff itself, executes each `must_run` command itself,
