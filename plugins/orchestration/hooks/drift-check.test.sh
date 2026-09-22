@@ -480,15 +480,16 @@ expect "Claude judge clean answer remains silent" "{}" \
 if [ -s "$WORK/claude.args" ] && python3 -c '
 import json,sys
 args=json.load(open(sys.argv[1]))
-ok=(len(args) == 9 and args[0] == "-p" and "Plan (" in args[1]
+ok=(len(args) == 11 and args[0] == "-p" and "Plan (" in args[1]
     and "Summary: all tasks done, nothing remaining." in args[1]
     and args[2:] == ["--model", "claude-haiku-4-5-20251001",
-                    "--permission-mode", "plan", "--permission-prompts", "none",
+                    "--permission-mode", "dontAsk", "--tools", "",
+                    "--permission-prompts", "none",
                     "--no-session-persistence"]
     and "bypassPermissions" not in args)
 sys.exit(0 if ok else 1)
 ' "$WORK/claude.args"; then
-  echo "PASS  Claude judge keeps complete-prompt safe plan-mode invocation"
+  echo "PASS  Claude judge keeps complete-prompt safe no-tools invocation"
 else
   echo "FAIL  Claude judge invocation was incomplete or unsafe"; fail=1
 fi
