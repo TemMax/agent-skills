@@ -84,8 +84,8 @@ Claude-identity system prompt, both intervals crossing zero (p. 128) — so it
 needs no favoritism correction, but it still re-derives every claim or it has
 nothing. Fable 5.1's card is the first since Opus 4.7 to measure a clear
 self-recognition bias — small, 0.1 points out of 10, lenient when told the
-author is Claude (p. 124) — so, like Opus 5, it reviews its own code only by
-re-deriving every claim from the artifact. Opus 5.5's card measures a small,
+author is Claude (p. 124) — so it reviews its own code only by re-deriving
+every claim from the artifact. Opus 5.5's card measures a small,
 significant self-preference of its own — +0.07 points out of 10 with a
 Claude-identity system prompt (p. 128) — so, like Fable 5.1, it reviews its
 own code only by re-deriving every claim from the artifact. Whatever the

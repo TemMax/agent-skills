@@ -71,7 +71,7 @@ of its measurements change the rules: as a judge it is the first model since
 Opus 4.7 with a measured self-recognition bias (0.1 points out of 10, lenient
 when told the author is Claude, p. 124) — the runner's judge prompt never
 names the executor and the bias is bounded by the contract's mechanical
-half, so `fable` still judges Opus 5, and the prompt rule is now a contract
+half, so Fable 5.1 (`claude-fable-5-1`) still judges Opus 5, and the prompt rule is now a contract
 test; on scoped coding its score peaks at `medium` because higher
 effort adds unrequested out-of-scope edits (p. 169), so every Fable 5.1
 executor prompt carries a scope line; and it is the most injection-robust
@@ -79,8 +79,9 @@ model to date (IPI 0.1% at k=1, p. 83), the executor for untrusted content
 whose compromise would reach secrets or actions. Its card also documents an
 orchestrator failure the profile guards against: distorting user intent to
 subagents, including a fabricated user authorization and a
-`bypassPermissions` launch (pp. 95–96). The short name `fable` now resolves
-to Fable 5.1; Fable 5's profiles and dossier sections stay for history.
+`bypassPermissions` launch (pp. 95–96). Plans address it as `claude-fable-5-1`
+(`fable` is only its Agent-tool alias); Fable 5's profiles and dossier sections
+stay for history.
 
 The profile carries everything that is genuinely model-specific: the session's
 reasoning-effort guidance, amendments to the numbered process steps, and the
