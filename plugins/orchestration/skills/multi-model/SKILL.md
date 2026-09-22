@@ -438,6 +438,11 @@ weaker tier than Opus 5.5 even where Opus 5.5 benchmarks higher.
 | Opus 4.8 (`claude-opus-4-8`) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) | high |
 | Fable 5.1 (`claude-fable-5-1`, explicit specialized choice or approved rung) | Opus 5.5 (`claude-opus-5-5`), fallback Opus 5 (`claude-opus-5`) | high |
 
+A wave has one supervisor, so pick its row by the strongest model any task
+in the wave can run, ladder rungs included — a `claude-sonnet-5` task whose
+ladder reaches `claude-opus-5-5` is supervised by `claude-fable-5-1`, not by
+Opus 5.5 (the runner and the linter reject a supervisor that is also a rung).
+
 Plans name every supervisor by its full ID (see Model identifiers above): Fable
 5.1 is `claude-fable-5-1`. Fable 5 is no longer addressable and keeps its
 profile and dossier for history.
