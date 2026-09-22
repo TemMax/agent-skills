@@ -241,13 +241,18 @@ tokens; keep waves well under 10 agents; forbid executors from spawning.
 - Default heavy executor and verifier, addressed as `claude-opus-5-5`: it leads
   the lineup on SWE-bench Pro, Terminal-Bench 4.0, CursorBench and ProgramBench
   at a lower price than Opus 5.
-- Open-research route: HLE and DRACO still climb through max (pp. 185, 187), so
-  open research on Opus 5.5 runs at xhigh, max when budget allows; state the
-  question's ambition explicitly — it prefers incremental hypotheses (p. 36)
-  and dislikes highly open-ended tasks (p. 167).
+- Open-research route: `claude-opus-5-5` at medium/high — cheaper than Opus 5 ($4 / $20 vs $5 /
+  $25, p. 180) at DRACO parity (87.4 vs 88.3, p. 187). HLE and DRACO keep
+  climbing through max (pp. 185, 187), but high → max buys ~2.4 DRACO points
+  at several times the cost, and pasted-text compliance rises to 7.4% at max
+  (p. 125); raise to xhigh only for a single deep question. State the
+  question's ambition explicitly — it prefers incremental hypotheses
+  (p. 36) and dislikes highly open-ended tasks (p. 167).
 - Supervised by Fable 5.1, with Opus 5 as the fallback supervisor — never by
   Opus 5.5 itself.
-- Judges: Fable 5.1, Sonnet 5 or Haiku 4.5 — never Opus 5.5 on its own output.
+- As a judge it supervises Fable 5.1, Sonnet 5 and Haiku 4.5 executors
+  (and may supervise Opus 5 and Opus 4.8), with a measured +0.07/10
+  self-preference (p. 128) — never its own output.
 - Compiled binaries still go to Opus 4.8 (pp. 48, 55).
 - Untrusted text is passed by path, never pasted into the prompt (pp. 123–126).
 
