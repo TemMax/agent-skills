@@ -242,6 +242,16 @@ test('C2 selected Claude wave is host-mismatch and creates nothing', () => {
   assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
 })
 
+test('C2b selected wave with a full Claude ID is host-mismatch and creates nothing', () => {
+  const env = init({ invalid: true, planText: (text) => text.replace(
+    '"model": "gpt-5.6-luna"', '"model": "claude-sonnet-5"') })
+  assert.notEqual(env.result.status, 0)
+  assert.equal(env.result.json.status, 'invalid')
+  assert.match(env.result.json.errors.join('; '), /host-mismatch/)
+  assert.equal(existsSync(join(env.repo, '.worktrees')), false)
+  assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
+})
+
 test('C3 next preserves approved task prose and all six mandatory prompt blocks', () => {
   const env = init()
   const action = next(env.statePath)
@@ -782,6 +792,7 @@ test('C18b every safety-relevant stored field is validated before next', () => {
     ['wave', (s) => { s.wave = 0 }],
     ['base', (s) => { s.base = 'abc' }],
     ['supervisor.model', (s) => { s.supervisor.model = 'sonnet' }],
+    ['supervisor.model full Claude ID', (s) => { s.supervisor.model = 'claude-sonnet-5' }],
     ['supervisor.effort', (s) => { s.supervisor.effort = 'extreme' }],
     ['tasks', (s) => { s.tasks = {} }],
     ['task id', (s) => { s.tasks.Bad = s.tasks['divide-guard']; delete s.tasks['divide-guard'] }],

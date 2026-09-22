@@ -17,7 +17,10 @@ const CODEX_SUPERVISORS = [...CODEX_MODELS, ASTRA]
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 export const ACTIONS = ['spawn-executor', 'verify', 'spawn-supervisor', 'merge-ready', 'stop']
 
-const CLAUDE_MODELS = ['haiku', 'sonnet', 'opus', 'fable', 'claude-opus-4-8']
+const CLAUDE_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-5', 'claude-opus-5-5',
+  'claude-opus-5', 'claude-opus-4-8', 'claude-fable-5-1']
+const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
+const isClaudeModel = (model) => CLAUDE_MODELS.includes(model) || CLAUDE_ALIASES.includes(model)
 const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
   'forbidden_moves', 'report_must_answer']
 const AGENT_ERRORS = ['null-result', 'transport', 'tool-unavailable']
@@ -138,7 +141,7 @@ export function validateCodexWave(wave, index) {
     errors.push(at + '.supervisor: required')
   } else {
     if (!CODEX_SUPERVISORS.includes(supervisor.model)) {
-      errors.push(at + '.supervisor.model: ' + (CLAUDE_MODELS.includes(supervisor.model)
+      errors.push(at + '.supervisor.model: ' + (isClaudeModel(supervisor.model)
         ? 'host-mismatch: Claude model in Codex wave'
         : 'one of ' + CODEX_SUPERVISORS.join('/')))
     }
@@ -168,7 +171,7 @@ export function validateCodexWave(wave, index) {
       errors.push(tat + '.executor: required')
     } else {
       if (!CODEX_EXECUTOR_MODELS.includes(executor.model)) {
-        errors.push(tat + '.executor.model: ' + (CLAUDE_MODELS.includes(executor.model)
+        errors.push(tat + '.executor.model: ' + (isClaudeModel(executor.model)
           ? 'host-mismatch: Claude model in Codex wave'
           : 'one of ' + CODEX_EXECUTOR_MODELS.join('/')))
       }
@@ -179,7 +182,7 @@ export function validateCodexWave(wave, index) {
     if (task.ladder !== undefined && (!Array.isArray(task.ladder)
       || task.ladder.some((model) => !CODEX_EXECUTOR_MODELS.includes(model)))) {
       const hostMismatch = Array.isArray(task.ladder)
-        && task.ladder.some((model) => CLAUDE_MODELS.includes(model))
+        && task.ladder.some(isClaudeModel)
       errors.push(tat + '.ladder: ' + (hostMismatch ? 'host-mismatch: Claude model in Codex wave'
         : 'array of ' + CODEX_EXECUTOR_MODELS.join('/')))
     }
