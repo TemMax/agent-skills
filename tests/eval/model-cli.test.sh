@@ -52,7 +52,7 @@ CLAUDE_READONLY="$W/claude-read-only.md"
 run_model claude claude-test low read-only "$CLAUDE_READONLY"
 expect "Claude writes its final answer" "claude final answer" "$(cat "$CLAUDE_READONLY")"
 expect "Claude reads the prompt from stdin" "$(cat "$PROMPT")" "$(cat "$LOG/claude.stdin")"
-expect "Claude read-only argv is exact" "$(printf '%s\n' -p --model claude-test --effort low --permission-mode plan --permission-prompts none --no-session-persistence)" "$(cat "$LOG/claude.argv")"
+expect "Claude read-only argv is exact" "$(printf '%s\n' -p --model claude-test --effort low --permission-mode dontAsk --permission-prompts none --no-session-persistence --allowedTools 'Read,Glob,Grep,Bash' --disallowedTools 'Edit,Write,NotebookEdit')" "$(cat "$LOG/claude.argv")"
 check "Claude receives no Codex flags" "! rg -q -- '--(ephemeral|ignore-user-config|ignore-rules|sandbox|output-last-message)' '$LOG/claude.argv'"
 check "Claude receives no unsafe bypass flag" "! rg -q -- 'bypassPermissions|dangerously-bypass' '$LOG/claude.argv'"
 
@@ -104,7 +104,7 @@ expect "failed Codex without output cannot reuse a stale answer" "" "$(cat "$FAI
 section "Semantic fixtures preserve model failures before scoring"
 check "supervisor uses the status-preserving output helper" "grep -qxF '  EVAL_MODEL=\"\$MODEL\" eval_model_answer \"\$R\" read-only \"\$prompt_file\" \"\$answer_file\"' tests/eval/supervisor.sh"
 check "drift uses the status-preserving output helper" "grep -qxF '  EVAL_MODEL=\"\$MODEL\" eval_model_answer \"\$W\" read-only \"\$prompt_file\" \"\$answer_file\" | tr -d '\''\\r'\''' tests/eval/drift.sh"
-check "super-plan uses the status-preserving output helper" "grep -qxF '  EVAL_MODEL=\"\$MODEL\" eval_model_answer \"\$R\" read-only \"\$prompt_file\" \"\$answer_file\"' tests/eval/super-plan.sh"
+check "super-plan uses the status-preserving output helper" "grep -qxF '  EVAL_MODEL=\"\$MODEL\" eval_model_answer \"\$R\" workspace-write \"\$prompt_file\" \"\$answer_file\"' tests/eval/super-plan.sh"
 
 section "Invalid provider or sandbox cannot invoke a model"
 before="$(wc -l < "$LOG/calls")"
