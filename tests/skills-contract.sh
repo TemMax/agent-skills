@@ -63,6 +63,13 @@ check "the wave runner ships as a file" \
 check "SKILL points at the shipped runner"     "grep -q 'wave-runner.workflow.mjs' $MM"
 check "default path is invoking, not writing"  "grep -q 'invoke the shipped runner' $MM"
 check "the filesystem constraint is named"     "grep -q 'supervisorPromptText' $MM"
+check "SKILL names the launcher generator"     "grep -qF 'wave-launch.mjs' $MM"
+check "the scriptPath restriction is stated" \
+  "grep -qF 'accepts \`scriptPath\` only inside the working directory or an added' $MM"
+check "the launcher generator ships" \
+  "[ -f plugins/orchestration/skills/multi-model/references/wave-launch.mjs ]"
+check "the runner reads embedded WAVE_ARGS" \
+  "grep -qF \"typeof WAVE_ARGS !== 'undefined'\" plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs"
 check "no ladder row resurrects the forgery class" "! grep -qi 'forged evidence' $MM"
 
 CP=plugins/orchestration/skills/multi-model/references/codex-wave-protocol.md
