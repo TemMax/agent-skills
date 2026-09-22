@@ -93,8 +93,10 @@ check "super-plan no longer pins a Claude-only question tool" \
 
 section "super-plan emits provider-pure wave plans from the active profile"
 
-check "plan-format table retains Claude plan identifiers" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Claude | \`haiku\`, \`sonnet\`, \`opus\`, \`fable\`, \`claude-opus-4-8\` |'"
+check "plan-format table names every full Claude plan identifier" \
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Claude | \`claude-haiku-4-5-20251001\`, \`claude-sonnet-5\`, \`claude-opus-5-5\`, \`claude-opus-5\`, \`claude-opus-4-8\`, \`claude-fable-5-1\` |'"
+check "example wave-plan block uses a full Claude supervisor id" \
+  "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' '$SP' | grep -qF '\"model\": \"claude-fable-5-1\"'"
 check "plan-format table names every exact Codex plan identifier" \
   "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Codex | \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
 check "the bare GPT alias is never a plan identifier" \

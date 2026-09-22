@@ -39,6 +39,7 @@ A generic selection explains missing, unsupported, or conflicting identity.
 
 | Exact model id | Relative profile |
 |---|---|
+| `claude-opus-5-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5-5.md` |
 | `claude-fable-5-1` | `../multi-model/references/orchestrator-fable-5-1.md` |
 | `claude-fable-5` | `../multi-model/references/orchestrator-fable-5.md` |
 | `claude-opus-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5.md` |
@@ -69,7 +70,9 @@ block writing a concrete plan for the existing design and plan approvals.
    research agents routed by multi-model's Research Routing table
    (`../multi-model/SKILL.md`) — name a model on every spawn (an agent
    without one inherits the session's model, and a Fable seat (5 or 5.1) then pays
-   Fable prices for file listings), and give each agent the table's
+   Fable prices for file listings); every spawn names a full ID where the
+   host accepts one (Agent-tool spawns follow multi-model's alias mapping),
+   and give each agent the table's
    mandatory research-prompt lines. Synthesis and every decision stay with
    you — do not delegate decisions, executors silently fill gaps under
    ambiguity.
@@ -174,8 +177,13 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 
    | Plan host | Allowed model fields |
    |---|---|
-   | Claude | `haiku`, `sonnet`, `opus`, `fable`, `claude-opus-4-8` |
+   | Claude | `claude-haiku-4-5-20251001`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
    | Codex | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+
+   Aliases (`haiku`, `sonnet`, `opus`, `fable`) are rejected by the linter
+   and the runner because they re-point silently when a model ships; the
+   probe-dated alias mapping lives in multi-model's "Model identifiers"
+   section.
 
    Codex also permits `gpt-6-astra` as supervisor and, only when separately
    approved with `astra_executor_reason: "<concrete reason>"`, as the initial
