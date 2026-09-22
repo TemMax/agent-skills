@@ -14,9 +14,9 @@ The models with an orchestrator profile — Opus 5.5, Opus 5, Fable 5.1, Fable 5
 and Opus 4.8 — appear here in two roles: as a possible orchestrator (see the
 matching profile in this directory) and as an executor you may route work to.
 The operational rules live in SKILL.md and the profiles; this file is the
-evidence behind them. Fable 5.1 is the model the short name `fable` resolves
-to in the harness as of September 2026; Fable 5 stays here for history and is no
-longer addressable as an executor or judge.
+evidence behind them. Plans address Fable 5.1 as `claude-fable-5-1`; `fable`
+is only its Agent-tool alias (probe `wf_e635018e-8f3`, 2026-09-22). Fable 5
+stays here for history and is no longer addressable as an executor or judge.
 
 ---
 
@@ -258,7 +258,7 @@ tokens; keep waves well under 10 agents; forbid executors from spawning.
 
 ---
 
-## Fable 5.1 (orchestrator, heavy executor, judge — what `fable` resolves to)
+## Fable 5.1 (orchestrator, heavy executor, judge — `claude-fable-5-1`)
 
 **Positioning.** Same weights as Mythos 5.1; Fable 5.1 is the general-access
 configuration with safeguards (p. 11). "More capable than Fable 5", state of the
