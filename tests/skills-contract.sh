@@ -264,17 +264,18 @@ check "the reviewer dossier has a Fable 5.1 section" \
 check "README carries the fable-5.1 row"            "grep -qF '| \`claude-fable-5-1\` |' README.md"
 check "multi-model still routes Fable 5.1"         "grep -qF '| \`claude-fable-5-1\` | \`references/orchestrator-fable-5-1.md\` |' $MM"
 
-section "Opus 4.8 is addressable by its full model ID"
+section "Claude models are addressed by full IDs"
 
 PL=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
 OP5=plugins/orchestration/skills/multi-model/references/orchestrator-opus-5.md
 
 check "the runner accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $WR"
 check "the linter accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $PL"
-check "the runner carries no other full model ID" \
-  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -v '^claude-opus-4-8\$' | grep -q ."
-check "the simulator tier guards the single-ID rule" \
-  "grep -qF \"grep -v '^claude-opus-4-8\$'\" tests/wave-runner.test.sh"
+check "every full ID in the runner is one of the six" \
+  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|opus-5-5|opus-5|opus-4-8|fable-5-1)' | grep -q ."
+check "the simulator tier guards the six-ID rule" \
+  "grep -qF \"grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|opus-5-5|opus-5|opus-4-8|fable-5-1)'\" tests/wave-runner.test.sh"
+check "the runner rejects aliases by name"         "grep -qF 'is an alias' $WR"
 check "the linter tier rejects the bare short form" \
   "grep -qF '\"model\": \"opus-4-8\"' tests/plan-lint.test.sh"
 check "the skill names the ID in the supervisor row" \
