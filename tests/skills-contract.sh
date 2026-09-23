@@ -111,6 +111,8 @@ check "executor and supervisor examples name effort" \
   "[ \$(grep -cF 'reasoning_effort: action.effort' $CP) -eq 2 ]"
 check "Codex protocol names the deterministic runner as its default" \
   "grep -qF 'codex-wave-runner.mjs' $CP"
+check "Codex protocol's runner section names --add-dir for .git access" \
+  "sed -n '/^## Default: the deterministic runner\$/,/^## /p' $CP | grep -qF -- '--add-dir'"
 check "Codex protocol keeps the native action loop heading" \
   "grep -qF '## Commands and action loop' $CP"
 check "multi-model Host adapter names the deterministic runner" \
