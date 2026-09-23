@@ -10,14 +10,14 @@ stay in SKILL.md.
 
 ## Claude-only wave — invoke the shipped runner
 
-For a Claude-only wave, the ladder above is implemented once, in
+For a Claude-only wave, the ladder in multi-model SKILL.md (Escalation ladder) is implemented once, in
 `references/wave-runner.workflow.mjs`, and covered by the deterministic
 simulator tier in `tests/`. Your job is to assemble its inputs, not to
 re-implement its rules — every hand-written wave script is a fresh chance to
 get "two strikes escalate" subtly wrong, and the one hand-written run on
 record was rejected at launch four times before it worked.
 
-Its `opts.model` accepts exactly the full IDs in Model identifiers above and
+Its `opts.model` accepts exactly the full IDs in Model identifiers in multi-model SKILL.md and
 rejects aliases by name.
 
 1. **Preflight the contracts at the base.** Before the first wave forks, run
@@ -58,7 +58,7 @@ rejects aliases by name.
    The generated file is the shipped `references/wave-runner.workflow.mjs`
    byte-for-byte plus one `const WAVE_ARGS = {...}` line after its `meta`
    literal; the runner reads `typeof WAVE_ARGS !== 'undefined' ? WAVE_ARGS :
-   args`. It is therefore not a custom wave script, and the rule below still
+   args`. It is therefore not a custom wave script, and the "Never write a custom wave script" rule still
    holds.
 
    For reference, the runner input the generator builds and embeds as
@@ -66,7 +66,7 @@ rejects aliases by name.
 
 ```
 {
-  base: "<pushed fork-point sha>",          // see Wave Isolation above
+  base: "<pushed fork-point sha>",          // see Wave Isolation in multi-model SKILL.md
   defaultBranch: "main",
   repoPath: "/abs/path/to/repo",
   supervisorPromptText: "<text of supervisor-prompt.md>",
@@ -86,7 +86,7 @@ rejects aliases by name.
 ```
 
 The runner assembles each executor's prompt from the task object — the six
-mandatory blocks of the Task Prompt Template above, plus a workspace section
+mandatory blocks of the Task Prompt Template in multi-model SKILL.md, plus a workspace section
 carrying the isolation instructions — so the contract the executor reads and
 the contract the supervisor enforces are the same object and cannot diverge.
 Escalated rungs run at `high` effort.

@@ -378,41 +378,10 @@ not different-model independence; other supervisor restrictions remain.
 
 ### Mechanical verification before the judge
 
-The shipped runner inserts a fact-collecting stage between the executor and
-the judge. A cheap verifier agent (default `claude-sonnet-5`/`low`, overridable via
-`args.verifier`) checks out the branch and records facts: does the branch
-carry commits at all, which paths changed, what each `must_run` command
-returns when actually run, and whether the report pastes output where the
-contract says `evidence: required`. The verifier runs each `must_run` as one
-`bash -c` command line and records that line's exit status, so negated
-(`! grep …`) and piped commands are judged as written. The runner — not a
-model — then applies the deterministic half of the contract: a branch with no commits, a path
-outside `files_allowed`, a red `must_run`, or missing pasted evidence
-bounces straight back to the executor as a rework, and no judge is paid for
-discovering it. Transcript mining across five real sessions found "work
-done but never committed" to be the single most common rejection (8+
-occurrences), each costing a full Opus verdict to detect.
-
-Three properties are load-bearing:
-
-- **Fail-open.** A dead verifier skips the stage; the model judge then runs
-  the full pipeline itself, exactly as before. Mechanical verification can
-  only save a judge call, never remove supervision.
-- **Once per rule.** The same mechanical rule failing twice routes to the
-  model judge with the facts attached — only a judge can decide
-  `satisfiable`, and a repeat is where that question arises.
-- **Facts, not judgment.** The verifier never decides `ok`,
-  `pasteReproduced` or `satisfiable`; those stay with the judge, which
-  receives the verifier's facts and may rely on its exit codes and outputs
-  while re-running anything it doubts.
-
-**Long commands, everywhere in the wave, are classified by kind — never by
-predicted duration.** Build-system invocations (gradle, cargo, npm, pnpm,
-yarn, make, mvn and the like) start in the background with output to a log
-file and are polled; everything else runs in the foreground. A silent
-foreground wait on a cold build looks like a stall and gets the agent
-killed — one real session lost ~4.8 hours of supervision to exactly this,
-then abandoned supervision entirely.
+The shipped runner runs a cheap fact-collecting verifier before the judge: a
+branch with no commits, a path outside `files_allowed`, a red `must_run` or
+missing pasted evidence bounces straight back as rework without a judge. The
+verifier never decides `ok`; for the details and the load-bearing properties read `references/verdicts.md`.
 
 ### Choosing the supervisor — Quick Reference
 
@@ -461,45 +430,11 @@ prove "can", not a rate. On 2026-09-23 Opus 5.5 passed the supervisor tier
 not a single run. Opus 4.8 has not run the F1–F4 supervisor fixtures; its
 supervisor route rests on its system card.
 
-**The supervisor trusts artifacts only.** It checks out `wave/<task-id>` into
-its own worktree, runs the diff itself, executes each `must_run` command itself,
-and greps for the forbidden moves itself. The report is a set of claims to
-check, never a source of facts.
-
-**A paste that does not reproduce is a fact, not an accusation.** The executor
-pastes command output; the supervisor re-runs the command and compares. When they
-differ it records `pasteReproduced: false` with both outputs — and stops there.
-Whether the mismatch was fabrication, output captured before the last commit, a
-differently-prepared tree, or a date-dependent test is not decidable from what a
-supervisor can see, and four attempts to make a model decide it correctly all
-failed in the same direction: the heaviest accusation, spent on honest work.
-
-Verification asks whether something reproduces, not whether its author was
-truthful — the answer reproducible builds arrived at. A single non-reproducing
-paste rides along with the rework so the executor sees it. **Repetition is what
-escalates**, and repetition is counted by the ladder, not judged by the
-supervisor.
-
-Verdict shape:
-
-```json
-{"ok": false,
- "violations": [{"rule": "must_run:pytest tests/http -q",
-                 "class": "must_run",
-                 "pasteReproduced": false,
-                 "evidence": "report pasted a green run; supervisor got 2 failed",
-                 "quote": "tests/http/test_retry.py::test_backoff FAILED"}],
- "remarks": ["src/http/backoff.py:41 duplicates the helper in src/net/retry.py"]}
-```
-
-`violations` decide `ok`; `remarks` never do. Classes: `files`, `must_run`,
-`forbidden-move`, `report`. A violation without evidence the
-supervisor produced itself is dropped, not softened — otherwise the supervisor
-fabricates as readily as the executor it judges.
-
-When a `must_run` command fails, run it a second time before recording anything.
-If the retry passes, record a remark naming the command unstable and do not
-block. Spending the supervisor's credibility on flaky tests buys nothing.
+**The supervisor trusts artifacts only.** A verdict is `{"ok", "violations",
+"remarks"}`, and only `violations` decide `ok` — doubts go to `remarks`.
+`pasteReproduced: false` is a recorded fact, never an accusation; repetition is
+what escalates. Before judging or acting on a verdict, read
+`references/verdicts.md`.
 
 ### Escalation ladder
 
@@ -560,14 +495,6 @@ before launching. Never write a custom wave script.
 `ok:false` with `satisfiable:false` stops the task at once — no rework, no stronger model.
 Read and follow `references/contract-amendment.md` (amending is your job; removing or weakening a check is a yes/no question to the user).
 
-### The blocking threshold sits above the suspicion threshold
-
-Rework is triggered only by contract violations. Anything the supervisor merely
-finds doubtful goes to `remarks` and reaches the user through the wave report.
-**Blocking correct work is a worse failure than missing a nitpick** — a
-supervisor that stops legitimate work does not just waste a wave, it
-manufactures confidence in the waves it lets through.
-
 ### Cost, and when to skip the model
 
 A supervisor invocation is an agent with tools — a diff, the commands, the
@@ -591,98 +518,10 @@ scoping each contract's gates to its files and choosing the judge's effort.
 
 ## Orchestrator Drift
 
-Supervised waves guard the executors. This layer guards the orchestrator
-session itself — the loop that reads verdicts, decides rungs, and reports back
-to the user is not exempt from the same drift it polices in others.
-
-It ships as a plugin hook on `Stop`, fires once per turn, and **advises — it
-never blocks.** The advice arrives as `additionalContext`, and the orchestrator
-is expected to act on it or say why not; nothing in the mechanism can halt the
-turn or force a rework.
-
-It needs the wave plan artifact to compare the orchestrator's actual behavior
-against. With no plan file present, it stays silent — there is nothing to
-check drift against, so it produces no advice rather than guessing at one.
-
-Installing the plugin turns it on; removing the plugin turns it off. The user
-edits no settings file to enable or disable it — the hook's presence is the
-only switch.
-
-### When the hook runs, and what it costs
-
-The plan is a permanent artifact — it is the record of what each executor was
-contracted to do, and the thing a supervisor compares against. So the plan is
-never deleted to quiet the hook. Its lifecycle lives in a field instead:
-
-```yaml
-status: active   # active | done — only 'active' runs the hook
-```
-
-It watches **any** plan under `docs/superpowers/plans/`, not only a wave plan: an
-orchestrator drifts from an implementation plan the same way — a task quietly
-dropped, a step reported done that nothing ran.
-
-Five gates decide whether the model is called at all, cheapest first: a nested
-run of the hook inside its own `claude -p` call; a turn that our own advice
-caused; **no plan says `status: active`**; no branch named by the plan still
-the plan **declares** with a `branch:` key still exists; and a turn where the
-orchestrator claimed nothing.
-
-The branch gate reads declared branches only. Matching `wave/...` anywhere in the
-text silenced any generalised plan that merely mentioned an old branch in prose —
-a wave-specific gate left in the path of a trigger that is no longer
-wave-specific.
-
-Two of those come from running it rather than reading it. **The gate reads the
-hook payload, never the transcript file** — the Stop hook fires before the
-harness finishes writing the turn, measured at 67 seconds ahead in one live
-session, so a file-based gate would silently never fire. The payload carries
-`last_assistant_message` directly. And advice injected at Stop makes the model
-continue, which fires Stop again: without the `stop_hook_active` gate one piece
-of advice cost three deliveries and about a minute.
-
-The status gate **fails closed**, and reads only the plan's header — it stops at
-the first code fence and requires the key at column 0. Only an explicit
-`status: active` runs the hook; a missing or unrecognised status keeps it off. A
-page that documents the feature by showing the key inside a fenced yaml block
-would otherwise switch the hook on: the activate-by-omission failure in a
-different hat. Closing on `status: done`
-instead would have reproduced the original defect for every plan whose author
-never wrote a status — the file outlives the work and the hook fires forever. A
-hook must not be able to switch itself on by omission.
-
-Delivered advice is appended to `$TMPDIR/claude-drift-log/<session>.jsonl` with
-the plan and what the orchestrator had just said. The hook never reads it back;
-it exists so the question that matters about any advisory layer — does anyone
-act on it — can be answered from evidence instead of impression.
-
-The fourth gate is the one that matters for cost. Branches disappear when their
-work is merged, so it reads the state of the work rather than anyone's
-discipline: forget to flip `status` and the hook still goes quiet once the wave
-lands. Forgetting degrades to silence instead of to a permanent per-turn tax.
-
-The fifth gate is a keyword heuristic and is labelled as one in the script. It
-filters cost, not correctness — a missed check in an advisory mechanism is a
-missed suggestion. That trade would not be acceptable if the hook could block.
-
-**The latency cannot be delegated away.** Setting `async: true` on the hook was
-measured on 2026-08-11: the hook does not appear in the session log at all and
-its `additionalContext` is never delivered. Advice and asynchrony are mutually
-exclusive here, so the ~8s model call is paid inside the turn or not at all.
-Gate it; do not shorten it — the cost *is* the model call, and cutting it short
-only buys worse advice at the same price.
-
-**The check does not repeat itself.** Each invocation is stateless, so during a
-live wave it would hand the orchestrator the identical note on every
-claim-shaped turn. A per-session memo holds a digest of the last advice actually
-delivered and suppresses an exact repeat; different advice still gets through.
-The prompt cannot enforce this — a stateless call has no way to know what it
-said last time.
-
-`plugins/orchestration/hooks/drift-check.test.sh` covers every gate offline via
-`CLAUDE_DRIFT_CHECK_DRYRUN=1`, which prints the decision instead of calling the
-model, and the post-call logic via `CLAUDE_DRIFT_CHECK_FAKE_ANSWER`, which
-substitutes the reply. `LIVE=1` adds the real end-to-end path.
+A `Stop` hook compares your turn against any plan under `docs/superpowers/plans/`
+whose header says `status: active`; its advice arrives as additional context —
+act on it or say why not. It never blocks. Set the plan's `status: done` when
+the wave ends so it goes quiet. How it works and what it costs: `references/orchestrator-drift-hook.md`.
 
 ## Anti-Deception Rules
 
@@ -775,3 +614,9 @@ Opus 5 relays subagent claims unverified (p. 81).
   Read before launching a Claude-only wave.
 - `references/contract-amendment.md` — the contract amendment flow. Read when
   a task returns `contract-unsatisfiable`, before acting on it.
+- `references/verdicts.md` — the verifier stage, the supervisor's verdict
+  shape and how to read it, and the blocking threshold. Read before judging
+  or acting on a verifier result or a supervisor verdict.
+- `references/orchestrator-drift-hook.md` — how the `Stop` drift hook works,
+  its gates and what it costs. Read when working on, debugging or reasoning
+  about the drift hook.

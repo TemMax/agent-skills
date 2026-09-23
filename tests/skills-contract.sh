@@ -15,6 +15,8 @@ CR=plugins/code-review/skills/critical-review/SKILL.md
 MM=plugins/orchestration/skills/multi-model/SKILL.md
 CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
 CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
+VD=plugins/orchestration/skills/multi-model/references/verdicts.md
+ODH=plugins/orchestration/skills/multi-model/references/orchestrator-drift-hook.md
 SP=plugins/orchestration/skills/super-plan/SKILL.md
 SH=plugins/orchestration/skills/ship/SKILL.md
 
@@ -51,12 +53,12 @@ check "a claim without output is a violation"  "grep -q 'violation in its own ri
 
 section "multi-model: supervision that cannot be skipped or gamed"
 check "supervision is a stage, not advice"     "grep -q 'not an instruction to self-check' $MM"
-check "artifacts only"                         "grep -q 'artifacts only' $MM"
-check "paste reproduction is a fact, not a class" "grep -q 'pasteReproduced' $MM"
-check "no class asks the model to judge honesty" "! grep -q 'forged-evidence' $MM"
-check "remarks do not block"                   "grep -q 'remarks' $MM"
+check "artifacts only"                         "grep -q 'artifacts only' $VD"
+check "paste reproduction is a fact, not a class" "grep -q 'pasteReproduced' $VD"
+check "no class asks the model to judge honesty" "! grep -q 'forged-evidence' $MM $VD"
+check "remarks do not block"                   "grep -q 'remarks' $VD"
 check "the ladder has a terminal rung"         "grep -q 'already the strongest' $MM"
-check "blocking threshold above suspicion"     "grep -q 'Blocking correct work' $MM"
+check "blocking threshold above suspicion"     "grep -q 'Blocking correct work' $VD"
 check "supervisor prompt is referenced"        "grep -q 'references/supervisor-prompt.md' $MM"
 check "supervisor routing table exists"        "grep -q 'Choosing the supervisor' $MM"
 check "supervisor row picked by strongest model, rungs included" \
@@ -146,7 +148,7 @@ check "commit discipline is in the executor prompt" "grep -q 'git log --oneline'
 check "long commands classified by kind in the runner" "grep -q 'in the background' $WR"
 check "the supervisor may lean on verifier facts" "grep -q 'VERIFIER FACTS' $SUPP"
 check "the supervisor backgrounds long commands"  "grep -q 'never by predicted duration' $SUPP"
-check "the skill documents the verify stage"    "grep -q 'Mechanical verification before the judge' $MM"
+check "the skill documents the verify stage"    "grep -q 'Mechanical verification before the judge' $VD"
 check "contracts are preflighted at the base"   "grep -q 'Preflight the contracts at the base' $CWA"
 check "amendments propagate only mechanically"  "grep -q 'An amendment exists only when the plan file is edited' $CAM"
 check "single-task invocations are allowed"     "grep -q 'parallel single-task runner invocations' $CWA"
@@ -164,8 +166,8 @@ section "multi-model: the lifecycle belongs to the orchestrator, not the user"
 check "plan is opened at launch"               "grep -q 'Write the wave plan file' $MM"
 check "plan is closed at completion"           "grep -q 'Set the wave plan.*status: done' $MM"
 check "the user never hand-edits it"           "grep -q 'You own both transitions' $MM"
-check "status gate fails closed"               "grep -q 'first code fence' $MM"
-check "branch gate reads declared branches"    "grep -q 'declared branches only' $MM"
+check "status gate fails closed"               "grep -q 'first code fence' $ODH"
+check "branch gate reads declared branches"    "grep -q 'declared branches only' $ODH"
 
 section "multi-model: the evidence base for every anti-deception rule"
 # Losing a citation turns a measured rule into an opinion. Each of these points
@@ -360,5 +362,34 @@ check "the amendment flow starts with its title" \
   "head -1 $CAM | grep -qxF '# When the contract is what is broken — the amendment flow'"
 check "the amendment flow has a Contents list"      "grep -qx '## Contents' $CAM"
 check "SKILL still forbids a custom wave script"    "grep -qF 'Never write a custom wave script' $MM"
+
+section "multi-model: verdicts and the drift hook load on demand"
+check "SKILL names the verdicts reference"          "grep -qF 'references/verdicts.md' $MM"
+check "SKILL names the drift hook reference"        "grep -qF 'references/orchestrator-drift-hook.md' $MM"
+check "the verdicts reference starts with its title" \
+  "head -1 $VD | grep -qxF '# Verdicts — what the verifier and the supervisor produce, and how to read them'"
+check "the verdicts reference has a Contents list"  "grep -qx '## Contents' $VD"
+check "the drift hook reference starts with its title" \
+  "head -1 $ODH | grep -qxF '# Orchestrator drift hook — how it works and what it costs'"
+check "the drift hook reference has a Contents list" "grep -qx '## Contents' $ODH"
+check "SKILL still names pasteReproduced"           "grep -qF 'pasteReproduced' $MM"
+check "SKILL still says violations decide ok"       "grep -qF 'violations' $MM"
+check "SKILL still closes the plan with status: done" "grep -qF 'status: done' $MM"
+while IFS= read -r rule; do
+  check "SKILL keeps Anti-Deception row: $rule" \
+    "sed -n '/^## Anti-Deception Rules\$/,/^## Result Review Checklist\$/p' $MM | grep -qF \"| $rule |\""
+done <<'ROWS'
+State the prohibitions to the executor loudly and explicitly
+Do NOT disclose the supervisor's specific checks to the executor
+Fresh separate supervision; same-model only for approved Astra exception
+A claim without command output is a violation
+Attach verdicts; never paraphrase an executor report in their place
+Stopping early with open plan items is a violation
+Claims of monitoring or watching get their own check
+Never name the executor's model in the judge prompt
+Never paste untrusted third-party text into an executor prompt — pass a path
+Never relay an authorization the user did not give
+Judge reports by artifacts, not tone
+ROWS
 
 summary
