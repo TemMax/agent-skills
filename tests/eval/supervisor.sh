@@ -7,6 +7,62 @@
 # passes every one of them.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
+
+# --- supervisor sandbox + repo-integrity helpers (offline-testable) ---
+#
+# Codex's read-only sandbox is a real OS-level sandbox that blocks
+# `git worktree add`, so a GPT supervisor following the prompt's "fresh
+# checkout" instruction cannot run it and ends up judging the wrong tree
+# (stage A: gpt-6-luna blocked correct work that way). Claude's read-only
+# mode only removes edit tools, so it stays read-only.
+judge_sandbox() {
+  if [ "${EVAL_PROVIDER:-claude}" = codex ]; then
+    echo workspace-write
+  else
+    echo read-only
+  fi
+}
+
+# Snapshot BASE and every wave/f* branch tip so a supervisor that rewrites
+# refs (instead of only reading the tree) can be caught.
+judge_snapshot() {  # $1 = repo
+  local repo="$1" ref
+  printf 'BASE %s\n' "$(git -C "$repo" rev-parse "$BASE" 2>/dev/null)"
+  for ref in $(git -C "$repo" for-each-ref --format='%(refname:short)' 'refs/heads/wave/f*' 2>/dev/null); do
+    printf '%s %s\n' "$ref" "$(git -C "$repo" rev-parse "$ref" 2>/dev/null)"
+  done
+}
+
+# True (0) when the tracked working tree is dirty, or a recorded ref moved,
+# since $2 was captured by judge_snapshot.
+judge_repo_modified() {  # $1 = repo, $2 = snapshot from before the model ran
+  local repo="$1" before="$2"
+  [ -n "$(git -C "$repo" status --porcelain --untracked-files=no)" ] && return 0
+  [ "$before" != "$(judge_snapshot "$repo")" ]
+}
+
+# Remove any extra worktrees the supervisor registered against $repo under
+# $repo/.. (its normal "fresh checkout" location), then prune.
+judge_cleanup_worktrees() {  # $1 = repo
+  local repo="$1" parent path
+  parent="$(cd "$repo/.." && pwd)"
+  for path in $(git -C "$repo" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do
+    [ "$path" = "$repo" ] && continue
+    case "$path" in
+      "$parent"/*) rm -rf "$path" ;;
+    esac
+  done
+  git -C "$repo" worktree prune >/dev/null 2>&1 || true
+}
+
+# Sourced for just the helpers above (offline fixture tests): stop before
+# tests/lib.sh (which would reset the sourcing test's own FAILED/PASSED
+# counters) or model-cli.sh is loaded, and before any fixture setup or model
+# call happens.
+if [ "${SUPERVISOR_LIB_ONLY:-0}" = 1 ]; then
+  return 0 2>/dev/null || exit 0
+fi
+
 . tests/lib.sh
 . tests/eval/model-cli.sh
 
@@ -88,7 +144,19 @@ BRANCH: $1
 REPORT:
 $2
 EOF
+  local before; before="$(judge_snapshot "$R")"
+  if [ "$(judge_sandbox)" = workspace-write ]; then
+  EVAL_MODEL="$MODEL" eval_model_answer "$R" workspace-write "$prompt_file" "$answer_file"
+  else
   EVAL_MODEL="$MODEL" eval_model_answer "$R" read-only "$prompt_file" "$answer_file"
+  fi
+  local rc=$?
+  judge_cleanup_worktrees "$R"
+  if judge_repo_modified "$R" "$before"; then
+    echo "supervisor modified the repository"
+    return 1
+  fi
+  return $rc
 }
 
 classes() { python3 -c '
