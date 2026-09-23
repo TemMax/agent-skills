@@ -828,12 +828,20 @@ executor_prompts = sorted(glob.glob(str(task_dir / "executor-*.prompt.md")))
 supervisor_prompts = sorted(glob.glob(str(task_dir / "supervisor-*.prompt.md")))
 if not executor_prompts or not supervisor_prompts:
     fail("missing-prompt-files")
+rework_line = "Continue in the same worktree and branch; fix the violations."
 for prompt_path in executor_prompts:
     content = Path(prompt_path).read_text(encoding="utf-8")
-    if not content.startswith("# Task: divide-guard\n\n## Context\n") \
-            or "## Context\n" + task_prose + "\n" not in content \
-            or not content.endswith(prompt_contract):
-        fail("executor-prompt-mismatch")
+    if Path(prompt_path).name == "executor-1.prompt.md":
+        if not content.startswith("# Task: divide-guard\n\n## Context\n") \
+                or "## Context\n" + task_prose + "\n" not in content \
+                or not content.endswith(prompt_contract):
+            fail("executor-prompt-mismatch")
+    else:
+        if not content.startswith("# Task: divide-guard\n\n## Context\n") \
+                or "## Context\n" + task_prose + "\n" not in content \
+                or prompt_contract not in content \
+                or not content.rstrip().endswith(rework_line):
+            fail("executor-prompt-mismatch")
 for prompt_path in supervisor_prompts:
     content = Path(prompt_path).read_text(encoding="utf-8")
     if not content.startswith("# Supervisor Prompt") \
@@ -971,7 +979,7 @@ init_codex_repo() { # root success|failure
   local root="$1" mode="$2"
   R="$root/repo"
   mkdir -p "$R/src" "$R/tests" "$R/.eval"
-  printf '.eval/\n.worktrees/\n' > "$R/.gitignore"
+  printf '.eval/\n.worktrees/\n__pycache__/\n*.pyc\n' > "$R/.gitignore"
   printf 'def divide(a, b):\n    return a / b\n' > "$R/src/calc.py"
   cat > "$R/tests/test_calc.py" <<'PY'
 import unittest
@@ -1085,6 +1093,13 @@ PY
 
   evolve_test_wave "$W/success" success
   S_REPO="$TEST_REPO"; S_BASE="$TEST_BASE"
+  gitignore_at_base="$(git -C "$S_REPO" show "$S_BASE:.gitignore")"
+  case "$gitignore_at_base" in *'__pycache__/'*) ;; *)
+    printf 'wave RED: base .gitignore missing __pycache__/\n' >&2; exit 1 ;;
+  esac
+  case "$gitignore_at_base" in *'*.pyc'*) ;; *)
+    printf 'wave RED: base .gitignore missing *.pyc\n' >&2; exit 1 ;;
+  esac
   mkdir -p "$W/success-cell"
   capture_codex_evidence success "$S_REPO" "$S_BASE" "$W/success/answer.txt" \
     "$W/success/codex-events.jsonl" "$W/success-cell"
@@ -1534,6 +1549,40 @@ PY
   printf '\nnot the real contract\n' \
     >> "$W/runner-tampered-executor-prompt/runner/divide-guard/executor-1.prompt.md"
   [ "$(classify_runner success "$W/runner-tampered-executor-prompt")" = 'fail:executor-prompt-mismatch' ]
+
+  # A valid attempt-2 rework prompt (previous verdict appended, ending with the
+  # rework line) must pass.
+  command cp -R "$W/success-cell" "$W/runner-rework-prompt"
+  build_runner_out "$W/runner-rework-prompt" success "$W/success/executor-action.json" \
+    "$W/success/supervisor-prompt.json"
+  python3 - "$W/runner-rework-prompt/runner/divide-guard/executor-1.prompt.md" \
+    "$W/runner-rework-prompt/runner/divide-guard/executor-2.prompt.md" <<'PY'
+import sys
+first, second = sys.argv[1:]
+content = open(first, encoding="utf-8").read()
+rework = (content
+          + '\n\nPrevious verdict: {"ok": false, "violations": []}\n\n'
+          + "Continue in the same worktree and branch; fix the violations.\n")
+open(second, "w", encoding="utf-8").write(rework)
+PY
+  [ "$(classify_runner success "$W/runner-rework-prompt")" = pass ]
+
+  # An attempt-2 rework prompt that lacks the contract JSON must fail.
+  command cp -R "$W/success-cell" "$W/runner-rework-missing-contract"
+  build_runner_out "$W/runner-rework-missing-contract" success "$W/success/executor-action.json" \
+    "$W/success/supervisor-prompt.json"
+  python3 - "$W/runner-rework-missing-contract/runner/divide-guard/executor-1.prompt.md" \
+    "$W/runner-rework-missing-contract/runner/divide-guard/executor-2.prompt.md" <<'PY'
+import sys
+first, second = sys.argv[1:]
+content = open(first, encoding="utf-8").read()
+header_and_context = content.split("## Workspace", 1)[0]
+rework = (header_and_context
+          + '\n\nPrevious verdict: {"ok": false, "violations": []}\n\n'
+          + "Continue in the same worktree and branch; fix the violations.\n")
+open(second, "w", encoding="utf-8").write(rework)
+PY
+  [ "$(classify_runner success "$W/runner-rework-missing-contract")" = 'fail:executor-prompt-mismatch' ]
 
   # A supervisor prompt missing a required label must fail.
   command cp -R "$W/success-cell" "$W/runner-bad-supervisor-prompt"
