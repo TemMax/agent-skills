@@ -209,8 +209,10 @@ Codex waves default to `codex-wave-runner.mjs`, a deterministic, model-free
 driver that runs the native protocol's own state machine
 (`codex-wave-state.mjs`) one task per worktree under a shared `--jobs` limit,
 so an orchestrator model no longer spends its wall time on the protocol's
-tool-call round trips. It shells out to `codex exec` with network access so
-executors can sign commits, and never bypasses the state machine it drives.
+tool-call round trips. It shells out to `codex exec`, which needs the repository's `.git` writable
+and network access to reach the model API — in a sandboxed Codex session,
+grant `.git` as a writable root (`--add-dir <repo>/.git`) and network access,
+or use full access — and never bypasses the state machine it drives.
 The native `codex-wave-protocol.md` action loop — the orchestrator model
 driving `codex-wave-state.mjs` directly, one tool call at a time — remains the
 fallback for a host or session that cannot run the runner script.

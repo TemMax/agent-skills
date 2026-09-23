@@ -60,9 +60,12 @@ run's wall time and 63% of its cost, spent on the orchestrator's own
 round trips rather than on the Codex children it was coordinating. The
 runner performs the same helper-governed loop with no model in that loop.
 
-The runner shells out to `codex exec`, which needs network access for commit
-signing. If `codex exec` is unavailable, fall back to the native loop below,
-which is unchanged and remains the protocol of record.
+The runner must run where it can write the repository's `.git` and reach the
+model API — in a sandboxed Codex session, grant `.git` as a writable root
+(`--add-dir <repo>/.git`, or `sandbox_workspace_write.writable_roots`) and
+network access (`sandbox_workspace_write.network_access=true`), or use full
+access; if that cannot be granted, fall back to the native loop (which needs
+the same `.git` write access for its helper `init`).
 
 ## Commands and action loop
 
