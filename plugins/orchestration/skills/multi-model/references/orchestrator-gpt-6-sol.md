@@ -34,8 +34,7 @@ session always reasons about decomposition, ambiguity, and delegation.
 
 - Use [shared Codex routing](codex-routing.md) for available executors,
   efforts, and bounded escalation. It governs routing across profiles
-  without a separate calibration gate; it does not yet list Sol as a task-
-  table executor (see the dossier's routing hypotheses).
+  without a separate calibration gate.
 - Every wave uses a fixed, separate `gpt-6-astra` supervisor at explicit
   `high` effort, in a fresh context, per shared Codex routing. Sol does not
   supervise its own or another Sol executor's work.
