@@ -225,6 +225,18 @@ test('unpriced model is listed as unpriced, never guessed', t => {
   assert.ok(!report.cost.byRoleModel.some(g => g.model === 'claude-unknown-9'), 'unknown model must never get a guessed price')
 })
 
+test('report: shipped prices.json (no --prices) prices every fixture model, matching totals', t => {
+  const fixture = buildFixture()
+  t.after(() => rmSync(fixture.dir, { recursive: true, force: true }))
+  const result = spawnSync(process.execPath, [CLI, 'claude', '--transcript', fixture.rootPath, '--json'],
+    { encoding: 'utf8', timeout: 10000 })
+  assert.equal(result.status, 0, result.stderr)
+  const report = JSON.parse(result.stdout)
+
+  assert.equal(report.cost.unpriced.length, 0)
+  assert.equal(report.cost.total, 0.03948 + 0.0036 + 0.0008)
+})
+
 test('readable table output (non-JSON) mentions the key sections', t => {
   const fixture = buildFixture()
   t.after(() => rmSync(fixture.dir, { recursive: true, force: true }))
