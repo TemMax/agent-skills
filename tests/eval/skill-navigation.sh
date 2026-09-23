@@ -117,12 +117,21 @@ PY
 }
 
 # nav_report_read <skill_dir> <relpath> <k> <n> — the read-check verdict over
-# n repetitions (k of which read the file). Needs tests/lib.sh.
+# n repetitions (k of which read the file). Needs tests/lib.sh. <relpath> may
+# be prefixed `optional:` (e.g. `optional:references/foo.md`): the read is
+# still counted, but it is reported as a pass that never fails — an agent is
+# not required to open the file, only measured on whether it did.
 nav_report_read() {
-  if [ ! -e "$1/$2" ]; then
-    pass "SKIP read-check ($2 absent)"
+  local skill_dir="$1" relpath="$2" k="$3" n="$4" optional=false
+  case "$relpath" in
+    optional:*) optional=true; relpath="${relpath#optional:}" ;;
+  esac
+  if [ ! -e "$skill_dir/$relpath" ]; then
+    pass "SKIP read-check ($relpath absent)"
+  elif [ "$optional" = true ]; then
+    pass "INFO read $relpath ($k/$n, optional)"
   else
-    expect "read $2 ($3/$4)" "$4" "$3"
+    expect "read $relpath ($k/$n)" "$n" "$k"
   fi
 }
 
@@ -162,7 +171,7 @@ EOF
     printf '        run %s: %s\n' "$rep" "${answer:-<no JSON object in result>}"
 
     [ "$(nav_read_status "$SKILL_DIR" SKILL.md "$dir/reads.txt" "$dir")" = yes ] && skill_k=$((skill_k+1))
-    if [ -n "$ref" ] && [ "$(nav_read_status "$SKILL_DIR" "$ref" "$dir/reads.txt" "$dir")" = yes ]; then
+    if [ -n "$ref" ] && [ "$(nav_read_status "$SKILL_DIR" "${ref#optional:}" "$dir/reads.txt" "$dir")" = yes ]; then
       ref_k=$((ref_k+1))
     fi
 
@@ -276,7 +285,10 @@ failures. Decide what happens next for task retry.' \
     "eq:tell_executor_it_lied:false" \
     "eq:attach_verdict:true"
 
-  nav_probe N5 "drift advice from the Stop hook" references/orchestrator-drift-hook.md \
+  # The orchestrator's duty on drift advice is stated in SKILL.md; the hook
+  # file is maintenance documentation, so reading it is informational
+  # (measured 2026-09-23: Sonnet 5 correct 3/3 without opening it).
+  nav_probe N5 "drift advice from the Stop hook" optional:references/orchestrator-drift-hook.md \
 'You are the orchestrator, in the middle of a wave. The Stop hook injected this
 advice into your session: "task beta has no supervisor verdict, yet your last
 message said all tasks are done". Decide how you respond.' \
