@@ -24,13 +24,16 @@ GPT-5.6 IDs are no longer chosen for new plans; an already-approved plan
 carrying GPT-5.6 provider/model/effort fields still runs to completion under
 the existing rule that approval governs execution.
 
-Drift-hook judge pairing moves with the same family: the advisory drift hook
-judges an Astra orchestrator with `gpt-6-sol`, judges a Sol orchestrator with
-`gpt-6-luna`, and judges a Luna orchestrator with `gpt-6-sol`. Every one of
-these pairings is a candidate route pending calibration, not a qualified
-judge; none of them is evidence that the judge is independent-review-grade
-for the orchestrator it watches, and none authorizes skipping the fixed
-Astra/high supervisor.
+Drift-hook judge pairing does not move with the same family: every GPT-6
+orchestrator — Astra, Sol, and Luna — is judged by `gpt-5.6-sol` at `high`.
+The 2026-09-23 calibration (Codex CLI 0.155.1, `tests/eval/drift.sh`) showed
+every GPT-6 model raising false drift alarms on a clean run, while
+`gpt-5.6-sol` at `high` stayed silent 5/5 (and 7/7 on 2026-09-04). Staying
+silent on a clean run: `gpt-6-sol` high 0/5; `gpt-6-astra` high 1/3;
+`gpt-6-luna` high 3/5 and medium 5/8 across two runs; `gpt-5.6-sol` high 5/5.
+All judges caught the real drift cases. This is an internal advisory role
+only; it does not return GPT-5.6 to executor routing, and none of it
+authorizes skipping the fixed Astra/high supervisor.
 
 ## Evidence and limits
 

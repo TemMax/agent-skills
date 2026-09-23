@@ -26,9 +26,7 @@ host_for_model() {
 
 codex_judge_for() {
   case "$1" in
-    gpt-6-astra) printf gpt-6-sol ;;
-    gpt-6-sol) printf gpt-6-luna ;;
-    gpt-6-luna) printf gpt-6-sol ;;
+    gpt-6-astra|gpt-6-sol|gpt-6-luna) printf gpt-5.6-sol ;;
     gpt-5.6-sol|gpt-5.6) printf gpt-5.6-terra ;;
     gpt-5.6-terra|gpt-5.6-luna) printf gpt-5.6-sol ;;
     *) return 1 ;;

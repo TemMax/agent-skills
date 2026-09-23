@@ -265,11 +265,11 @@ setup_repo; write_plan active "branch: wave/alpha"; write_transcript "$CLAIM"
 git -C "$WORK/repo" branch wave/alpha
 ROUTING_CLAIM='Summary: 2 tasks done, verified, nothing remaining.'
 expect "Claude dry-run output is unchanged" "would-call" "$(run_hook "$ROUTING_CLAIM" claude-fable-5-1)"
-expect "Astra routes to an independent Sol-high judge" "would-call: host=codex judge=gpt-6-sol effort=high" \
+expect "Astra routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
   "$(run_hook 'Summary: all tasks done, nothing remaining.' gpt-6-astra)"
-expect "GPT-6 Sol routes to Luna-high" "would-call: host=codex judge=gpt-6-luna effort=high" \
+expect "GPT-6 Sol routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-6-sol)"
-expect "GPT-6 Luna routes to Sol-high" "would-call: host=codex judge=gpt-6-sol effort=high" \
+expect "GPT-6 Luna routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-6-luna)"
 expect "Sol routes to Terra-high" "would-call: host=codex judge=gpt-5.6-terra effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-5.6-sol)"
