@@ -363,7 +363,7 @@ if (summary && Array.isArray(summary.children)) {
       output: usage.output_tokens || 0,
       reasoningOutput: usage.reasoning_output_tokens || 0,
     }
-    tokens.total = tokens.input + tokens.cachedInput + tokens.output + tokens.reasoningOutput
+    tokens.total = tokens.input + tokens.output
     const wallMinutes = round((child.seconds || 0) / 60, 4)
     report.children.push({
       id: `${child.task}-${child.role}-${child.attempt}`,
@@ -384,8 +384,8 @@ if (summary && Array.isArray(summary.children)) {
       continue
     }
     const [inputPrice, cachedPrice, outputPrice] = p
-    const cost = tokens.input / 1e6 * inputPrice + tokens.cachedInput / 1e6 * cachedPrice
-      + (tokens.output + tokens.reasoningOutput) / 1e6 * outputPrice
+    const cost = (tokens.input - tokens.cachedInput) / 1e6 * inputPrice + tokens.cachedInput / 1e6 * cachedPrice
+      + tokens.output / 1e6 * outputPrice
     let group = report.cost.byRoleModel.find(g => g.role === child.role && g.model === child.model)
     if (!group) {
       group = { role: child.role, model: child.model,

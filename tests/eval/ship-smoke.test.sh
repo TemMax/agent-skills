@@ -202,6 +202,18 @@ check "the merged runner rows carry role, model and seconds-derived minutes" \
   "python3 -c \"import json; r=json.load(open('$RESULTS_RUNNER/runner/telemetry.json')); c=[x for x in r['children'] if x['id']=='add-guard-executor-1'][0]; exit(0 if c['role']=='executor' and c['model']=='gpt-6-luna' and abs(c['wallMinutes']-12.3/60)<1e-6 else 1)\""
 check "cost total accounts for the runner rows (nonzero)" \
   "python3 -c \"import json; r=json.load(open('$RESULTS_RUNNER/runner/telemetry.json')); exit(0 if r['cost']['total'] > 0 else 1)\""
+# add-guard-executor-1: gpt-6-luna @ [0.1, 0.01, 0.5], usage input=4000
+# cached=500 output=900 reasoning=100 (both cached and reasoning nonzero, so
+# a formula that double-counted either would drift from these exact values).
+# tokens.total must be input+output only (cachedInput is a subset of input,
+# reasoningOutput a subset of output): 4000+900=4900. cost must be
+# (input-cachedInput)*in + cachedInput*cached + output*out, never adding
+# reasoningOutput on top of output: (4000-500)/1e6*0.1 + 500/1e6*0.01 +
+# 900/1e6*0.5 = 0.000805.
+check "merged runner row's tokens.total excludes cachedInput/reasoningOutput double-count" \
+  "python3 -c \"import json; r=json.load(open('$RESULTS_RUNNER/runner/telemetry.json')); c=[x for x in r['children'] if x['id']=='add-guard-executor-1'][0]; exit(0 if c['tokens']['total']==4900 and c['tokens']['cachedInput']==500 and c['tokens']['reasoningOutput']==100 else 1)\""
+check "merged runner row's cost matches the analyzer's non-double-counting formula exactly" \
+  "python3 -c \"import json; r=json.load(open('$RESULTS_RUNNER/runner/telemetry.json')); g=[x for x in r['cost']['byRoleModel'] if x['role']=='executor' and x['model']=='gpt-6-luna'][0]; exit(0 if abs(g['cost']-0.000805)<1e-9 and g['tokens']['total']==4900 else 1)\""
 contains "comparison table has a runner row" "| runner |" "$(cat "$RESULTS_RUNNER/comparison.md")"
 
 section "--mode both runs one native and one runner instance against independent fixtures"
