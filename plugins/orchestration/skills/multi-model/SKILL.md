@@ -93,9 +93,12 @@ or an additional user calibration gate. The final `medium` matrices recorded
 63/87 default and 162/204 critical passes; failures remain failures. These
 workflow fixtures did not measure GPT-5.6 executors under independent Astra
 supervision. Read the packaged [evidence and limitations](references/gpt-calibration-evidence.md)
-before making claims about what those counts establish. GPT-6 Sol and Luna
-have no local calibration record yet; the GPT-5.6 counts above do not
-transfer to them.
+before making claims about what those counts establish. The 2026-09-23 GPT-6
+Sol/Luna calibration recorded the supervisor fixture at Sol 9/9, Luna 7/9,
+clean planning and skill-navigation tiers for both, and neither model passing
+the critical-review guards, so no GPT-6 Sol or Luna review or supervisor
+route is supported yet — see
+[`tests/eval/gpt-6-results-2026-09-23.md`](../../../../tests/eval/gpt-6-results-2026-09-23.md).
 
 ## Overview
 

@@ -125,6 +125,15 @@ per-job log at `<results>/<model>/<tier>.log`. Review current model prices
 before authorizing a run; the target is a full default run (2 models x 6
 tiers) finishing in minutes at a few dollars, not the matrix's hours.
 
+**2026-09-23 — GPT-6 Sol/Luna calibration.** The dated record is
+[`tests/eval/gpt-6-results-2026-09-23.md`](eval/gpt-6-results-2026-09-23.md):
+supervisor, drift, super-plan, and skill-navigation for both models via the
+parallel driver (`tests/eval/gpt-live.sh --jobs 8`) finished in 277 s for 12
+working jobs; the remaining tiers (safety, profile-routing, critical-review,
+wave) were run by hand against a per-tier `EVAL_RESULTS_DIR` in 879 s.
+Failures remain failures; no GPT-6 production review or supervisor route
+follows from this record.
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a

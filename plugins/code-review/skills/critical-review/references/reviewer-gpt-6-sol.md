@@ -20,13 +20,14 @@ never assumed by default.
 
 ## Calibration status
 
-No local review calibration exists yet for GPT-6 Sol: no clean/planted-
-defect run, no supervisor pairing, and no measured false-positive or
-false-negative rate in this plugin. Exactly as the GPT-5.6 Sol gate in
-`reviewer-gpt-5-6-sol.md` states its route `unsupported` and defers, a
-GPT-6 Sol review must state plainly that its route is uncalibrated and hand
-final judgment upward. System Card capability or alignment scores are not a
-substitute for a dated local evaluation.
+2026-09-23 UTC local calibration: clean-diff 0/3, planted-defect 1/3, PR gate
+2/2 (`tests/eval/gpt-6-results-2026-09-23.md`). The failed cells were
+substantively correct reviews rejected on output format, recorded as a
+harness limitation rather than a passing route. Exactly as the GPT-5.6 Sol
+gate in `reviewer-gpt-5-6-sol.md` states its route `unsupported` and defers,
+a GPT-6 Sol review must state plainly that its route is uncalibrated and
+hand final judgment upward. System Card capability or alignment scores are
+not a substitute for a dated local evaluation.
 
 ## Review method
 
