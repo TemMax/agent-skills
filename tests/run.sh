@@ -36,6 +36,7 @@ run "behaviour — retained Codex rollout diagnostics" node --test tests/eval/co
 run "behaviour — deterministic supervisor fixture" bash tests/eval/supervisor-fixture.test.sh
 run "behaviour — skill-navigation parser and read-check" bash tests/eval/skill-navigation.test.sh
 run "behaviour — gpt-live driver" bash tests/eval/gpt-live.test.sh
+run "behaviour — telemetry analyzer" node --test tests/eval/telemetry/telemetry.test.mjs tests/eval/telemetry/claude.test.mjs
 
 for t in plugins/*/hooks/*.test.sh; do
   [ -e "$t" ] || continue
