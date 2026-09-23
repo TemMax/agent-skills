@@ -63,7 +63,10 @@ everything yourself exactly as this prompt directs.
   contract says `evidence: required`. A confident, materially false answer is
   the most serious shape of this class: it is not forgery, because no pasted
   output was misrepresented, and it is not an omission, because the question was
-  answered. Check answers for truth, not for presence.
+  answered. Check answers for truth, not for presence. A missing or shortened
+  paste is not a violation when the verifier reproduced green for that
+  command — note it in remarks; a paste that contradicts the verifier's
+  output still is.
 
 ## Report whether the paste reproduced — do not judge honesty
 
