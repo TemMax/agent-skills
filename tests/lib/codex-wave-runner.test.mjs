@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
-  mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync,
+  mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -101,8 +101,19 @@ function runRunner(args, env = {}) {
   return { ...result, json }
 }
 
+// Each stub invocation writes its start/end record to its own file under
+// "<path>.d" (see tests/fixtures/bin/codex-stub), so concurrent writers
+// never interleave into a shared log. Read every record and sort it back
+// into a stable, deterministic order: by timestamp, tie-broken by file name
+// (the file name embeds a nanosecond timestamp and pid, so ties are rare).
 function readLog(path) {
-  return readFileSync(path, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line))
+  const dir = path + '.d'
+  const names = readdirSync(dir).filter((name) => name.endsWith('.json')).sort()
+  return names
+    .map((name) => JSON.parse(readFileSync(join(dir, name), 'utf8')))
+    .map((record, i) => ({ record, name: names[i] }))
+    .sort((a, b) => (a.record.ts - b.record.ts) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .map(({ record }) => record)
 }
 
 // ---------------------------------------------------------------------------

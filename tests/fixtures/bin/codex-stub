@@ -3,11 +3,19 @@
 # Never calls a real model or touches the network.
 #
 # Env vars:
-#   CODEX_STUB_LOG            required — path to append one JSON line per
-#                              invocation, for start and end of the call. The
-#                              start line carries the exact prompt received on
-#                              stdin, so a caller can assert a prompt file
-#                              equals what was actually sent.
+#   CODEX_STUB_LOG            required — base path for the log. Each record
+#                              (one per start and one per end of a call) is
+#                              written to its own file under
+#                              "${CODEX_STUB_LOG}.d/", named
+#                              "<start-ns>-<pid>-<start|end>.json", via a
+#                              temp-file-then-rename so concurrent stub
+#                              processes never interleave writes into a shared
+#                              file. readLog(path) in the test reads every
+#                              *.json file in "${path}.d" and returns the
+#                              records sorted by timestamp. The start record
+#                              carries the exact prompt received on stdin, so
+#                              a caller can assert a prompt file equals what
+#                              was actually sent.
 #   CODEX_STUB_SLEEP          seconds to sleep between start and end (default 0).
 #   CODEX_STUB_EXECUTOR_MODE  good|empty|fail — only consulted for an executor
 #                              invocation (prompt starts with "# Task:").
@@ -27,7 +35,24 @@ if [ -z "${CODEX_STUB_LOG:-}" ]; then
   exit 64
 fi
 
+log_dir="${CODEX_STUB_LOG}.d"
+mkdir -p "$log_dir"
+
 now_ms() { node -e 'process.stdout.write(String(Date.now()))'; }
+now_ns() { node -e 'process.stdout.write(String(process.hrtime.bigint()))'; }
+
+# Writes one JSON record as its own file under log_dir, via a temp file in
+# the same directory followed by `mv` (a rename within one directory is
+# atomic), so concurrent stub processes appending records never interleave
+# or corrupt each other's writes the way a shared `>>` log would.
+write_record() {
+  # $1 = phase (start|end), $2 = JSON content
+  phase="$1"
+  content="$2"
+  tmp="$(mktemp "$log_dir/tmp.XXXXXX")"
+  printf '%s' "$content" > "$tmp"
+  mv "$tmp" "$log_dir/$(now_ns)-$$-${phase}.json"
+}
 
 json_string() {
   # Minimal JSON string escaping for the small values this stub ever logs.
@@ -67,8 +92,9 @@ prompt="$(cat "$promptfile")" # fine for a prefix check; never used for logging
 
 start_ts="$(now_ms)"
 prompt_json="$(node -e 'process.stdout.write(JSON.stringify(require("fs").readFileSync(process.argv[1], "utf8")))' -- "$promptfile")"
-printf '{"event":"start","ts":%s,"cwd":%s,"argv":%s,"prompt":%s}\n' \
-  "$start_ts" "$(json_string "$worktree")" "$argv_json" "$prompt_json" >> "$CODEX_STUB_LOG"
+start_record="$(printf '{"event":"start","ts":%s,"cwd":%s,"argv":%s,"prompt":%s}' \
+  "$start_ts" "$(json_string "$worktree")" "$argv_json" "$prompt_json")"
+write_record start "$start_record"
 
 sleep "${CODEX_STUB_SLEEP:-0}"
 
@@ -121,7 +147,8 @@ esac
 printf '{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":10,"output_tokens":50,"reasoning_output_tokens":5}}\n'
 
 end_ts="$(now_ms)"
-printf '{"event":"end","ts":%s,"cwd":%s,"argv":%s,"exit":%s}\n' \
-  "$end_ts" "$(json_string "$worktree")" "$argv_json" "$exit_code" >> "$CODEX_STUB_LOG"
+end_record="$(printf '{"event":"end","ts":%s,"cwd":%s,"argv":%s,"exit":%s}' \
+  "$end_ts" "$(json_string "$worktree")" "$argv_json" "$exit_code")"
+write_record end "$end_record"
 
 exit "$exit_code"
