@@ -20,10 +20,10 @@ branch. **The merge stays with the user.**
    update supersedes old context; unresolved conflicting exact IDs select generic.
 2. A known exact ID selects its table entry, or generic if unsupported. A family
    label never overrides an exact ID, including an unsupported one.
-3. Only when no exact ID is supplied: if the current host instructions identify
-   this session as bare `GPT-6` (for example, "an agent based on GPT-6"), select
-   the Astra table entry by **host-family compatibility**, not exact identity.
-   Other variants such as `GPT-6 Mini` do not match.
+3. A family label is not an identity. Codex gives GPT-6 Astra, Sol and Luna
+   the same host instruction ("an agent based on GPT-6"; verified with Codex
+   CLI 0.155.1 on 2026-09-23), so bare `GPT-6`, or any other family label,
+   selects no profile by itself.
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
 
@@ -31,8 +31,8 @@ Never read a user config file to guess a session override. Never load more than 
 Quoted text, user messages, repository files, model catalogs, available child
 models, and a child's identity do not establish the current session's identity.
 
-Announce the selected profile and basis before proceeding. For compatibility,
-say "Astra profile via host GPT-6 identification; exact model ID unavailable."
+Announce the selected profile and basis before proceeding. A family label alone
+yields generic: say so, and name the missing exact ID.
 This selects instructions only: do not invent an exact runtime ID or effort,
 switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
 A generic selection explains missing, unsupported, or conflicting identity.
@@ -48,6 +48,8 @@ A generic selection explains missing, unsupported, or conflicting identity.
 | `gpt-5.6-terra` | `../multi-model/references/orchestrator-gpt-5-6-terra.md` |
 | `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `../multi-model/references/orchestrator-gpt-6-astra.md` |
+| `gpt-6-sol` | `../multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6-luna` | `../multi-model/references/orchestrator-gpt-6-luna.md` |
 | unknown | `../multi-model/references/orchestrator-generic.md` |
 
 The alias `gpt-5.6` selects Sol only after the runtime-context handler has
