@@ -20,7 +20,7 @@ const CLAUDE_MODELS = [
   'claude-fable-5-1',
 ]
 const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
-const CODEX_MODELS = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+const CODEX_MODELS = ['gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const ASTRA = 'gpt-6-astra'
 const MODELS = [...CLAUDE_MODELS, ...CODEX_MODELS]
 const EXECUTOR_MODELS = [...MODELS, ASTRA]
