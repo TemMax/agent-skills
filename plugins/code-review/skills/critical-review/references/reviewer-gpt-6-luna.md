@@ -17,11 +17,13 @@ review-accuracy measurement and do not establish a default. See the
 
 ## Calibration status
 
-2026-09-23 UTC local calibration: clean-diff 1/3, planted-defect 3/3, PR gate
-2/2 (`tests/eval/gpt-6-results-2026-09-23.md`). No production
-consequential-review or supervisor route is supported by these counts. Every
-Luna review must state that its route is uncalibrated and hand final
-judgment upward to a stronger independent reviewer or the user; this
+2026-09-23 UTC local calibration, re-measured after the stage B harness
+fixes: clean-diff 0/3, planted-defect 3/3, PR gate 2/2
+(`tests/eval/gpt-6-results-2026-09-23.md`). The clean-diff failures are a
+real format failure — the review table is missing its separator row. No
+production consequential-review or supervisor route is supported by these
+counts. Every Luna review must state that its route is uncalibrated and hand
+final judgment upward to a stronger independent reviewer or the user; this
 statement is not optional and is not satisfied by citing an improved
 alignment number.
 
