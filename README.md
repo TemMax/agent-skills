@@ -154,13 +154,17 @@ is deliberately narrower than a claim that every profile is a production route:
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. A separately approved Astra initial executor or final rung is uncalibrated and requires a fresh Astra supervisor. |
+| Codex | `gpt-6-sol` | Exact profiles and dossiers; default Codex executors per shared routing; no local calibration record yet. |
+| Codex | `gpt-6-luna` | Exact profiles and dossiers; default Codex executors per shared routing; no local calibration record yet. |
 | Either | any other model ID | The generic profile applies; missing identity/effort stay unknown, and no model-specific reliability claim follows. |
 
-When the host identifies the current session only as **GPT-6**, the skills load
-the Astra profile by compatibility and disclose that the exact ID is unknown.
-An exact ID takes priority; unsupported IDs or unresolved conflicts select
-generic. Quotes and available child-model lists are not session identity.
-This fallback needs no lifecycle hook and does not change models or effort.
+A bare family label such as **GPT-6** does not select any exact profile by
+itself: Codex CLI 0.155.1 gives Astra, Sol, and Luna the identical host
+instruction "You are Codex, an agent based on GPT-6" (verified 2026-09-23), so
+that phrase cannot distinguish between them and the skills load the generic
+profile instead. An exact ID takes priority; unsupported IDs or unresolved
+conflicts select generic. Quotes and available child-model lists are not
+session identity.
 
 The `gpt-5.6` alias normalizes only to `gpt-5.6-sol`; it is not a plan model
 ID. The dated record is
@@ -185,7 +189,12 @@ existing rules. See [the role decision](docs/decisions/005-astra-active-seat.md)
 and the [Astra dossier](plugins/orchestration/skills/multi-model/references/gpt-6-astra-dossier.md).
 The [bounded Astra pilot](tests/eval/gpt-6-astra-pilot-2026-09-07.md) records
 offline checks, bounded live cases, preserved failures and scorer disagreement,
-and the remaining end-to-end calibration gaps.
+and the remaining end-to-end calibration gaps. Per
+[decision 006](docs/decisions/006-gpt-6-family.md), Codex routing for new
+plans moves to `gpt-6-sol`/`gpt-6-luna` executors with the fixed
+`gpt-6-astra`/`high` supervisor: GPT-5.6 IDs are no longer chosen for new
+plans, but an already-approved plan carrying GPT-5.6 fields still runs to
+completion.
 
 Both Codex manifests intentionally retain their `hooks` fields, including the
 orchestration advisory drift hook. Lifecycle behavior is host-dependent;
@@ -395,10 +404,14 @@ plugins/
           orchestrator-{fable-5-1,fable-5,opus-5,opus-4-8}.md
           orchestrator-gpt-5-6-{sol,terra,luna}.md
           orchestrator-gpt-6-astra.md
+          orchestrator-gpt-6-sol.md
+          orchestrator-gpt-6-luna.md
           orchestrator-generic.md
           model-dossiers.md
           gpt-5-6-dossier.md
           gpt-6-astra-dossier.md
+          gpt-6-sol-dossier.md
+          gpt-6-luna-dossier.md
   code-review/
     .claude-plugin/plugin.json
     .codex-plugin/plugin.json
@@ -412,10 +425,14 @@ plugins/
           reviewer-{fable-5-1,fable-5,opus-5,opus-4-8}.md
           reviewer-gpt-5-6-{sol,terra,luna}.md
           reviewer-gpt-6-astra.md
+          reviewer-gpt-6-sol.md
+          reviewer-gpt-6-luna.md
           reviewer-generic.md
           reviewer-dossier.md
           gpt-5-6-reviewer-dossier.md
           gpt-6-astra-reviewer-dossier.md
+          gpt-6-sol-reviewer-dossier.md
+          gpt-6-luna-reviewer-dossier.md
 tests/                           # structure / contracts / behaviour / live eval
   run.sh                         # ./tests/run.sh [--live]
 ```
