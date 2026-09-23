@@ -266,13 +266,18 @@ run_orchestrator() { # mode repo plan base out-dir -> sets ORCH_RC, ORCH_JSON_LO
   local prompt_file="$out/orchestrator.prompt.md"
   build_prompt "$mode" "$repo" "$plan" "$base" > "$prompt_file"
   ORCH_JSON_LOG="$out/orchestrator.jsonl"
-  # danger-full-access, not workspace-write: Codex's workspace-write sandbox
-  # refuses writes under .git (e.g. creating refs/heads/wave/<task> or a
-  # worktree's index lock), which real Conductor sessions never hit because
-  # they run Codex with full access. This mirrors that. It only ever targets
-  # the disposable fixture repo this script builds under a mktemp workdir.
+  # workspace-write, scoped to this disposable fixture repo plus its own
+  # .git (creating refs/heads/wave/<task> and a worktree's index lock are
+  # writes under .git that plain workspace-write otherwise refuses), with
+  # network access on for the runner-mode children, which shell out to
+  # `codex exec` and need the model API themselves. This grants write access
+  # to the fixture repo this script builds under a mktemp workdir and
+  # nothing outside it, unlike a full-access sandbox, which would also grant
+  # write access to the real repository this script lives in.
   if timeout "$TIMEOUT" "$CODEX_BIN" exec --json --skip-git-repo-check -C "$repo" \
-      --sandbox danger-full-access --model "$ORCHESTRATOR" \
+      --sandbox workspace-write --add-dir "$repo/.git" \
+      -c sandbox_workspace_write.network_access=true \
+      --model "$ORCHESTRATOR" \
       -c "model_reasoning_effort=\"$EFFORT\"" - < "$prompt_file" \
       > "$ORCH_JSON_LOG" 2> "$out/orchestrator.stderr"; then
     ORCH_RC=0

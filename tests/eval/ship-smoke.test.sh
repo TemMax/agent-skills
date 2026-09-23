@@ -159,10 +159,14 @@ check "comparison.md was written" "[ -f '$RESULTS_NATIVE/comparison.md' ]"
 REPO_NATIVE="$(cat "$RESULTS_NATIVE/native/repo-path.txt")"
 check "the stub codex was invoked without --ephemeral" \
   "! grep -qF -- '--ephemeral' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was invoked with --json --skip-git-repo-check and danger-full-access" \
-  "grep -qxF -- '--json' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '--skip-git-repo-check' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- 'danger-full-access' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was not invoked with workspace-write" \
-  "! grep -qxF -- 'workspace-write' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was invoked with --json --skip-git-repo-check and workspace-write" \
+  "grep -qxF -- '--json' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '--skip-git-repo-check' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- 'workspace-write' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was invoked with --add-dir pointing at the fixture repo's .git" \
+  "grep -qxF -- '--add-dir' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '$REPO_NATIVE/.git' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was invoked with network access enabled for workspace-write" \
+  "grep -qxF -- 'sandbox_workspace_write.network_access=true' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was not invoked with danger-full-access" \
+  "! grep -qxF -- 'danger-full-access' '$REPO_NATIVE/.ship-smoke-stub-argv'"
 check "the fixture's committed .gitignore lists __pycache__/" \
   "git -C '$REPO_NATIVE' show HEAD:.gitignore | grep -qxF '__pycache__/'"
 COMPARISON_NATIVE="$(cat "$RESULTS_NATIVE/comparison.md")"
