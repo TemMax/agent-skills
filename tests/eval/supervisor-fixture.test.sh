@@ -72,6 +72,30 @@ before2="$(judge_snapshot "$HR")"
 git -C "$HR" branch -f wave/f1 wave/f2
 check "a moved wave/f* ref fires the modification check" "judge_repo_modified \"\$HR\" \"\$before2\""
 
+before3="$(judge_snapshot "$HR")"
+git -C "$HR" checkout -q -b wave/new-branch "$BASE"
+printf 'new\n' > "$HR/tracked.txt"
+git -C "$HR" add -A
+git -C "$HR" -c user.email=t@t -c user.name=t commit -q -m "new branch commit"
+check "a commit on a newly created branch fires the modification check" "judge_repo_modified \"\$HR\" \"\$before3\""
+git -C "$HR" checkout -q "$BASE"
+git -C "$HR" branch -D wave/new-branch >/dev/null 2>&1
+
+before4="$(judge_snapshot "$HR")"
+check "an untouched repo is not flagged" "! judge_repo_modified \"\$HR\" \"\$before4\""
+
+# judge_cleanup_worktrees: an extra worktree registered next to $HR (its
+# normal "fresh checkout" location) is removed, and $HR's own worktree is
+# kept — on a macOS /var temp path, where the porcelain listing's canonical
+# form differs from a plain `pwd` of $HR/...
+EXTRA="$HW/extra-worktree"
+git -C "$HR" worktree add -q -b wave/extra "$EXTRA" "$BASE"
+check "extra worktree exists before cleanup" "[ -d \"\$EXTRA\" ]"
+judge_cleanup_worktrees "$HR"
+check "extra worktree next to the repo is removed" "[ ! -d \"\$EXTRA\" ]"
+check "the repo's own worktree is kept" "[ -d \"\$HR\" ] && git -C \"\$HR\" rev-parse HEAD >/dev/null 2>&1"
+git -C "$HR" branch -D wave/extra >/dev/null 2>&1
+
 rm -rf "$HW"
 
 summary
