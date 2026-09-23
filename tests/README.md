@@ -134,6 +134,42 @@ wave) were run by hand against a per-tier `EVAL_RESULTS_DIR` in 879 s.
 Failures remain failures; no GPT-6 production review or supervisor route
 follows from this record.
 
+## Telemetry analyzer
+
+`tests/eval/telemetry/` (`telemetry.mjs`) is pure, offline log analysis —
+never a model call — that turns a captured agent run into where its wall
+time and cost went. Its `codex` subcommand (`node telemetry.mjs codex --root
+<rollout.jsonl> [--sessions <dir>] [--json]`) reads one Codex orchestrator
+rollout plus every descendant rollout it can find under `--sessions`
+(default `${CODEX_HOME:-~/.codex}/sessions`), splits the orchestrator's own
+wall-clock time into model / tool:`<name>` / waiting / user buckets, and
+reports each child's role, model, tokens and cost; its `claude` subcommand
+(`--transcript <file>`) does the same for a Claude Code session transcript
+and its subagent transcripts. Both subcommands price tokens from
+`tests/eval/telemetry/prices.json` and are covered offline by
+`tests/eval/telemetry/telemetry.test.mjs` and `claude.test.mjs`.
+
+## ship-smoke
+
+`tests/eval/ship-smoke.sh --mode native|runner|both [--orchestrator
+gpt-6-sol] [--effort high] --results DIR` measures one small two-task Codex
+wave (`add-guard`, `add-doc`) run two ways — one Codex orchestrator session
+executing the wave with the native `spawn_agent`/`wait_agent` action loop
+vs. the same orchestrator driving `codex-wave-runner.mjs` — and hands each
+session's persisted rollout to the telemetry analyzer above. It writes
+`<results>/<mode>/telemetry.json` per mode and one `<results>/comparison.md`
+table of wall minutes, the orchestrator's own model minutes and share of
+wall, its requests and input tokens, total cost, and whether the merged
+result passed the fixture's `must_run`. Like `gpt-live.sh`, `--results` is
+part of the evidence contract, not a cache: a run accepts a missing or empty
+directory and refuses any nonempty results path (exit 73). It is not part of
+`tests/run.sh --live`; run it directly, and review current model prices
+first since each mode is a real live wave. Its offline test
+(`ship-smoke.test.sh`) replaces `codex` with a stub on PATH that performs
+the same git-level merge a real orchestrator would and writes a real,
+synthetic rollout, so the shipped `telemetry.mjs` parses it for real without
+ever calling a model.
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
