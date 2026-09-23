@@ -82,6 +82,22 @@ expect "Codex workspace-write argv is exact" "$(printf '%s\n' exec --ephemeral -
 expect "Codex workspace-write runs from the disposable repository parent" "$W" "$(cat "$LOG/codex.pwd")"
 check "Codex workspace-write receives no unsafe bypass flag" "! rg -q -- 'bypassPermissions|dangerously-bypass' '$LOG/codex.argv'"
 
+section "EVAL_CODEX_CWD_IS_REPO=1 launches Codex from the repo itself"
+CODEX_CWD_REPO="$W/codex-cwd-repo.md"
+out="$(PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_MODEL=gpt-5.6-terra EVAL_EFFORT=medium EVAL_TIMEOUT=5 EVAL_CODEX_CWD_IS_REPO=1 \
+  eval_model "$REPO" workspace-write "$PROMPT" "$CODEX_CWD_REPO")"
+expect "Codex writes its final answer" "codex final answer" "$(cat "$CODEX_CWD_REPO")"
+expect "Codex argv adds -C <repo> and --add-dir <parent>" "$(printf '%s\n' exec --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox workspace-write --model gpt-5.6-terra -c 'model_reasoning_effort="medium"' -C "$REPO" --add-dir "$W" --output-last-message "$CODEX_CWD_REPO" -)" "$(cat "$LOG/codex.argv")"
+expect "Codex runs from the repository itself" "$REPO" "$(cat "$LOG/codex.pwd")"
+
+section "Without EVAL_CODEX_CWD_IS_REPO, workspace-write argv and launch dir are unchanged"
+CODEX_UNCHANGED="$W/codex-unchanged.md"
+out="$(PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_MODEL=gpt-5.6-terra EVAL_EFFORT=medium EVAL_TIMEOUT=5 \
+  eval_model "$REPO" workspace-write "$PROMPT" "$CODEX_UNCHANGED")"
+expect "Codex writes its final answer" "codex final answer" "$(cat "$CODEX_UNCHANGED")"
+expect "Codex argv is unchanged without the variable" "$(printf '%s\n' exec --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox workspace-write --model gpt-5.6-terra -c 'model_reasoning_effort="medium"' --output-last-message "$CODEX_UNCHANGED" -)" "$(cat "$LOG/codex.argv")"
+expect "Codex still launches from the disposable repository parent" "$W" "$(cat "$LOG/codex.pwd")"
+
 section "Failed model output is never consumed"
 FAILED_ANSWER="$W/failed-answer.md"
 printf 'stale clean answer\n' > "$FAILED_ANSWER"
