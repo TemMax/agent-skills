@@ -33,6 +33,7 @@ run "behaviour — Codex native wave state" bash tests/codex-wave-state.test.sh
 run "behaviour — model CLI adapter" bash tests/eval/model-cli.test.sh
 run "behaviour — retained Codex rollout diagnostics" node --test tests/eval/codex-rollouts.test.mjs
 run "behaviour — deterministic supervisor fixture" bash tests/eval/supervisor-fixture.test.sh
+run "behaviour — skill-navigation parser and read-check" bash tests/eval/skill-navigation.test.sh
 
 for t in plugins/*/hooks/*.test.sh; do
   [ -e "$t" ] || continue
