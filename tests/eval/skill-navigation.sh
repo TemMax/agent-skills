@@ -86,10 +86,14 @@ PY
 # scripts are skipped (their event contributes no reads).
 nav_parse_codex() {
   python3 - "$1" <<'PY'
-import glob, json, os, shlex, sys
+import glob, json, os, re, shlex, sys
 
 READ_PROGS = {"cat", "sed", "head", "tail", "nl", "awk", "less", "more", "bat", "rg", "grep", "view"}
 SEPARATORS = {"&&", "||", ";", "|", "&", "\n"}
+LEADING_KEYWORDS = {"do", "then", "else", "elif", "{", "("}
+LONE_IGNORED = {"done", "fi", "}", ")"}
+NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+ASSIGN_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.DOTALL)
 
 reads = []
 answer_text = ""
@@ -111,6 +115,63 @@ def simple_commands(script):
     return cmds
 
 
+def substitute(s, variables):
+    if not variables:
+        return s
+    for name in sorted(variables, key=len, reverse=True):
+        val = variables[name]
+        s = s.replace("${" + name + "}", val)
+        s = s.replace("$" + name, val)
+    return s
+
+
+def reglue(tokens):
+    # simple_commands' shlex config (posix, no whitespace_split) only fuses a
+    # maximal run of wordchars into one token; "$", "{" and "}" are not
+    # wordchars, so an UNQUOTED ${NAME}tail or $NAMEtail fragments into
+    # several tokens with no separator between them. Splice those back into
+    # one word so substitution below sees the same "argument" a shell would.
+    # A quoted "$NAME..." already arrives as a single token and is untouched.
+    out = []
+    i, n = 0, len(tokens)
+    while i < n:
+        tok = tokens[i]
+        if tok == "$" and i + 1 < n and tokens[i + 1] == "{":
+            j = i + 2
+            frag = "${"
+            while j < n and tokens[j] != "}":
+                frag += tokens[j]
+                j += 1
+            if j < n:
+                frag += "}"
+                j += 1
+            if j < n and not tokens[j].startswith("-"):
+                frag += tokens[j]
+                j += 1
+            out.append(frag)
+            i = j
+        elif tok == "$" and i + 1 < n:
+            out.append("$" + tokens[i + 1])
+            i += 2
+        else:
+            out.append(tok)
+            i += 1
+    return out
+
+
+def emit_path_arg(arg, cwd):
+    if any(c in arg for c in "*?["):
+        pattern = arg
+        if cwd is not None and not os.path.isabs(arg):
+            pattern = os.path.join(cwd, arg)
+        for m in sorted(glob.glob(pattern)):
+            reads.append(m)
+    elif cwd is not None and not os.path.isabs(arg):
+        reads.append(os.path.join(cwd, arg))
+    else:
+        reads.append(arg)
+
+
 def process(command):
     try:
         parts = shlex.split(command)
@@ -125,13 +186,41 @@ def process(command):
     except ValueError:
         return
     cwd = None
+    variables = {}
+    loop_name = None
+    loop_values = []
     for tokens in cmds:
+        tokens = reglue(tokens)
+        while tokens and tokens[0] in LEADING_KEYWORDS:
+            tokens = tokens[1:]
         if not tokens:
             continue
+        if len(tokens) == 1 and tokens[0] in LONE_IGNORED:
+            if tokens[0] == "done":
+                loop_name, loop_values = None, []
+            continue
+        if tokens[0] == "for" and len(tokens) >= 3 and NAME_RE.match(tokens[1]) \
+                and tokens[2] == "in":
+            loop_name = tokens[1]
+            loop_values = [substitute(w, variables) for w in tokens[3:]]
+            continue
+        idx = 1 if tokens[0] == "export" else 0
+        j = idx
+        while j < len(tokens) and ASSIGN_RE.match(tokens[j]):
+            j += 1
+        if j > idx and j == len(tokens):
+            for tok in tokens[idx:j]:
+                m = ASSIGN_RE.match(tok)
+                variables[m.group(1)] = substitute(m.group(2), variables)
+            continue
+        if j > idx:
+            tokens = tokens[j:]
+            if not tokens:
+                continue
         prog = os.path.basename(tokens[0])
         if prog == "cd":
             if len(tokens) >= 2:
-                d = tokens[1]
+                d = substitute(tokens[1], variables)
                 if os.path.isabs(d):
                     cwd = d
                 elif cwd is not None:
@@ -141,21 +230,26 @@ def process(command):
             continue
         if prog not in READ_PROGS:
             continue
-        for arg in tokens[1:]:
-            if arg.startswith("-"):
+        for raw_arg in tokens[1:]:
+            if raw_arg.startswith("-"):
                 continue
-            if "/" not in arg and not arg.endswith(".md"):
-                continue
-            if any(c in arg for c in "*?["):
-                pattern = arg
-                if cwd is not None and not os.path.isabs(arg):
-                    pattern = os.path.join(cwd, arg)
-                for m in sorted(glob.glob(pattern)):
-                    reads.append(m)
-            elif cwd is not None and not os.path.isabs(arg):
-                reads.append(os.path.join(cwd, arg))
+            in_loop_ref = loop_name is not None and (
+                "$" + loop_name in raw_arg or "${" + loop_name + "}" in raw_arg
+            )
+            if in_loop_ref:
+                candidates = []
+                for v in loop_values:
+                    combined = dict(variables)
+                    combined[loop_name] = v
+                    candidates.append(substitute(raw_arg, combined))
             else:
-                reads.append(arg)
+                candidates = [substitute(raw_arg, variables)]
+            for arg in candidates:
+                if "$" in arg:
+                    continue
+                if "/" not in arg and not arg.endswith(".md"):
+                    continue
+                emit_path_arg(arg, cwd)
 
 
 with open(sys.argv[1], encoding="utf-8", errors="replace") as fh:

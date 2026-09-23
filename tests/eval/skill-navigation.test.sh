@@ -63,6 +63,36 @@ expect "glob expansion against the tracked directory yields both absolute paths"
   "$GW/references/a.md
 $GW/references/b.md" "$(nav_reads "$(nav_parse_codex "$W/glob-events.jsonl")")"
 
+section "parser (codex): shell variables and for loops"
+cat > "$W/vars-events.jsonl" <<'JSONL'
+{"type":"item.completed","item":{"id":"v1","type":"command_execution","command":"/bin/zsh -lc 'skill_root=/skill; sed -n \"1,240p\" \"$skill_root/SKILL.md\"; sed -n \"1,200p\" \"$skill_root/references/verdicts.md\"'","exit_code":0,"status":"completed"}}
+JSONL
+expect "variable assignment then substitution in two quoted read args" \
+  "/skill/SKILL.md
+/skill/references/verdicts.md" "$(nav_reads "$(nav_parse_codex "$W/vars-events.jsonl")")"
+
+cat > "$W/for-events.jsonl" <<'JSONL'
+{"type":"item.completed","item":{"id":"l1","type":"command_execution","command":"/bin/zsh -lc 'for f in /skill/references/codex-routing.md /skill/references/codex-wave-protocol.md; do echo \"--- $f\"; sed -n '\"'\"'1,260p'\"'\"' \"$f\"; done'","exit_code":0,"status":"completed"}}
+JSONL
+expect "for loop expands the loop variable into one read per value, echo emits nothing" \
+  "/skill/references/codex-routing.md
+/skill/references/codex-wave-protocol.md" "$(nav_reads "$(nav_parse_codex "$W/for-events.jsonl")")"
+
+printf '%s\n' '{"type":"item.completed","item":{"id":"e1","type":"command_execution","command":"export D=/skill && cat ${D}/references/a.md","exit_code":0,"status":"completed"}}' \
+  > "$W/export-events.jsonl"
+expect "export NAME=value then \${NAME} substitution" \
+  "/skill/references/a.md" "$(nav_reads "$(nav_parse_codex "$W/export-events.jsonl")")"
+
+printf '%s\n' '{"type":"item.completed","item":{"id":"u1","type":"command_execution","command":"cat \"$UNKNOWN/x.md\"","exit_code":0,"status":"completed"}}' \
+  > "$W/unknown-events.jsonl"
+expect "an argument still holding an unknown variable after substitution is skipped" \
+  "" "$(nav_reads "$(nav_parse_codex "$W/unknown-events.jsonl")")"
+
+printf '%s\n' '{"type":"item.completed","item":{"id":"x1","type":"command_execution","command":"X=1 cat /skill/SKILL.md","exit_code":0,"status":"completed"}}' \
+  > "$W/mixed-events.jsonl"
+expect "a leading assignment followed by a program is dropped and the program still runs" \
+  "/skill/SKILL.md" "$(nav_reads "$(nav_parse_codex "$W/mixed-events.jsonl")")"
+
 section "read-check"
 S="$W/skill"; mkdir -p "$S/references"
 : > "$S/SKILL.md"; : > "$S/references/verdicts.md"
