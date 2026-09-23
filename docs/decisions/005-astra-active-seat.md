@@ -1,7 +1,7 @@
 # 005 — Astra in the active seat, GPT-5.6 in execution waves
 
 Date: 2026-09-07
-Status: accepted role boundary; candidate routes await qualification
+Status: accepted role boundary; candidate routes await qualification; the bare GPT-6 compatibility rule is superseded by 006
 
 ## Decision
 

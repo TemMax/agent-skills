@@ -56,4 +56,26 @@ for id in sol terra luna; do
 done
 check "generic profile makes no effort guess" "grep -qF 'Do not infer effort' '$GENERIC'"
 
+SOL6="$REFS/orchestrator-gpt-6-sol.md"
+LUNA6="$REFS/orchestrator-gpt-6-luna.md"
+SOL6_DOSSIER="$REFS/gpt-6-sol-dossier.md"
+LUNA6_DOSSIER="$REFS/gpt-6-luna-dossier.md"
+
+for id in sol luna; do
+  f="$REFS/orchestrator-gpt-6-$id.md"
+  d="$REFS/gpt-6-$id-dossier.md"
+  check "gpt-6-$id profile exists" "[ -f '$f' ]"
+  check "gpt-6-$id dossier exists" "[ -f '$d' ]"
+  check "gpt-6-$id exact guard" "grep -qF 'gpt-6-$id' '$f'"
+  check "gpt-6-$id has Not measured" "grep -q '^## Not measured' '$f'"
+  check "gpt-6-$id has Common mistakes" "grep -q '^## Common mistakes' '$f'"
+  check "gpt-6-$id requires artifacts" "grep -qi 'artifact' '$f'"
+  check "gpt-6-$id dossier cites the PDF" "grep -qF 'gpt-6-astra.pdf' '$d'"
+done
+
+check "gpt-6-sol dossier coding deception values" \
+  "grep -qF '| Coding Deception at \`max\` | 1.30% | 10.41% |' '$SOL6_DOSSIER'"
+check "gpt-6-luna dossier broken search tool values" \
+  "grep -qF '| Broken Search Tool failure at \`max\` | 28.67% | 78.25% |' '$LUNA6_DOSSIER'"
+
 summary
