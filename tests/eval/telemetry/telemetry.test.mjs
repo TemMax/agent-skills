@@ -10,6 +10,7 @@ import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
+import { timeBucketsMs } from './telemetry.mjs'
 
 const CLI = fileURLToPath(new URL('./telemetry.mjs', import.meta.url))
 const PRICES = fileURLToPath(new URL('./prices.json', import.meta.url))
@@ -71,13 +72,18 @@ function buildFixture() {
 
   // --- executor child ---------------------------------------------------
   // 2 min tool:exec, then 1 min model, then task_complete. Wall = 3 min.
+  // Usage is a real-shaped Codex record: cached_input_tokens (4864) is a
+  // subset of input_tokens (12141), reasoning_output_tokens (183) is a
+  // subset of output_tokens (244), and input+output (12385) == total_tokens
+  // as Codex reports it, e.g. {"input_tokens":12141,"cached_input_tokens":
+  // 4864,"output_tokens":244,"reasoning_output_tokens":183,"total_tokens":12385}.
   const execRows = [
     row(9, 'session_meta', { id: EXEC, parent_thread_id: ROOT, agent_path: '/root/task_executor_alpha', cli_version: '0.155.0' }),
     row(9, 'turn_context', { model: 'gpt-5.6-sol', effort: 'medium' }),
     row(9, 'event_msg', { type: 'task_started' }),
     call(9, 'e1', 'exec'),
     callOutput(11, 'e1', 'ok'),
-    usage(11, 400, 0, 80, 0),
+    usage(11, 12141, 4864, 244, 183),
     row(12, 'event_msg', { type: 'task_complete' }),
   ]
 
@@ -169,7 +175,9 @@ test('report: per-child role, model, wall time and model-vs-tool minutes', t => 
   assert.equal(byId[EXEC].model, 'gpt-5.6-sol')
   assert.equal(byId[EXEC].wallMinutes, 3)
   assert.equal(byId[EXEC].requests, 1)
-  assert.equal(byId[EXEC].tokens.total, 480)
+  // tokens.total is input + output (12141 + 244), never a sum that also
+  // adds the cached-input and reasoning-output subsets a second time.
+  assert.equal(byId[EXEC].tokens.total, 12385)
   assert.equal(byId[EXEC].modelMinutes, 1)
   assert.equal(byId[EXEC].toolMinutes, 2)
 
@@ -207,12 +215,21 @@ test('report: cost by role x model, priced from prices.json', t => {
   assert.equal(report.cost.unpriced.length, 0)
   const byRoleModel = Object.fromEntries(report.cost.byRoleModel.map(g => [`${g.role}/${g.model}`, g]))
 
-  assert.equal(byRoleModel['orchestrator/gpt-6-astra'].tokens.total, 5100 + 200 + 950 + 100)
-  assert.equal(byRoleModel['orchestrator/gpt-6-astra'].cost, 0.1037)
-  assert.equal(byRoleModel['executor/gpt-5.6-sol'].cost, 0.0032)
+  // tokens.total is input + output only (5100 + 950); cached (200) and
+  // reasoning (100) are subsets already counted inside those, not added
+  // again.
+  assert.equal(byRoleModel['orchestrator/gpt-6-astra'].tokens.total, 5100 + 950)
+  // cost = (input - cached) * inputPrice + cached * cachedPrice + output *
+  // outputPrice, prices [10, 1, 50]:
+  // (5100-200)/1e6*10 + 200/1e6*1 + 950/1e6*50 = 0.0967
+  assert.equal(byRoleModel['orchestrator/gpt-6-astra'].cost, 0.0967)
+  // executor uses the real-shaped record: input=12141, cached=4864,
+  // output=244, reasoning=183, prices [4, 0.4, 20]:
+  // (12141-4864)/1e6*4 + 4864/1e6*0.4 + 244/1e6*20 = 0.035934
+  assert.equal(byRoleModel['executor/gpt-5.6-sol'].cost, 0.035934)
   assert.equal(byRoleModel['supervisor/gpt-6-sol'].cost, 0.0012)
   assert.equal(byRoleModel['other/gpt-6-luna'].cost, 0.00002)
-  assert.equal(report.cost.total, 0.10812)
+  assert.equal(report.cost.total, 0.133854)
 })
 
 test('unpriced model is listed as unpriced, never guessed', t => {
@@ -249,4 +266,92 @@ test('readable table output (non-JSON) mentions the key sections', t => {
   for (const marker of ['window:', 'orchestrator:', 'children:', 'concurrency', 'thread-limit errors:', 'cost by role x model:']) {
     assert.ok(result.stdout.includes(marker), `expected table output to include "${marker}"`)
   }
+})
+
+test('report: agent path containing "review" classifies as role review', t => {
+  const dir = mktempDir()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const sessions = join(dir, 'sessions')
+  mkdirSync(sessions, { recursive: true })
+
+  const rootId = 'root-review-0000-0000-000000000000'
+  const reviewerId = 'reviewer-0000-0000-000000000000'
+  const rootRows = [
+    row(0, 'session_meta', { id: rootId, cwd: '/repo', cli_version: '0.155.0' }),
+    row(0, 'turn_context', { model: 'gpt-6-astra', effort: 'high' }),
+    row(0, 'event_msg', { type: 'task_started' }),
+    row(1, 'event_msg', { type: 'task_complete' }),
+  ]
+  const reviewerRows = [
+    row(0, 'session_meta', { id: reviewerId, parent_thread_id: rootId, agent_path: '/root/task_8_reviewer', cli_version: '0.155.0' }),
+    row(0, 'turn_context', { model: 'gpt-6-sol', effort: 'medium' }),
+    row(0, 'event_msg', { type: 'task_started' }),
+    row(1, 'event_msg', { type: 'task_complete' }),
+  ]
+  const rootPath = join(sessions, `rollout-root-${rootId}.jsonl`)
+  writeFileSync(rootPath, jsonl(rootRows))
+  writeFileSync(join(sessions, `rollout-reviewer-${reviewerId}.jsonl`), jsonl(reviewerRows))
+
+  const result = run({ rootPath, sessionsDir: sessions })
+  assert.equal(result.status, 0, result.stderr)
+  const report = JSON.parse(result.stdout)
+  const reviewer = report.children.find(c => c.id === reviewerId)
+  assert.ok(reviewer, 'expected the reviewer child in the report')
+  assert.equal(reviewer.role, 'review')
+})
+
+test('loadCodexRun: nested source.subagent.thread_spawn.parent_thread_id attaches a child', t => {
+  const dir = mktempDir()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const sessions = join(dir, 'sessions')
+  mkdirSync(sessions, { recursive: true })
+
+  const rootId = 'root-nested-0000-0000-000000000000'
+  const childId = 'child-nested-0000-0000-000000000000'
+  const rootRows = [
+    row(0, 'session_meta', { id: rootId, cwd: '/repo', cli_version: '0.155.0' }),
+    row(0, 'turn_context', { model: 'gpt-6-astra', effort: 'high' }),
+    row(0, 'event_msg', { type: 'task_started' }),
+    row(1, 'event_msg', { type: 'task_complete' }),
+  ]
+  // The real nested shape Codex writes for a spawned subagent thread: the
+  // parent id lives under source.subagent.thread_spawn.parent_thread_id,
+  // not directly on source.subagent.
+  const childRows = [
+    row(0, 'session_meta', {
+      id: childId,
+      agent_path: '/root/task_executor_nested',
+      cli_version: '0.155.0',
+      source: { subagent: { thread_spawn: { parent_thread_id: rootId } } },
+    }),
+    row(0, 'turn_context', { model: 'gpt-6-sol', effort: 'medium' }),
+    row(0, 'event_msg', { type: 'task_started' }),
+    row(1, 'event_msg', { type: 'task_complete' }),
+  ]
+  const rootPath = join(sessions, `rollout-root-${rootId}.jsonl`)
+  writeFileSync(rootPath, jsonl(rootRows))
+  writeFileSync(join(sessions, `rollout-child-${childId}.jsonl`), jsonl(childRows))
+
+  const result = run({ rootPath, sessionsDir: sessions })
+  assert.equal(result.status, 0, result.stderr)
+  const report = JSON.parse(result.stdout)
+  assert.equal(report.children.length, 1)
+  assert.equal(report.children[0].id, childId)
+  assert.equal(report.children[0].role, 'executor')
+})
+
+test('timeBucketsMs: an out-of-order row never moves the clock backwards', () => {
+  const rows = [
+    row(0, 'event_msg', { type: 'task_started' }),
+    row(5, 'response_item', {}),
+    row(3, 'response_item', {}), // earlier than the previous row: must not rewind the clock
+    row(6, 'response_item', {}),
+  ]
+  const buckets = timeBucketsMs(rows)
+  const totalMs = Object.values(buckets).reduce((a, b) => a + b, 0)
+  // True elapsed span is 0 -> 6 minutes. A buggy implementation that moves
+  // prevT back to the out-of-order row's timestamp would recount the 3->5
+  // minute range and report 8 minutes here instead.
+  assert.equal(totalMs, 6 * 60000)
+  assert.equal(buckets.model, 6 * 60000)
 })

@@ -33,14 +33,20 @@ export function sessionId(meta) {
 }
 
 // The id of the rollout that spawned this one, or null for a root. Handles
-// both the direct `parent_thread_id` field and the nested
-// `source.subagent.parent_thread_id` shape.
+// the direct `parent_thread_id` field, the nested
+// `source.subagent.parent_thread_id` shape, and the nested
+// `source.subagent.thread_spawn.parent_thread_id` shape (the real one Codex
+// writes for a spawned subagent thread).
 export function parentId(meta) {
   if (!meta) return null
   if (meta.parent_thread_id) return meta.parent_thread_id
   const subagent = meta.source && meta.source.subagent
-  if (subagent && typeof subagent === 'object' && subagent.parent_thread_id) {
-    return subagent.parent_thread_id
+  if (subagent && typeof subagent === 'object') {
+    if (subagent.parent_thread_id) return subagent.parent_thread_id
+    const threadSpawn = subagent.thread_spawn
+    if (threadSpawn && typeof threadSpawn === 'object' && threadSpawn.parent_thread_id) {
+      return threadSpawn.parent_thread_id
+    }
   }
   return null
 }

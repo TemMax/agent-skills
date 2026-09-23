@@ -105,7 +105,9 @@ export function timeBucketsMs(rows) {
         if (idx !== -1) open.splice(idx, 1)
       }
     }
-    prevT = t
+    // A row out of timestamp order must never move the clock backwards:
+    // keep the maximum timestamp seen so elapsed time is never re-counted.
+    prevT = prevT === null ? t : Math.max(prevT, t)
   }
   return buckets
 }
@@ -153,6 +155,7 @@ function classifyRole(agentPath) {
   if (typeof agentPath === 'string') {
     if (agentPath.includes('executor')) return 'executor'
     if (agentPath.includes('supervisor')) return 'supervisor'
+    if (agentPath.includes('review')) return 'review'
   }
   return 'other'
 }
@@ -201,9 +204,10 @@ function mean(values) {
 // the turn (a final answer, nothing left pending). Between two consecutive
 // rows the elapsed time is charged, as in timeBucketsMs, to the state that
 // was true going into that interval: outside a turn -> "user", inside a
-// turn with a tool call open -> "tool:<name>" (or "waiting" for the Task
+// turn with a tool call open -> "tool:<name>" (or "waiting" for the Agent
 // tool, which spawns a background agent and is awaited much like codex's
-// wait_agent), inside a turn with nothing open -> "model".
+// wait_agent; "Task" is kept as an alias for older transcripts), inside a
+// turn with nothing open -> "model".
 
 function isRealClaudeUserRow(row) {
   if (row.type !== 'user') return false
@@ -235,7 +239,7 @@ export function timeBucketsMsClaude(rows) {
     if (!turnActive) return 'user'
     if (open.length) {
       const name = open[open.length - 1].name
-      return name === 'Task' ? 'waiting' : `tool:${name}`
+      return name === 'Agent' || name === 'Task' ? 'waiting' : `tool:${name}`
     }
     return 'model'
   }
@@ -254,7 +258,9 @@ export function timeBucketsMsClaude(rows) {
       for (const use of uses) open.push({ id: use.id, name: use.name })
       if (!uses.length) turnActive = false
     }
-    prevT = t
+    // A row out of timestamp order must never move the clock backwards:
+    // keep the maximum timestamp seen so elapsed time is never re-counted.
+    prevT = prevT === null ? t : Math.max(prevT, t)
   }
   return buckets
 }
@@ -287,16 +293,21 @@ function lastAssistantModel(rows) {
   return model
 }
 
-// A child's role comes from its meta sidecar: an explicit `role`, or a
-// `label` classified the same way codex's classifyRole reads an agent_path
-// (substring match), falling back to 'other' when neither is available.
+// A child's role comes from its meta sidecar. Real agent-*.meta.json files
+// carry no `role` or `label` field; they carry a free-text `description`
+// (e.g. "verify:telemetry-claude"). Classify from the first of `role`,
+// `label`, `name`, `description` that is present, by case-insensitive
+// substring match, falling back to 'other' when none match.
 function classifyRoleClaude(meta) {
-  if (meta && typeof meta.role === 'string' && meta.role) return meta.role
-  const label = meta && typeof meta.label === 'string' ? meta.label : null
-  if (label) {
-    if (label.includes('executor')) return 'executor'
-    if (label.includes('supervisor')) return 'supervisor'
-  }
+  if (!meta) return 'other'
+  const text = [meta.role, meta.label, meta.name, meta.description]
+    .find(v => typeof v === 'string' && v)
+  if (!text) return 'other'
+  const lower = text.toLowerCase()
+  if (lower.includes('exec')) return 'executor'
+  if (lower.includes('judge') || lower.includes('supervisor')) return 'supervisor'
+  if (lower.includes('verify') || lower.includes('verifier')) return 'verifier'
+  if (lower.includes('review')) return 'review'
   return 'other'
 }
 
@@ -345,12 +356,18 @@ function priceFor(prices, model) {
   return Array.isArray(p) && p.length === 3 ? p : null
 }
 
+// Real Codex usage records report cached_input_tokens as a subset of
+// input_tokens and reasoning_output_tokens as a subset of output_tokens
+// (input_tokens + output_tokens == total_tokens), not additional pools on
+// top. Bill the non-cached slice of input at the input price, the cached
+// slice at the cached price, and the full output (reasoning is already
+// inside it) at the output price.
 function costFor(prices, model, totals) {
   const p = priceFor(prices, model)
   if (!p) return null
   const [inputPrice, cachedPrice, outputPrice] = p
-  const billableOutput = totals.output + totals.reasoningOutput
-  return totals.input / 1e6 * inputPrice + totals.cachedInput / 1e6 * cachedPrice + billableOutput / 1e6 * outputPrice
+  const billableInput = totals.input - totals.cachedInput
+  return billableInput / 1e6 * inputPrice + totals.cachedInput / 1e6 * cachedPrice + totals.output / 1e6 * outputPrice
 }
 
 const round = (n, places = 6) => {
@@ -393,7 +410,7 @@ export function buildReport(run, opts) {
       effort: context.effort ?? null,
       wallMinutes: round(wallMs / 60000, 4),
       requests: requestInputs.length,
-      tokens: { ...totals, total: totals.input + totals.cachedInput + totals.output + totals.reasoningOutput },
+      tokens: { ...totals, total: totals.input + totals.output },
       modelMinutes: round(modelMs / 60000, 4),
       toolMinutes: round(toolMs / 60000, 4),
       interval,
@@ -427,9 +444,9 @@ export function buildReport(run, opts) {
   for (const g of groups.values()) {
     const cost = g.model ? costFor(prices, g.model, g.tokens) : null
     if (cost === null) {
-      unpriced.push({ role: g.role, model: g.model, tokens: { ...g.tokens, total: g.tokens.input + g.tokens.cachedInput + g.tokens.output + g.tokens.reasoningOutput } })
+      unpriced.push({ role: g.role, model: g.model, tokens: { ...g.tokens, total: g.tokens.input + g.tokens.output } })
     } else {
-      byRoleModel.push({ role: g.role, model: g.model, tokens: { ...g.tokens, total: g.tokens.input + g.tokens.cachedInput + g.tokens.output + g.tokens.reasoningOutput }, cost: round(cost) })
+      byRoleModel.push({ role: g.role, model: g.model, tokens: { ...g.tokens, total: g.tokens.input + g.tokens.output }, cost: round(cost) })
       total += cost
     }
   }
