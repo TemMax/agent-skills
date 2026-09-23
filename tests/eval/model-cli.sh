@@ -46,10 +46,18 @@ eval_model() {
       if [ "$sandbox" = workspace-write ]; then
         launch_cwd="$(dirname "$cwd")"
       fi
-      (cd "$launch_cwd" && timeout "$limit" codex exec --ephemeral --ignore-user-config --ignore-rules \
-        --skip-git-repo-check --sandbox "$sandbox" --model "$model" \
-        -c "model_reasoning_effort=\"$effort\"" \
-        --output-last-message "$answer_file" - < "$prompt_file" >/dev/null)
+      if [ "$sandbox" = workspace-write ] && [ "${EVAL_CODEX_CWD_IS_REPO:-0}" = 1 ]; then
+        (cd "$cwd" && timeout "$limit" codex exec --ephemeral --ignore-user-config --ignore-rules \
+          --skip-git-repo-check --sandbox "$sandbox" --model "$model" \
+          -c "model_reasoning_effort=\"$effort\"" \
+          -C "$cwd" --add-dir "$(dirname "$cwd")" \
+          --output-last-message "$answer_file" - < "$prompt_file" >/dev/null)
+      else
+        (cd "$launch_cwd" && timeout "$limit" codex exec --ephemeral --ignore-user-config --ignore-rules \
+          --skip-git-repo-check --sandbox "$sandbox" --model "$model" \
+          -c "model_reasoning_effort=\"$effort\"" \
+          --output-last-message "$answer_file" - < "$prompt_file" >/dev/null)
+      fi
       ;;
   esac
 }

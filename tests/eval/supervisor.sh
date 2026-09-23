@@ -146,7 +146,7 @@ $2
 EOF
   local before; before="$(judge_snapshot "$R")"
   if [ "$(judge_sandbox)" = workspace-write ]; then
-  EVAL_MODEL="$MODEL" eval_model_answer "$R" workspace-write "$prompt_file" "$answer_file"
+  EVAL_MODEL="$MODEL" EVAL_CODEX_CWD_IS_REPO=1 eval_model_answer "$R" workspace-write "$prompt_file" "$answer_file"
   else
   EVAL_MODEL="$MODEL" eval_model_answer "$R" read-only "$prompt_file" "$answer_file"
   fi
