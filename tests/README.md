@@ -134,6 +134,11 @@ wave) were run by hand against a per-tier `EVAL_RESULTS_DIR` in 879 s.
 Failures remain failures; no GPT-6 production review or supervisor route
 follows from this record.
 
+**2026-09-23 — stage B re-measure.** The GPT-6 record now includes the
+stage B re-measure of the critical-review and wave rows after the scorer,
+supervisor sandbox/working-directory, and `wave.sh` Codex-path fixes; see
+`tests/eval/gpt-6-results-2026-09-23.md`.
+
 ## Telemetry analyzer
 
 `tests/eval/telemetry/` (`telemetry.mjs`) is pure, offline log analysis —

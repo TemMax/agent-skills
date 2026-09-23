@@ -20,14 +20,17 @@ never assumed by default.
 
 ## Calibration status
 
-2026-09-23 UTC local calibration: clean-diff 0/3, planted-defect 1/3, PR gate
-2/2 (`tests/eval/gpt-6-results-2026-09-23.md`). The failed cells were
-substantively correct reviews rejected on output format, recorded as a
-harness limitation rather than a passing route. Exactly as the GPT-5.6 Sol
-gate in `reviewer-gpt-5-6-sol.md` states its route `unsupported` and defers,
-a GPT-6 Sol review must state plainly that its route is uncalibrated and
-hand final judgment upward. System Card capability or alignment scores are
-not a substitute for a dated local evaluation.
+2026-09-23 UTC local calibration, re-measured after the stage B harness
+fixes: clean-diff 7/8, planted-defect 8/8, PR gate 2/2
+(`tests/eval/gpt-6-results-2026-09-23.md`). The one remaining clean-diff
+failure wrote "Overall verdict: No findings" instead of the required word
+"clean" — a real format failure. The strict review gate requires every guard
+at 5/5 in repeated runs; the clean-diff guard is 4/5 in the x5 run, so the
+route stays `unsupported`. Exactly as the GPT-5.6 Sol gate in
+`reviewer-gpt-5-6-sol.md` states its route `unsupported` and defers, a GPT-6
+Sol review must state plainly that its route is uncalibrated and hand final
+judgment upward. System Card capability or alignment scores are not a
+substitute for a dated local evaluation.
 
 ## Review method
 
