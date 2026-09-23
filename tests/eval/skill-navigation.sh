@@ -484,7 +484,7 @@ nav_main() {
   if [ "$EVAL_PROVIDER" = codex ]; then
     nav_probe N1c "launch a Codex-only wave" references/codex-wave-protocol.md \
 'You are the orchestrator. The user asked you to run wave 1 of a plan.
-- Every task in wave 1 routes to GPT models only (executors gpt-5.6-terra, supervisor gpt-6-astra).
+- Every task in wave 1 routes to GPT models only (executors gpt-6-luna and gpt-6-sol, supervisor gpt-6-astra).
 - The plan is /tmp/demo/plan.md and it is lint-clean and user-approved.
 - Wave: 1. Base commit (pushed): 1111111111111111111111111111111111111111
 - Repository: /tmp/demo/repo, default branch main.

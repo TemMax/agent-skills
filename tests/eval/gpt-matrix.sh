@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Full GPT-5.6 semantic matrix. This driver is intentionally not called by
+# Full GPT semantic matrix. This driver is intentionally not called by
 # tests/run.sh --live; every invocation requires a fresh caller-owned result
-# directory because failures must be recorded before any rerun.
+# directory because failures must be recorded before any rerun. The model
+# list defaults to the current GPT lineup and can be overridden (space
+# separated) via MATRIX_MODELS for a different lineup or count.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/test-env.sh
 
-models='gpt-5.6-sol gpt-5.6-terra gpt-5.6-luna'
+models="${MATRIX_MODELS:-gpt-6-sol gpt-6-luna}"
+first_model="${models%% *}"
 skill_scripts='super-plan wave critical-review ship'
 support_scripts='profile-routing safety supervisor drift'
 
@@ -359,12 +362,12 @@ complete = sum({"success", "failure"} <= paths for paths in pairs.values())
 blocking = [row for row in rows if row["blocking"] == "yes" and row["status"] != "pass"]
 support = [row for row in rows if row["script"] not in required or row["semantic_path"] == "support"]
 lines = [
-    "# GPT-5.6 evaluation summary",
+    "# GPT evaluation summary",
     "",
     f"Mode: `{mode}`",
     "",
-    f"Required medium skill/model pairs with both success and failure rows: **{complete}/12**.",
-    f"Supporting rows (not counted in the 12 pairs): **{len(support)}**.",
+    f"Required medium skill/model pairs with both success and failure rows: **{complete}/{len(pairs)}**.",
+    f"Supporting rows (not counted in the {len(pairs)} pairs): **{len(support)}**.",
     f"Release-blocking failed cells: **{len(blocking)}**.",
     "",
     "Token and cost fields remain `unavailable` unless the model adapter observes them; this driver never estimates them.",
@@ -382,6 +385,13 @@ PY
 if [ "${1:-}" = --self-test ]; then
   set -e
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+  set -- $models
+  model1="$1"
+  model2="${2:-$1}"
+  num_models=$#
+  pairs_total=$((num_models * 4))
+  base_rows=$((num_models * 4 * 2 + 1))
+  total_rows=$((base_rows + 23))
   mkdir -p "$W/fake"
   cat > "$W/fake/codex" <<'SH'
 #!/usr/bin/env bash
@@ -418,7 +428,7 @@ SH
     printf 'exit=0\nelapsed_ms=%s\n' "$n" > "$call/status.txt"
   done
   printf '8\n' > "$W/materialize/captures/supervisor/counter"
-  materialize_support_calls "$W/materialize/critical" supervisor gpt-5.6-sol medium 5 \
+  materialize_support_calls "$W/materialize/critical" supervisor "$model1" medium 5 \
     "$W/materialize/captures/supervisor" "$W/materialize/stdout.txt"
   for n in $(seq 1 7); do
     call="$W/materialize/captures/drift/calls/call-$n"
@@ -432,18 +442,18 @@ SH
     printf 'exit=0\nelapsed_ms=%s\n' "$n" > "$call/status.txt"
   done
   printf '7\n' > "$W/materialize/captures/drift/counter"
-  materialize_support_calls "$W/materialize/critical" drift gpt-5.6-sol medium 5 \
+  materialize_support_calls "$W/materialize/critical" drift "$model1" medium 5 \
     "$W/materialize/captures/drift" "$W/materialize/stdout.txt"
-  materialize_support_calls "$W/materialize/critical" supervisor gpt-5.6-terra medium 5 \
+  materialize_support_calls "$W/materialize/critical" supervisor "$model2" medium 5 \
     "$W/materialize/captures/supervisor" "$W/materialize/stdout.txt"
   [ "$(tail -n +2 "$W/materialize/critical/cells.tsv" | wc -l | tr -d ' ')" = 23 ]
   [ "$(tail -n +2 "$W/materialize/critical/cells.tsv" | cut -f2,5 | sort -u | wc -l | tr -d ' ')" = 23 ]
-  [ "$(awk -F '\t' '$1=="supervisor" && $2 ~ /critical-correct-work-guard-repeat-[1-5]$/ && $5=="gpt-5.6-sol" && $8=="pass" && $9=="pass" && $10==0 && $11 ~ /^[0-9]+$/ {n++} END {print n+0}' "$W/materialize/critical/cells.tsv")" = 5 ]
+  [ "$(awk -F '\t' -v m="$model1" '$1=="supervisor" && $2 ~ /critical-correct-work-guard-repeat-[1-5]$/ && $5==m && $8=="pass" && $9=="pass" && $10==0 && $11 ~ /^[0-9]+$/ {n++} END {print n+0}' "$W/materialize/critical/cells.tsv")" = 5 ]
   [ "$(awk -F '\t' '$1=="drift" && $2 ~ /critical-clean-run-guard-repeat-[1-5]$/ && $8=="pass" && $9=="pass" && $10==0 && $11 ~ /^[0-9]+$/ {n++} END {print n+0}' "$W/materialize/critical/cells.tsv")" = 5 ]
   [ "$(find "$W/materialize/critical/raw" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" = 23 ]
-  grep -q '^correct-work-guard=5/5$' "$W/materialize/critical/guards/gpt-5.6-sol-medium-supervisor.txt"
-  grep -q '^correct-work-guard=5/5$' "$W/materialize/critical/guards/gpt-5.6-terra-medium-supervisor.txt"
-  grep -q '^clean-run-guard=5/5$' "$W/materialize/critical/guards/gpt-5.6-sol-medium-drift.txt"
+  grep -q '^correct-work-guard=5/5$' "$W/materialize/critical/guards/${model1}-medium-supervisor.txt"
+  grep -q '^correct-work-guard=5/5$' "$W/materialize/critical/guards/${model2}-medium-supervisor.txt"
+  grep -q '^clean-run-guard=5/5$' "$W/materialize/critical/guards/${model1}-medium-drift.txt"
   ! grep -q $'\taggregate\t' "$W/materialize/critical/cells.tsv"
   mkdir -p "$W/fresh"
   results_dir_is_fresh "$W/fresh"
@@ -458,13 +468,13 @@ SH
       done
     done
   done
-  append_row "$W/base/cells.tsv" safety destructive-scope support codex gpt-5.6-sol medium yes pass pass 0 1 p a c s unavailable unavailable unavailable
+  append_row "$W/base/cells.tsv" safety destructive-scope support codex "$model1" medium yes pass pass 0 1 p a c s unavailable unavailable unavailable
   collect_rows "$W"
   write_markdown "$W" self-test
-  grep -q '12/12' "$W/summary.md"
+  grep -q "${pairs_total}/${pairs_total}" "$W/summary.md"
   grep -q 'Supporting rows.*24' "$W/summary.md"
-  [ "$(tail -n +2 "$W/summary.tsv" | wc -l | tr -d ' ')" = 48 ]
-  printf 'gpt-5.6 matrix self-test: PASS\n'
+  [ "$(tail -n +2 "$W/summary.tsv" | wc -l | tr -d ' ')" = "$total_rows" ]
+  printf 'gpt matrix self-test: PASS\n'
   exit
 fi
 
@@ -508,15 +518,15 @@ if [ "$MODE" = critical ]; then
   unset EVAL_REPEAT
 elif [ "$MODE" = effort ]; then
   run_full_matrix "$RESULTS_ROOT/high" high
-  export EVAL_MODEL=gpt-5.6-sol
+  export EVAL_MODEL="$first_model"
   for effort in xhigh max; do
     export EVAL_EFFORT="$effort"
     export EVAL_CASE=hard
-    printf 'matrix effort hard: gpt-5.6-sol %s critical-review\n' "$effort"
-    run_one "$RESULTS_ROOT/$effort" critical-review gpt-5.6-sol "$effort" || RELEASE_FAILURE=1
+    printf 'matrix effort hard: %s %s critical-review\n' "$first_model" "$effort"
+    run_one "$RESULTS_ROOT/$effort" critical-review "$first_model" "$effort" || RELEASE_FAILURE=1
     export EVAL_CASE=destructive
-    printf 'matrix effort destructive: gpt-5.6-sol %s safety\n' "$effort"
-    run_one "$RESULTS_ROOT/$effort" safety gpt-5.6-sol "$effort" || RELEASE_FAILURE=1
+    printf 'matrix effort destructive: %s %s safety\n' "$first_model" "$effort"
+    run_one "$RESULTS_ROOT/$effort" safety "$first_model" "$effort" || RELEASE_FAILURE=1
     unset EVAL_CASE
   done
 fi
