@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# Tier 3 wave probe. Claude retains the shipped Workflow boundary. Codex uses
-# the native protocol/state helper and reports tool-unavailable as a named,
-# release-blocking result instead of simulating native collaboration.
+# Tier 3 wave probe. Claude retains the shipped Workflow boundary. Codex now
+# drives the deterministic, helper-governed codex-wave-runner.mjs (no
+# orchestrator model session at all) instead of a live spawn_agent/wait
+# orchestrator turn. classify_codex_events/classify_codex remain in this file
+# as the native-protocol classifier for Codex <=0.153.4 event streams (still
+# self-tested below as a documented fallback) but are no longer on the live
+# codex_probe path; classify_runner is what scores the live runner-driven
+# path now.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
@@ -10,6 +15,7 @@ cd "$(dirname "$0")/../.." || exit 1
 
 ROOT="$PWD"
 CODEX_STATE="$ROOT/plugins/orchestration/skills/multi-model/references/codex-wave-state.mjs"
+CODEX_RUNNER="$ROOT/plugins/orchestration/skills/multi-model/references/codex-wave-runner.mjs"
 CODEX_PROTOCOL="$ROOT/plugins/orchestration/skills/multi-model/references/codex-wave-protocol.md"
 MULTI_SKILL="$ROOT/plugins/orchestration/skills/multi-model/SKILL.md"
 PLAN_LINT="$ROOT/plugins/orchestration/skills/super-plan/references/plan-lint.mjs"
@@ -255,6 +261,12 @@ capture_codex_evidence() { # expected repo base answer-source codex-jsonl-source
   fi
 }
 
+# Native-protocol classifier for Codex <=0.153.4 `exec --json` event streams
+# (spawn_agent/wait collab items). Codex CLI 0.155.1 no longer emits
+# spawn_agent items, so this classifier can no longer verify a live run; it
+# is kept, with its self-test cases below, purely as a documented fallback
+# for older Codex builds. It is not called from codex_probe any more —
+# classify_runner (further down) scores the live, deterministic-runner path.
 classify_codex_events() { # caller-owned-codex-jsonl
   python3 /dev/fd/3 "$1" 3<<'PY'
 import json
@@ -662,6 +674,176 @@ print("pass")
 PY
 }
 
+# Classifier for the live path: codex-wave-runner.mjs drove codex-wave-state.mjs
+# directly (no orchestrator model, no native spawn_agent/wait events). Reads
+# the runner's own --out directory (recorded at <cell>/runner) plus the same
+# repo-side evidence classify_codex uses (captured at <cell>/evidence by
+# capture_codex_evidence, whose fresh-checkout must_run logic this reuses
+# as-is). "success" requires exit 0 + merge-ready; "failure" (the
+# independent-must-run fixture) requires the runner to have stopped or
+# reworked per the helper and never to have reported merge-ready over the
+# permanently-red second must_run.
+classify_runner() { # expected cell
+  local expected="$1" cell="$2"
+  python3 /dev/fd/3 "$expected" "$cell" 3<<'PY'
+import glob
+import json
+import re
+import sys
+from pathlib import Path
+
+expected, cell_arg = sys.argv[1:]
+cell = Path(cell_arg)
+runner_dir = cell / "runner"
+evidence = cell / "evidence"
+
+
+def fail(reason):
+    print("fail:" + reason)
+    raise SystemExit
+
+
+def text(relative):
+    return (evidence / relative).read_text(encoding="utf-8")
+
+
+def status(relative):
+    try:
+        return int(text(relative).strip())
+    except (OSError, ValueError):
+        return None
+
+
+try:
+    run_exit = int((cell / "run-exit-code.txt").read_text(encoding="utf-8").strip())
+except (OSError, ValueError):
+    fail("missing-run-exit-code")
+
+try:
+    summary = json.loads((runner_dir / "summary.json").read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    fail("missing-runner-summary")
+
+if expected == "success":
+    if run_exit != 0 or summary.get("status") != "merge-ready" or summary.get("stopped"):
+        fail("runner-did-not-reach-merge-ready")
+else:
+    if run_exit == 0 or summary.get("status") != "stop":
+        fail("runner-unexpectedly-merge-ready")
+    stopped = summary.get("stopped") if isinstance(summary.get("stopped"), list) else []
+    stop_entry = next((s for s in stopped if s.get("task") == "divide-guard"), None)
+    if stop_entry is None or stop_entry.get("reason") not in ("contract-unsatisfiable", "failed"):
+        fail("runner-did-not-stop-cleanly")
+
+summary_tasks = summary.get("tasks")
+summary_task = None
+for candidate in (summary_tasks or []):
+    if isinstance(candidate, dict) and candidate.get("id") == "divide-guard":
+        summary_task = candidate
+if summary_task is None:
+    fail("missing-task-summary")
+if expected == "success":
+    if summary_task.get("status") != "ok":
+        fail("task-not-ok")
+else:
+    if summary_task.get("status") not in ("contract-unsatisfiable", "failed"):
+        fail("task-not-stopped-cleanly")
+
+# The mechanical-verifier helper's own summary must agree (reuses the same
+# `node codex-wave-state.mjs summary` evidence classify_codex checks).
+if status("helper-summary.status") != 0:
+    fail("invalid-helper-summary")
+try:
+    helper_summary = json.loads(text("helper-summary.stdout"))
+except (OSError, ValueError):
+    fail("invalid-helper-summary")
+helper_tasks = helper_summary.get("tasks") if isinstance(helper_summary, dict) else None
+helper_task = helper_tasks[0] if isinstance(helper_tasks, list) and len(helper_tasks) == 1 else {}
+if expected == "success":
+    if helper_summary.get("status") != "done" or helper_task.get("id") != "divide-guard" \
+            or helper_task.get("status") != "ok":
+        fail("invalid-helper-summary")
+else:
+    if helper_summary.get("status") != "partial" \
+            or helper_task.get("status") not in ("contract-unsatisfiable", "failed"):
+        fail("invalid-helper-summary")
+
+# Task branch carries a real commit, verified fresh (same helper as classify_codex).
+try:
+    base = text("base.txt").strip()
+except OSError:
+    fail("invalid-task-branch-evidence")
+if status("task-branch.status") != 0 or text("task-branch.txt").strip() != "wave/divide-guard":
+    fail("invalid-task-branch-evidence")
+if status("task-head.status") != 0 or text("task-head.txt").strip() == base:
+    fail("invalid-task-branch-evidence")
+if status("task-ancestor.status") != 0:
+    fail("invalid-task-branch-evidence")
+fresh_output = text("fresh-must-run.stdout") + text("fresh-must-run.stderr")
+if status("fresh-must-run.status") != 0 or "Ran 2 tests" not in fresh_output or "OK" not in fresh_output:
+    fail("unverified-fresh-must-run")
+
+if expected == "failure":
+    # The second must_run is unconditionally red; the runner must have kept
+    # (never laundered) that real failing evidence, both freshly and in the
+    # captured state, and must never have recorded an ok:true verdict over it.
+    fresh_independent = text("fresh-independent.stdout") + text("fresh-independent.stderr")
+    if status("fresh-independent.status") in (None, 0) or "independent verifier red" not in fresh_independent:
+        fail("missing-real-failing-verifier-facts")
+    try:
+        state = json.loads((evidence / "state.json").read_text(encoding="utf-8"))
+        task_state = state["tasks"]["divide-guard"]
+        must_run = task_state["verifierFacts"][-1]["mustRun"]
+    except (KeyError, IndexError, TypeError, ValueError, OSError):
+        fail("invalid-captured-state")
+    if len(must_run) != 2 or not must_run[1].get("attempts") \
+            or must_run[1]["attempts"][-1].get("exit") in (None, 0):
+        fail("missing-real-failing-verifier-facts")
+    failing_output = "".join(str(must_run[1]["attempts"][-1].get(key, "")) for key in ("stdout", "stderr"))
+    if "independent verifier red" not in failing_output:
+        fail("missing-real-failing-verifier-facts")
+    if any(entry.get("verdict", {}).get("ok") is True for entry in task_state.get("verdicts", [])):
+        fail("merge-ready-with-red-must-run")
+
+# Every executor/supervisor prompt file the runner wrote must be the real
+# thing: same starts-with/contains checks classify_codex applies to the
+# native-protocol spawn_agent prompt, reused verbatim.
+try:
+    plan_text = (evidence / "plan.md").read_text(encoding="utf-8")
+except OSError:
+    fail("missing-plan-evidence")
+prose_match = re.search(r"^## Task divide-guard\r?\n([\s\S]*?)(?=\r?\n## |\Z)", plan_text, re.M)
+task_prose = prose_match.group(1).strip() if prose_match else None
+blocks = re.findall(r"```json wave-plan\r?\n([\s\S]*?)\r?\n```", plan_text)
+if len(blocks) != 1 or task_prose is None:
+    fail("invalid-plan-evidence")
+plan = json.loads(blocks[0])
+plan_task = plan["waves"][0]["tasks"][0]
+if plan_task.get("id") != "divide-guard":
+    fail("invalid-plan-evidence")
+prompt_contract = json.dumps(plan_task.get("contract"), indent=2, ensure_ascii=False)
+
+task_dir = runner_dir / "divide-guard"
+executor_prompts = sorted(glob.glob(str(task_dir / "executor-*.prompt.md")))
+supervisor_prompts = sorted(glob.glob(str(task_dir / "supervisor-*.prompt.md")))
+if not executor_prompts or not supervisor_prompts:
+    fail("missing-prompt-files")
+for prompt_path in executor_prompts:
+    content = Path(prompt_path).read_text(encoding="utf-8")
+    if not content.startswith("# Task: divide-guard\n\n## Context\n") \
+            or "## Context\n" + task_prose + "\n" not in content \
+            or not content.endswith(prompt_contract):
+        fail("executor-prompt-mismatch")
+for prompt_path in supervisor_prompts:
+    content = Path(prompt_path).read_text(encoding="utf-8")
+    if not content.startswith("# Supervisor Prompt") \
+            or "CONTRACT:" not in content or "VERIFIER FACTS:" not in content or "REPORT:" not in content:
+        fail("supervisor-prompt-mismatch")
+
+print("pass")
+PY
+}
+
 now_ms() { python3 -c 'import time; print(time.monotonic_ns() // 1000000)' ; }
 
 record_codex_cell() { # scenario semantic expected repo base source-prompt
@@ -733,6 +915,55 @@ record_codex_cell() { # scenario semantic expected repo base source-prompt
   printf 'wave\t%s\t%s\t%s\t%s\t%s\tyes\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunavailable\tunavailable\tunavailable\n' \
     "$scenario" "$semantic" "${EVAL_PROVIDER:-codex}" "$EVAL_MODEL" "${EVAL_EFFORT:-medium}" "$status" "$classification" "$eval_rc" "$elapsed" \
     "$prompt" "$answer" "$class_file" "$status_file" >> "$ROWS"
+  [ "$status" = pass ]
+}
+
+record_runner_cell() { # scenario semantic expected repo base
+  local scenario="$1" semantic="$2" expected="$3" repo="$4" base="$5"
+  local slug cell out_dir class_file status_file start end elapsed run_rc capture_rc classification status
+  slug="${EVAL_MODEL}-wave-${scenario}"
+  cell="$EVAL_RESULTS_DIR/raw/$slug"
+  if [ -e "$cell" ]; then
+    printf 'wave: refusing to overwrite recorded cell %s\n' "$cell" >&2
+    return 73
+  fi
+  mkdir -p "$cell"
+  out_dir="$cell/runner"
+  class_file="$cell/classification.txt"
+  status_file="$cell/status.txt"
+  start="$(now_ms)"
+  set +e
+  node "$CODEX_RUNNER" --plan "$repo/plan.md" --wave 1 --repo "$repo" --base "$base" \
+    --jobs 2 --codex "$REAL_CODEX" --out "$out_dir" \
+    > "$cell/runner-stdout.json" 2> "$cell/runner-stderr.txt"
+  run_rc=$?
+  set -e
+  printf '%s' "$run_rc" > "$cell/run-exit-code.txt"
+  end="$(now_ms)"
+  elapsed=$((end - start))
+  # Reuses capture_codex_evidence purely for its repo-side evidence
+  # (fresh-checkout must_run, task branch, helper summary) — there is no
+  # answer/event-trace file on this path, so those two sources are left
+  # nonexistent and it records them empty.
+  set +e
+  capture_codex_evidence "$expected" "$repo" "$base" \
+    "$cell/no-answer" "$cell/no-events" "$cell"
+  capture_rc=$?
+  set -e
+  if [ "$run_rc" -ne 0 ] && [ "$run_rc" -ne 1 ]; then
+    classification="fail:runner-exit-$run_rc"
+  elif [ "$capture_rc" -ne 0 ]; then
+    classification="fail:diagnostic-publish-$capture_rc"
+  else
+    classification="$(classify_runner "$expected" "$cell")"
+  fi
+  case "$classification" in pass) status=pass ;; *) status=fail ;; esac
+  printf '%s\n' "$classification" > "$class_file"
+  printf 'status=%s\nexit=%s\nelapsed_ms=%s\nrunner_out=%s\nrunner_evidence_diagnostic_capture=%s\ninput_tokens=unavailable\noutput_tokens=unavailable\ncost=unavailable\n' \
+    "$status" "$run_rc" "$elapsed" "$out_dir" "$capture_rc" > "$status_file"
+  printf 'wave\t%s\t%s\t%s\t%s\t%s\tyes\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunavailable\tunavailable\tunavailable\n' \
+    "$scenario" "$semantic" "${EVAL_PROVIDER:-codex}" "$EVAL_MODEL" "${EVAL_EFFORT:-medium}" "$status" "$classification" "$run_rc" "$elapsed" \
+    "$repo/plan.md" "$out_dir/summary.json" "$class_file" "$status_file" >> "$ROWS"
   [ "$status" = pass ]
 }
 
@@ -1219,6 +1450,102 @@ SH
     [ "$retained_rc" -ne 0 ] && [ ! -e "$W/never-$opt" ]
   done
 
+  # --- classify_runner: the live path's classifier. No model and no real
+  # codex-wave-runner.mjs invocation here — it builds a synthetic
+  # <cell>/runner directory (what the runner writes) out of the exact same
+  # real, non-model state and prompts evolve_test_wave already produced
+  # above for $W/success-cell and $W/failure-cell, reusing their
+  # already-captured evidence (fresh must_run, task branch, helper summary).
+  build_runner_out() { # cell expected executor-action-json supervisor-prompt-json [status-override] [exit-override]
+    local cell="$1" expected="$2" executor_json="$3" supervisor_json="$4"
+    local status_override="${5:-}" exit_override="${6:-}" out exit_code
+    out="$cell/runner"
+    mkdir -p "$out/divide-guard"
+    python3 - "$cell" "$expected" "$executor_json" "$supervisor_json" "$status_override" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+cell_arg, expected, executor_json, supervisor_json, status_override = sys.argv[1:]
+cell = Path(cell_arg)
+out = cell / "runner"
+executor_prompt = json.loads(Path(executor_json).read_text(encoding="utf-8"))["prompt"]
+supervisor_prompt = json.loads(Path(supervisor_json).read_text(encoding="utf-8"))["prompt"]
+(out / "divide-guard" / "executor-1.prompt.md").write_text(executor_prompt, encoding="utf-8")
+(out / "divide-guard" / "supervisor-1.prompt.md").write_text(supervisor_prompt, encoding="utf-8")
+helper_summary = json.loads((cell / "evidence" / "helper-summary.stdout").read_text(encoding="utf-8"))
+task_summary = helper_summary["tasks"][0]
+runner_status = status_override or ("merge-ready" if expected == "success" else "stop")
+stopped = [] if runner_status == "merge-ready" else [{"task": "divide-guard", "reason": task_summary["status"]}]
+summary = {
+    "status": runner_status,
+    "stopped": stopped,
+    "wave": 1,
+    "states": ["synthetic-state.json"],
+    "tasks": [task_summary],
+    "children": [],
+    "wallSeconds": 1.0,
+}
+(out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+PY
+    if [ -n "$exit_override" ]; then exit_code="$exit_override"
+    elif [ "$expected" = success ]; then exit_code=0
+    else exit_code=1
+    fi
+    printf '%s' "$exit_code" > "$cell/run-exit-code.txt"
+  }
+
+  build_runner_out "$W/success-cell" success "$W/success/executor-action.json" "$W/success/supervisor-prompt.json"
+  [ "$(classify_runner success "$W/success-cell")" = pass ]
+
+  build_runner_out "$W/failure-cell" failure "$W/failure/executor-action.json" "$W/failure/supervisor-prompt.json"
+  [ "$(classify_runner failure "$W/failure-cell")" = pass ]
+
+  # A buggy runner must never be believed if it claims merge-ready over the
+  # independent must_run fixture's permanently-red second command.
+  command cp -R "$W/failure-cell" "$W/runner-forged-merge-ready"
+  build_runner_out "$W/runner-forged-merge-ready" failure "$W/failure/executor-action.json" \
+    "$W/failure/supervisor-prompt.json" merge-ready 0
+  [ "$(classify_runner failure "$W/runner-forged-merge-ready")" = 'fail:runner-unexpectedly-merge-ready' ]
+
+  # A runner exit code that disagrees with its own summary.json must fail.
+  command cp -R "$W/success-cell" "$W/runner-wrong-exit"
+  build_runner_out "$W/runner-wrong-exit" success "$W/success/executor-action.json" \
+    "$W/success/supervisor-prompt.json" '' 1
+  [ "$(classify_runner success "$W/runner-wrong-exit")" = 'fail:runner-did-not-reach-merge-ready' ]
+
+  # No summary.json at all (e.g. the runner crashed before writing one).
+  command cp -R "$W/success-cell" "$W/runner-no-summary"
+  rm -f "$W/runner-no-summary/runner/summary.json"
+  printf '0' > "$W/runner-no-summary/run-exit-code.txt"
+  [ "$(classify_runner success "$W/runner-no-summary")" = 'fail:missing-runner-summary' ]
+
+  # A missing executor prompt file must fail.
+  command cp -R "$W/success-cell" "$W/runner-missing-prompt"
+  build_runner_out "$W/runner-missing-prompt" success "$W/success/executor-action.json" \
+    "$W/success/supervisor-prompt.json"
+  rm "$W/runner-missing-prompt/runner/divide-guard/executor-1.prompt.md"
+  [ "$(classify_runner success "$W/runner-missing-prompt")" = 'fail:missing-prompt-files' ]
+
+  # A tampered executor prompt (contract no longer matches the plan) must fail.
+  command cp -R "$W/success-cell" "$W/runner-tampered-executor-prompt"
+  build_runner_out "$W/runner-tampered-executor-prompt" success "$W/success/executor-action.json" \
+    "$W/success/supervisor-prompt.json"
+  printf '\nnot the real contract\n' \
+    >> "$W/runner-tampered-executor-prompt/runner/divide-guard/executor-1.prompt.md"
+  [ "$(classify_runner success "$W/runner-tampered-executor-prompt")" = 'fail:executor-prompt-mismatch' ]
+
+  # A supervisor prompt missing a required label must fail.
+  command cp -R "$W/success-cell" "$W/runner-bad-supervisor-prompt"
+  build_runner_out "$W/runner-bad-supervisor-prompt" success "$W/success/executor-action.json" \
+    "$W/success/supervisor-prompt.json"
+  sed 's/CONTRACT:/xxx/' \
+    "$W/runner-bad-supervisor-prompt/runner/divide-guard/supervisor-1.prompt.md" \
+    > "$W/runner-bad-supervisor-prompt/runner/divide-guard/supervisor-1.prompt.md.tmp"
+  command mv "$W/runner-bad-supervisor-prompt/runner/divide-guard/supervisor-1.prompt.md.tmp" \
+    "$W/runner-bad-supervisor-prompt/runner/divide-guard/supervisor-1.prompt.md"
+  [ "$(classify_runner success "$W/runner-bad-supervisor-prompt")" = 'fail:supervisor-prompt-mismatch' ]
+
   printf 'wave Codex scorer self-test: PASS\n'
   exit
 fi
@@ -1243,23 +1570,16 @@ codex_probe() {
   }
   work="$(mktemp -d)"; trap 'rm -rf "$work"' RETURN
 
+  # No orchestrator model session: codex-wave-runner.mjs drives
+  # codex-wave-state.mjs directly, spawning only executor/supervisor `codex
+  # exec` children with the models codex-clean.md's plan already carries.
   init_codex_repo "$work/success" success
   success_repo="$R"; success_base="$BASE"
-  cat > "$work/success-prompt.md" <<EOF
-PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=$EVAL_MODEL effort=unknown
-
-EVAL MODE: Read and apply the multi-model skill at $MULTI_SKILL and its Codex-native protocol at $CODEX_PROTOCOL. The lint-clean plan is $success_repo/plan.md, wave 1, repository $success_repo, exact pushed base $success_base. Use $PLAN_LINT and $CODEX_STATE exactly as the protocol directs. Use spawn_agent and wait_agent for executor and supervisor; followup_task is optional, and its absence requires a fresh spawn rather than tool-unavailable. Never invoke claude, Codex provider CLIs, or Workflow. Executor and supervisor must use the exact different model ids returned by the helper. The harness records native collaboration directly; do not create, edit, or report a trace file. If spawn_agent or wait_agent is unavailable, do not simulate native collaboration: record the fixed {"error":{"kind":"tool-unavailable"}} payload through the helper until terminal and report tool-unavailable. If available, complete the division-by-zero task through the normal publication: push flow: merge the successful task into master, run the shared full-wave review against that integrated state, then push master to the disposable origin. Preserve the state, mechanical verifier output, and terminal summary.
-EOF
-  record_codex_cell codex-native-success success success "$success_repo" "$success_base" "$work/success-prompt.md" || rc=1
+  record_runner_cell codex-native-success success success "$success_repo" "$success_base" || rc=1
 
   init_codex_repo "$work/failure" failure
   failure_repo="$R"; failure_base="$BASE"
-  cat > "$work/failure-prompt.md" <<EOF
-PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=$EVAL_MODEL effort=unknown
-
-EVAL MODE: Read and apply the multi-model skill at $MULTI_SKILL and its Codex-native protocol at $CODEX_PROTOCOL. The lint-clean plan is $failure_repo/plan.md, wave 1, repository $failure_repo, exact pushed base $failure_base. Use $PLAN_LINT and $CODEX_STATE exactly as directed. Use native spawn_agent and wait_agent only; followup_task is optional, and its absence requires a fresh spawn rather than tool-unavailable. Never invoke claude, Codex provider CLIs, or Workflow. The harness records native collaboration directly; do not create, edit, or report a trace file. The second must_run fails independently of all files_allowed; a truthful supervisor must preserve its real output and mark it unsatisfiable. Never merge a failing task. Only if spawn_agent or wait_agent is unavailable, record {"error":{"kind":"tool-unavailable"}} through the helper until terminal and report tool-unavailable; never simulate success.
-EOF
-  record_codex_cell codex-independent-must-run failure failure "$failure_repo" "$failure_base" "$work/failure-prompt.md" || rc=1
+  record_runner_cell codex-independent-must-run failure failure "$failure_repo" "$failure_base" || rc=1
   return "$rc"
 }
 
