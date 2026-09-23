@@ -342,7 +342,9 @@ JSON handed to the supervisor prompt at 60,000 characters, omitting the diff
 supervisor's context window. `tests/eval/telemetry/telemetry.mjs` is a new
 offline analyzer that reads a Codex or Claude wave run's logs and reports
 wall-clock time by model / tool / waiting and per-child tokens and cost;
-it calls no model itself.
+it calls no model itself. `tests/eval/ship-smoke.sh` is a new benchmark that
+runs one small Codex wave both natively and through the runner and compares
+wall time, orchestrator cost, and correctness using that telemetry analyzer.
 
 ## Breaking in 3.0.0
 

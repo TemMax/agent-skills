@@ -483,9 +483,23 @@ def orchestrator_input_tokens(report):
     return None
 
 rows = []
+had_missing = False
 for mode in modes:
     telemetry_path = os.path.join(results_dir, mode, "telemetry.json")
     must_run_path = os.path.join(results_dir, mode, "must_run.txt")
+    if not os.path.exists(telemetry_path):
+        had_missing = True
+        rows.append({
+            "mode": mode,
+            "wall_minutes": "n/a",
+            "orch_model_minutes": "n/a",
+            "orch_model_share": "n/a",
+            "orch_requests": "n/a",
+            "orch_input_tokens": "n/a",
+            "total_cost": "n/a",
+            "must_run": "not-run",
+        })
+        continue
     with open(telemetry_path, encoding="utf-8") as f:
         report = json.load(f)
     must_run = "pass"
@@ -512,6 +526,9 @@ lines.append("| mode | wall (min) | orchestrator model (min) | orchestrator shar
               "| orchestrator requests | orchestrator input tokens | total cost ($) | must_run |")
 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
 for r in rows:
+    if r["must_run"] == "not-run":
+        lines.append("| {mode} | n/a | n/a | n/a | n/a | n/a | n/a | not-run |".format(mode=r["mode"]))
+        continue
     lines.append(
         "| {mode} | {wall_minutes} | {orch_model_minutes} | {share:.1%} | {orch_requests} "
         "| {orch_input_tokens} | {total_cost} | {must_run} |".format(
@@ -523,6 +540,7 @@ text = "\n".join(lines)
 with open(os.path.join(results_dir, "comparison.md"), "w", encoding="utf-8") as f:
     f.write(text)
 sys.stdout.write(text)
+sys.exit(1 if had_missing else 0)
 PY
 }
 
@@ -541,7 +559,7 @@ for m in "${MODES[@]}"; do
   run_one_mode "$m" || OVERALL_RC=1
 done
 
-write_comparison "$RESULTS" "${MODES[@]}"
+write_comparison "$RESULTS" "${MODES[@]}" || OVERALL_RC=1
 printf '\n\nresults: %s\n' "$RESULTS"
 
 exit "$OVERALL_RC"

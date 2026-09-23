@@ -217,4 +217,29 @@ section "codex --skip-git-repo-check exec is never invoked with --ephemeral (rol
 check "at least one rollout was captured under the stub CODEX_HOME" \
   "find '$W/codex-home-native/sessions' -name '*.jsonl' -print -quit | grep -q ."
 
+section "a mode whose telemetry.json never got written (it failed before telemetry) is reported, not a crash"
+BIN_BROKEN="$W/bin-broken"; mkdir -p "$BIN_BROKEN"
+cat > "$BIN_BROKEN/codex" <<'SH'
+#!/usr/bin/env bash
+# Simulates an orchestrator session that fails outright: no thread.started
+# line, so ship-smoke.sh can never find a rollout or run telemetry for it.
+cat >/dev/null
+exit 1
+SH
+chmod +x "$BIN_BROKEN/codex"
+RESULTS_BROKEN="$W/results-broken"
+set +e
+CODEX_HOME="$W/codex-home-broken" PATH="$BIN_BROKEN:$PATH" \
+  bash tests/eval/ship-smoke.sh --mode native --results "$RESULTS_BROKEN" \
+  > "$W/broken.out" 2>&1
+rc_broken=$?
+set -e
+check "a mode that fails before telemetry makes the script exit non-zero" "[ $rc_broken -ne 0 ]"
+check "telemetry.json was never written for the broken mode" "[ ! -e '$RESULTS_BROKEN/native/telemetry.json' ]"
+check "comparison.md was still written instead of crashing" "[ -f '$RESULTS_BROKEN/comparison.md' ]"
+COMPARISON_BROKEN="$(cat "$RESULTS_BROKEN/comparison.md")"
+contains "comparison table still has a native row" "| native |" "$COMPARISON_BROKEN"
+contains "comparison table shows n/a values and must_run=not-run for the missing-telemetry mode" \
+  "| native | n/a | n/a | n/a | n/a | n/a | n/a | not-run |" "$COMPARISON_BROKEN"
+
 summary
