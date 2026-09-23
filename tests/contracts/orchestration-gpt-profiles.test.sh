@@ -69,7 +69,7 @@ for id in sol luna; do
   check "gpt-6-$id exact guard" "grep -qF 'gpt-6-$id' '$f'"
   check "gpt-6-$id has Not measured" "grep -q '^## Not measured' '$f'"
   check "gpt-6-$id has Common mistakes" "grep -q '^## Common mistakes' '$f'"
-  check "gpt-6-$id requires artifacts" "grep -qi 'artifact' '$f'"
+  check "gpt-6-$id requires artifacts" "grep -qF 'diff, commit, command output' '$f'"
   check "gpt-6-$id dossier cites the PDF" "grep -qF 'gpt-6-astra.pdf' '$d'"
 done
 
