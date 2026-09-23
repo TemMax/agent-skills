@@ -142,10 +142,11 @@ if not location_ok:
     if link_match:
         link_label = link_match.group(1).strip("`")
         link_target = link_match.group(2).strip("`")
-        location_ok = (
-            link_label == "src/access.py:2"
+        target_ok = (
+            link_target == "src/access.py:2"
             or link_target.endswith("/src/access.py:2")
         )
+        location_ok = link_label == "src/access.py:2" and target_ok
 if not location_ok:
     print("fail:missing-real-file-line")
     raise SystemExit
@@ -634,6 +635,10 @@ if [ "${1:-}" = --self-test ]; then
   defect_link_wrong_file=${defect_good/src\/access.py:2/[src\/other.py:2](\/tmp\/review-fixture\/workspace\/repo\/src\/other.py:2)}
   [ "$(classify_defect "$defect_link_wrong_line")" = 'fail:missing-real-file-line' ]
   [ "$(classify_defect "$defect_link_wrong_file")" = 'fail:missing-real-file-line' ]
+  defect_link_label_only=${defect_good/src\/access.py:2/[src\/access.py:2](\/tmp\/review-fixture\/workspace\/repo\/src\/other.py:9)}
+  defect_link_target_only=${defect_good/src\/access.py:2/[src\/other.py:5](\/tmp\/review-fixture\/workspace\/repo\/src\/access.py:2)}
+  [ "$(classify_defect "$defect_link_label_only")" = 'fail:missing-real-file-line' ]
+  [ "$(classify_defect "$defect_link_target_only")" = 'fail:missing-real-file-line' ]
   clean_nonempty_git_output=${clean_good/output=\<empty\>/output=warning: trailing whitespace}
   [ "$(classify_clean "$clean_nonempty_git_output")" = 'fail:missing-clean-command-result' ]
   gpt6_fixture_dir="tests/fixtures/critical-review/gpt-6-sol-2026-09-23"
