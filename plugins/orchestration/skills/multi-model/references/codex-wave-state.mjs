@@ -744,29 +744,6 @@ function runContractCommand(cmd, cwd) {
   }
 }
 
-// Keyed by head SHA under the state file's own directory, so a re-verify of
-// an unchanged commit can reuse a prior mechanical must_run run instead of
-// re-executing it. Never reused across a different head SHA or a contract
-// whose must_run list has since changed (contractDigest guards that).
-function verifyCachePath(state, headSha) {
-  return join(state.repoPath, '.worktrees', 'codex-wave', 'verify-cache', headSha + '.json')
-}
-
-function readVerifyCache(state, headSha, contractDigest) {
-  try {
-    const raw = JSON.parse(readFileSync(verifyCachePath(state, headSha), 'utf8'))
-    if (raw && typeof raw === 'object' && raw.contractDigest === contractDigest
-      && Array.isArray(raw.mustRun)) return raw.mustRun
-  } catch { /* no usable cache entry; fall through to a real run */ }
-  return null
-}
-
-function writeVerifyCache(state, headSha, contractDigest, mustRun) {
-  const path = verifyCachePath(state, headSha)
-  mkdirSync(dirname(path), { recursive: true })
-  atomicWrite(path, { contractDigest, mustRun })
-}
-
 function runContractSequence(repo, head, entries) {
   const root = mkdtempSync(join(tmpdir(), 'codex-wave-verify-'))
   const checkout = join(root, 'checkout')
@@ -871,19 +848,12 @@ export function verifyTask(state, id) {
       throw new NamedError('verification-worktree', head.stderr || head.error || 'task HEAD is not a commit')
     }
     const headSha = head.stdout.trim()
-    const contractDigest = createHash('sha256').update(JSON.stringify(spec.contract.must_run)).digest('hex')
-    const cached = readVerifyCache(updated, headSha, contractDigest)
-    if (cached) {
-      cached.forEach((entry, index) => { if (mustRun[index]) mustRun[index].attempts = entry.attempts })
-    } else {
-      // Pin both complete attempts to the committed task head. Preceding
-      // commands may generate prerequisites or poison their successors.
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const results = runContractSequence(updated.repoPath, headSha, mustRun)
-        results.forEach((result, index) => mustRun[index].attempts.push(result))
-        if (results.every((result) => result.exit === 0)) break
-      }
-      writeVerifyCache(updated, headSha, contractDigest, mustRun)
+    // Pin both complete attempts to the committed task head. Preceding
+    // commands may generate prerequisites or poison their successors.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const results = runContractSequence(updated.repoPath, headSha, mustRun)
+      results.forEach((result, index) => mustRun[index].attempts.push(result))
+      if (results.every((result) => result.exit === 0)) break
     }
   }
   for (const recorded of mustRun) {

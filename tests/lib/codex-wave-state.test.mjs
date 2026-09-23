@@ -1372,54 +1372,6 @@ test('C21j plan linter enforces the same Astra executor opt-in contract', () => 
   }
 })
 
-function makeCounter() {
-  const counterDir = mkdtempSync(join(tmpdir(), 'codex-wave-counter-'))
-  roots.push(counterDir)
-  const counter = join(counterDir, 'counter.txt')
-  writeFileSync(counter, '')
-  return counter
-}
-
-test('C22 verify reuses the cached mechanical run for an unchanged head SHA', () => {
-  const counter = makeCounter()
-  const env = init({ planText: (text) => withMustRun(text, [
-    { cmd: 'printf tick >> "' + counter + '" && printf ok', evidence: 'optional' },
-  ]) })
-  prepareAttempt(env, 'must_run output:\nok')
-  assert.equal(readFileSync(counter, 'utf8'), 'tick')
-  const firstFacts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
-  const cacheDir = join(env.repo, '.worktrees', 'codex-wave', 'verify-cache')
-  assert.equal(readdirSync(cacheDir).length, 1)
-  // Bring the task back to 'reported' without any new commit, so the second
-  // verify sees the same head SHA the cache was written for.
-  recordVerdict(env.statePath, failed('rework needed'))
-  recordExecutor(env.statePath, { report: 'second attempt report; no new commit\n\nmust_run output:\nok' })
-  verify(env.statePath)
-  assert.equal(readFileSync(counter, 'utf8'), 'tick', 'cached run must not re-execute the command')
-  const secondFacts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
-  assert.deepEqual(secondFacts.mustRun, firstFacts.mustRun)
-  assert.equal(readdirSync(cacheDir).length, 1)
-})
-
-test('C22b verify re-runs must_run after a new commit even with an unchanged contract', () => {
-  const counter = makeCounter()
-  const env = init({ planText: (text) => withMustRun(text, [
-    { cmd: 'printf tick >> "' + counter + '" && printf ok', evidence: 'optional' },
-  ]) })
-  prepareAttempt(env, 'must_run output:\nok')
-  assert.equal(readFileSync(counter, 'utf8'), 'tick')
-  const cacheDir = join(env.repo, '.worktrees', 'codex-wave', 'verify-cache')
-  assert.equal(readdirSync(cacheDir).length, 1)
-  recordVerdict(env.statePath, failed('rework needed'))
-  writeFileSync(join(env.worktree, 'src', 'second-marker.txt'), 'more task work\n')
-  git(env.worktree, 'add', 'src/second-marker.txt')
-  git(env.worktree, 'commit', '-m', 'second commit')
-  recordExecutor(env.statePath, { report: 'second attempt report; new commit\n\nmust_run output:\nok' })
-  verify(env.statePath)
-  assert.equal(readFileSync(counter, 'utf8'), 'ticktick', 'a new head SHA must re-execute the command')
-  assert.equal(readdirSync(cacheDir).length, 2)
-})
-
 test('C23 supervisor prompt caps a huge diff but the stored state keeps it in full', () => {
   const env = init()
   const big = 'x'.repeat(70000)
