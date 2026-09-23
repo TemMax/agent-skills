@@ -40,4 +40,38 @@ expect "failing verifier exits nonzero" "1" "$failure_rc"
 expect "failing verifier emits stable evidence" "FAIL 2" "$failure_output"
 expect "failing verifier emits no variable stderr" "" "$(cat "$W/failure.stderr")"
 
+section "Supervisor sandbox + repo-integrity helpers (offline, no model)"
+SUPERVISOR_LIB_ONLY=1 . tests/eval/supervisor.sh
+
+expect "claude path selects read-only" "read-only" "$(EVAL_PROVIDER=claude judge_sandbox)"
+expect "unset provider defaults to claude's read-only" "read-only" "$(judge_sandbox)"
+expect "codex path selects workspace-write" "workspace-write" "$(EVAL_PROVIDER=codex judge_sandbox)"
+
+HW="$(mktemp -d)"
+HR="$HW/repo"; mkdir -p "$HR"
+printf 'value\n' > "$HR/tracked.txt"
+git -C "$HR" init -q .
+git -C "$HR" add -A
+git -C "$HR" -c user.email=t@t -c user.name=t commit -q -m base
+BASE="$(git -C "$HR" rev-parse HEAD)"
+git -C "$HR" checkout -q -b wave/f1 "$BASE"
+git -C "$HR" checkout -q -b wave/f2 "$BASE"
+printf 'other\n' > "$HR/tracked.txt"
+git -C "$HR" add -A
+git -C "$HR" -c user.email=t@t -c user.name=t commit -q -m other
+git -C "$HR" checkout -q "$BASE"
+
+before="$(judge_snapshot "$HR")"
+check "unmodified repo is not flagged" "! judge_repo_modified \"\$HR\" \"\$before\""
+
+printf 'edited\n' > "$HR/tracked.txt"
+check "a stub answer step editing a tracked file fires the modification check" "judge_repo_modified \"\$HR\" \"\$before\""
+git -C "$HR" checkout -q -- tracked.txt
+
+before2="$(judge_snapshot "$HR")"
+git -C "$HR" branch -f wave/f1 wave/f2
+check "a moved wave/f* ref fires the modification check" "judge_repo_modified \"\$HR\" \"\$before2\""
+
+rm -rf "$HW"
+
 summary
