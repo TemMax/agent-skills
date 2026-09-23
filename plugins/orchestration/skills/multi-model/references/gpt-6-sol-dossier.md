@@ -101,13 +101,11 @@ this profile; only the exact ID `gpt-6-sol` can.
 
 ## Routing hypotheses and limits
 
-`codex-routing.md`'s task table does not yet name Sol. A candidate route,
-following the same shape as its existing Terra/Sol tiers, would run ordinary
-tasks on `gpt-6-sol`/`medium`, difficult tasks on `gpt-6-sol`/`high`, and use
-`gpt-6-sol` as an optional ladder target for a `gpt-6-luna` initial executor.
-This is a hypothesis for future routing policy, not an active route; adopting
-it requires updating `codex-routing.md` itself under its own review, and
-until then the shared table governs.
+Shared Codex routing now runs ordinary tasks on `gpt-6-sol`/`medium` and
+difficult tasks on `gpt-6-sol`/`high`, and uses `gpt-6-sol` as the ladder
+rung after a `gpt-6-luna` initial executor. These routes are operational but
+uncalibrated: no local calibration record exists yet for this plugin's Sol
+routes. `codex-routing.md` governs.
 
 ## Unmeasured properties
 
