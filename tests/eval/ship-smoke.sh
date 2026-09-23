@@ -110,7 +110,7 @@ build_fixture() { # work-dir -> sets REPO, BASE, PLAN
   local work="$1"
   REPO="$work/repo"
   mkdir -p "$REPO/src" "$REPO/tests" "$REPO/docs"
-  printf '.worktrees/\n' > "$REPO/.gitignore"
+  printf '.worktrees/\n__pycache__/\n*.pyc\n' > "$REPO/.gitignore"
   printf 'def divide(a, b):\n    return a / b\n' > "$REPO/src/calc.py"
   touch "$REPO/src/__init__.py" "$REPO/tests/__init__.py"
   cat > "$REPO/tests/test_calc.py" <<'PY'
@@ -266,8 +266,13 @@ run_orchestrator() { # mode repo plan base out-dir -> sets ORCH_RC, ORCH_JSON_LO
   local prompt_file="$out/orchestrator.prompt.md"
   build_prompt "$mode" "$repo" "$plan" "$base" > "$prompt_file"
   ORCH_JSON_LOG="$out/orchestrator.jsonl"
+  # danger-full-access, not workspace-write: Codex's workspace-write sandbox
+  # refuses writes under .git (e.g. creating refs/heads/wave/<task> or a
+  # worktree's index lock), which real Conductor sessions never hit because
+  # they run Codex with full access. This mirrors that. It only ever targets
+  # the disposable fixture repo this script builds under a mktemp workdir.
   if timeout "$TIMEOUT" "$CODEX_BIN" exec --json --skip-git-repo-check -C "$repo" \
-      --sandbox workspace-write --model "$ORCHESTRATOR" \
+      --sandbox danger-full-access --model "$ORCHESTRATOR" \
       -c "model_reasoning_effort=\"$EFFORT\"" - < "$prompt_file" \
       > "$ORCH_JSON_LOG" 2> "$out/orchestrator.stderr"; then
     ORCH_RC=0
