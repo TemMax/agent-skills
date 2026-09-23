@@ -34,6 +34,7 @@ run "behaviour — model CLI adapter" bash tests/eval/model-cli.test.sh
 run "behaviour — retained Codex rollout diagnostics" node --test tests/eval/codex-rollouts.test.mjs
 run "behaviour — deterministic supervisor fixture" bash tests/eval/supervisor-fixture.test.sh
 run "behaviour — skill-navigation parser and read-check" bash tests/eval/skill-navigation.test.sh
+run "behaviour — gpt-live driver" bash tests/eval/gpt-live.test.sh
 
 for t in plugins/*/hooks/*.test.sh; do
   [ -e "$t" ] || continue
@@ -44,7 +45,7 @@ if [ -n "$LIVE" ]; then
   for e in tests/eval/*.sh; do
     [ -e "$e" ] || continue
     case "$(basename "$e")" in
-      model-cli.sh|gpt-5-6-matrix.sh|*.test.sh) continue ;;
+      model-cli.sh|gpt-5-6-matrix.sh|gpt-live.sh|gpt-matrix.sh|*.test.sh) continue ;;
     esac
     run "evaluation (live model) — $(basename "$e" .sh)" bash "$e"
   done

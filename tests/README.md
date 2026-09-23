@@ -101,6 +101,30 @@ opening `contract-amendment.md`. Reads are recovered from shell commands, so
 `nav_parse_codex` understands `cd`, globs, shell variables and `for` loops;
 before it did, two of the first run's "misses" were reads it failed to see.
 
+## GPT live tiers (parallel)
+
+`tests/eval/gpt-5-6-matrix.sh` runs every tier x model strictly sequentially,
+which is right for its deep per-cell evidence capture but too slow as a
+routine live check. `tests/eval/gpt-live.sh` runs the same live tiers as a
+parallel driver — each (model, tier) pair is one background job, bounded by
+`--jobs` — so a full default run finishes in minutes, not hours:
+
+```sh
+bash tests/eval/gpt-live.sh [--models "gpt-6-sol gpt-6-luna"]
+  [--tiers "supervisor drift super-plan skill-navigation safety profile-routing"]
+  [--jobs 6] [--effort medium] [--repeat 1] [--results DIR]
+```
+
+Those are its exact defaults. It is not part of `tests/run.sh --live` — that
+entry point explicitly skips `gpt-live.sh` (and `gpt-5-6-matrix.sh`) and
+cannot silently expand into a live run. Like the matrix, `--results` is part
+of the evidence contract, not a cache: a run accepts a missing or empty
+directory and refuses any nonempty results path (exit 73), so a results
+directory is never overwritten. It writes `<results>/summary.tsv` and a
+per-job log at `<results>/<model>/<tier>.log`. Review current model prices
+before authorizing a run; the target is a full default run (2 models x 6
+tiers) finishing in minutes at a few dollars, not the matrix's hours.
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
