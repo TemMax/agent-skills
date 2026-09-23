@@ -842,6 +842,24 @@ for prompt_path in executor_prompts:
                 or prompt_contract not in content \
                 or not content.rstrip().endswith(rework_line):
             fail("executor-prompt-mismatch")
+        contract_idx = content.find(prompt_contract)
+        after_contract = content[contract_idx + len(prompt_contract):]
+        pv_idx = after_contract.find("PRIOR VERDICT:")
+        if pv_idx == -1:
+            fail("executor-prompt-mismatch")
+        after_pv = after_contract[pv_idx + len("PRIOR VERDICT:"):]
+        rework_idx = after_pv.rfind(rework_line)
+        if rework_idx == -1:
+            fail("executor-prompt-mismatch")
+        verdict_text = after_pv[:rework_idx].strip()
+        try:
+            verdict = json.loads(verdict_text)
+        except (ValueError, TypeError):
+            fail("executor-prompt-mismatch")
+        if not isinstance(verdict, dict) or not isinstance(verdict.get("ok"), bool) \
+                or not isinstance(verdict.get("violations"), list) \
+                or not isinstance(verdict.get("remarks"), list):
+            fail("executor-prompt-mismatch")
 for prompt_path in supervisor_prompts:
     content = Path(prompt_path).read_text(encoding="utf-8")
     if not content.startswith("# Supervisor Prompt") \
@@ -1557,15 +1575,49 @@ PY
     "$W/success/supervisor-prompt.json"
   python3 - "$W/runner-rework-prompt/runner/divide-guard/executor-1.prompt.md" \
     "$W/runner-rework-prompt/runner/divide-guard/executor-2.prompt.md" <<'PY'
+import json
 import sys
 first, second = sys.argv[1:]
 content = open(first, encoding="utf-8").read()
+verdict = json.dumps({"ok": False, "violations": [], "remarks": []}, indent=2)
 rework = (content
-          + '\n\nPrevious verdict: {"ok": false, "violations": []}\n\n'
+          + '\n\nPRIOR VERDICT:\n' + verdict + '\n'
           + "Continue in the same worktree and branch; fix the violations.\n")
 open(second, "w", encoding="utf-8").write(rework)
 PY
   [ "$(classify_runner success "$W/runner-rework-prompt")" = pass ]
+
+  # An attempt-2 rework prompt without the "PRIOR VERDICT:" line must fail.
+  command cp -R "$W/success-cell" "$W/runner-rework-no-prior-verdict"
+  build_runner_out "$W/runner-rework-no-prior-verdict" success "$W/success/executor-action.json" \
+    "$W/success/supervisor-prompt.json"
+  python3 - "$W/runner-rework-no-prior-verdict/runner/divide-guard/executor-1.prompt.md" \
+    "$W/runner-rework-no-prior-verdict/runner/divide-guard/executor-2.prompt.md" <<'PY'
+import sys
+first, second = sys.argv[1:]
+content = open(first, encoding="utf-8").read()
+rework = (content
+          + '\n\nSome other note that is not the prior verdict marker\n\n'
+          + "Continue in the same worktree and branch; fix the violations.\n")
+open(second, "w", encoding="utf-8").write(rework)
+PY
+  [ "$(classify_runner success "$W/runner-rework-no-prior-verdict")" = 'fail:executor-prompt-mismatch' ]
+
+  # An attempt-2 rework prompt whose "PRIOR VERDICT:" payload is not JSON must fail.
+  command cp -R "$W/success-cell" "$W/runner-rework-non-json-verdict"
+  build_runner_out "$W/runner-rework-non-json-verdict" success "$W/success/executor-action.json" \
+    "$W/success/supervisor-prompt.json"
+  python3 - "$W/runner-rework-non-json-verdict/runner/divide-guard/executor-1.prompt.md" \
+    "$W/runner-rework-non-json-verdict/runner/divide-guard/executor-2.prompt.md" <<'PY'
+import sys
+first, second = sys.argv[1:]
+content = open(first, encoding="utf-8").read()
+rework = (content
+          + '\n\nPRIOR VERDICT:\nnot actually json\n\n'
+          + "Continue in the same worktree and branch; fix the violations.\n")
+open(second, "w", encoding="utf-8").write(rework)
+PY
+  [ "$(classify_runner success "$W/runner-rework-non-json-verdict")" = 'fail:executor-prompt-mismatch' ]
 
   # An attempt-2 rework prompt that lacks the contract JSON must fail.
   command cp -R "$W/success-cell" "$W/runner-rework-missing-contract"
