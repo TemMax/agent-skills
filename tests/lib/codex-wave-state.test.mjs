@@ -272,6 +272,32 @@ test('C3 next preserves approved task prose and all six mandatory prompt blocks'
     'forbidden_moves', 'report_must_answer']) assert.match(action.prompt, new RegExp(key))
 })
 
+test('C3b GPT-6 wave dispatches gpt-6-luna executor then gpt-6-astra supervisor', () => {
+  const env = init({ planText: (text) => text
+    .replace('"model": "gpt-5.6-terra", "effort": "high"', '"model": "gpt-6-astra", "effort": "high"')
+    .replace('"model": "gpt-5.6-luna", "effort": "medium"', '"model": "gpt-6-luna", "effort": "medium"')
+    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-sol"]') })
+  const executorAction = next(env.statePath)
+  assert.equal(executorAction.action, 'spawn-executor')
+  assert.equal(executorAction.model, 'gpt-6-luna')
+  assert.equal(executorAction.effort, 'medium')
+  prepareAttempt(env)
+  const supervisorAction = next(env.statePath)
+  assert.equal(supervisorAction.action, 'spawn-supervisor')
+  assert.equal(supervisorAction.model, 'gpt-6-astra')
+  assert.equal(supervisorAction.effort, 'high')
+})
+
+test('C3c bare gpt-6 is rejected at init', () => {
+  const env = init({ invalid: true, planText: (text) => text.replace(
+    '"model": "gpt-5.6-luna"', '"model": "gpt-6"') })
+  assert.notEqual(env.result.status, 0)
+  assert.equal(env.result.json.status, 'invalid')
+  assert.match(env.result.json.errors.join('; '), /executor\.model/)
+  assert.equal(existsSync(join(env.repo, '.worktrees')), false)
+  assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
+})
+
 test('C4 record-executor stores only report text and advances to verify', () => {
   const env = init()
   recordExecutor(env.statePath, { report: 'guard added; tests pass' })

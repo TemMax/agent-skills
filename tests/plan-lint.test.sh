@@ -9,6 +9,7 @@ cd "$(dirname "$0")/.." || exit 1
 LINT=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
 CLEAN=tests/fixtures/plans/clean.md
 CODEX_CLEAN=tests/fixtures/plans/codex-clean.md
+GPT6_CLEAN=tests/fixtures/plans/codex-clean-gpt6.md
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 
 if ! command -v node >/dev/null 2>&1; then
@@ -385,5 +386,45 @@ PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "non-terminal Astra rung exits 1" "1" "$rc"
 contains "non-terminal Astra rung is named" "final executor rung" "$out"
+
+section "GPT-6 exact ids"
+
+out="$(node "$LINT" "$GPT6_CLEAN" 2>&1)"; rc=$?
+expect "GPT-6 clean plan exits 0" "0" "$rc"
+contains "GPT-6 clean plan summary line" "OK: 0 error(s)" "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-6-sol", "effort": "medium"')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol executor with empty ladder exits 0" "0" "$rc"
+contains "gpt-6-sol executor with empty ladder is clean" "OK: 0 error(s)" "$out"
+
+mutate '"model": "claude-sonnet-5"' '"model": "gpt-6"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6 bare exits 1" "1" "$rc"
+contains "gpt-6 bare is rejected" "executor.model" "$out"
+
+mutate '"model": "claude-sonnet-5"' '"model": "gpt-6-mini"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-mini exits 1" "1" "$rc"
+contains "gpt-6-mini is rejected" "executor.model" "$out"
+
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"model": "claude-sonnet-5"', '"model": "gpt-6-sol"')
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol mixed-provider wave exits 1" "1" "$rc"
+contains "gpt-6-sol mixed-provider wave is named" "mixes providers" "$out"
 
 summary
