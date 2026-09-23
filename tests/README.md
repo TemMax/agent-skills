@@ -86,6 +86,21 @@ After the split: Opus 5.5 30/30 with every reference opened at its trigger
 rather than pass/fail. The full live suite (`EVAL_REPEAT=3`) was green on the
 default models and on Opus 5.5 after the split.
 
+**2026-09-23 — the same split, measured on Codex.** The tier in Codex mode
+(`EVAL_PROVIDER=codex`, `EVAL_EFFORT=medium`, x3) against the layout before
+and after the split. Answers after the split were correct on every probe for
+`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` and `gpt-6-astra`; before the
+split, Luna answered N3 (a contract fix that deletes a `must_run`) with
+`ask_user = true` in only 2/3 runs (1/3 in an earlier run). Totals, before →
+after: Sol 31/31 → 31/31, Terra 31/31 → 30/31, Luna 30/31 → 31/31, Astra
+31/31 → 31/31. Terra's one miss after the split is a read-check, not an
+answer: in one N4 run it found the rule with `rg -C 8` over the whole skill
+directory instead of opening `verdicts.md`, and answered correctly 3/3. An
+earlier run also showed one Luna N2 run that answered correctly without
+opening `contract-amendment.md`. Reads are recovered from shell commands, so
+`nav_parse_codex` understands `cd`, globs, shell variables and `for` loops;
+before it did, two of the first run's "misses" were reads it failed to see.
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
