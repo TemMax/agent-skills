@@ -25,9 +25,8 @@
 #   CODEX_STUB_VERDICT        JSON text written verbatim to the -o file for a
 #                              supervisor invocation (prompt starts with
 #                              "# Supervisor Prompt"). Defaults to a clean
-#                              verdict with every optional violation field
-#                              explicitly null, mirroring a real
-#                              --output-schema response.
+#                              verdict with no violations and one remark:
+#                              {"ok":true,"violations":[],"remarks":["stub: clean"]}.
 set -euo pipefail
 
 if [ -z "${CODEX_STUB_LOG:-}" ]; then

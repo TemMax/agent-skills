@@ -307,3 +307,176 @@ test('(f) a lint error exits 1 and creates no .worktrees/wave-*', () => {
     { encoding: 'utf8' }).stdout.trim()
   assert.equal(worktrees, '', 'no wave-* worktree may exist after a lint failure')
 })
+
+test('(g) --jobs 2 with three tasks never overlaps more than two children, and overlaps at least once', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a', 'task-b', 'task-c'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base,
+      '--codex', STUB, '--jobs', '2', '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_SLEEP: '1' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+
+  const events = readLog(logPath)
+  const intervals = events.filter((e) => e.event === 'start').map((s) => {
+    const end = events.find((e) => e.event === 'end' && e.ts >= s.ts
+      && JSON.stringify(e.argv) === JSON.stringify(s.argv))
+    return [s.ts, end.ts]
+  })
+  assert.equal(intervals.length, 6, 'three executors and three supervisors')
+
+  // Sweep-line max concurrency: never more than --jobs children overlapping.
+  const points = intervals.flatMap(([start, end]) => [[start, 1], [end, -1]])
+  points.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  let concurrent = 0
+  let maxConcurrent = 0
+  for (const [, delta] of points) {
+    concurrent += delta
+    maxConcurrent = Math.max(maxConcurrent, concurrent)
+  }
+  assert.ok(maxConcurrent <= 2, '--jobs 2 must never run more than two children at once: max was '
+    + maxConcurrent + ' ' + JSON.stringify(intervals))
+
+  const anyOverlap = intervals.some(([aStart, aEnd], i) => intervals.some(([bStart], j) =>
+    i !== j && bStart >= aStart && bStart < aEnd))
+  assert.equal(anyOverlap, true, '--jobs 2 must run at least two children concurrently at some point: '
+    + JSON.stringify(intervals))
+})
+
+test('(h) executor fail mode is recorded as a transport agent failure', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'fail' },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop')
+  assert.equal(result.json.stopped.length, 1)
+  assert.equal(result.json.stopped[0].task, 'task-a')
+  assert.equal(result.json.stopped[0].reason, 'error')
+
+  const state = JSON.parse(readFileSync(result.json.states[0], 'utf8'))
+  const failures = state.tasks['task-a'].agentFailures
+  assert.ok(failures.some((f) => f.point === 'executor' && f.kind === 'transport'),
+    'expected a recorded executor transport failure: ' + JSON.stringify(failures))
+})
+
+test('(i) a child that outlives --timeout-min is killed and recorded as transport', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  // --timeout-min accepts a fractional value (it is not required to be an
+  // integer), so a sub-minute timeout is expressed directly on the CLI
+  // without needing a test-only seconds override: 0.01 min = 600ms, well
+  // under CODEX_STUB_SLEEP's 2 real seconds.
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--timeout-min', '0.01', '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_SLEEP: '2' },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop')
+  assert.equal(result.json.stopped[0].task, 'task-a')
+  assert.equal(result.json.stopped[0].reason, 'error')
+
+  const executors = result.json.children.filter((c) => c.role === 'executor')
+  assert.ok(executors.length >= 2, 'the helper must have been asked for a retry after a timed-out attempt: '
+    + JSON.stringify(executors))
+  assert.ok(executors.every((c) => c.seconds < 2),
+    'every attempt must be killed well before CODEX_STUB_SLEEP elapses: '
+    + JSON.stringify(executors.map((c) => c.seconds)))
+
+  const state = JSON.parse(readFileSync(result.json.states[0], 'utf8'))
+  const failures = state.tasks['task-a'].agentFailures
+  assert.ok(failures.length >= 2 && failures.every((f) => f.point === 'executor' && f.kind === 'transport'),
+    'expected timed-out attempts recorded as transport failures: ' + JSON.stringify(failures))
+})
+
+test('(j) a violation with null quote/pasteReproduced and satisfiable:true is stripped and reworked, '
+  + 'not stopped as contract-unsatisfiable', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const verdict = JSON.stringify({
+    ok: false,
+    violations: [{
+      rule: 'must_run: true', class: 'must_run', evidence: 'flagged for review',
+      quote: null, pasteReproduced: null, satisfiable: true,
+    }],
+    remarks: [],
+  })
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: verdict },
+  )
+  // Mode stays "good" for every attempt: the first attempt commits and gets
+  // this test's verdict; the retry the task is sent back to writes the exact
+  // same content into the same worktree, so it has nothing new to commit and
+  // the stub's `git commit` fails — which is enough to terminate the wave
+  // quickly and deterministically (as a transport agent failure) without
+  // needing the retry to actually succeed. The assertions below are about
+  // the first verdict, not about how the task eventually ends.
+  assert.ok(result.json, result.stdout + result.stderr)
+
+  const state = JSON.parse(readFileSync(result.json.states[0], 'utf8'))
+  const firstVerdict = state.tasks['task-a'].verdicts[0]
+  assert.ok(firstVerdict, 'expected at least one recorded verdict')
+  const violation = firstVerdict.verdict.violations[0]
+  assert.equal(Object.hasOwn(violation, 'quote'), false, 'a null quote must be stripped: '
+    + JSON.stringify(violation))
+  assert.equal(Object.hasOwn(violation, 'pasteReproduced'), false, 'a null pasteReproduced must be stripped: '
+    + JSON.stringify(violation))
+  assert.equal(violation.satisfiable, true)
+
+  // satisfiable:true must send the task back to rework, never straight to
+  // contract-unsatisfiable — proven here by a second executor attempt having
+  // been spawned at all (a stop right after the first verdict would mean
+  // only one executor attempt ever ran).
+  const executors = result.json.children.filter((c) => c.role === 'executor')
+  assert.ok(executors.length >= 2, 'the task must have gone back to rework after the first verdict: '
+    + JSON.stringify(executors))
+  assert.notEqual(result.json.stopped.find((s) => s.task === 'task-a')?.reason, 'contract-unsatisfiable',
+    'satisfiable:true must never stop the task as contract-unsatisfiable')
+})
+
+test('(k) an inconsistent verdict (ok:true with a violation) is a supervisor null-result, not a runner crash', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const verdict = JSON.stringify({
+    ok: true,
+    violations: [{ rule: 'must_run: true', class: 'must_run', evidence: 'looked fine but flagged anyway' }],
+    remarks: [],
+  })
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: verdict },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop')
+  assert.equal(result.json.stopped.length, 1)
+  assert.equal(result.json.stopped[0].task, 'task-a')
+  assert.notEqual(result.json.stopped[0].reason, 'runner-error',
+    'an inconsistent verdict must not stop the task as runner-error: ' + JSON.stringify(result.json.stopped))
+  assert.equal(result.json.stopped[0].reason, 'error')
+
+  const state = JSON.parse(readFileSync(result.json.states[0], 'utf8'))
+  const failures = state.tasks['task-a'].agentFailures
+  assert.ok(failures.some((f) => f.point === 'supervisor' && f.kind === 'null-result'),
+    'expected the inconsistent verdict recorded as a supervisor null-result failure: ' + JSON.stringify(failures))
+})

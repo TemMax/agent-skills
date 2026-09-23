@@ -417,7 +417,14 @@ async function main() {
     try {
       initResult = helperInit(derivedPlanPath, config.waveNumber, config.repoPath, config.base)
     } catch (error) {
-      process.stderr.write('codex-wave-runner: init failed for task "' + taskId + '": ' + error.message + '\n')
+      const gitNotWritable = /cannot lock ref|unable to create directory|Operation not permitted/
+        .test(error.message)
+      const hint = gitNotWritable
+        ? '\nthe repository\'s .git is not writable in this session; run the runner where it can write'
+          + ' .git (for example `codex exec --add-dir <repo>/.git`, or full access)'
+        : ''
+      process.stderr.write('codex-wave-runner: init failed for task "' + taskId + '": '
+        + error.message + hint + '\n')
       process.exit(1)
     }
     if (!Array.isArray(initResult.tasks) || initResult.tasks.length !== 1 || initResult.tasks[0] !== taskId) {
@@ -482,6 +489,22 @@ async function main() {
     }
   }
 
+  // The --output-schema JSON Schema cannot express codex-wave-state.mjs's own
+  // rule that `ok === (violations.length === 0)` (record-verdict's
+  // validVerdict enforces it and throws otherwise). A model can satisfy the
+  // schema while violating that rule, e.g. {"ok":true,"violations":[{...}]},
+  // which would otherwise make record-verdict throw and stop the whole task
+  // as "runner-error". Check for that mismatch here and treat it the same as
+  // a null result, so the helper's ordinary supervisor-failure policy
+  // (agentFailures / consecutive-failure -> "error") applies instead.
+  function isConsistentVerdict(verdict) {
+    return Boolean(verdict) && typeof verdict === 'object' && !Array.isArray(verdict)
+      && typeof verdict.ok === 'boolean'
+      && Array.isArray(verdict.violations)
+      && Array.isArray(verdict.remarks) && verdict.remarks.every((remark) => typeof remark === 'string')
+      && verdict.ok === (verdict.violations.length === 0)
+  }
+
   async function handleSupervisor(taskId, statePath, action) {
     const taskDir = join(config.outPath, taskId)
     mkdirSync(taskDir, { recursive: true })
@@ -525,7 +548,12 @@ async function main() {
       } else {
         let parsed = null
         try { parsed = JSON.parse(readFileSync(reportPath, 'utf8')) } catch { parsed = null }
-        payload = parsed === null ? { error: { kind: 'null-result' } } : stripNullViolationKeys(parsed)
+        if (parsed === null) {
+          payload = { error: { kind: 'null-result' } }
+        } else {
+          const stripped = stripNullViolationKeys(parsed)
+          payload = isConsistentVerdict(stripped) ? stripped : { error: { kind: 'null-result' } }
+        }
       }
       helperRecordVerdict(statePath, taskId, payload)
     } finally {
