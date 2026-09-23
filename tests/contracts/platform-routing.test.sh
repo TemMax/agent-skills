@@ -173,6 +173,12 @@ check "Codex state binds the approved plan except mutable status" \
   "grep -qF 'initialized plan digest' '$CP' && grep -qF 'status transition' '$CP'"
 check "Codex mechanics remain authoritative over a clean model verdict" \
   "grep -qF 'clean supervisor verdict cannot override blocking mechanical facts' '$CP'"
+check "Codex protocol defaults to the deterministic runner" \
+  "grep -qF 'codex-wave-runner.mjs' '$CP' && grep -qF '## Default: the deterministic runner' '$CP'"
+check "Codex protocol keeps the native action loop as the fallback heading" \
+  "grep -qF '## Commands and action loop' '$CP'"
+check "multi-model Host adapter names the deterministic runner" \
+  "grep -qF 'codex-wave-runner.mjs' '$MM'"
 
 section "multi-model holds reviewed fix waves locally only by explicit invocation"
 
