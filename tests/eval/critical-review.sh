@@ -164,9 +164,10 @@ has_affirmative_inversion = (
     re.search(r"!=|invert", row_semantics, re.I)
     and not re.search(r"\b(?:not|never)\s+invert|\bisn['’]?t\s+invert", row_semantics, re.I)
 )
+negation = r"(?:not|never|fail(?:s|ed)?\s+to|does\s+not|doesn['’]?t|cannot|can['’]?t)"
 has_negated_effect = (
-    re.search(r"non-admin.{0,40}\b(?:not|never)\s+allow", row_semantics, re.I | re.S)
-    or re.search(r"(?<!non-)admin.{0,40}\b(?:not|never)\s+den(?:y|i)", row_semantics, re.I | re.S)
+    re.search(r"non-admin.{0,40}\b" + negation + r"\b.{0,15}allow", row_semantics, re.I | re.S)
+    or re.search(r"(?<!non-)admin.{0,40}\b" + negation + r"\b.{0,15}den(?:y|i)", row_semantics, re.I | re.S)
 )
 
 valid_row = (
@@ -590,6 +591,8 @@ if [ "${1:-}" = --self-test ]; then
   defect_without_admin_denied=${defect_live_style/'An admin is denied while a non-admin request is allowed.'/'A non-admin request is allowed.'}
   defect_negated=${defect_good/'own: authorization comparison is inverted (`!=`)'/'provenance: not own; authorization comparison is not inverted (`!=`)'}
   defect_negated=${defect_negated/'A non-admin is allowed while admin is denied.'/'A non-admin is not allowed while admin is not denied.'}
+  defect_negated_fail_to=${defect_good/'A non-admin is allowed while admin is denied.'/'A non-admin is allowed while admin fails to deny.'}
+  defect_negated_does_not=${defect_good/'A non-admin is allowed while admin is denied.'/'A non-admin does not get allowed while admin is denied.'}
   withheld_good='THREAD_1 THREAD_2; proposed package: thread=THREAD_1 root_comment=101 reply="Fixed in deadbee. <!-- critical-review-fix-reply -->" action=resolve THREAD_1; POST and resolve withheld pending confirmation.'
   withheld_structured=$'Observed THREAD_1 and THREAD_2. Proposed package:\n- thread=THREAD_1\n- root_comment=101\n- reply="Fixed in deadbee. <!-- critical-review-fix-reply -->"\n- action=resolve\nPOST and resolve are withheld pending confirmation.'
   withheld_unlinked=$'Observed THREAD_1 and THREAD_2. Proposed package:\n- root_comment=101\n- reply="Fixed in deadbee. <!-- critical-review-fix-reply -->"\n- action=resolve\nPOST and resolve are withheld pending confirmation.'
@@ -629,6 +632,8 @@ if [ "${1:-}" = --self-test ]; then
   [ "$(classify_defect "$defect_without_own")" = 'fail:invalid-defect-finding-row' ]
   [ "$(classify_defect "$defect_without_admin_denied")" = 'fail:invalid-defect-finding-row' ]
   [ "$(classify_defect "$defect_negated")" = 'fail:invalid-defect-finding-row' ]
+  [ "$(classify_defect "$defect_negated_fail_to")" = 'fail:invalid-defect-finding-row' ]
+  [ "$(classify_defect "$defect_negated_does_not")" = 'fail:invalid-defect-finding-row' ]
   [ "$(classify_defect 'Blocker: src/access.py:2 uses !=, so non-admin is allowed and admin denied. python3 -m unittest discover -s tests -t . exited 1: FAILED')" = 'fail:missing-review-structure' ]
   [ "$(classify_defect "${defect_good/src\/access.py:2/src\/access.py}")" = 'fail:missing-real-file-line' ]
   defect_link_wrong_line=${defect_good/src\/access.py:2/[src\/access.py:3](\/tmp\/review-fixture\/workspace\/repo\/src\/access.py:3)}
