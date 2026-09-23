@@ -68,6 +68,19 @@ layout with `SKILL_DIR=/path/to/plugins/orchestration/skills/multi-model bash
 tests/eval/skill-navigation.sh`. Its parser and read-check are tested offline
 by `tests/eval/skill-navigation.test.sh`.
 
+**2026-09-23 — multi-model split, measured.** `SKILL.md` went from 925 to 622
+lines (58,142 to 41,464 bytes) by moving four conditional sections verbatim
+into `references/claude-wave-adapter.md`, `contract-amendment.md`,
+`verdicts.md` and `orchestrator-drift-hook.md`. The skill-navigation tier
+(x3) before the split: Opus 5.5 30/30, Sonnet 5 28/30 — both misses were runs
+that did not open `SKILL.md` at all, and their answers were still correct.
+After the split: Opus 5.5 30/30 with every reference opened at its trigger
+3/3, and Sonnet 5 29/30 with every mandatory reference opened 3/3 and N5
+(drift advice from the Stop hook) answered correctly without opening
+`orchestrator-drift-hook.md` — hence that probe's read-check is now optional
+rather than pass/fail. The full live suite (`EVAL_REPEAT=3`) was green on the
+default models and on Opus 5.5 after the split.
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a

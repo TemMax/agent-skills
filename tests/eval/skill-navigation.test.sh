@@ -55,6 +55,16 @@ expect "present, read every run -> pass" "1/0" "$(report "$S" references/verdict
 expect "present, missed one run -> fail" "0/1" "$(report "$S" references/verdicts.md 2 3)"
 contains "failure shows k/n"             "read references/verdicts.md (2/3)" "$(cat "$W/report.out")"
 
+section "read-check (optional)"
+expect "optional, absent file reports as a pass" "1/0" "$(report "$S" optional:references/contract-amendment.md 0 3)"
+contains "optional, absent file prints SKIP" "SKIP read-check (references/contract-amendment.md absent)" "$(cat "$W/report.out")"
+expect "optional, present and read -> pass"     "1/0" "$(report "$S" optional:references/verdicts.md 3 3)"
+contains "optional, present and read prints INFO with k/n" \
+  "INFO read references/verdicts.md (3/3, optional)" "$(cat "$W/report.out")"
+expect "optional, present and not read -> still a pass" "1/0" "$(report "$S" optional:references/verdicts.md 0 3)"
+contains "optional, present and not read prints INFO with k/n" \
+  "INFO read references/verdicts.md (0/3, optional)" "$(cat "$W/report.out")"
+
 section "probe driven by a stub claude (no model call)"
 BIN="$W/bin"; mkdir -p "$BIN"
 cat > "$BIN/claude" <<'SH'
