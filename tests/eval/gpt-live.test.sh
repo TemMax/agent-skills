@@ -31,7 +31,24 @@ printf '%s beta end %s\n' "\$EVAL_MODEL" "\$(python3 -c 'import time; print(time
 printf '  1 passed, 1 failed\n'
 exit 1
 SH
-chmod +x "$TIERS_DIR/alpha.sh" "$TIERS_DIR/beta.sh"
+cat > "$TIERS_DIR/gamma.sh" <<'SH'
+#!/usr/bin/env bash
+# Simulates the safety/profile-routing/critical-review/wave tiers: refuses to
+# run without a fresh EVAL_RESULTS_DIR, writes cells.tsv there instead of
+# printing an "N passed, M failed" line, and exits non-zero regardless.
+set -uo pipefail
+if [ -z "${EVAL_RESULTS_DIR:-}" ] || [ -e "$EVAL_RESULTS_DIR" ]; then
+  printf 'gamma: EVAL_RESULTS_DIR must be a new, unset-or-absent directory\n' >&2
+  exit 2
+fi
+mkdir -p "$EVAL_RESULTS_DIR"
+printf 'scenario\tstatus\n' > "$EVAL_RESULTS_DIR/cells.tsv"
+printf 'one\tpass\n' >> "$EVAL_RESULTS_DIR/cells.tsv"
+printf 'two\tpass\n' >> "$EVAL_RESULTS_DIR/cells.tsv"
+printf 'three\tfail\n' >> "$EVAL_RESULTS_DIR/cells.tsv"
+exit 1
+SH
+chmod +x "$TIERS_DIR/alpha.sh" "$TIERS_DIR/beta.sh" "$TIERS_DIR/gamma.sh"
 
 max_overlap() { # stamps-file
   python3 - "$1" <<'PY'
@@ -90,6 +107,20 @@ section "--jobs 2 caps concurrency at 2 and actually overlaps"
 overlap="$(max_overlap "$STAMPS")"
 expect "at most 2 stubs run at once" "1" "$([ "$overlap" -le 2 ] && echo 1 || echo 0)"
 expect "concurrency is real, not accidental serialization" "1" "$([ "$overlap" -eq 2 ] && echo 1 || echo 0)"
+
+section "cells.tsv-writing tier: EVAL_RESULTS_DIR set per job, summary derived from it"
+RESULTS3="$W/results3"
+set +e
+GPT_LIVE_TIER_DIR="$TIERS_DIR" bash tests/eval/gpt-live.sh \
+  --models m1 --tiers gamma --jobs 1 --results "$RESULTS3" \
+  > "$W/driver3.out" 2>&1
+rc3=$?
+set -e
+SUMMARY3="$RESULTS3/summary.tsv"
+check "gamma cells dir was created at the per-job path" "[ -d '$RESULTS3/m1/gamma.cells' ]"
+check "gamma cells.tsv was written" "[ -f '$RESULTS3/m1/gamma.cells/cells.tsv' ]"
+check "driver exits non-zero when gamma fails" "[ '$rc3' -ne 0 ]"
+check "m1/gamma row derives passed 2, failed 1 from cells.tsv" "grep -qE '^m1[[:space:]]+gamma[[:space:]]+1[[:space:]]+[0-9.]+[[:space:]]+2[[:space:]]+1$' '$SUMMARY3'"
 
 section "--results refuses to overwrite an existing non-empty directory"
 DIRTY="$W/dirty-results"; mkdir -p "$DIRTY"
