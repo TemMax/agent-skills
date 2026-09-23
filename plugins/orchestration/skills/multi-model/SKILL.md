@@ -135,7 +135,9 @@ English does not mean English replies.
    exact provider/model/effort fields through execution; profile routes are not
    a second execution-time planner.
 6. **Launch.** Select the host adapter below; independent tasks remain isolated
-   by the shared wave contract.
+   by the shared wave contract — for a Claude wave read
+   `references/claude-wave-adapter.md`, for a Codex wave
+   `references/codex-wave-protocol.md`.
 7. **Review** (see the checklist below). Fixes — as one concrete list. Two misses
    in the same place — fix the task spec, don't repeat the prompt.
 8. **The final end-to-end review is the orchestrator's own.** Before it you may
@@ -507,7 +509,7 @@ block. Spending the supervisor's credibility on flaky tests buys nothing.
 | 2nd violation of the same rule | To a stronger model — repeating a prompt on the model that just failed it reproduces the failure |
 | `pasteReproduced: false` on two attempts | Escalate to a stronger model: once is explicable, twice is a pattern, and the count is the ladder's to keep |
 | Executor is already the strongest model | No higher rung: one rework with the verdict attached, then stop |
-| The contract cannot be satisfied | Stop immediately — no rework, no stronger model. Return the task to yourself to amend the contract (below) |
+| The contract cannot be satisfied | Stop immediately — no rework, no stronger model. Return the task to yourself to amend the contract — before acting, read `references/contract-amendment.md` |
 | Stop | Hand the user the task, every verdict in order, and the branch name |
 
 ## Host adapter
@@ -529,8 +531,8 @@ from the current pushed PR head. Local mode is one publication transaction: if
 approved fixes need dependent bases that cannot safely fit in that one
 supervised wave, stop before publication rather than push around the gate.
 
-- Claude-only wave: invoke `references/wave-runner.workflow.mjs` exactly as
-  documented below.
+- Claude-only wave: read and follow `references/claude-wave-adapter.md` (it
+  generates the launch script and invokes the shipped runner).
 - Codex-only wave (GPT-5.6 executors, or separately approved Astra initial/final
   rung; GPT-5.6 or Astra supervisor): read and follow
   `references/codex-wave-protocol.md`; do not invoke Claude Workflow.
@@ -550,168 +552,13 @@ recommendations; lint and the mixed/unknown-provider stop still apply.
 
 ### Claude-only wave — invoke the shipped runner
 
-For a Claude-only wave, the ladder above is implemented once, in
-`references/wave-runner.workflow.mjs`, and covered by the deterministic
-simulator tier in `tests/`. Your job is to assemble its inputs, not to
-re-implement its rules — every hand-written wave script is a fresh chance to
-get "two strikes escalate" subtly wrong, and the one hand-written run on
-record was rejected at launch four times before it worked.
-
-Its `opts.model` accepts exactly the full IDs in Model identifiers above and
-rejects aliases by name.
-
-1. **Preflight the contracts at the base.** Before the first wave forks, run
-   each distinct `must_run` command once against the recorded base — route
-   it to a cheap agent per the Research Routing table, or run it yourself.
-   Compare against the plan's recorded expectation for each command: green
-   at base, or expected-red (the task itself creates what the command
-   checks). An unexpected red is a contract defect to fix now, before any
-   executor is spawned — transcript mining found ~13% of all supervisor
-   verdicts were `satisfiable:false`, every one tracing to a contract
-   already broken at base (fmt drift at BASE, a command targeting a
-   nonexistent build target), each costing an executor attempt plus an
-   Opus verdict. The same run warms the build caches every worktree in the
-   wave will fork from cold.
-2. **Generate the launch script** from the lint-clean plan:
-
-   ```
-   node <this skill's base directory>/references/wave-launch.mjs <plan> --wave <n> \
-     --base <pushed sha> --repo <abs repo> --default-branch <branch>
-   ```
-
-   Optional: `--verifier <model>:<effort>`, `--out <path>`. It refuses a plan
-   that is not lint-clean, writes nothing on any failure, and on success
-   prints one absolute path (default
-   `<repo>/.worktrees/launch/wave-<n>.workflow.mjs`).
-3. **Invoke it** with `Workflow({ scriptPath: "<printed path>" })` and no
-   `args`. Resume with the same `scriptPath` and `resumeFromRunId`.
-
-   Why a generated file and not the runner's own path: the host's Workflow
-   tool accepts `scriptPath` only inside the working directory or an added
-   directory. Verified 2026-09-22: a plugin-cache path is rejected ("scriptPath
-   must be a script path this tool returned, or a file you can already read").
-   And workflow scripts cannot read files, so the full wave input — including
-   `supervisorPromptText`, the text of `references/supervisor-prompt.md` —
-   must travel inside the script; hand-copying tens of KB of args into a tool
-   call invites transcription errors.
-
-   The generated file is the shipped `references/wave-runner.workflow.mjs`
-   byte-for-byte plus one `const WAVE_ARGS = {...}` line after its `meta`
-   literal; the runner reads `typeof WAVE_ARGS !== 'undefined' ? WAVE_ARGS :
-   args`. It is therefore not a custom wave script, and the rule below still
-   holds.
-
-   For reference, the runner input the generator builds and embeds as
-   `WAVE_ARGS` (you do not write this by hand):
-
-```
-{
-  base: "<pushed fork-point sha>",          // see Wave Isolation above
-  defaultBranch: "main",
-  repoPath: "/abs/path/to/repo",
-  supervisorPromptText: "<text of supervisor-prompt.md>",
-  supervisor: { model: "claude-opus-5-5", effort: "high" },   // the wave's plan entry
-  verifier: { model: "claude-sonnet-5", effort: "low" },     // only with --verifier; this is the default
-  tasks: [{                                                  // the wave's plan tasks, minus `branch`
-    id: "auth-fix",
-    description: "<the task's `## Task auth-fix` prose section>",
-    context: "<files, lines, conventions>",   // optional; copied if the plan task has it
-    contract: { files_allowed: [...], files_forbidden: [...],
-                must_run: [{ cmd: "...", evidence: "required" }],
-                forbidden_moves: [...], report_must_answer: [...] },
-    executor: { model: "claude-sonnet-5", effort: "medium" },
-    ladder: ["claude-opus-5-5"]      // rungs AFTER the first; omit for the routing default
-  }]
-}
-```
-
-The runner assembles each executor's prompt from the task object — the six
-mandatory blocks of the Task Prompt Template above, plus a workspace section
-carrying the isolation instructions — so the contract the executor reads and
-the contract the supervisor enforces are the same object and cannot diverge.
-Escalated rungs run at `high` effort.
-
-Claude adapter completion reads the multi-model publication contract after
-every task is `ok`. `publication: push` merges branches in plan order, runs the
-shared full-wave review, and pushes exactly as normal. With `publication: local`, merge branches in plan
-order only into the local feature branch, run the shared full-wave review,
-return the resulting local feature-branch commit(s), task branches, and verdict
-evidence, and do no push. The Claude adapter keeps the shipped Workflow
-implementation unchanged; publication stays at this composition boundary, not
-in the Workflow arguments or script.
-
-4. Act on the returned statuses, task by task:
-   - `ok` — merge `wave/<id>` per the wave plan.
-   - `contract-unsatisfiable` — run the amendment flow below (one amendment
-     per task; removing or weakening a check goes to the user as a yes/no),
-     regenerate the launch script from the edited plan with the same command,
-     then re-invoke with `resumeFromRunId`: the runner is deterministic, so
-     every unchanged task replays from cache and only the amended one runs.
-   - `failed` / `error` — hand the user the task, every verdict in order, and
-     the branch name. Do not quietly retry.
-
-   A wave may also be launched as parallel single-task runner invocations —
-   same-wave tasks are file-disjoint by construction, so each `ok` branch
-   can merge as its result lands instead of waiting for the wave's slowest
-   task (measured: three finished tasks once waited ~47 minutes on a
-   sibling's third attempt). The wave's full suite still runs once, after
-   all of the wave's invocations settle, before the push.
-
-Never write a custom wave script. If the shipped runner cannot express the
-wave, stop before spawning and return the unsupported requirement for a plan or
-adapter change.
+For a Claude-only wave, read and follow `references/claude-wave-adapter.md`
+before launching. Never write a custom wave script.
 
 ### When the contract is what is broken
 
-Every other rung assumes the executor was at fault, because that is the only
-hypothesis the ladder had. Verified on 2026-08-12: given a contract no compliant
-change could satisfy, the ladder reworked, escalated to a stronger model, and
-stopped — punishing an innocent executor three times and burning the heavy tier
-to do it. All three supervisors said so unprompted, in `remarks`, which by design
-change nothing.
-
-So the verdict carries a fact, not a class: **`satisfiable`** — could any change
-`files_allowed` permits have altered the outcome of the failing command? — with
-the evidence for it. Deciding this is the supervisor's job; deciding what happens
-next is not. A class would be another label to argue with; a fact the ladder
-reads in code is not.
-
-`ok:false` with `satisfiable:false` stops the wave for that task at once. Do not
-rework, do not escalate: a second attempt reproduces the result exactly, and the
-supervisors in that run said as much before it happened.
-
-**Amending the contract is your job, not the user's.** You wrote it; you fix it.
-Record the amendment in the wave plan with its reason — before and after — so the
-change is on the record rather than in your head.
-
-Two kinds of amendment, and the line between them is decidable by diffing the old
-contract against the new:
-
-- **Widening `files_allowed`, correcting a wrong path, fixing a broken command** —
-  make the change and carry on. None of these can hide a defect: the check still
-  runs and the work still has to pass it.
-- **Removing or weakening a `must_run` entry, or a `forbidden_move` that produced
-  a violation** — write the amendment, then ask the user one yes/no question
-  naming exactly what stops being checked. This is the only edit that can make an
-  inconvenient check disappear, and the agent that benefits from it is the one
-  proposing it.
-
-The user edits nothing. You detect, you draft, you apply. What goes to them is a
-decision — whether they accept losing that check — not a file to open. Asking
-someone to hand-edit a config is how a safeguard ends up switched off.
-
-**An amendment exists only when the plan file is edited and the runner is
-re-invoked with `resumeFromRunId` carrying the amended task.** A mid-wave
-"I authorize X" in conversation reaches nobody: the runner rebuilds every
-rework prompt from the task object it was given, so an amendment that never
-re-enters the runner never reaches an executor. Measured 2026-08: a
-verbally pre-authorized dependency never propagated; the rework executor
-fell back to a worse design, which passed supervision and shipped, and the
-regression was fixed by a later wave at full price.
-
-One amendment per task. A second `satisfiable:false` on the same task goes to the
-user whatever kind it is: each loosening looks reasonable alone, and the loop
-that ends in a contract checking nothing is built out of reasonable steps.
+`ok:false` with `satisfiable:false` stops the task at once — no rework, no stronger model.
+Read and follow `references/contract-amendment.md` (amending is your job; removing or weakening a check is a yes/no question to the user).
 
 ### The blocking threshold sits above the suspicion threshold
 
@@ -923,3 +770,8 @@ Opus 5 relays subagent claims unverified (p. 81).
   page references to the system cards: benchmarks, documented failure modes,
   effort curves, multi-agent harness data, orchestration takeaways. Load it for
   contested routing calls or to justify a choice.
+- `references/claude-wave-adapter.md` — the Claude host adapter (base
+  preflight, launch-script generation, runner invocation, status handling).
+  Read before launching a Claude-only wave.
+- `references/contract-amendment.md` — the contract amendment flow. Read when
+  a task returns `contract-unsatisfiable`, before acting on it.
