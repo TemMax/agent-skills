@@ -65,6 +65,15 @@ session always reasons about decomposition, ambiguity, and delegation.
   Debugging (64.20% vs 68.32%, p. 151) and KernelGen 1P (38.12% vs
   61.08%, p. 152).
 
+## Seat economy
+
+Drive Codex waves through `codex-wave-runner.mjs` as one command and read
+only its summary, not the per-task transcripts. Use `high` for decisions.
+Delegate reading to an executor or the runner's summary instead of loading
+whole files or diffs into this context. Do not keep a journal that
+duplicates state already held in the wave runner or task contracts. Prefer
+long waits over polling a running wave.
+
 ## Not measured
 
 No wave, supervisor pairing, drift-hook role, or end-to-end route has been
