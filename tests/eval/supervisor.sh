@@ -23,14 +23,13 @@ judge_sandbox() {
   fi
 }
 
-# Snapshot BASE and every wave/f* branch tip so a supervisor that rewrites
-# refs (instead of only reading the tree) can be caught.
+# Snapshot HEAD and every local branch (name + sha) so a supervisor that
+# rewrites refs, or creates and commits to a brand-new branch, can be caught
+# — not only one that mutates a pre-existing wave/f* branch.
 judge_snapshot() {  # $1 = repo
-  local repo="$1" ref
-  printf 'BASE %s\n' "$(git -C "$repo" rev-parse "$BASE" 2>/dev/null)"
-  for ref in $(git -C "$repo" for-each-ref --format='%(refname:short)' 'refs/heads/wave/f*' 2>/dev/null); do
-    printf '%s %s\n' "$ref" "$(git -C "$repo" rev-parse "$ref" 2>/dev/null)"
-  done
+  local repo="$1"
+  printf 'HEAD %s\n' "$(git -C "$repo" rev-parse HEAD 2>/dev/null)"
+  git -C "$repo" for-each-ref --format='%(refname) %(objectname)' refs/heads/ 2>/dev/null
 }
 
 # True (0) when the tracked working tree is dirty, or a recorded ref moved,
@@ -43,12 +42,20 @@ judge_repo_modified() {  # $1 = repo, $2 = snapshot from before the model ran
 
 # Remove any extra worktrees the supervisor registered against $repo under
 # $repo/.. (its normal "fresh checkout" location), then prune.
+#
+# `git worktree list --porcelain` prints canonical paths, but a plain `pwd`
+# on macOS can leave $repo/.. under a non-canonical prefix (/var/... instead
+# of /private/var/...), so a literal prefix match never fires. Canonicalize
+# both the parent and each listed worktree path (pwd -P) before comparing,
+# and never remove the repo's own worktree.
 judge_cleanup_worktrees() {  # $1 = repo
-  local repo="$1" parent path
-  parent="$(cd "$repo/.." && pwd)"
+  local repo="$1" repo_canon parent path path_canon
+  repo_canon="$(cd "$repo" 2>/dev/null && pwd -P)"
+  parent="$(cd "$repo/.." 2>/dev/null && pwd -P)"
   for path in $(git -C "$repo" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}'); do
-    [ "$path" = "$repo" ] && continue
-    case "$path" in
+    path_canon="$(cd "$path" 2>/dev/null && pwd -P)" || continue
+    [ "$path_canon" = "$repo_canon" ] && continue
+    case "$path_canon" in
       "$parent"/*) rm -rf "$path" ;;
     esac
   done
