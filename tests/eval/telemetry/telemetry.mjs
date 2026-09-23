@@ -486,6 +486,7 @@ export function buildClaudeReport(run, opts) {
       id: node.id,
       role,
       model,
+      effort: null,
       wallMinutes: round(wallMs / 60000, 4),
       requests: requestInputs.length,
       tokens: { ...totals, total: totals.input + totals.cacheCreation + totals.cacheRead + totals.output },
