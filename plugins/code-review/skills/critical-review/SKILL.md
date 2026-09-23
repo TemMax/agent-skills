@@ -68,6 +68,18 @@ evidence, but it must state that its GPT route is uncalibrated. Existing Claude
 review guidance is unchanged. Full counts and limitations:
 `tests/eval/gpt-5-6-results-2026-09-04.md`.
 
+### GPT-6 Sol and Luna calibration — 2026-09-23 UTC
+
+No GPT-6 Sol or Luna production consequential-review or supervisor route is
+supported yet. Review-guard counts: Sol clean 0/3, planted 1/3; Luna clean
+1/3, planted 3/3; both models passed the PR gate 2/2. Sol's failed cells were
+substantively correct reviews — the inverted check identified with file/line
+evidence and the right fix — rejected only on output format; this is recorded
+as a harness limitation to fix before re-measuring, not evidence for a route.
+A GPT-6 Sol or Luna model-selection request returns `unsupported`, exactly as
+for GPT-5.6. Full counts and limitations:
+`tests/eval/gpt-6-results-2026-09-23.md`.
+
 ## Overview
 
 This skill drives a critical, evidence-based review of either uncommitted
