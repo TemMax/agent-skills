@@ -568,6 +568,32 @@ test('V7 a repeated rule mixed with a fresh one goes to the judge, not another b
   assert.match(supCalls(calls, 't-one')[0].prompt, /VERIFIER FACTS/)
 })
 
+test('V8 green must_run with no pasted evidence goes to the judge, not a mechanical bounce', async () => {
+  const noPaste = { ...FACTS_GREEN(),
+    mustRun: [{ cmd: 'true', exit: 0, output: '(exit 0)', pasteFoundInReport: false }] }
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }, { factsById: { 't-one': [noPaste] } }),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.equal(result.tasks[0].attempts[0].kind, 'verdict')
+  assert.equal(supCalls(calls, 't-one').length, 1)
+})
+
+test('V9 red must_run with no pasted evidence still bounces mechanically', async () => {
+  const redNoPaste = { ...FACTS_GREEN(),
+    mustRun: [{ cmd: 'true', exit: 1, output: 'boom', pasteFoundInReport: false }] }
+  const { result } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }, { factsById: { 't-one': [redNoPaste, FACTS_GREEN()] } }),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  const mech = result.tasks[0].attempts[0]
+  assert.equal(mech.kind, 'mechanical')
+  assert.ok(mech.verdict.violations.some((v) => v.class === 'must_run'))
+  assert.ok(mech.verdict.violations.some((v) => v.class === 'report'))
+})
+
 // ---------- L: launch hook and verifier exit-status rule ----------
 
 // Mirrors the launch generator: insert `const WAVE_ARGS = <json>` after the
