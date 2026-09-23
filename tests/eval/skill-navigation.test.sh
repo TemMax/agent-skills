@@ -35,6 +35,34 @@ expect "no answer at all" "<missing>" "$(nav_field "" next)"
 printf '%s\n' '{"type":"result","result":"I cannot answer that."}' > "$W/noanswer.jsonl"
 expect "a result without a JSON object yields an empty answer" "" "$(nav_answer "$(nav_parse "$W/noanswer.jsonl")")"
 
+section "parser (codex)"
+cat > "$W/codex-events.jsonl" <<'JSONL'
+{"type":"item.completed","item":{"id":"cmd1","type":"command_execution","command":"/bin/zsh -lc 'sed -n \"1,200p\" /skill/SKILL.md'","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"cmd2","type":"command_execution","command":"cd /skill && cat references/verdicts.md | head -50","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"cmd3","type":"command_execution","command":"wc -l /skill/references/ignored.md","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"cmd4","type":"command_execution","command":"rg -n drift references/orchestrator-drift-hook.md","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"cmd5","type":"command_execution","command":"cat 'references/broken.md","exit_code":0,"status":"completed"}}
+not a json line at all
+{"type":"item.completed","item":{"id":"m1","type":"agent_message","text":"First scratch: {\"draft\": true}"}}
+{"type":"item.completed","item":{"id":"m2","type":"agent_message","text":"Final answer: {\"lint_command\": \"node plan-lint.mjs\", \"init_command\": \"node codex-wave-state.mjs init --wave 1 1111111111111111111111111111111111111111\", \"uses_claude_workflow\": false}"}}
+JSONL
+parsed_codex="$(nav_parse_codex "$W/codex-events.jsonl")"
+expect "zsh -lc wrap, cd-joined pipe read, no-read program, unresolved relative read, an unparseable command skipped, a non-JSON line skipped, and only the last agent_message's answer" \
+  "/skill/SKILL.md
+/skill/references/verdicts.md
+references/orchestrator-drift-hook.md" "$(nav_reads "$parsed_codex")"
+expect "the last agent_message's last top-level JSON object" \
+  '{"lint_command":"node plan-lint.mjs","init_command":"node codex-wave-state.mjs init --wave 1 1111111111111111111111111111111111111111","uses_claude_workflow":false}' \
+  "$(nav_answer "$parsed_codex")"
+
+GW="$W/glob"; mkdir -p "$GW/references"
+: > "$GW/references/a.md"; : > "$GW/references/b.md"
+printf '%s\n' "{\"type\":\"item.completed\",\"item\":{\"id\":\"g1\",\"type\":\"command_execution\",\"command\":\"cd $GW && cat references/*.md\",\"exit_code\":0,\"status\":\"completed\"}}" \
+  > "$W/glob-events.jsonl"
+expect "glob expansion against the tracked directory yields both absolute paths" \
+  "$GW/references/a.md
+$GW/references/b.md" "$(nav_reads "$(nav_parse_codex "$W/glob-events.jsonl")")"
+
 section "read-check"
 S="$W/skill"; mkdir -p "$S/references"
 : > "$S/SKILL.md"; : > "$S/references/verdicts.md"
@@ -101,5 +129,47 @@ case "$argv" in *plan*) fail "no plan permission mode" "$argv" ;; *) pass "no pl
 contains "read-only tool allowlist" "Read,Glob,Grep" "$argv"
 contains "stream-json events"       "stream-json" "$argv"
 contains "prompt opens in EVAL MODE on SKILL_DIR" "EVAL MODE: Read and apply the multi-model skill at $S/SKILL.md" "$(cat "$W/log/stdin")"
+
+section "probe driven by a stub codex (no model call)"
+CBIN="$W/cbin"; mkdir -p "$CBIN"
+cat > "$CBIN/codex" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$NAV_STUB_LOG/argv"
+cat > "$NAV_STUB_LOG/stdin"
+n="$(cat "$NAV_STUB_LOG/count" 2>/dev/null || echo 0)"; n=$((n+1)); echo "$n" > "$NAV_STUB_LOG/count"
+lied=false; [ "$n" -eq 2 ] && lied=true
+printf '{"type":"item.completed","item":{"id":"cmd1","type":"command_execution","command":"cat %s/SKILL.md","exit_code":0,"status":"completed"}}\n' "$NAV_STUB_SKILL"
+printf '{"type":"item.completed","item":{"id":"cmd2","type":"command_execution","command":"cat %s/references/verdicts.md","exit_code":0,"status":"completed"}}\n' "$NAV_STUB_SKILL"
+printf '{"type":"item.completed","item":{"id":"msg1","type":"agent_message","text":"{\\"next\\": \\"rework-same-executor\\", \\"tell_executor_it_lied\\": %s, \\"attach_verdict\\": true}"}}\n' "$lied"
+SH
+chmod +x "$CBIN/codex"
+mkdir -p "$W/clog"
+cout="$(
+  PATH="$CBIN:$PATH" NAV_STUB_LOG="$W/clog" NAV_STUB_SKILL="$S" \
+  SKILL_DIR="$S" EVAL_MODEL=stub-model EVAL_PROVIDER=codex EVAL_EFFORT=medium EVAL_REPEAT=3 NAV_WORK="$W" FAILED=0 PASSED=0
+  export NAV_STUB_LOG NAV_STUB_SKILL EVAL_PROVIDER EVAL_EFFORT
+  nav_probe N4 "stub" references/verdicts.md "a scenario" "a shape" \
+    "eq:next:rework-same-executor" "eq:tell_executor_it_lied:false" "has:next:rework"
+  echo "totals $PASSED/$FAILED"
+)"
+expect "stub was called once per repetition" "3" "$(cat "$W/clog/count")"
+contains "read-check counts every repetition (reads recovered from command_execution events)" \
+  "read references/verdicts.md (3/3)" "$cout"
+contains "SKILL.md read-check" "read SKILL.md (3/3)" "$cout"
+contains "k/n for a held assertion" "next = rework-same-executor (3/3)" "$cout"
+contains "one bad repetition fails it" "tell_executor_it_lied = false (2/3)" "$cout"
+contains "contains-style assertion" "next contains 'rework' (3/3)" "$cout"
+contains "exactly one failure overall" "totals 4/1" "$cout"
+cargv="$(cat "$W/clog/argv")"
+contains "model flag"          "stub-model" "$cargv"
+contains "json output"         "--json" "$cargv"
+contains "read-only sandbox"   "read-only" "$cargv"
+contains "ephemeral"           "--ephemeral" "$cargv"
+contains "effort passed through -c" 'model_reasoning_effort="medium"' "$cargv"
+
+section "unknown EVAL_PROVIDER"
+pout="$( (EVAL_PROVIDER=bogus nav_main) 2>&1 )"; pec=$?
+expect "nav_main exits 2" "2" "$pec"
+contains "prints the unknown provider" "unknown EVAL_PROVIDER: bogus" "$pout"
 
 summary
