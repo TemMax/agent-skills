@@ -31,7 +31,38 @@ Mechanical verification is authoritative. A clean supervisor verdict cannot over
 
 ## Contents
 
+- Default: the deterministic runner
 - Commands and action loop
+
+## Default: the deterministic runner
+
+Default to launching a Codex wave with one command instead of driving the
+action loop below turn by turn:
+
+```sh
+node references/codex-wave-runner.mjs --plan <plan> --wave <N> --repo <abs> \
+  --base <pushed sha> [--jobs 3]
+```
+
+Run it as a background command and wait for it with long waits — not a
+polling loop of short checks; the runner does its own polling of the Codex
+children internally, and an orchestrator that also polls just burns turns on
+top of it. When it finishes, read only its `summary.json` — never its
+internal state files, worktrees, or child transcripts. Merge the `ok`
+branches yourself in plan/task order exactly as step 9 below directs. On a
+`stop` result, hand the returned verdicts and branch names to the user
+exactly as step 8 below directs — do not retry outside the runner and do not
+fall back to the native loop just because a task stopped.
+
+Why: measured on the 2026-09-22 ship run, the native action loop below —
+driven one tool call at a time by the orchestrator model — was 72% of that
+run's wall time and 63% of its cost, spent on the orchestrator's own
+round trips rather than on the Codex children it was coordinating. The
+runner performs the same helper-governed loop with no model in that loop.
+
+The runner shells out to `codex exec`, which needs network access for commit
+signing. If `codex exec` is unavailable, fall back to the native loop below,
+which is unchanged and remains the protocol of record.
 
 ## Commands and action loop
 
