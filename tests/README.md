@@ -54,6 +54,20 @@ tempts same-wave file overlap must still produce a lint-clean plan, and a
 request hiding a product fork must surface it under "Assumptions (would
 ask)" rather than resolve it silently.
 
+The skill-navigation tier (`tests/eval/skill-navigation.sh`) asks whether an
+agent applying the multi-model skill takes the right action at five decision
+points — launching a Claude-only wave, a contract amendment that widens
+`files_allowed` and one that would delete a `must_run` entry, a failed verdict
+with `pasteReproduced: false`, and drift advice from the Stop hook — and,
+where the rule lives in a reference file, whether the agent actually opened
+it (read from the `Read` tool calls in the `stream-json` events; a reference
+file absent from the layout under test prints `SKIP read-check` and passes).
+Answers are graded as JSON fields, `k/n` over `EVAL_REPEAT`. It defaults to
+`EVAL_MODEL=claude-opus-5-5` and this checkout's skill; point it at another
+layout with `SKILL_DIR=/path/to/plugins/orchestration/skills/multi-model bash
+tests/eval/skill-navigation.sh`. Its parser and read-check are tested offline
+by `tests/eval/skill-navigation.test.sh`.
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
