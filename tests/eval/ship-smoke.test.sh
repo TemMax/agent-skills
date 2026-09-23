@@ -159,8 +159,12 @@ check "comparison.md was written" "[ -f '$RESULTS_NATIVE/comparison.md' ]"
 REPO_NATIVE="$(cat "$RESULTS_NATIVE/native/repo-path.txt")"
 check "the stub codex was invoked without --ephemeral" \
   "! grep -qF -- '--ephemeral' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was invoked with --json --skip-git-repo-check and workspace-write" \
-  "grep -qxF -- '--json' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '--skip-git-repo-check' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- 'workspace-write' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was invoked with --json --skip-git-repo-check and danger-full-access" \
+  "grep -qxF -- '--json' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '--skip-git-repo-check' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- 'danger-full-access' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was not invoked with workspace-write" \
+  "! grep -qxF -- 'workspace-write' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the fixture's committed .gitignore lists __pycache__/" \
+  "git -C '$REPO_NATIVE' show HEAD:.gitignore | grep -qxF '__pycache__/'"
 COMPARISON_NATIVE="$(cat "$RESULTS_NATIVE/comparison.md")"
 contains "comparison table has a native row" "| native |" "$COMPARISON_NATIVE"
 contains "comparison table's must_run column reads pass" "pass |" "$COMPARISON_NATIVE"
