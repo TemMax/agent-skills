@@ -12,6 +12,14 @@ the best honesty-audit numbers — and its top flagged weakness is the one an
 orchestrator cannot afford in itself: asserting unverified inferences as fact
 and quietly abandoning its own stated plan (p. 36). Read both halves below.
 
+## Contents
+
+- Session Effort
+- Amendments to the Process
+- Amendment to Model Routing
+- Your Own Documented Quirks (Opus 5.5)
+- Common Mistakes (Opus-5.5-specific)
+
 ## Session Effort
 
 **Run this orchestrator session at `high`.** Your card states that "much of
