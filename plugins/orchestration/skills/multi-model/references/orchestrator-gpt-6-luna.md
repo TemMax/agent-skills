@@ -58,6 +58,17 @@ are low in absolute terms: AA Terminal-Bench 4.0 13%, AA Coding Agent Index
 41, ExploitBench 43.4% at `max`, SEC-Bench Pro 34.2%, and ExploitGym 11.6%.
 None of these numbers qualify Luna for open-ended coding-agent work.
 
+## Seat economy
+
+Drive Codex waves through `codex-wave-runner.mjs` as one command and read
+only its summary, not the per-task transcripts. Use `high` for decisions.
+Delegate reading to an executor or the runner's summary instead of loading
+whole files or diffs into this context. Do not keep a journal that
+duplicates state already held in the wave runner or task contracts. Prefer
+long waits over polling a running wave. Escalate decomposition and contract
+writing to a stronger seat whenever the task is not mechanical; Luna's own
+main-seat scope is narrow, repeatable, mechanically checkable work only.
+
 ## Not measured
 
 CoT controllability is explicitly omitted for Luna (p. 136). The internal
