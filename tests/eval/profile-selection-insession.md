@@ -35,7 +35,7 @@ say `You are Codex, an agent based on GPT-6.`
 | Cases | Required outcome |
 |---|---|
 | 1–2 | Astra profile, exact-ID selection, exact ID `gpt-6-astra`. |
-| 3–4, 10 | Astra profile, host-family compatibility, exact ID unknown. Announcement discloses compatibility and missing exact ID. |
+| 3–4, 10 | Generic, exact identity unknown. Codex gives GPT-6 Astra, Sol and Luna the same family instruction, so a family label alone selects no profile; announcement discloses this and the missing exact ID. |
 | 5 | Terra profile, exact ID `gpt-5.6-terra`; family does not override it. |
 | 6 | Generic, unsupported exact ID retained as `gpt-6-mini`, no Astra alias. |
 | 7 | Generic, unresolved identity conflict disclosed; no arbitrarily chosen ID. |
