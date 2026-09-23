@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
+import { timeBucketsMsClaude } from './telemetry.mjs'
 
 const CLI = fileURLToPath(new URL('./telemetry.mjs', import.meta.url))
 
@@ -44,11 +45,11 @@ function buildFixture() {
   // Turn A: 1 min model, a "Bash" tool call open 2 min ("tool:Bash"), then
   // 1 min model, then a final (no tool_use) assistant reply ends the turn
   // (model total so far = 2 min). Gap to the next real user message: 5 min
-  // "user". Turn B: one assistant message opens two "Task" calls (spawns
-  // both agents) after 1 min "model" (model total = 3 min); the executor's
-  // tool_result lands after 3 min ("waiting"), the supervisor's after
-  // another 4 min ("waiting", total waiting = 7 min); a final 1 min "model"
-  // (total = 4 min) ends the turn.
+  // "user". Turn B: one assistant message opens two "Agent" calls (spawns
+  // both agents; that is Claude Code's real subagent tool name) after 1 min
+  // "model" (model total = 3 min); the executor's tool_result lands after 3
+  // min ("waiting"), the supervisor's after another 4 min ("waiting", total
+  // waiting = 7 min); a final 1 min "model" (total = 4 min) ends the turn.
   const rootRows = [
     userText(0, 'Do the task'),
     assistant(1, 'claude-opus-5-5', usage(1000, 0, 0, 200), [toolUse('b1', 'Bash')]),
@@ -56,8 +57,8 @@ function buildFixture() {
     assistant(4, 'claude-opus-5-5', usage(1500, 0, 0, 300), [{ type: 'text', text: 'done with step one' }]),
     userText(9, 'Now spawn helpers'),
     assistant(10, 'claude-opus-5-5', usage(600, 0, 0, 50), [
-      toolUse('s1', 'Task', { agent: 'executor' }),
-      toolUse('s2', 'Task', { agent: 'supervisor' }),
+      toolUse('s1', 'Agent', { agent: 'executor' }),
+      toolUse('s2', 'Agent', { agent: 'supervisor' }),
     ]),
     toolResult(13, 's1', 'executor done'),
     toolResult(17, 's2', 'supervisor done'),
@@ -74,11 +75,11 @@ function buildFixture() {
   ]
 
   // --- supervisor agent (workflow-run agent, nested under workflows/) ---
-  // 2 min model, a "Task" call open 4 min ("waiting"), then 1 min model.
+  // 2 min model, an "Agent" call open 4 min ("waiting"), then 1 min model.
   // Wall = 7 min.
   const superRows = [
     userText(10, 'spawn helper'),
-    assistant(12, 'claude-haiku-4-5-20251001', usage(300, 0, 0, 60), [toolUse('p1', 'Task')]),
+    assistant(12, 'claude-haiku-4-5-20251001', usage(300, 0, 0, 60), [toolUse('p1', 'Agent')]),
     toolResult(16, 'p1', 'helper done'),
     assistant(17, 'claude-haiku-4-5-20251001', usage(100, 0, 0, 20), [{ type: 'text', text: 'helper reported back' }]),
   ]
@@ -86,16 +87,26 @@ function buildFixture() {
   const rootPath = join(projectDir, `${SESSION}.jsonl`)
   writeFileSync(rootPath, jsonl(rootRows))
 
+  // Real agent-*.meta.json sidecars carry no `role` or `label` field; the
+  // role signal is a free-text `description`, e.g.
+  // {"agentType":"workflow-subagent","description":"verify:telemetry-claude",
+  // "workflowPhase":"▸ wave-runner","spawnDepth":1,"model":"sonnet"} or
+  // {"agentType":"general-purpose","description":"Record live eval results
+  // in docs","toolUseId":"toolu_…","model":"sonnet"}.
   const subagentsDir = join(projectDir, SESSION, 'subagents')
   mkdirSync(subagentsDir, { recursive: true })
   writeFileSync(join(subagentsDir, `agent-${EXEC}.jsonl`), jsonl(execRows))
-  writeFileSync(join(subagentsDir, `agent-${EXEC}.meta.json`), JSON.stringify({ label: 'executor-alpha' }))
+  writeFileSync(join(subagentsDir, `agent-${EXEC}.meta.json`), JSON.stringify({
+    agentType: 'general-purpose', description: 'exec:telemetry-claude', toolUseId: 'toolu_exec01', model: 'sonnet',
+  }))
 
   const workflowDir = join(subagentsDir, 'workflows', 'run-1')
   mkdirSync(workflowDir, { recursive: true })
   writeFileSync(join(workflowDir, 'journal.jsonl'), jsonl([row(10, 'workflow_event', { message: { content: 'spawned' } })]))
   writeFileSync(join(workflowDir, `agent-${SUPER}.jsonl`), jsonl(superRows))
-  writeFileSync(join(workflowDir, `agent-${SUPER}.meta.json`), JSON.stringify({ label: 'supervisor-beta' }))
+  writeFileSync(join(workflowDir, `agent-${SUPER}.meta.json`), JSON.stringify({
+    agentType: 'workflow-subagent', description: 'judge:telemetry-claude', workflowPhase: '▸ wave-runner', spawnDepth: 1, model: 'sonnet',
+  }))
 
   const pricesPath = join(dir, 'prices.json')
   writeFileSync(pricesPath, JSON.stringify({
@@ -246,4 +257,81 @@ test('readable table output (non-JSON) mentions the key sections', t => {
   for (const marker of ['window:', 'orchestrator:', 'children:', 'concurrency', 'thread-limit errors:', 'cost by role x model:']) {
     assert.ok(result.stdout.includes(marker), `expected table output to include "${marker}"`)
   }
+})
+
+test('report: descriptions classify verify -> verifier, review -> review, unmatched -> other', t => {
+  const dir = mktempDir()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const projectDir = join(dir, 'projects', 'role-test')
+  mkdirSync(projectDir, { recursive: true })
+  const session = 'session-role-0000-0000-000000000000'
+
+  const rootRows = [
+    userText(0, 'go'),
+    assistant(1, 'claude-opus-5-5', usage(10, 0, 0, 5), [{ type: 'text', text: 'done' }]),
+  ]
+  const rootPath = join(projectDir, `${session}.jsonl`)
+  writeFileSync(rootPath, jsonl(rootRows))
+
+  const subagentsDir = join(projectDir, session, 'subagents')
+  mkdirSync(subagentsDir, { recursive: true })
+
+  const childRows = [
+    userText(0, 'go'),
+    assistant(1, 'claude-sonnet-5', usage(10, 0, 0, 5), [{ type: 'text', text: 'done' }]),
+  ]
+
+  const VERIFIER = 'verifier-child'
+  writeFileSync(join(subagentsDir, `agent-${VERIFIER}.jsonl`), jsonl(childRows))
+  writeFileSync(join(subagentsDir, `agent-${VERIFIER}.meta.json`), JSON.stringify({
+    agentType: 'workflow-subagent', description: 'verify:telemetry-claude', workflowPhase: '▸ wave-runner', spawnDepth: 1, model: 'sonnet',
+  }))
+
+  const REVIEWER = 'reviewer-child'
+  writeFileSync(join(subagentsDir, `agent-${REVIEWER}.jsonl`), jsonl(childRows))
+  writeFileSync(join(subagentsDir, `agent-${REVIEWER}.meta.json`), JSON.stringify({
+    agentType: 'general-purpose', description: 'review:telemetry-claude', toolUseId: 'toolu_rev01', model: 'sonnet',
+  }))
+
+  const OTHER = 'other-child'
+  writeFileSync(join(subagentsDir, `agent-${OTHER}.jsonl`), jsonl(childRows))
+  writeFileSync(join(subagentsDir, `agent-${OTHER}.meta.json`), JSON.stringify({
+    agentType: 'general-purpose', description: 'Record live eval results in docs', toolUseId: 'toolu_oth01', model: 'sonnet',
+  }))
+
+  const result = spawnSync(process.execPath, [CLI, 'claude', '--transcript', rootPath, '--json'], { encoding: 'utf8', timeout: 10000 })
+  assert.equal(result.status, 0, result.stderr)
+  const report = JSON.parse(result.stdout)
+  const byId = Object.fromEntries(report.children.map(c => [c.id, c]))
+
+  assert.equal(byId[VERIFIER].role, 'verifier')
+  assert.equal(byId[REVIEWER].role, 'review')
+  assert.equal(byId[OTHER].role, 'other')
+})
+
+test('timeBucketsMsClaude: "Task" is still recognized as the waiting bucket (legacy alias)', () => {
+  const rows = [
+    userText(0, 'go'),
+    assistant(1, 'claude-opus-5-5', usage(10, 0, 0, 5), [toolUse('t1', 'Task')]),
+    toolResult(4, 't1', 'done'),
+  ]
+  const buckets = timeBucketsMsClaude(rows)
+  assert.equal(buckets.waiting, 3 * 60000)
+  assert.equal(buckets['tool:Task'], undefined)
+})
+
+test('timeBucketsMsClaude: an out-of-order row never moves the clock backwards', () => {
+  const rows = [
+    userText(0, 'go'),
+    row(5, 'system', {}),
+    row(3, 'system', {}), // earlier than the previous row: must not rewind the clock
+    row(6, 'system', {}),
+  ]
+  const buckets = timeBucketsMsClaude(rows)
+  const totalMs = Object.values(buckets).reduce((a, b) => a + b, 0)
+  // True elapsed span is 0 -> 6 minutes. A buggy implementation that moves
+  // prevT back to the out-of-order row's timestamp would recount the 3->5
+  // minute range and report 8 minutes here instead.
+  assert.equal(totalMs, 6 * 60000)
+  assert.equal(buckets.model, 6 * 60000)
 })
