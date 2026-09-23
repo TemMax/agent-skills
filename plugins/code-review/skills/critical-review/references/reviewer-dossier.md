@@ -10,6 +10,14 @@ orchestration skills carry the full per-model dossiers.
 
 ---
 
+## Contents
+
+- Fable 5 as a reviewer of its own code
+- Opus 5.5 as a reviewer of its own code
+- Fable 5.1 as a reviewer of its own code
+- Opus 4.8 as a reviewer of its own code
+- Opus 5 as a reviewer of its own code
+
 ## Fable 5 as a reviewer of its own code
 
 **As a judge.** No self-preference bias detected (pp. 202–203) — a verdict on

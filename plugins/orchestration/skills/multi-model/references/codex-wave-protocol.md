@@ -29,6 +29,10 @@ models, efforts, or ladder rungs requires a new initialization.
 
 Mechanical verification is authoritative. A clean supervisor verdict cannot override blocking mechanical facts such as a failed `must_run`, an out-of-scope path, missing required evidence, an unsafe worktree, or an invalid base. Only a final attempt with clean verifier facts and a clean verdict can become merge-ready.
 
+## Contents
+
+- Commands and action loop
+
 ## Commands and action loop
 
 The helper has exactly these seven commands:

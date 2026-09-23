@@ -12,6 +12,14 @@ Fable-5-class on coding, and the most prompt-injection-robust model Anthropic ha
 tested. But its effort behavior is the **opposite** of the Opus 4.8 profile's, and
 its own system card names a specific orchestrator failure mode. Read both below.
 
+## Contents
+
+- Session Effort — your risk is at the TOP, not the bottom
+- Amendments to the Process
+- Amendment to Model Routing
+- Your Own Documented Quirks (Opus 5)
+- Common Mistakes (Opus-5-specific)
+
 ## Session Effort — your risk is at the TOP, not the bottom
 
 **Run this orchestrator session at `high`.** `medium` is fine for well-scoped

@@ -9,6 +9,14 @@ profiles. It separates System Card measurements, current product-documentation
 facts, seed hypotheses, and unmeasured properties. The seed routes are not
 benchmarks; dated live results will replace them during calibration.
 
+## Contents
+
+- Official sources
+- System Card measurements
+- Current model-documentation facts
+- Seed routing hypotheses
+- Unmeasured properties
+
 ## Official sources
 
 - [GPT-5.6 Preview System Card](https://deploymentsafety.openai.com/gpt-5-6/gpt-5-6.pdf)

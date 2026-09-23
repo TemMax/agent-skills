@@ -20,6 +20,17 @@ stays here for history and is no longer addressable as an executor or judge.
 
 ---
 
+## Contents
+
+- Fable 5 (orchestrator or heavy executor)
+- Opus 5.5 (default heavy executor / verifier / orchestrator)
+- Fable 5.1 (orchestrator, heavy executor, judge — `claude-fable-5-1`)
+- Opus 4.8 (orchestrator, heavy executor, verifier)
+- Opus 5 (heavy executor / verifier / orchestrator — addressed as claude-opus-5)
+- Sonnet 5 (the default executor)
+- Haiku 4.5 (the mechanical executor)
+- Choosing the Orchestrator Seat
+
 ## Fable 5 (orchestrator or heavy executor)
 
 **Positioning.** Mythos-class: the same weights as Claude Mythos 5 plus safeguard
