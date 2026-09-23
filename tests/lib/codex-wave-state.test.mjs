@@ -366,7 +366,7 @@ test('C5c an out-of-scope path cannot become merge-ready after a clean superviso
     .verdict.violations.some((v) => v.class === 'files'))
 })
 
-test('C5d missing required command evidence is a blocking mechanical fact', () => {
+test('C5d a green must_run with no pasted evidence is not a violation and reaches merge-ready', () => {
   const env = init({ planText: (text) => text.replace(
     'python3 -m unittest discover -s tests -t .', 'printf required-evidence') })
   writeFileSync(join(env.worktree, 'src', 'divide.py'),
@@ -376,6 +376,24 @@ test('C5d missing required command evidence is a blocking mechanical fact', () =
   recordExecutor(env.statePath, { report: 'changed the guard; no command output pasted' })
   verify(env.statePath)
   const facts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.equal(facts.mustRun[0].attempts.at(-1).exit, 0)
+  assert.equal(facts.violations.filter((v) => v.class === 'report').length, 0)
+  recordVerdict(env.statePath, clean())
+  assert.equal(next(env.statePath).action, 'merge-ready')
+})
+
+test('C5dz a red must_run still yields its must_run violation and blocks, paste or not', () => {
+  const env = init({ planText: (text) => text.replace(
+    'python3 -m unittest discover -s tests -t .', 'printf required-evidence; exit 1') })
+  writeFileSync(join(env.worktree, 'src', 'divide.py'),
+    'def divide(a, b):\n    return None if b == 0 else a / b\n')
+  git(env.worktree, 'add', 'src/divide.py')
+  git(env.worktree, 'commit', '-m', 'guard division')
+  recordExecutor(env.statePath, { report: 'changed the guard; no command output pasted' })
+  verify(env.statePath)
+  const facts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.equal(facts.mustRun[0].attempts.at(-1).exit, 1)
+  assert.ok(facts.violations.some((v) => v.class === 'must_run'))
   assert.ok(facts.violations.some((v) => v.class === 'report' && /evidence/.test(v.rule)))
   recordVerdict(env.statePath, clean())
   assert.equal(next(env.statePath).action, 'spawn-executor')
@@ -1352,6 +1370,77 @@ test('C21j plan linter enforces the same Astra executor opt-in contract', () => 
     assert.equal(result.status, status, label + ': ' + result.stdout + result.stderr)
     assert.match(result.stdout, message, label)
   }
+})
+
+function makeCounter() {
+  const counterDir = mkdtempSync(join(tmpdir(), 'codex-wave-counter-'))
+  roots.push(counterDir)
+  const counter = join(counterDir, 'counter.txt')
+  writeFileSync(counter, '')
+  return counter
+}
+
+test('C22 verify reuses the cached mechanical run for an unchanged head SHA', () => {
+  const counter = makeCounter()
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'printf tick >> "' + counter + '" && printf ok', evidence: 'optional' },
+  ]) })
+  prepareAttempt(env, 'must_run output:\nok')
+  assert.equal(readFileSync(counter, 'utf8'), 'tick')
+  const firstFacts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  const cacheDir = join(env.repo, '.worktrees', 'codex-wave', 'verify-cache')
+  assert.equal(readdirSync(cacheDir).length, 1)
+  // Bring the task back to 'reported' without any new commit, so the second
+  // verify sees the same head SHA the cache was written for.
+  recordVerdict(env.statePath, failed('rework needed'))
+  recordExecutor(env.statePath, { report: 'second attempt report; no new commit\n\nmust_run output:\nok' })
+  verify(env.statePath)
+  assert.equal(readFileSync(counter, 'utf8'), 'tick', 'cached run must not re-execute the command')
+  const secondFacts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.deepEqual(secondFacts.mustRun, firstFacts.mustRun)
+  assert.equal(readdirSync(cacheDir).length, 1)
+})
+
+test('C22b verify re-runs must_run after a new commit even with an unchanged contract', () => {
+  const counter = makeCounter()
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'printf tick >> "' + counter + '" && printf ok', evidence: 'optional' },
+  ]) })
+  prepareAttempt(env, 'must_run output:\nok')
+  assert.equal(readFileSync(counter, 'utf8'), 'tick')
+  const cacheDir = join(env.repo, '.worktrees', 'codex-wave', 'verify-cache')
+  assert.equal(readdirSync(cacheDir).length, 1)
+  recordVerdict(env.statePath, failed('rework needed'))
+  writeFileSync(join(env.worktree, 'src', 'second-marker.txt'), 'more task work\n')
+  git(env.worktree, 'add', 'src/second-marker.txt')
+  git(env.worktree, 'commit', '-m', 'second commit')
+  recordExecutor(env.statePath, { report: 'second attempt report; new commit\n\nmust_run output:\nok' })
+  verify(env.statePath)
+  assert.equal(readFileSync(counter, 'utf8'), 'ticktick', 'a new head SHA must re-execute the command')
+  assert.equal(readdirSync(cacheDir).length, 2)
+})
+
+test('C23 supervisor prompt caps a huge diff but the stored state keeps it in full', () => {
+  const env = init()
+  const big = 'x'.repeat(70000)
+  writeFileSync(join(env.worktree, 'src', 'divide.py'),
+    'def divide(a, b):\n    return None if b == 0 else a / b\n\n# ' + big + '\n')
+  git(env.worktree, 'add', 'src/divide.py')
+  git(env.worktree, 'commit', '-m', 'guard division with a huge comment')
+  prepareAttempt(env, 'guard added; tests pass')
+  const stored = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.ok(stored.diff.length > 60000)
+  assert.ok(stored.git.diff.stdout.length > 60000)
+  const out = ok(['supervisor-prompt', '--state', env.statePath, '--task', 'divide-guard'])
+  assert.ok(out.prompt.length < 70000, 'prompt length: ' + out.prompt.length)
+  assert.match(out.prompt, new RegExp(
+    '\\[omitted: \\d+ characters; read it with git diff ' + env.base + '\\.\\.wave/divide-guard\\]'))
+  assert.match(out.prompt, /changedPaths/)
+  assert.equal(out.prompt.includes(big), false, 'prompt must not carry the huge diff verbatim')
+  const restored = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.equal(restored.diff.length, stored.diff.length)
+  assert.ok(restored.diff.includes(big))
+  assert.ok(restored.git.diff.stdout.includes(big))
 })
 
 let failedCount = 0

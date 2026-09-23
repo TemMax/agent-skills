@@ -358,7 +358,6 @@ function mergeReadyHasCleanHistories(task, spec) {
     || task.verdicts.length !== task.reports.length) return false
   const fact = task.verifierFacts.at(-1)
   const verdict = task.verdicts.at(-1)
-  const report = task.reports.at(-1)
   if (!fact || !verdict || verdict.verdict.ok !== true
     || verdict.verdict.violations.length !== 0 || verdict.escalation !== null
     || fact.violations.length !== 0 || fact.preflightPassed !== true
@@ -371,12 +370,14 @@ function mergeReadyHasCleanHistories(task, spec) {
   if (fact.changedPaths.some((path) => !matchesAny(path, spec.contract.files_allowed)
     || matchesAny(path, spec.contract.files_forbidden))) return false
   if (fact.mustRun.length !== spec.contract.must_run.length) return false
+  // A green final attempt is its own evidence (see verifyTask's must_run loop),
+  // so this re-derivation requires only exit 0, matching that same rule.
   return spec.contract.must_run.every((expected, index) => {
     const actual = fact.mustRun[index]
     const finalAttempt = actual && actual.attempts.at(-1)
     return actual && actual.cmd === expected.cmd && actual.evidence === expected.evidence
       && actual.skipped === undefined && finalAttempt && finalAttempt.exit === 0
-      && finalAttempt.error === undefined && outputEvidencePresent(report, actual)
+      && finalAttempt.error === undefined
   })
 }
 
@@ -743,6 +744,29 @@ function runContractCommand(cmd, cwd) {
   }
 }
 
+// Keyed by head SHA under the state file's own directory, so a re-verify of
+// an unchanged commit can reuse a prior mechanical must_run run instead of
+// re-executing it. Never reused across a different head SHA or a contract
+// whose must_run list has since changed (contractDigest guards that).
+function verifyCachePath(state, headSha) {
+  return join(state.repoPath, '.worktrees', 'codex-wave', 'verify-cache', headSha + '.json')
+}
+
+function readVerifyCache(state, headSha, contractDigest) {
+  try {
+    const raw = JSON.parse(readFileSync(verifyCachePath(state, headSha), 'utf8'))
+    if (raw && typeof raw === 'object' && raw.contractDigest === contractDigest
+      && Array.isArray(raw.mustRun)) return raw.mustRun
+  } catch { /* no usable cache entry; fall through to a real run */ }
+  return null
+}
+
+function writeVerifyCache(state, headSha, contractDigest, mustRun) {
+  const path = verifyCachePath(state, headSha)
+  mkdirSync(dirname(path), { recursive: true })
+  atomicWrite(path, { contractDigest, mustRun })
+}
+
 function runContractSequence(repo, head, entries) {
   const root = mkdtempSync(join(tmpdir(), 'codex-wave-verify-'))
   const checkout = join(root, 'checkout')
@@ -846,24 +870,35 @@ export function verifyTask(state, id) {
     if (head.exit !== 0 || !SHA.test(head.stdout.trim())) {
       throw new NamedError('verification-worktree', head.stderr || head.error || 'task HEAD is not a commit')
     }
-    // Pin both complete attempts to the committed task head. Preceding
-    // commands may generate prerequisites or poison their successors.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const results = runContractSequence(updated.repoPath, head.stdout.trim(), mustRun)
-      results.forEach((result, index) => mustRun[index].attempts.push(result))
-      if (results.every((result) => result.exit === 0)) break
+    const headSha = head.stdout.trim()
+    const contractDigest = createHash('sha256').update(JSON.stringify(spec.contract.must_run)).digest('hex')
+    const cached = readVerifyCache(updated, headSha, contractDigest)
+    if (cached) {
+      cached.forEach((entry, index) => { if (mustRun[index]) mustRun[index].attempts = entry.attempts })
+    } else {
+      // Pin both complete attempts to the committed task head. Preceding
+      // commands may generate prerequisites or poison their successors.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const results = runContractSequence(updated.repoPath, headSha, mustRun)
+        results.forEach((result, index) => mustRun[index].attempts.push(result))
+        if (results.every((result) => result.exit === 0)) break
+      }
+      writeVerifyCache(updated, headSha, contractDigest, mustRun)
     }
   }
   for (const recorded of mustRun) {
     if (!preflightPassed) continue
     const { cmd, attempts } = recorded
-    if (attempts.at(-1).exit !== 0) violations.push({
+    const finalAttemptFailed = attempts.at(-1).exit !== 0
+    if (finalAttemptFailed) violations.push({
       class: 'must_run',
       rule: cmd,
       evidence: 'exit ' + String(attempts.at(-1).exit) + '\n'
         + attempts.at(-1).stdout + attempts.at(-1).stderr,
     })
-    if (!outputEvidencePresent(task.reports.at(-1), recorded)) violations.push({
+    // A green final attempt is itself the evidence for the command, so a
+    // missing paste is only a violation when that final attempt was red.
+    if (finalAttemptFailed && !outputEvidencePresent(task.reports.at(-1), recorded)) violations.push({
       class: 'report',
       rule: 'must_run: ' + cmd + ' requires pasted evidence',
       evidence: 'the executor report contains none of the verifier command output',
@@ -900,6 +935,18 @@ export function buildSupervisorPrompt(state, id, promptText) {
   const executorModel = task.rungs[task.rung]
   const report = String(task.reports.at(-1)).split(executorModel)
     .join('[executor-model-redacted]')
+  const facts = task.verifierFacts.at(-1)
+  let verifierFactsJson = JSON.stringify(facts, null, 2)
+  // The stored state always keeps the full diff; only this prompt copy is
+  // capped, so a huge diff cannot blow up the supervisor's context window.
+  if (verifierFactsJson.length > 60000) {
+    const omit = (text) => '[omitted: ' + text.length + ' characters; read it with git diff '
+      + state.base + '..' + task.branch + ']'
+    const promptFacts = clone(facts)
+    promptFacts.diff = omit(facts.diff)
+    promptFacts.git = { ...promptFacts.git, diff: { ...promptFacts.git.diff, stdout: omit(facts.git.diff.stdout) } }
+    verifierFactsJson = JSON.stringify(promptFacts, null, 2)
+  }
   return promptText + [
     '',
     '',
@@ -921,7 +968,7 @@ export function buildSupervisorPrompt(state, id, promptText) {
     'BRANCH: ' + task.branch,
     '',
     'VERIFIER FACTS:',
-    JSON.stringify(task.verifierFacts.at(-1), null, 2),
+    verifierFactsJson,
     '',
     'REPORT:',
     report,
