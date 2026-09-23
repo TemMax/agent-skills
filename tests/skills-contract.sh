@@ -13,6 +13,8 @@ cd "$(dirname "$0")/.." || exit 1
 
 CR=plugins/code-review/skills/critical-review/SKILL.md
 MM=plugins/orchestration/skills/multi-model/SKILL.md
+CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
+CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
 SP=plugins/orchestration/skills/super-plan/SKILL.md
 SH=plugins/orchestration/skills/ship/SKILL.md
 
@@ -62,12 +64,12 @@ check "supervisor row picked by strongest model, rungs included" \
 check "the judge is never the executor's own"  "grep -qF \"never the executor's own model\" $MM"
 check "the wave runner ships as a file" \
   "[ -f plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs ]"
-check "SKILL points at the shipped runner"     "grep -q 'wave-runner.workflow.mjs' $MM"
+check "the Claude adapter points at the shipped runner" "grep -q 'wave-runner.workflow.mjs' $CWA"
 check "default path is invoking, not writing"  "grep -q 'invoke the shipped runner' $MM"
-check "the filesystem constraint is named"     "grep -q 'supervisorPromptText' $MM"
-check "SKILL names the launcher generator"     "grep -qF 'wave-launch.mjs' $MM"
+check "the filesystem constraint is named"     "grep -q 'supervisorPromptText' $CWA"
+check "the Claude adapter names the launcher generator" "grep -qF 'wave-launch.mjs' $CWA"
 check "the scriptPath restriction is stated" \
-  "grep -qF 'accepts \`scriptPath\` only inside the working directory or an added' $MM"
+  "grep -qF 'accepts \`scriptPath\` only inside the working directory or an added' $CWA"
 check "the launcher generator ships" \
   "[ -f plugins/orchestration/skills/multi-model/references/wave-launch.mjs ]"
 check "the runner reads embedded WAVE_ARGS" \
@@ -110,9 +112,9 @@ check "omitted publication defaults exactly to normal push in its boundary" \
 check "local publication is explicit critical-review-only and never inferred" \
   "sed -n '/^### Invocation publication contract$/,/^- Claude-only wave:/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Only \`publication: local\` must be explicit; only the enclosing critical-review post-review fix flow may request it; it is never inferred from host or model.'"
 check "Claude local completion integrates reviews and returns without push" \
-  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'With \`publication: local\`, merge branches in plan order only into the local feature branch, run the shared full-wave review, return the resulting local feature-branch commit(s), task branches, and verdict evidence, and do no push.'"
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $CWA | tr '\\n' ' ' | tr -s ' ' | grep -qF 'With \`publication: local\`, merge branches in plan order only into the local feature branch, run the shared full-wave review, return the resulting local feature-branch commit(s), task branches, and verdict evidence, and do no push.'"
 check "Claude normal completion still pushes" \
-  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication: push\` merges branches in plan order, runs the shared full-wave review, and pushes exactly as normal.'"
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $CWA | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication: push\` merges branches in plan order, runs the shared full-wave review, and pushes exactly as normal.'"
 check "Codex local completion returns reviewed local artifacts without push" \
   "sed -n '/^9[.] On \`merge-ready\`/,/^The action loop/p' $CP | tr '\\n' ' ' | tr -s ' ' | grep -qF 'In \`publication: local\` mode, merge only into the local feature branch, keep the shared full-wave review, return its resulting local commit(s), task branch names, helper summary, and verdict evidence to the caller, and do no push.'"
 check "Codex local completion cannot create an unpushed next base" \
@@ -145,9 +147,9 @@ check "long commands classified by kind in the runner" "grep -q 'in the backgrou
 check "the supervisor may lean on verifier facts" "grep -q 'VERIFIER FACTS' $SUPP"
 check "the supervisor backgrounds long commands"  "grep -q 'never by predicted duration' $SUPP"
 check "the skill documents the verify stage"    "grep -q 'Mechanical verification before the judge' $MM"
-check "contracts are preflighted at the base"   "grep -q 'Preflight the contracts at the base' $MM"
-check "amendments propagate only mechanically"  "grep -q 'An amendment exists only when the plan file is edited' $MM"
-check "single-task invocations are allowed"     "grep -q 'parallel single-task runner invocations' $MM"
+check "contracts are preflighted at the base"   "grep -q 'Preflight the contracts at the base' $CWA"
+check "amendments propagate only mechanically"  "grep -q 'An amendment exists only when the plan file is edited' $CAM"
+check "single-task invocations are allowed"     "grep -q 'parallel single-task runner invocations' $CWA"
 
 section "super-plan and ship: sizing, scoped gates, acceptance references"
 check "task right-sizing is a rule"             "grep -q 'Right-size every task' $SP"
@@ -327,7 +329,7 @@ check "the linter tier rejects the bare short form" \
 check "the skill names the ID in the supervisor table" \
   "sed -n '/^### Choosing the supervisor — Quick Reference$/,/^### Escalation ladder$/p' $MM | grep -qF '| Opus 4.8 (\`claude-opus-4-8\`) |'"
 check "the skill's opts.model rule rejects aliases by name" \
-  "grep -qF 'rejects aliases by name.' $MM"
+  "grep -qF 'rejects aliases by name.' $CWA"
 check "the old not-addressable wording is gone"     "! grep -q 'not addressable' $MM"
 check "the fable-5.1 profile names the pinned ID"   "grep -qF 'claude-opus-4-8' $OF"
 check "the opus-5 profile names the pinned ID"      "grep -qF 'claude-opus-4-8' $OP5"
@@ -347,5 +349,16 @@ check "the runner's MODELS lists no bare alias" \
   "sed -n '/^const MODELS = \\[/,/^\\]/p' $WR | grep -qF \"'claude-opus-5-5'\" && ! sed -n '/^const MODELS = \\[/,/^\\]/p' $WR | grep -qE \"'(haiku|sonnet|opus|fable)'\""
 check "untrusted text is never pasted into an executor prompt" \
   "sed -n '/^## Task Prompt Template/,/^## Supervised Waves$/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Never paste untrusted third-party text'"
+
+section "multi-model: the Claude adapter and amendment flow load on demand"
+check "SKILL names the Claude wave adapter"         "grep -qF 'references/claude-wave-adapter.md' $MM"
+check "SKILL names the contract amendment flow"     "grep -qF 'references/contract-amendment.md' $MM"
+check "the Claude wave adapter starts with its title" \
+  "head -1 $CWA | grep -qxF '# Claude wave adapter — invoke the shipped runner'"
+check "the Claude wave adapter has a Contents list" "grep -qx '## Contents' $CWA"
+check "the amendment flow starts with its title" \
+  "head -1 $CAM | grep -qxF '# When the contract is what is broken — the amendment flow'"
+check "the amendment flow has a Contents list"      "grep -qx '## Contents' $CAM"
+check "SKILL still forbids a custom wave script"    "grep -qF 'Never write a custom wave script' $MM"
 
 summary

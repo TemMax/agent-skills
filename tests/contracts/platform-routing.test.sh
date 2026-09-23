@@ -4,6 +4,8 @@ cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
 MM=plugins/orchestration/skills/multi-model/SKILL.md
+CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
+CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
 SP=plugins/orchestration/skills/super-plan/SKILL.md
 SH=plugins/orchestration/skills/ship/SKILL.md
 CR=plugins/code-review/skills/critical-review/SKILL.md
@@ -119,7 +121,7 @@ CS=plugins/orchestration/skills/multi-model/references/codex-wave-state.mjs
 section "multi-model selects the native host adapter"
 
 check "Claude adapter remains the shipped Workflow runner" \
-  "grep -qF 'references/wave-runner.workflow.mjs' '$MM'"
+  "grep -qF 'references/wave-runner.workflow.mjs' '$CWA'"
 check "GPT adapter names the Codex protocol" \
   "grep -qF 'references/codex-wave-protocol.md' '$MM'"
 check "Codex spawns name exact model and effort" \
@@ -160,9 +162,9 @@ check "omitted publication defaults exactly to normal push in its boundary" \
 check "local publication is explicit critical-review-only and never inferred" \
   "sed -n '/^### Invocation publication contract$/,/^- Claude-only wave:/p' '$MM' | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Only \`publication: local\` must be explicit; only the enclosing critical-review post-review fix flow may request it; it is never inferred from host or model.'"
 check "Claude local completion integrates reviews and returns without push" \
-  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' '$MM' | tr '\\n' ' ' | tr -s ' ' | grep -qF 'With \`publication: local\`, merge branches in plan order only into the local feature branch, run the shared full-wave review, return the resulting local feature-branch commit(s), task branches, and verdict evidence, and do no push.'"
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' '$CWA' | tr '\\n' ' ' | tr -s ' ' | grep -qF 'With \`publication: local\`, merge branches in plan order only into the local feature branch, run the shared full-wave review, return the resulting local feature-branch commit(s), task branches, and verdict evidence, and do no push.'"
 check "Claude normal completion still pushes" \
-  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' '$MM' | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication: push\` merges branches in plan order, runs the shared full-wave review, and pushes exactly as normal.'"
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' '$CWA' | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication: push\` merges branches in plan order, runs the shared full-wave review, and pushes exactly as normal.'"
 check "Codex local completion returns reviewed local artifacts without push" \
   "sed -n '/^9[.] On \`merge-ready\`/,/^The action loop/p' '$CP' | tr '\\n' ' ' | tr -s ' ' | grep -qF 'In \`publication: local\` mode, merge only into the local feature branch, keep the shared full-wave review, return its resulting local commit(s), task branch names, helper summary, and verdict evidence to the caller, and do no push.'"
 check "Codex local completion never advances from an unpushed base" \
