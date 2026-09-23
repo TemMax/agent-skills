@@ -97,9 +97,11 @@ run_job() { # model tier
   local outdir="$RESULTS/$model"
   mkdir -p "$outdir"
   local log="$outdir/$tier.log" statusfile="$outdir/$tier.status"
+  local cells_dir="$outdir/$tier.cells"
   (
     start_ms="$(now_ms)"
     EVAL_PROVIDER=codex EVAL_MODEL="$model" EVAL_EFFORT="$EFFORT" EVAL_REPEAT="$REPEAT" \
+      EVAL_RESULTS_DIR="$cells_dir" \
       bash "$TIER_DIR/$tier.sh" > "$log" 2>&1
     rc=$?
     end_ms="$(now_ms)"
@@ -108,15 +110,18 @@ run_job() { # model tier
   ) &
 }
 
-# passed/failed from the tier's last "N passed, M failed" line, ANSI stripped.
-parse_counts() { # log-file
-  python3 - "$1" <<'PY'
+# passed/failed from the tier's last "N passed, M failed" line, ANSI
+# stripped. If the log has no such line, fall back to counting rows in
+# <cells-tsv> (tab-separated, header row, a "status" column of pass/fail).
+parse_counts() { # log-file cells-tsv
+  python3 - "$1" "$2" <<'PY'
+import csv
 import re
 import sys
 
-path = sys.argv[1]
+log_path, cells_path = sys.argv[1], sys.argv[2]
 try:
-    text = open(path, encoding="utf-8", errors="replace").read()
+    text = open(log_path, encoding="utf-8", errors="replace").read()
 except OSError:
     text = ""
 text = re.sub(r"\x1b\[[0-9;]*m", "", text)
@@ -129,8 +134,24 @@ if last:
     print(last.group(1))
     print(last.group(2))
 else:
-    print("-")
-    print("-")
+    passed = failed = None
+    try:
+        with open(cells_path, encoding="utf-8", errors="replace", newline="") as f:
+            reader = csv.DictReader(f, delimiter="\t")
+            passed = failed = 0
+            for row in reader:
+                if row.get("status") == "pass":
+                    passed += 1
+                else:
+                    failed += 1
+    except OSError:
+        passed = failed = None
+    if passed is None:
+        print("-")
+        print("-")
+    else:
+        print(passed)
+        print(failed)
 PY
 }
 
@@ -181,6 +202,7 @@ for model in $MODELS; do
   for tier in $TIERS; do
     statusfile="$RESULTS/$model/$tier.status"
     log="$RESULTS/$model/$tier.log"
+    cells_tsv="$RESULTS/$model/$tier.cells/cells.tsv"
     if [ -f "$statusfile" ]; then
       exit_code="$(sed -n '1p' "$statusfile")"
       seconds="$(sed -n '2p' "$statusfile")"
@@ -189,7 +211,7 @@ for model in $MODELS; do
       seconds="-"
     fi
     [ "$exit_code" = "0" ] || overall_rc=1
-    counts="$(parse_counts "$log")"
+    counts="$(parse_counts "$log" "$cells_tsv")"
     passed="$(printf '%s\n' "$counts" | sed -n '1p')"
     failed="$(printf '%s\n' "$counts" | sed -n '2p')"
     printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$model" "$tier" "$exit_code" "$seconds" "$passed" "$failed" >> "$SUMMARY"
