@@ -18,7 +18,7 @@ and a concrete failure scenario. A concern without a demonstrated violation
 is a question or remark, not a blocker. Report checks run and checks unavailable.
 
 Astra performs the review itself. Do not delegate the final judgment to a
-GPT-5.6 executor. Keep the inspection proportional to the changed behavior;
+GPT-6 Sol or Luna executor. Keep the inspection proportional to the changed behavior;
 run required checks and repeat or expand them only when changes, failures,
 or unresolved evidence justify it. Stay read-only until fixes are approved.
 
