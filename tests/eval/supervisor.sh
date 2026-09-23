@@ -7,8 +7,6 @@
 # passes every one of them.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
-. tests/lib.sh
-. tests/eval/model-cli.sh
 
 # --- supervisor sandbox + repo-integrity helpers (offline-testable) ---
 #
@@ -58,10 +56,15 @@ judge_cleanup_worktrees() {  # $1 = repo
 }
 
 # Sourced for just the helpers above (offline fixture tests): stop before
-# any fixture setup or model call happens.
+# tests/lib.sh (which would reset the sourcing test's own FAILED/PASSED
+# counters) or model-cli.sh is loaded, and before any fixture setup or model
+# call happens.
 if [ "${SUPERVISOR_LIB_ONLY:-0}" = 1 ]; then
   return 0 2>/dev/null || exit 0
 fi
+
+. tests/lib.sh
+. tests/eval/model-cli.sh
 
 MODEL="${EVAL_MODEL:-claude-haiku-4-5-20251001}"
 PROMPT_FILE=plugins/orchestration/skills/multi-model/references/supervisor-prompt.md
@@ -142,7 +145,7 @@ REPORT:
 $2
 EOF
   local before; before="$(judge_snapshot "$R")"
-  if [ "${EVAL_PROVIDER:-claude}" = codex ]; then
+  if [ "$(judge_sandbox)" = workspace-write ]; then
   EVAL_MODEL="$MODEL" eval_model_answer "$R" workspace-write "$prompt_file" "$answer_file"
   else
   EVAL_MODEL="$MODEL" eval_model_answer "$R" read-only "$prompt_file" "$answer_file"
