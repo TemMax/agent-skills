@@ -1,7 +1,7 @@
 {
   "name": "orchestration",
   "displayName": "Orchestration Skills",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Dual-host development orchestration for Claude Code and Codex: super-plan creates wave-ready tasks with machine-checkable contracts, multi-model executes isolated supervised waves through the host-native adapter, and ship carries approved plans through reviewed delivery while leaving merge authority with the user. Exact Claude, GPT-5.6, and GPT-6 Astra profiles provide evidence-scoped guidance with a conservative generic fallback.",
   "author": {
     "name": "TemMax",
