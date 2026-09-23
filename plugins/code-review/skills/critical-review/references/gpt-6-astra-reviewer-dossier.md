@@ -7,9 +7,11 @@ of orchestration, so its review evidence is retained here.
 ## Sources and their limits
 
 - [System Card PDF](https://deploymentsafety.openai.com/gpt-6-astra/gpt-6-astra.pdf),
-  published 3 September 2026: Coding Deception (section 8.3.1, pp. 26–27)
+  published 3 September 2026, updated 22 September 2026 to 156 pages with a
+  new Appendix A for GPT-6 Sol and Luna and re-run alignment evaluations:
+  Coding Deception (section 8.3.1, pp. 29–30, updated p. 130)
   improves over Sol, but does not measure defect detection. AutoReview
-  (section 8.2.1) measures respect for denials, not judging competence.
+  (section 8.2.1, pp. 24–25, updated pp. 127–128) measures respect for denials, not judging competence.
   Reasoning monitorability limitations in section 9 reinforce artifact checks.
 - [Model guidance](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra):
   sensitivity to skills, clarification pauses, and over-testing motivate

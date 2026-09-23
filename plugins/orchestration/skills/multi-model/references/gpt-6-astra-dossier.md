@@ -7,7 +7,7 @@ uncalibrated reliability is not a blanket prohibition on supervised use.
 
 ## Sources
 
-- [System Card, 3 September 2026, 117-page PDF](https://deploymentsafety.openai.com/gpt-6-astra/gpt-6-astra.pdf)
+- [System Card, 3 September 2026, updated 22 September 2026, 156-page PDF](https://deploymentsafety.openai.com/gpt-6-astra/gpt-6-astra.pdf)
 - [Model reference](https://developers.openai.com/api/docs/models/gpt-6-astra)
 - [Model guidance](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra)
 - [Launch evaluation table and methodology](https://openai.com/index/gpt-6-astra/)
@@ -17,16 +17,26 @@ be compared directly with similarly named scores in another provider's card.
 
 ## System Card measurements
 
-| Measurement | GPT-5.6 Sol | GPT-6 Astra | Direction and source |
-|---|---:|---:|---|
-| GPT-Red indirect-injection robustness | 96.23% | 99.79% | Higher is better; section 5.2, pp. 15–17 |
-| Coding Deception at `max` | 14.29% | 3.54% | Lower is better; section 8.3.1, pp. 26–27 |
-| Attempts to retry/circumvent an AutoReview denial at `max` | 5% | 0% | Lower is better; section 8.2.1, pp. 21–22 |
+| Measurement | GPT-5.6 Sol (original) | GPT-6 Astra (original) | GPT-5.6 Sol (updated eval) | GPT-6 Astra (updated eval) | Direction and source |
+|---|---:|---:|---:|---:|---|
+| GPT-Red indirect-injection robustness | 96.23% | 99.79% | — | — | Higher is better; section 5.2, pp. 17–18 |
+| Coding Deception at `max` | 14.29% | 3.54% | 10.41% | 0.51% | Lower is better; section 8.3.1, pp. 29–30; updated p. 130 |
+| Broken Search Tool failure at `max` | 81.83% | 8.08% | 77.46% | 1.50% | Lower is better; section 8.3.2, pp. 30–31; updated p. 131 |
+| Attempted or succeeded Auto-review circumvention at `max` | 5.3% | 0.0% | 7.3% | 0.0% | Lower is better; section 8.2.1, pp. 24–25; updated pp. 127–128 |
+| Fails to stop at an environment warning at `max` | 64% | 19% | 68.2% | 17.4% | Lower is better; section 8.2.2, p. 26; updated p. 128 |
 
 Coding Deception includes misleading coding-work or capability claims in
 adversarial tasks. These are experimental rates, not production incidence.
 AutoReview measures the acting model's respect for a gate, not its ability
 to serve as the gate's judge. Zero observed attempts is not a guarantee.
+The updated-eval columns come from different evaluation versions re-run on
+22 September 2026, not a model change; the change between the original and
+updated columns is an evaluation change, not a model change.
+
+Gray Swan IPI Arena, 15 attempts per scenario: 8.5% attack success vs
+GPT-5.6 Sol 27.0% (p. 18).
+ExploitGym honeypot at `max`: GPT-5.6 Sol attacked 55.4% of the time, Astra
+never (p. 29).
 
 Section 9 finds reduced reasoning monitorability in several setups. The
 plugin cannot inspect hidden reasoning; preserve action and artifact checks.
@@ -61,7 +71,7 @@ and compaction are host capabilities; this plugin does not implement them.
 ## Routing hypotheses and limits
 
 Astra leads the existing four skills when it is the active session model.
-GPT-5.6 models ordinarily implement the wave; a separate Astra judges their
+GPT-6 Sol and Luna ordinarily implement the wave (see shared Codex routing); GPT-5.6 IDs remain valid only for already approved plans; a separate Astra judges their
 artifacts. A separately approved Astra initial executor or final rung is an
 uncalibrated exception, requiring a fresh Astra supervisor for context
 separation rather than different-model independence.
