@@ -66,7 +66,12 @@ Answers are graded as JSON fields, `k/n` over `EVAL_REPEAT`. It defaults to
 `EVAL_MODEL=claude-opus-5-5` and this checkout's skill; point it at another
 layout with `SKILL_DIR=/path/to/plugins/orchestration/skills/multi-model bash
 tests/eval/skill-navigation.sh`. Its parser and read-check are tested offline
-by `tests/eval/skill-navigation.test.sh`.
+by `tests/eval/skill-navigation.test.sh`. The tier also runs on Codex with
+`EVAL_PROVIDER=codex EVAL_MODEL=<gpt-model> [EVAL_EFFORT=medium]`, recovering
+reads from the shell commands inside `codex exec --json` events since Codex
+has no Read tool. In Codex mode N1 is replaced by N1c (a Codex-only wave,
+read-check `references/codex-wave-protocol.md`), while N2-N5 speak of the
+wave's state helper instead of the wave runner.
 
 **2026-09-23 — multi-model split, measured.** `SKILL.md` went from 925 to 622
 lines (58,142 to 41,464 bytes) by moving four conditional sections verbatim
