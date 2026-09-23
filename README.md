@@ -384,6 +384,11 @@ plugins/
         SKILL.md
         references/
           wave-runner.workflow.mjs   # the escalation ladder as code
+          wave-launch.mjs            # generates the Claude wave launch script
+          claude-wave-adapter.md     # Claude host adapter: invoke the shipped runner
+          contract-amendment.md      # the contract amendment flow
+          verdicts.md                # verifier facts and supervisor verdicts
+          orchestrator-drift-hook.md # how the drift hook works and what it costs
           codex-wave-protocol.md     # native Codex action loop
           codex-wave-state.mjs       # deterministic Codex state and verifier
           supervisor-prompt.md
