@@ -45,14 +45,16 @@ Gate 1 presents the supervisor choice, premium or standard, with its
 estimated cost from `references/estimates.md`, before the user approves the
 design.
 
-**The ship reviewer exemption.** `ship`'s own independent final-review
-child — a fresh Astra/high `critical-review` invocation, used even when the
-main seat runs a GPT-5.6 profile, so a GPT-5.6 seat never accidentally
-selects its own consequential-reviewer profile — is an explicit, disclosed
-exemption from `approvals.premium`. It is not a plan role, so the plan-lint
-gate does not apply to it, and it has no calibrated GPT alternative;
-`ship`/`critical-review` disclose its cost at Gate 1 instead of gating it
-there.
+**Ship's final-review child.** The `approvals.premium` rule governs what a
+plan launches — supervisor, executor, or ladder rung — not the session's own
+model running `ship` itself. Codex `ship`'s independent final-review
+child — a `critical-review` invocation separate from the main seat, so a
+GPT-5.6 seat never reviews its own consequential work — is chosen at Gate 1
+like any other plan role and recorded in the plan's `"review"` key: the
+premium `gpt-6-astra` with a valid `approvals.premium` entry, or the
+standard `gpt-6-sol` (uncalibrated as a production reviewer, and labelled as
+such in the PR). A plan missing the `"review"` key stops `ship` before that
+review step runs.
 
 **Headless rule.** In headless mode, the supervisor choice and its cost
 still get presented; an unresolved premium-vs-standard choice is recorded

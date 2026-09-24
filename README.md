@@ -369,10 +369,13 @@ reaches `claude-opus-5-5` is supervised by `claude-fable-5-1` instead), else
 ladder rungs are all `gpt-6-luna` (uncalibrated as a production supervisor,
 9/9 on the supervisor fixture twice on 2026-09-23) — any Sol executor in the
 wave loses that standard option and needs the premium `gpt-6-astra`
-supervisor instead. `ship`'s own fresh Astra/high final-review child is an
-explicit, disclosed reviewer exemption from `approvals.premium`: it is not a
-plan role and has no calibrated GPT alternative, so its cost is disclosed at
-Gate 1 rather than gated there. `plan-lint.mjs` now flags retired routes as
+supervisor instead. The `approvals.premium` rule covers what the plugin
+launches, not the session's own model: `ship`'s final-review child is chosen
+at Gate 1 and recorded in the plan's `"review"` key — the premium
+`gpt-6-astra` with a valid `approvals.premium` entry, or the standard
+`gpt-6-sol` (uncalibrated as a production reviewer, labelled as such in the
+PR); a plan missing the `"review"` key stops `ship` before that review runs.
+`plan-lint.mjs` now flags retired routes as
 warnings, not silently: GPT-5.6 (Sol/Terra/Luna) in any role, Opus 5 as an
 executor, and every Opus 4.8 executor or rung (the linter cannot tell
 compiled-binary work apart from any other task, so it warns on all of
@@ -386,7 +389,12 @@ them: every `ci.workflows` path must exist under the repo's
 (whole-command matching, not a partial token) inside a listed workflow file;
 `wave-launch.mjs` now runs that `--repo` check at launch too, so these
 repo-dependent CI checks are no longer silently skipped when a Claude wave
-starts. `critical-review` adds one findings gate: when several reviews run
+starts. Three linter/runner defects are fixed: `plan-lint.mjs` no longer
+crashes on an impossible calendar date (e.g. `2026-02-30`) in
+`approvals.premium.date`, instead rejecting it as invalid; a relative
+workflow path with a leading `..` segment (e.g. `..foo.yml`) is now accepted
+under `ci.workflows` rather than rejected; and a non-array `ladder` value
+now fails the plan closed instead of being silently skipped. `critical-review` adds one findings gate: when several reviews run
 for one request, it waits for all of them and presents every finding once,
 in one table per scope, before any fix is asked for. It also states a hard
 secrets prohibition: never open, print, copy, or transmit credentials,
