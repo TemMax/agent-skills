@@ -293,14 +293,29 @@ check "multi-model Completion step runs ci.commands before the final wave's push
 check "multi-model Completion step exempts a none-CI plan and reds like the offline suite" \
   "grep -qF 'with \`ci: \"none: <reason>\"\` there is nothing' '$MM' && grep -qF 'stops completion exactly like a red' '$MM'"
 
-section "GPT-6 Sol/Luna calibration names the one supervisor route, not a blanket review route"
+section "GPT-6 Sol/Luna calibration states the measured Sol routes, Luna review still unsupported"
 
 check "multi-model no longer carries the blanket no-review-or-supervisor sentence" \
   "! grep -qF 'no GPT-6 Sol or Luna review or supervisor' '$MM'"
-check "multi-model states no GPT-6 Sol/Luna review route is supported" \
-  "grep -qF 'so no GPT-6 Sol/Luna review route is supported.' '$MM'"
-check "multi-model names the one supervisor route as an uncalibrated policy decision" \
-  "grep -qF 'The one supervisor route is the standard \`gpt-6-sol\` supervisor of' '$MM' && grep -qF 'all-\`gpt-6-luna\` waves — a policy decision, uncalibrated in production' '$MM' && grep -qF '(supervisor fixture 9/9 twice on 2026-09-23)' '$MM'"
+check "multi-model states GPT-6 Luna review stays unsupported" \
+  "grep -qF 'GPT-6 Luna review stays unsupported' '$MM' && grep -qF '(clean 0/3)' '$MM'"
+check "multi-model names the two Sol routes as measured with numbers and limits" \
+  "grep -qF 'The two Sol routes are now measured, replacing the earlier' '$MM' && grep -qF 'standard \`gpt-6-sol\` supervisor of' '$MM' && grep -qF '9/9 on 2026-09-23' '$MM' && grep -qF '9/9 on 2026-09-24 (×3)' '$MM' && grep -qF '≈3.2× cheaper than a \`gpt-6-astra\` supervisor' '$MM' && grep -qF 'two-task toy waves with correct work only' '$MM'"
+check "multi-model names the measured gpt-6-sol review route" \
+  "sed -n '/^### GPT calibration evidence/,/^## Overview/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The \`gpt-6-sol\` review route recorded the critical-review strict gate clean 5/5 and planted 5/5 in each of two 2026-09-24 runs (10/10 and 10/10) and PR support 3/4 (one \`pr-gate-withheld\` miss)'"
+check "multi-model no longer calls any Sol route uncalibrated" \
+  "! grep -qi 'uncalibrated' '$MM'"
+
+section "the Codex wave runner requires an escalated launch outside the sandbox (nested-sandbox)"
+
+check "codex-wave-protocol quotes both measured nested-sandbox failure strings" \
+  "sed -n '/^The runner shells out to/,/^## Commands and action loop/p' '$CP' | tr '\n' ' ' | tr -s ' ' | grep -qF 'failed to initialize in-process app-server client: Operation not permitted' && sed -n '/^The runner shells out to/,/^## Commands and action loop/p' '$CP' | tr '\n' ' ' | tr -s ' ' | grep -qF 'sandbox-exec: sandbox_apply: Operation not permitted'"
+check "codex-wave-protocol names the nested-sandbox stop and its exit code" \
+  "grep -qF 'nested-sandbox' '$CP' && grep -qF 'exit code 2' '$CP'"
+check "codex-wave-protocol states the escalated-command requirement" \
+  "grep -qF 'Run the runner command as an escalated command outside' '$CP' && grep -qF 'seatbelt sandboxes' '$CP' && grep -qF 'cannot nest' '$CP'"
+check "multi-model Codex adapter selection launches the runner as an escalated command" \
+  "sed -n '/^- Codex-only wave/,/^- Mixed or unknown-provider/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Launch \`codex-wave-runner.mjs\` as an escalated command outside the Codex sandbox, never inside a sandboxed Codex session'"
 
 section "the Table step shows the supervisor, premium status, and cost, with premium only on explicit user choice"
 
