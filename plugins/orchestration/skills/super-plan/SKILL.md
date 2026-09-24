@@ -61,9 +61,11 @@ While authoring or amending a plan, the active profile chooses executor, supervi
 
 For Codex, load the shared [route selection](../multi-model/references/codex-routing.md)
 before choosing children. It governs routing across profiles: use available
-explicit executors and independent Astra supervision without a separate
-calibration gate. Historical fixture failures inform verification; they do not
-block writing a concrete plan for the existing design and plan approvals.
+explicit executors and the supervisor chosen at Gate 1 (premium Astra with
+`approvals.premium`, or standard `gpt-6-sol` for all-Luna waves) without a
+separate calibration gate. Historical fixture failures inform verification;
+they do not block writing a concrete plan for the existing design and plan
+approvals.
 
 ## Process
 
@@ -88,14 +90,23 @@ block writing a concrete plan for the existing design and plan approvals.
    record. Collect genuine product forks in one batch. Use the host-native structured input tool
    when it is available; otherwise ask one concise direct
    question and wait. In headless mode, record the unresolved choices under
-   `Assumptions (would ask)` without silently deciding them. Decide and
-   present the supervisor choice with an estimated cost from
-   `references/estimates.md`: premium (Fable 5.1 / GPT-6 Astra) vs standard
-   (Claude: Opus 5.5 supervising Sonnet/Haiku waves, Opus 5 for Opus 5.5
-   executors; Codex: `gpt-6-sol` for waves whose executors and rungs are
-   only `gpt-6-luna` — uncalibrated as a production supervisor, 9/9 on the
-   supervisor fixture twice on 2026-09-23). A premium model is used only
-   when the user picks it; record the approval in `approvals.premium`.
+   `Assumptions (would ask)` without silently deciding them. Fix each wave's
+   executor tiers and ladder shape at Gate 1 — the supervisor choice depends
+   on them — then decide and present the supervisor choice with an
+   estimated cost from `references/estimates.md`: premium (Fable 5.1 /
+   GPT-6 Astra) vs standard (Claude: Opus 5.5 supervising Sonnet/Haiku
+   waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6-sol` for waves whose
+   executors and rungs are only `gpt-6-luna` — uncalibrated as a production
+   supervisor, 9/9 on the supervisor fixture twice on 2026-09-23). A Codex
+   wave with a `gpt-6-sol` executor has no standard supervisor — it needs
+   `gpt-6-astra`. Ship's final Codex review runs in a separate Astra/high
+   child regardless of the wave's own supervisor; disclose that reviewer
+   exemption and its cost at Gate 1 too. A premium model is used only
+   when the user picks it; record the approval in `approvals.premium`. If
+   the Tasks step later changes a wave so the chosen supervisor no longer
+   fits (for example it adds a `claude-opus-5-5` ladder rung, or a Codex
+   wave gains a `gpt-6-sol` executor), re-ask the user before Gate 2 rather
+   than carry the stale supervisor forward.
 3. **Gate 1 — design.** Present a compact summary: architecture, the wave
    sketch (which tasks, which waves, why), decisions taken, forks the user
    answered, and the supervisor choice with its estimated cost. One
@@ -109,8 +120,12 @@ block writing a concrete plan for the existing design and plan approvals.
    every executor AND every ladder rung —
    from multi-model's supervisor table; a supervisor that also appears
    as an executor or rung is a lint error (a `claude-sonnet-5` executor
-   with a `claude-opus-5-5` rung takes the Opus 5.5 row:
-   `claude-fable-5-1`). Group into waves by
+   with a `claude-opus-5-5` rung takes Opus 5 (`claude-opus-5`, standard)
+   or Fable 5.1 (premium, with `approvals.premium`)). An omitted ladder
+   uses the runner's default ladder (Sonnet/Haiku → Opus 5.5), so a wave
+   supervised by Opus 5.5 gives its Sonnet/Haiku tasks `"ladder": []` —
+   otherwise the default ladder's Opus 5.5 rung collides with the
+   supervisor. Group into waves by
    file-independence: same-wave tasks must not share files — merge
    colliding tasks or split them across consecutive waves. Dependent
    chains are consecutive waves, never one wave.
@@ -150,9 +165,13 @@ block writing a concrete plan for the existing design and plan approvals.
    at `medium` — checks every contract against the code: each `must_run`
    command exists and runs the way CI runs it, every referenced path or API
    exists, the interfaces passed between tasks agree, and every recorded
-   base expectation is plausible. This is where seams between tasks —
-   discovered mid-execution otherwise — surface while they are still cheap
-   to fix. Fix what it finds before lint.
+   base expectation is plausible. Give it the same secrets prohibition
+   every executor gets: never open, print, copy or transmit credentials,
+   tokens or configuration files that hold them (for example `~/.codex`,
+   `~/.claude`, app configs with Authorization headers); if it needs a
+   secret to audit a seam, stop and report. This is where seams between
+   tasks — discovered mid-execution otherwise — surface while they are
+   still cheap to fix. Fix what it finds before lint.
 6. **Lint.** Run the shipped linter and fix every error yourself — the
    user never edits the plan. Lint runs before Gate 2. A mixed-provider wave is a planning defect to fix before Gate 2; never ask the linter or runner to guess a provider:
 
@@ -162,8 +181,8 @@ block writing a concrete plan for the existing design and plan approvals.
 
    Warnings are judgment calls; errors are not negotiable. A plan that
    fails lint is not presented to the user.
-7. **Gate 2 — plan.** Show the lint-clean plan file, the critical path
-   (waves × each wave's slowest task), and an estimated wall time and cost
+7. **Gate 2 — plan.** Show the lint-clean plan file, the critical path (the
+   sum over waves of each wave's slowest task), and an estimated wall time and cost
    range from `references/estimates.md`; say plainly that the estimate is a
    prior, not a promise. One approval.
 8. **Handoff.** "Execute with multi-model (supervised waves)." The plan
@@ -215,7 +234,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    "approvals": {
      "premium": {
        "models": ["claude-fable-5-1"],
-       "reason": "wave 1's http-retry contract needs cross-file judgment the standard route measured weaker on",
+       "reason": "user chose the premium supervisor at Gate 1 for this wave's cross-file retry change",
        "approved_by": "user",
        "date": "2026-09-24" } } }
    ```
@@ -260,9 +279,11 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    Codex also permits `gpt-6-astra` as supervisor and, only when separately
    approved with `astra_executor_reason: "<concrete reason>"`, as the initial
    executor or final explicit ladder rung. That metadata records a reason; it
-   never establishes authorization. A selected Astra executor requires a fresh
-   separate Astra supervisor. Shared Codex routing defines operational choices
-   and evidence limits; the Astra executor exception still needs approval.
+   never establishes authorization. An Astra executor needs both
+   `astra_executor_reason` and `approvals.premium` — the reason alone is not
+   approval. A selected Astra executor requires a fresh separate Astra
+   supervisor. Shared Codex routing defines operational choices and evidence
+   limits; the Astra executor exception still needs approval.
 
    `gpt-5.6` is never a plan id. It is only an active-session alias after
    runtime-context normalization, not a model field. Every Codex supervisor and executor names an explicit effort; the adapter never invents one. Every supervisor,
@@ -302,7 +323,11 @@ against.
 When there is no user to answer gates (an eval harness runs you), skip both
 gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
-silently is the failure this mode exists to measure.
+silently is the failure this mode exists to measure. A headless run uses
+standard supervisors only — Opus 5.5 (or Opus 5 for Opus 5.5 executors) for
+Claude waves, `gpt-6-sol` for all-Luna Codex waves; a premium choice it
+would have asked the user for goes under `Assumptions (would ask)` instead,
+and the plan carries no `approvals.premium` invented by the model.
 
 ## Common Mistakes
 
