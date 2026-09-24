@@ -646,6 +646,27 @@ test('V9 red must_run with no pasted evidence still bounces mechanically', async
   assert.ok(mech.verdict.violations.some((v) => v.class === 'report'))
 })
 
+test('V10 a blocked-on-sibling report skips the mechanical bounce and goes straight ' +
+  'to the judge, which stops the task as contract-unsatisfiable', async () => {
+  const noCommits = { ...FACTS_GREEN(), branchHasCommits: false, filesChanged: [] }
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: (prompt, opts, index) => {
+      if ((opts.label ?? '').startsWith('verify:')) return noCommits
+      if (prompt.startsWith(SUP)) {
+        return { ok: false, violations: [{ rule: 'report_must_answer: what changed?',
+          class: 'report', evidence: 'blocked-on-sibling: docs need the guard from add-guard',
+          quote: '', satisfiable: false }], remarks: [] }
+      }
+      return 'blocked-on-sibling: docs need the guard from add-guard\nno commits made'
+    },
+  })
+  assert.equal(result.tasks[0].status, 'contract-unsatisfiable')
+  assert.equal(execCalls(calls, 't-one').length, 1)
+  assert.equal(supCalls(calls, 't-one').length, 1)
+  assert.equal(result.tasks[0].attempts[0].kind, 'verdict')
+})
+
 // ---------- L: launch hook and verifier exit-status rule ----------
 
 // Mirrors the launch generator: insert `const WAVE_ARGS = <json>` after the

@@ -250,7 +250,9 @@ function executorPrompt(t) {
     'in your worktree; an answer to every report_must_answer question.',
     'Commit every change to your branch before reporting. Your report must',
     'also paste, run in your worktree: git log --oneline ' + wave.base + '..HEAD',
-    '(must be non-empty) and git status --porcelain (must be empty) —',
+    '(must be non-empty) — unless you stopped under the dead-end protocol',
+    '(for example `blocked-on-sibling`), in which case commit nothing and',
+    'say so — and git status --porcelain (must be empty) —',
     'uncommitted work does not exist for the wave.',
     'A claim that a command passed without its pasted output is a contract',
     'violation in its own right.',
@@ -371,6 +373,9 @@ function reworkPrompt(t, verdict) {
     '',
     'Continue in the SAME worktree and branch (wave/' + t.id + '). Fix the',
     'violations. Do not restart from scratch and do not delete the branch.',
+    'The dead-end protocol still applies: if the task still needs an artifact',
+    'another task of this wave produces, report `blocked-on-sibling` again',
+    'instead of committing a placeholder.',
   ].join('\n')
 }
 
@@ -480,7 +485,15 @@ async function runTask(t) {
 
       let verdict = null
       let kind = 'verdict'
-      if (facts !== null) {
+      // A `blocked-on-sibling` report is never bounced mechanically, even
+      // when it also trips mechanical rules (e.g. no commits): only a judge
+      // can decide whether the block is satisfiable, and a mechanical bounce
+      // would just push the executor to commit a placeholder instead of
+      // waiting on the sibling task. The mechanical facts still reach the
+      // judge as VERIFIER FACTS, exactly as they already do whenever a judge
+      // runs.
+      const blockedOnSibling = typeof report === 'string' && report.includes('blocked-on-sibling')
+      if (facts !== null && !blockedOnSibling) {
         const mech = mechanicalViolations(t, facts)
         const freshRules = mech.filter((v) => !mechSeen.has(v.class + '|' + v.rule))
         if (mech.length > 0 && freshRules.length === mech.length) {
