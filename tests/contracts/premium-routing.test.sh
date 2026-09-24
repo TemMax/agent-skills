@@ -21,10 +21,10 @@ section "codex-routing: Astra execution needs astra_executor_reason and approval
 check "codex-routing states Astra execution needs astra_executor_reason and approvals.premium" \
   "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'Astra execution needs its \`astra_executor_reason\` and \`approvals.premium\`.'"
 
-section "codex-routing: ship's final review child is a disclosed reviewer exemption"
+section "codex-routing: ship's final review child is chosen by the plan's review key"
 
-check "codex-routing names the Astra/high review child a reviewer exemption from approvals.premium" \
-  "grep -qF 'This Astra/high review child is an explicit reviewer exemption from' '$CP_ROUTING' && grep -qF '\`approvals.premium\`' '$CP_ROUTING'"
+check "codex-routing runs Stage 3 in a fresh child of the plan's review-key model" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'if the plan has no \`review\` key, stop and ask the user before invoking the review; never pick.'"
 check "codex-routing states the review child is not a plan role with no calibrated GPT alternative" \
   "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'it is not a plan role and has no calibrated GPT alternative'"
 check "codex-routing states the review child cost is disclosed at Gate 1" \
@@ -37,10 +37,10 @@ check "codex-wave-protocol names the Gate 1 supervisor choice, premium or standa
 check "codex-wave-protocol requires astra_executor_reason and approvals.premium for an Astra executor or rung" \
   "grep -qF 'An Astra executor or rung needs' '$CP_PROTOCOL' && grep -qF '\`astra_executor_reason: \"<concrete reason>\"\` and \`approvals.premium\`' '$CP_PROTOCOL'"
 
-section "ship: Stage 3 critical-review child is a disclosed reviewer exemption"
+section "ship: Stage 3 critical-review child is chosen by the plan's review key"
 
-check "ship names the Astra/high review child a reviewer exemption disclosed at Gate 1" \
-  "grep -qF 'a reviewer exemption' '$SH' && grep -qF 'from \`approvals.premium\`, disclosed with its cost at Gate 1.' '$SH'"
+check "ship runs Stage 3 in a fresh child of the plan's review-key model" \
+  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'if the plan has no \`review\` key, stop and ask the user before invoking the review; never pick.'"
 
 section "ship: Stage 2 step 4 still runs ci.commands before the final push"
 

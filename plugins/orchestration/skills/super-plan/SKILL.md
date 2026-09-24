@@ -99,10 +99,12 @@ approvals.
    executors and rungs are only `gpt-6-luna` — uncalibrated as a production
    supervisor, 9/9 on the supervisor fixture twice on 2026-09-23). A Codex
    wave with a `gpt-6-sol` executor has no standard supervisor — it needs
-   `gpt-6-astra`. Ship's final Codex review runs in a separate Astra/high
-   child regardless of the wave's own supervisor; disclose that reviewer
-   exemption and its cost at Gate 1 too. A premium model is used only
-   when the user picks it; record the approval in `approvals.premium`. If
+   `gpt-6-astra`. Record the model for ship's Stage 3 critical-review child
+   in the plan's `review` key here too: `gpt-6-astra` by default, recorded
+   in `approvals.premium`, or, when the user picks it to save that cost,
+   `gpt-6-sol` — uncalibrated as a reviewer — disclosed at Gate 1 too.
+   A premium model is used only when the user picks it; record the
+   approval in `approvals.premium`. If
    the Tasks step later changes a wave so the chosen supervisor no longer
    fits (for example it adds a `claude-opus-5-5` ladder rung, or a Codex
    wave gains a `gpt-6-sol` executor), re-ask the user before Gate 2 rather
@@ -256,9 +258,17 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      "...", "date": "..."}`, required whenever `claude-fable-5-1` or
      `gpt-6-astra` appears in any role — supervisor, executor, or ladder
      rung. The example above shows it for the `claude-fable-5-1` supervisor.
+   - `review`: optional, only on Codex plans that ship carry it — Claude
+     plans never carry it, since Claude's Stage 3 review runs in the
+     session. Names the model for ship's Stage 3 critical-review child,
+     e.g. `"review": "gpt-6-astra"` (the default, recorded in
+     `approvals.premium`) or `"review": "gpt-6-sol"` (cheaper, uncalibrated
+     as a reviewer).
 
    The linter enforces all three: a plan missing `ci`, missing `e2e`, or
-   missing a required `approvals.premium` fails lint.
+   missing a required `approvals.premium` fails lint. It also checks the
+   optional `review` key's value and its `approvals.premium` pairing when
+   present.
 
    The model fields use the active profile's plan host and this exact table:
 

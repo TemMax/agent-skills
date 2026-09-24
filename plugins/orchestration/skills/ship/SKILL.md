@@ -62,12 +62,13 @@ Available GPT-6 executors under the supervisor chosen at Gate 1 — premium
 `gpt-6-astra`/high with `approvals.premium`, or the standard `gpt-6-sol`/high
 for Luna-only waves — form an operational route through super-plan and
 multi-model without a separate calibration gate. Check actual capabilities
-before launch; preserve the approvals below. Invoke
-Stage 3 critical-review in a fresh Astra/high child for independent final review,
-including when the main seat uses a GPT-5.6 profile — a reviewer exemption
-from `approvals.premium`, disclosed with its cost at Gate 1. Missing required
-review capability stops the route; it never authorizes self-review or
-publication.
+before launch; preserve the approvals below. Stage 3 critical-review runs in
+a fresh child of the model the plan's `review` key names (chosen at Gate 1;
+`gpt-6-astra` recorded in `approvals.premium`, or `gpt-6-sol`, uncalibrated);
+if the plan has no `review` key, stop and ask the user before invoking the
+review; never pick. Missing required review capability stops the route; it
+never authorizes self-review or publication. Claude sessions: unchanged
+(review in the session).
 
 ## What ship owns — and what it does not
 
@@ -146,6 +147,8 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    contract or runtime check verified, an explicit **"Not verified — manual
    QA needed"** section listing each one. An unverified reference that
    vanishes from the PR resurfaces as a production defect found by hand.
+   When the review child is `gpt-6-sol`, the body also carries the line
+   `Review route uncalibrated: gpt-6-sol final review (strict gate clean 7/8)`.
 3. If the plan carries Acceptance References and this session has a tool or
    skill whose **described capability** is running the product and
    observing it — launching the app, driving its UI, capturing screenshots —
