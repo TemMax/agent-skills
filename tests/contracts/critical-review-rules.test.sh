@@ -19,6 +19,12 @@ check "review rules allow reviewing in-scope files but never reproducing a secre
 check "credential rule names example config paths outside review scope" \
   "one_line '$SKILL' | grep -qF '~/.codex' && one_line '$SKILL' | grep -qF '~/.claude' && one_line '$SKILL' | grep -qF 'key name only'"
 
+check "credential rule forbids opening credential stores or config files outside review scope" \
+  "one_line '$SKILL' | grep -qF 'Never open credential stores or configuration files outside the review'\''s scope'"
+
+check "credential rule forbids printing, copying or transmitting a credential or token value from any file" \
+  "one_line '$SKILL' | grep -qF 'never print, copy or transmit a credential or token value from any file, in or out of scope'"
+
 check "credential rule cites the measured Authorization-value cause" \
   "one_line '$SKILL' | grep -qF 'a reviewer printed an Authorization value from a local config in the same run'"
 
