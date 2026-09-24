@@ -135,23 +135,27 @@ finding, not a puzzle to route around.
 
 ## Was the contract satisfiable at all?
 
-When you record a `must_run` violation, also answer this, as a field on the
-verdict: `"satisfiable": true|false`, with the evidence for your answer.
+When you record a `must_run` or `report` violation, also answer this, as a
+field on the verdict: `"satisfiable": true|false`, with the evidence for your
+answer.
 
 The question is not whether the command fails — you already established that. It
 is whether **any change `files_allowed` permits could have altered the outcome**.
 A command that reads nothing under the allowed paths, or whose only fix lies
 behind a `forbidden_move`, cannot be made to pass by any compliant work, and the
-executor in front of you did nothing wrong.
+executor in front of you did nothing wrong. A contract is also unsatisfiable
+when its only truthful completion needs an artifact that is absent at BASE
+and outside `files_allowed` — another task of the wave creates it. Record
+that answer on whichever violation records the stop: the `must_run` violation
+if a command surfaces it, or the `report` violation if only the REPORT does.
 
-When the REPORT says `blocked-on-sibling` and you confirm the named artifact is
-absent at BASE and outside `files_allowed` (another task creates it), the
-contract is not satisfiable by truthful work: record the `must_run` (or
-`report`) violation with `"satisfiable": false`, and evidence naming the
-missing artifact.
+When the REPORT says `blocked-on-sibling`, that is this same test: confirm the
+named artifact is absent at BASE and outside `files_allowed` (another task
+creates it), then record the `must_run` or `report` violation with
+`"satisfiable": false`, and evidence naming the missing artifact.
 
-An unsatisfiable contract still fails the verdict. Record the `must_run`
-violation with `"satisfiable": false` and return `ok:false` — the executor's
+An unsatisfiable contract still fails the verdict. Record the `must_run` or
+`report` violation with `"satisfiable": false` and return `ok:false` — the executor's
 innocence lives in that field, never in `ok:true`. A passing verdict says
 "merge this branch", and the branch's required command fails; what reads the
 `satisfiable` field cannot act on a verdict that never arrives. Observed
@@ -185,4 +189,5 @@ Valid JSON and nothing else. No prose before or after it.
 
 `ok` is false if and only if `violations` is non-empty. Each violation is
 `{"rule": "...", "class": "...", "evidence": "...", "quote": "..."}`. A `must_run`
-violation also carries `"satisfiable": true|false` with its own evidence.
+or `report` violation also carries `"satisfiable": true|false` with its own
+evidence.
