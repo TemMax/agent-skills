@@ -777,6 +777,142 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "e2e task not in last wave exits 0" "0" "$rc"
 contains "e2e task not in last wave warned" 'e2e.task: "http-retry" is not in the last wave' "$out"
 
+python3 - "$CLEAN" "$W/m.md" <<'PY'
+import json, re, sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+plan['waves'] = [
+  { "wave": 1,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "http-prep",
+      "branch": "wave/http-prep",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": [],
+      "contract": {
+        "files_allowed": ["src/prep/**"],
+        "files_forbidden": [],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": [],
+        "report_must_answer": ["What changed?"]
+      }
+    }]
+  },
+  { "wave": 2,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "http-retry",
+      "branch": "wave/http-retry",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": ["claude-opus-5-5"],
+      "contract": {
+        "files_allowed": ["src/http/**"],
+        "files_forbidden": ["src/auth/**"],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": ["weakening, deleting or skipping an existing test"],
+        "report_must_answer": ["Which call sites now retry?"]
+      }
+    }]
+  },
+  { "wave": 3,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "docs-followup",
+      "branch": "wave/docs-followup",
+      "executor": {"model": "claude-haiku-4-5-20251001"},
+      "ladder": [],
+      "contract": {
+        "files_allowed": ["docs/notes.md", "CHANGELOG.md"],
+        "files_forbidden": [],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": [],
+        "report_must_answer": ["What changed?"]
+      }
+    }]
+  }
+]
+new_json = json.dumps(plan, indent=2)
+out = s[:m.start(1)] + new_json + s[m.end(1):]
+out = re.sub(r'\n## Task docs-sync\n\nUpdate the docs to describe retries\.\n', '', out)
+out += '\n## Task http-prep\n\nPrep work before retries.\n'
+out += '\n## Task docs-followup\n\nFollow-up doc work.\n'
+open(dst, 'w').write(out)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e task documentation-only later wave exits 0" "0" "$rc"
+check "e2e task documentation-only later wave has no not-in-last-wave warning" \
+  '! grep -qF "is not in the last wave" <<<"$out"'
+
+python3 - "$CLEAN" "$W/m.md" <<'PY'
+import json, re, sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+plan['waves'] = [
+  { "wave": 1,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "http-prep",
+      "branch": "wave/http-prep",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": [],
+      "contract": {
+        "files_allowed": ["src/prep/**"],
+        "files_forbidden": [],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": [],
+        "report_must_answer": ["What changed?"]
+      }
+    }]
+  },
+  { "wave": 2,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "http-retry",
+      "branch": "wave/http-retry",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": ["claude-opus-5-5"],
+      "contract": {
+        "files_allowed": ["src/http/**"],
+        "files_forbidden": ["src/auth/**"],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": ["weakening, deleting or skipping an existing test"],
+        "report_must_answer": ["Which call sites now retry?"]
+      }
+    }]
+  },
+  { "wave": 3,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "src-followup",
+      "branch": "wave/src-followup",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": [],
+      "contract": {
+        "files_allowed": ["src/other/**"],
+        "files_forbidden": [],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": [],
+        "report_must_answer": ["What changed?"]
+      }
+    }]
+  }
+]
+new_json = json.dumps(plan, indent=2)
+out = s[:m.start(1)] + new_json + s[m.end(1):]
+out = re.sub(r'\n## Task docs-sync\n\nUpdate the docs to describe retries\.\n', '', out)
+out += '\n## Task http-prep\n\nPrep work before retries.\n'
+out += '\n## Task src-followup\n\nFollow-up source work.\n'
+open(dst, 'w').write(out)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e task documentation-only later wave with src exits 0" "0" "$rc"
+contains "e2e task documentation-only later wave with src still warned" \
+  'e2e.task: "http-retry" is not in the last wave' "$out"
+
 section "premium approval"
 
 mutate '"e2e": { "task": "http-retry" },
