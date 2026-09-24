@@ -263,6 +263,19 @@ check "codex-routing states the standard supervisor option" \
 check "codex-routing keeps the mandatory-stop rule for missing capabilities" \
   "grep -qF 'stop before launching and name the missing capability' '$CP_ROUTING'"
 
+section "codex-routing and ship choose the wave supervisor at Gate 1, premium or standard"
+
+check "codex-routing no longer names an available Astra supervisor as the default authoring choice" \
+  "! grep -qF 'with an available independent \`gpt-6-astra\` supervisor' '$CP_ROUTING'"
+check "codex-routing's Authoring decision paragraph names the Gate 1 choice" \
+  "grep -qF 'chosen at Gate 1' '$CP_ROUTING'"
+check "codex-routing states the Luna->Sol rung is Astra-only" \
+  "grep -qF 'The Luna→Sol rung is available only under an Astra supervisor; a wave with' '$CP_ROUTING' && grep -qF 'the standard \`gpt-6-sol\` supervisor has no ladder.' '$CP_ROUTING'"
+check "ship no longer names a fresh Astra/high supervisor as the default GPT-5.6 route" \
+  "! grep -qF 'Available GPT-5.6 executors with a fresh Astra/high supervisor' '$SH'"
+check "ship names the Gate 1 supervisor choice, premium or standard, for GPT-6 executors" \
+  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'Available GPT-6 executors under the supervisor chosen at Gate 1 — premium \`gpt-6-astra\`/high with \`approvals.premium\`, or the standard \`gpt-6-sol\`/high for Luna-only waves — form an operational route through super-plan and multi-model without a separate calibration gate.'"
+
 section "ship runs the plan's ci.commands after the final wave"
 
 check "ship Stage 2 step 4 runs ci.commands after the final wave, before push" \

@@ -58,9 +58,11 @@ effort is unknown and receives no effort-specific claim. Always reply to the
 user in the language the user writes in.
 
 For Codex, load [shared route selection](../multi-model/references/codex-routing.md).
-Available GPT-5.6 executors with a fresh Astra/high supervisor form an operational
-route through super-plan and multi-model without a separate calibration gate.
-Check actual capabilities before launch; preserve the approvals below. Invoke
+Available GPT-6 executors under the supervisor chosen at Gate 1 — premium
+`gpt-6-astra`/high with `approvals.premium`, or the standard `gpt-6-sol`/high
+for Luna-only waves — form an operational route through super-plan and
+multi-model without a separate calibration gate. Check actual capabilities
+before launch; preserve the approvals below. Invoke
 Stage 3 critical-review in a fresh Astra/high child for independent final review,
 including when the main seat uses a GPT-5.6 profile. Missing required review
 capability stops the route; it never authorizes self-review or publication.
