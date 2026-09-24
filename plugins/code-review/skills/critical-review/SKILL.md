@@ -68,24 +68,34 @@ evidence, but it must state that its GPT route is uncalibrated. Existing Claude
 review guidance is unchanged. Full counts and limitations:
 `tests/eval/gpt-5-6-results-2026-09-04.md`.
 
-### GPT-6 Sol and Luna calibration — 2026-09-23 UTC
+### GPT-6 Sol and Luna calibration — 2026-09-24 UTC
 
-No GPT-6 review route is supported yet. The one supervisor route that
-exists is multi-model's standard `gpt-6-sol` supervisor of all-`gpt-6-luna`
-waves — a policy decision, not a measured pass, and uncalibrated in
-production. Never claim a supported GPT-6 review route. Re-measured
-review-guard counts after the stage B harness
-fixes: Sol clean 7/8, planted 8/8, PR gate 2/2; Luna clean 0/3, planted 3/3,
-PR gate 2/2. The scorer was fixed and the review re-measured; Sol missed the
-strict 5/5 clean guard by one format failure, so the route stays
-`unsupported`. A GPT-6 Sol or Luna model-selection request returns
-`unsupported`, exactly as for GPT-5.6. Full counts and limitations:
-`tests/eval/gpt-6-results-2026-09-23.md`.
+No GPT-6 Luna or Astra review route is supported. The one supervisor route
+that exists outside Sol's measured route below is multi-model's standard
+`gpt-6-sol` supervisor of all-`gpt-6-luna` waves — a policy decision, not a
+measured pass, and uncalibrated in production. Never claim a supported
+GPT-6 Luna or Astra review route. Re-measured review-guard counts after the
+stage B harness fixes: Sol clean 7/8, planted 8/8, PR gate 2/2; Luna clean
+0/3, planted 3/3, PR gate 2/2. The scorer was fixed and the review
+re-measured; Sol missed the strict 5/5 clean guard by one format failure,
+so the route stayed `unsupported` at that point. A GPT-6 Luna model-
+selection request returns `unsupported`, exactly as for GPT-5.6. Full
+counts and limitations: `tests/eval/gpt-6-results-2026-09-23.md`.
+
+A 2026-09-24 UTC local re-measure ran the strict review gate twice more:
+Sol passed clean 5/5 and planted 5/5 in each run (10/10 combined clean,
+10/10 combined planted); PR support was 3/4, with one withheld-case miss.
+The GPT-6 Sol review route is now **measured-supported**: a GPT-6 Sol
+model-selection request may return `gpt-6-sol` with these counts and the
+PR-support caveat stated alongside it. GPT-6 Luna stays `unsupported`
+(clean 0/3). Never silently substitute another GPT model, mix providers, or
+make `max` a default.
 
 When a ship plan records `review.model: gpt-6-sol` — the user's explicit
-Gate 1 choice — the review runs. Its summary must state that the GPT-6 Sol
-review route is uncalibrated (strict gate clean 7/8, planted 8/8). This is
-not a supported route: never claim a supported GPT-6 review route.
+Gate 1 choice — the review runs as a measured route. Its summary must state
+the 2026-09-24 strict-gate counts (10/10 clean, 10/10 planted) and the
+PR-support caveat (3/4, one withheld-case miss). Never claim a supported
+GPT-6 Luna or Astra review route.
 
 ## Overview
 
