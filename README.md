@@ -310,11 +310,12 @@ Type `/orch` or `/code` and let autocomplete fill in the namespaced name.
 
 **What to expect from planning.** `super-plan` researches the codebase, asks
 you ONE batched round of questions for what code cannot answer, and gates
-twice: Gate 1 on the design summary — which names the supervisor choice with
-its estimated cost, premium or standard — and Gate 2 on the finished plan,
-shown with its critical path and an estimated wall-time and cost range, which
-must pass the shipped linter (same-wave file overlap, contract completeness)
-before you ever see it.
+twice: Gate 1 on the design summary — which names the supervisor choice,
+premium or standard — and Gate 2 on the finished plan, shown with its shape
+(the waves, the tasks that run in parallel in each, the critical path in
+waves), which must pass the shipped linter (same-wave file overlap, contract
+completeness) before you ever see it. Neither gate — nor any table or report —
+carries a time or cost estimate.
 
 **What to expect from orchestration.** The orchestrator loads its profile,
 shows you a table (task | model | effort | rationale), then launches the waves
@@ -367,21 +368,42 @@ task writes it in the same wave, making the two nominally independent
 tasks implicitly dependent; it now documents only the expectation in
 tests/test_calc.py and is steered away from describing `src/calc.py`'s
 implementation.
-`references/estimates.md` adds a mid-size Codex pilot (2026-09-24,
-`gpt-6-sol` orchestrator, runner): two runs of the same 7-point feature,
-planned and executed by one Codex orchestrator session in a disposable
-repo. Standard (all `gpt-6-luna` executors, `gpt-6-sol` supervisor, 7
-tasks / 3 waves): 7/7 tasks ok, 32 tests green, 12.2 min wall, $1.14.
-Premium (`gpt-6-astra` supervisor, executors routed 4 Luna / 2 Sol, 6
-tasks / 2 waves): 6/6 tasks ok, 25 tests green, 10.2 min wall, $2.99.
-Both runs finished below the lower bound of their own Gate 2 estimate;
-the estimating guide now gives a Codex-runner-specific central wall
-estimate (≈ 4 min orchestrator planning before Gate 2, then ≈ 3 min per
-wave for execution after Gate 2) drawn from these two runs. This release
-also folds in review fixes: the Claude runner routes a blocked-on-sibling
-stop to the judge, satisfiable covers report violations, a
-blocked-on-sibling contract amendment, e2e placement and the docs-only
-lint exception, and the estimates ≈ 3 min per wave figure above.
+The mid-size Codex pilot of 2026-09-24 (`gpt-6-sol` orchestrator, runner;
+standard: 7 tasks / 3 waves, 12.2 min, $1.14; premium: 6 tasks / 2 waves,
+10.2 min, $2.99) finished below the lower bound of both of its own Gate 2
+ranges, and a real four-repository plan was quoted at 7–16 hours and
+$60–250. So the skills no longer estimate at all: super-plan's Gate 1 names
+the supervisor choice without a price, Gate 2 shows the plan's shape — the
+waves, the tasks that run in parallel in each, the critical path in waves —
+instead of a wall-time and cost range, and multi-model's table, progress
+updates and summaries and ship's handoff carry no time or cost prediction.
+`super-plan/references/estimates.md` left the skill; its measurements are
+kept as history in `tests/eval/wave-cost-measurements-2026-09-24.md`, which
+no skill reads. This release also folds in review fixes: the Claude runner
+routes a blocked-on-sibling stop to the judge, satisfiable covers report
+violations, a blocked-on-sibling contract amendment, e2e placement and the
+docs-only lint exception.
+
+**Design for width.** super-plan now plans for parallel waves explicitly:
+`files_allowed` cut by file rather than by directory, a contract-first wave
+before its parallel implementers, independent chains — including plans for
+separate repositories — side by side, and never one wave per step of a
+sequential list. A plan of three or more waves whose waves mostly hold a
+single task gets a linter warning unless it explains each such wave under
+`## Parallelism`. Measured cause: a four-repository plan came out as 14
+waves of one task each.
+
+**Effort detection.** The runtime-context hook now reports the Codex
+session's effort: it reads `effort` from the session's own `turn_context`
+record through the hook payload's `transcript_path` — at SessionStart, and
+again at UserPromptSubmit when the model or effort changed — instead of a
+fixed `effort=unknown`. Claude Code gives hooks no effort (a hook's
+`CLAUDE_EFFORT` is only inherited from the parent process), so Step 0 on a
+Claude Code host reads `CLAUDE_EFFORT` once through the shell tool, where
+Claude Code sets it to the session's own effort — and never on a Codex
+host, where the variable can be inherited from a parent Claude Code
+session. `code-review` 1.9.0 → 1.10.0 for its copy of the hook and
+critical-review's Step 0.
 
 ## 4.0.0
 
@@ -499,7 +521,7 @@ resolving it, because an alias can re-point to a different model silently.
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.1.0, code-review 1.9.0):
+orchestration 4.1.0, code-review 1.10.0):
 
 | Before | After |
 |---|---|
