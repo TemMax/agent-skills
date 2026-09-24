@@ -4,10 +4,14 @@
 # wall time, orchestrator cost and correctness via the telemetry analyzer.
 #
 # Usage: bash tests/eval/ship-smoke.sh --mode native|runner|both
-#          [--orchestrator gpt-6-sol] [--effort high] --results DIR
+#          [--orchestrator gpt-6-sol] [--effort high]
+#          [--supervisor gpt-6-astra|gpt-6-sol] --results DIR
 #
 # Builds a disposable repo with a local bare origin and a lint-clean two-task
-# Codex wave plan (add-guard / add-doc, supervisor gpt-6-astra/high), runs
+# Codex wave plan (add-guard / add-doc; supervisor defaults to the premium
+# gpt-6-astra/high, or, with --supervisor gpt-6-sol, the standard-supervisor
+# variant: both executors gpt-6-luna/medium, no ladder, supervisor
+# gpt-6-sol/high, no approvals.premium), runs
 # one Codex orchestrator session per requested mode (WITHOUT --ephemeral, so
 # its rollout persists), finds that session's root rollout under
 # ~/.codex/sessions by its `thread.started` id, and hands it to
@@ -44,7 +48,8 @@ PRICES="$ROOT/tests/eval/telemetry/prices.json"
 usage() {
   cat <<'USAGE'
 Usage: bash tests/eval/ship-smoke.sh --mode native|runner|both
-         [--orchestrator gpt-6-sol] [--effort high] --results DIR
+         [--orchestrator gpt-6-sol] [--effort high]
+         [--supervisor gpt-6-astra|gpt-6-sol] --results DIR
 
 Measures one small Codex wave run two ways — the orchestrator executing the
 wave with the native spawn_agent/wait_agent action loop vs. driving it
@@ -53,17 +58,23 @@ and whether the merged result passes the fixture's must_run, via
 tests/eval/telemetry/telemetry.mjs. --mode both runs one instance of each,
 each against its own fresh fixture repo.
 
+--supervisor selects the fixture plan's wave supervisor: the default
+gpt-6-astra (premium, approvals.premium recorded) or the standard-supervisor
+gpt-6-sol (both executors gpt-6-luna/medium, no ladder, no approvals.premium
+key), per the codex-routing standard-supervisor rule.
+
 --results is part of the evidence contract, not a cache: it must be an
 absent or empty directory, else this exits 73 without touching it.
 USAGE
 }
 
-MODE="" ORCHESTRATOR="gpt-6-sol" EFFORT="high" RESULTS=""
+MODE="" ORCHESTRATOR="gpt-6-sol" EFFORT="high" SUPERVISOR="gpt-6-astra" RESULTS=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --mode) MODE="$2"; shift 2 ;;
     --orchestrator) ORCHESTRATOR="$2"; shift 2 ;;
     --effort) EFFORT="$2"; shift 2 ;;
+    --supervisor) SUPERVISOR="$2"; shift 2 ;;
     --results) RESULTS="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'ship-smoke: unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
@@ -74,6 +85,10 @@ case "$MODE" in
   native|runner|both) ;;
   '') printf 'ship-smoke: --mode is required\n' >&2; usage >&2; exit 2 ;;
   *) printf 'ship-smoke: --mode must be native, runner or both: %s\n' "$MODE" >&2; usage >&2; exit 2 ;;
+esac
+case "$SUPERVISOR" in
+  gpt-6-astra|gpt-6-sol) ;;
+  *) printf 'ship-smoke: --supervisor must be gpt-6-astra or gpt-6-sol: %s\n' "$SUPERVISOR" >&2; usage >&2; exit 2 ;;
 esac
 if [ -z "$RESULTS" ]; then
   printf 'ship-smoke: --results is required\n' >&2; usage >&2; exit 2
@@ -106,7 +121,7 @@ TIMEOUT="${SHIP_SMOKE_TIMEOUT:-1800}"
 # file the executor may not touch; the guard/doc are each a small, separate
 # change).
 
-build_fixture() { # work-dir -> sets REPO, BASE, PLAN
+build_fixture() { # work-dir supervisor -> sets REPO, BASE, PLAN
   local work="$1"
   REPO="$work/repo"
   mkdir -p "$REPO/src" "$REPO/tests" "$REPO/docs"
@@ -126,57 +141,66 @@ class CalcTest(unittest.TestCase):
 PY
   : > "$REPO/docs/.gitkeep"
   PLAN="$REPO/plan.md"
-  cat > "$PLAN" <<'MD'
-status: draft
-base: pending
-
-# Plan — ship-smoke wave
-
-```json wave-plan
-{ "waves": [
-  { "wave": 1,
-    "supervisor": { "model": "gpt-6-astra", "effort": "high" },
-    "tasks": [
-      { "id": "add-guard",
-        "branch": "wave/add-guard",
-        "executor": { "model": "gpt-6-luna", "effort": "medium" },
-        "ladder": ["gpt-6-sol"],
-        "contract": {
-          "files_allowed": ["src/**"],
-          "files_forbidden": ["tests/**"],
-          "must_run": [{ "cmd": "python3 -m unittest discover -s tests -t .", "evidence": "required" }],
-          "forbidden_moves": ["weakening, deleting or skipping an existing test"],
-          "report_must_answer": ["How is division by zero handled?"] } },
-      { "id": "add-doc",
-        "branch": "wave/add-doc",
-        "executor": { "model": "gpt-6-sol", "effort": "medium" },
-        "contract": {
-          "files_allowed": ["docs/**"],
-          "files_forbidden": ["src/**", "tests/**"],
-          "must_run": [{ "cmd": "test -s docs/NOTE.md", "evidence": "required" }],
-          "forbidden_moves": [],
-          "report_must_answer": ["What does the note explain?"] } }
-    ] }
-],
-  "ci": "none: disposable fixture repository without CI",
-  "e2e": "not-applicable: fixture plan exercises the harness",
-  "approvals": { "premium": {
+  local supervisor="${2:-gpt-6-astra}"
+  local guard_executor add_doc_executor guard_ladder approvals_block
+  if [ "$supervisor" = gpt-6-sol ]; then
+    guard_executor='{ "model": "gpt-6-luna", "effort": "medium" }'
+    add_doc_executor='{ "model": "gpt-6-luna", "effort": "medium" }'
+    guard_ladder='[]'
+    approvals_block=''
+  else
+    guard_executor='{ "model": "gpt-6-luna", "effort": "medium" }'
+    add_doc_executor='{ "model": "gpt-6-sol", "effort": "medium" }'
+    guard_ladder='["gpt-6-sol"]'
+    approvals_block='  "approvals": { "premium": {
     "models": ["gpt-6-astra"],
-    "reason": "premium model used as this fixture wave's supervisor",
+    "reason": "premium model used as this fixture wave'"'"'s supervisor",
     "approved_by": "harness",
-    "date": "2026-09-24" } }
-}
-```
-
-## Task add-guard
-
-Add a guard for division by zero in `src/calc.py` without modifying the
-tests.
-
-## Task add-doc
-
-Write a short `docs/NOTE.md` describing the division-by-zero guard.
-MD
+    "date": "2026-09-24" } }'
+  fi
+  {
+    printf 'status: draft\nbase: pending\n\n# Plan — ship-smoke wave\n\n```json wave-plan\n'
+    printf '{ "waves": [\n'
+    printf '  { "wave": 1,\n'
+    printf '    "supervisor": { "model": "%s", "effort": "high" },\n' "$supervisor"
+    printf '    "tasks": [\n'
+    printf '      { "id": "add-guard",\n'
+    printf '        "branch": "wave/add-guard",\n'
+    printf '        "executor": %s,\n' "$guard_executor"
+    printf '        "ladder": %s,\n' "$guard_ladder"
+    printf '        "contract": {\n'
+    printf '          "files_allowed": ["src/**"],\n'
+    printf '          "files_forbidden": ["tests/**"],\n'
+    printf '          "must_run": [{ "cmd": "python3 -m unittest discover -s tests -t .", "evidence": "required" }],\n'
+    printf '          "forbidden_moves": ["weakening, deleting or skipping an existing test"],\n'
+    printf '          "report_must_answer": ["How is division by zero handled?"] } },\n'
+    printf '      { "id": "add-doc",\n'
+    printf '        "branch": "wave/add-doc",\n'
+    printf '        "executor": %s,\n' "$add_doc_executor"
+    if [ "$supervisor" = gpt-6-sol ]; then
+      printf '        "ladder": [],\n'
+    fi
+    printf '        "contract": {\n'
+    printf '          "files_allowed": ["docs/**"],\n'
+    printf '          "files_forbidden": ["src/**", "tests/**"],\n'
+    printf '          "must_run": [{ "cmd": "test -s docs/NOTE.md", "evidence": "required" }],\n'
+    printf '          "forbidden_moves": [],\n'
+    printf '          "report_must_answer": ["What does the note explain?"] } }\n'
+    printf '    ] }\n'
+    printf '],\n'
+    printf '  "ci": "none: disposable fixture repository without CI",\n'
+    printf '  "e2e": "not-applicable: fixture plan exercises the harness"'
+    if [ -n "$approvals_block" ]; then
+      printf ',\n%s\n' "$approvals_block"
+    else
+      printf '\n'
+    fi
+    printf '}\n```\n\n'
+    printf '## Task add-guard\n\n'
+    printf 'Add a guard for division by zero in `src/calc.py` without modifying the\ntests.\n\n'
+    printf '## Task add-doc\n\n'
+    printf 'Write a short `docs/NOTE.md` describing the division-by-zero guard.\n'
+  } > "$PLAN"
   git -C "$REPO" init -q
   git -C "$REPO" symbolic-ref HEAD refs/heads/master
   git -C "$REPO" config user.name 'ship-smoke fixture'
@@ -192,8 +216,8 @@ MD
 # ---------------------------------------------------------------------------
 # Orchestrator prompts
 
-build_prompt() { # mode repo plan base
-  local mode="$1" repo="$2" plan="$3" base="$4"
+build_prompt() { # mode repo plan base supervisor
+  local mode="$1" repo="$2" plan="$3" base="$4" supervisor="${5:-gpt-6-astra}"
   cat <<PROMPT
 # Task: ship-smoke wave 1
 
@@ -204,7 +228,7 @@ pushed to \`origin\` as the tip of \`master\`).
 ## Plan
 
 The wave plan is at \`$plan\`. Read it before acting. Run wave 1 (two
-independent tasks: add-guard, add-doc; supervisor gpt-6-astra/high).
+independent tasks: add-guard, add-doc; supervisor $supervisor/high).
 
 ## Protocol
 
@@ -272,7 +296,7 @@ PROMPT
 run_orchestrator() { # mode repo plan base out-dir -> sets ORCH_RC, ORCH_JSON_LOG
   local mode="$1" repo="$2" plan="$3" base="$4" out="$5"
   local prompt_file="$out/orchestrator.prompt.md"
-  build_prompt "$mode" "$repo" "$plan" "$base" > "$prompt_file"
+  build_prompt "$mode" "$repo" "$plan" "$base" "$SUPERVISOR" > "$prompt_file"
   ORCH_JSON_LOG="$out/orchestrator.jsonl"
   # workspace-write, scoped to this disposable fixture repo plus its own
   # .git (creating refs/heads/wave/<task> and a worktree's index lock are
@@ -445,7 +469,7 @@ run_one_mode() { # mode
   local mode_dir="$RESULTS/$mode" work repo base plan rc=0 thread_id rollout
   mkdir -p "$mode_dir"
   work="$(mktemp -d)"
-  build_fixture "$work"
+  build_fixture "$work" "$SUPERVISOR"
   repo="$REPO"; base="$BASE"; plan="$PLAN"
   printf '%s\n' "$repo" > "$mode_dir/repo-path.txt"
   cp "$plan" "$mode_dir/plan.md"
@@ -487,12 +511,13 @@ run_one_mode() { # mode
 # ---------------------------------------------------------------------------
 # Comparison table
 
-write_comparison() { # results-dir mode...
+write_comparison() { # results-dir supervisor mode...
   python3 - "$@" <<'PY'
 import json, os, sys
 
 results_dir = sys.argv[1]
-modes = sys.argv[2:]
+supervisor = sys.argv[2]
+modes = sys.argv[3:]
 
 def orchestrator_input_tokens(report):
     for g in report["cost"]["byRoleModel"] + report["cost"]["unpriced"]:
@@ -509,6 +534,7 @@ for mode in modes:
         had_missing = True
         rows.append({
             "mode": mode,
+            "supervisor": supervisor,
             "wall_minutes": "n/a",
             "orch_model_minutes": "n/a",
             "orch_model_share": "n/a",
@@ -530,6 +556,7 @@ for mode in modes:
     share = (orch_model_minutes / wall_minutes) if wall_minutes else 0.0
     rows.append({
         "mode": mode,
+        "supervisor": supervisor,
         "wall_minutes": round(wall_minutes, 4),
         "orch_model_minutes": round(orch_model_minutes, 4),
         "orch_model_share": share,
@@ -540,17 +567,19 @@ for mode in modes:
     })
 
 lines = ["# ship-smoke comparison", ""]
-lines.append("| mode | wall (min) | orchestrator model (min) | orchestrator share of wall "
+lines.append("| mode | supervisor | wall (min) | orchestrator model (min) | orchestrator share of wall "
               "| orchestrator requests | orchestrator input tokens | total cost ($) | must_run |")
-lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
 for r in rows:
     if r["must_run"] == "not-run":
-        lines.append("| {mode} | n/a | n/a | n/a | n/a | n/a | n/a | not-run |".format(mode=r["mode"]))
+        lines.append("| {mode} | {supervisor} | n/a | n/a | n/a | n/a | n/a | n/a | not-run |".format(
+            mode=r["mode"], supervisor=r["supervisor"]))
         continue
     lines.append(
-        "| {mode} | {wall_minutes} | {orch_model_minutes} | {share:.1%} | {orch_requests} "
+        "| {mode} | {supervisor} | {wall_minutes} | {orch_model_minutes} | {share:.1%} | {orch_requests} "
         "| {orch_input_tokens} | {total_cost} | {must_run} |".format(
-            mode=r["mode"], wall_minutes=r["wall_minutes"], orch_model_minutes=r["orch_model_minutes"],
+            mode=r["mode"], supervisor=r["supervisor"], wall_minutes=r["wall_minutes"],
+            orch_model_minutes=r["orch_model_minutes"],
             share=r["orch_model_share"], orch_requests=r["orch_requests"],
             orch_input_tokens=r["orch_input_tokens"], total_cost=r["total_cost"], must_run=r["must_run"]))
 lines.append("")
@@ -577,7 +606,7 @@ for m in "${MODES[@]}"; do
   run_one_mode "$m" || OVERALL_RC=1
 done
 
-write_comparison "$RESULTS" "${MODES[@]}" || OVERALL_RC=1
+write_comparison "$RESULTS" "$SUPERVISOR" "${MODES[@]}" || OVERALL_RC=1
 printf '\n\nresults: %s\n' "$RESULTS"
 
 exit "$OVERALL_RC"
