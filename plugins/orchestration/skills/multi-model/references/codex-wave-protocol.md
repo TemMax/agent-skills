@@ -1,8 +1,10 @@
 # Codex-native supervised wave protocol
 
-Use this protocol only for a Codex-only wave. Astra is ordinarily a supervisor;
-a separately approved initial executor or final rung needs
-`astra_executor_reason: "<concrete reason>"`, which never authorizes it.
+Use this protocol only for a Codex-only wave. The supervisor is the one chosen
+at Gate 1 — the premium `gpt-6-astra`, or the standard `gpt-6-sol` for an
+all-`gpt-6-luna` wave. An Astra executor or rung needs
+`astra_executor_reason: "<concrete reason>"` and `approvals.premium`, which
+never authorizes it by itself.
 This is the host adapter for the
 shared wave contract, mechanical verifier, supervisor verdict schema,
 escalation ladder, and result review in `SKILL.md`; it does not redefine any of

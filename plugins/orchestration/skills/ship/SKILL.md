@@ -64,8 +64,10 @@ for Luna-only waves — form an operational route through super-plan and
 multi-model without a separate calibration gate. Check actual capabilities
 before launch; preserve the approvals below. Invoke
 Stage 3 critical-review in a fresh Astra/high child for independent final review,
-including when the main seat uses a GPT-5.6 profile. Missing required review
-capability stops the route; it never authorizes self-review or publication.
+including when the main seat uses a GPT-5.6 profile — a reviewer exemption
+from `approvals.premium`, disclosed with its cost at Gate 1. Missing required
+review capability stops the route; it never authorizes self-review or
+publication.
 
 ## What ship owns — and what it does not
 
@@ -176,6 +178,7 @@ and reworks, routed fix evidence, and anything left open.
 | The user declines a super-plan gate | Stop; nothing was created yet |
 | A wave returns `failed` / `error` | Stop with verdicts and branch names (multi-model's rule) |
 | The suite is red after a merge | Stop before the push; hand the output over |
+| A plan `ci.commands` command is red after the final wave | Stop before the push; hand the output over |
 | `gh` loses write capability mid-flow | critical-review degrades per its own protocol; prepared texts go to the user |
 | The user declines critical-review's fix gate | Soft reset per that skill; the PR stays open |
 | The runtime QA capability is missing or fails mid-pass | Not a ship failure: the affected references go to the PR's "Not verified — manual QA needed" section |
