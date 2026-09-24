@@ -1,8 +1,9 @@
 # 007 — Premium models and standard supervisors
 
 Date: 2026-09-24
-Status: accepted role boundary; the standard `gpt-6-sol` supervisor is a
-policy route, uncalibrated as production
+Status: accepted role boundary; the standard `gpt-6-sol` supervisor and the
+`gpt-6-sol` final-review route are measured (2026-09-24; see
+[`tests/eval/stage-c-verification-2026-09-24.md`](../../tests/eval/stage-c-verification-2026-09-24.md))
 
 ## Context
 
@@ -52,9 +53,10 @@ child — a `critical-review` invocation separate from the main seat, so a
 GPT-5.6 seat never reviews its own consequential work — is chosen at Gate 1
 like any other plan role and recorded in the plan's `"review"` key: the
 premium `gpt-6-astra` with a valid `approvals.premium` entry, or the
-standard `gpt-6-sol` (uncalibrated as a production reviewer, and labelled as
-such in the PR). A plan missing the `"review"` key stops `ship` before that
-review step runs.
+standard `gpt-6-sol` — measured: critical-review strict gate clean 10/10
+and planted 10/10 combined (two 2026-09-24 runs of 5/5 each), PR support
+3/4 (one withheld-case miss), stated as such in the PR. A plan missing the
+`"review"` key stops `ship` before that review step runs.
 
 **Headless rule.** In headless mode, the supervisor choice and its cost
 still get presented; an unresolved premium-vs-standard choice is recorded
@@ -72,10 +74,16 @@ Breaking: `plan-lint.mjs` now fails a plan that uses `claude-fable-5-1` or
 `gpt-6-astra` in any role without a recorded, valid `approvals.premium`; a
 previously approved plan that used a premium model without recording it
 stops launching until migrated (see the README's `## 4.0.0` entry). The
-standard `gpt-6-sol` supervisor route is a policy decision grounded in a
-repeated fixture pass (9/9 on the supervisor fixture, twice, on
-2026-09-23) — it is not production calibration, and `gpt-6-sol` remains
-uncalibrated as a production supervisor outside this narrow all-Luna case.
+standard `gpt-6-sol` supervisor route is measured, not just a policy
+decision: supervisor fixture 9/9 on 2026-09-23 (twice) and 9/9 on
+2026-09-24 (×3), plus three ship-smoke runner-mode waves merge-ready first
+try at wall 2.44/2.27/2.14 min and cost $0.238/$0.252/$0.200 — ≈3.2×
+cheaper than a `gpt-6-astra` supervisor at the same wall time. This
+measurement is bounded to two-task toy waves with correct work only (defect
+detection comes from the fixture, not these waves) and does not extend
+`gpt-6-sol`'s status as a production supervisor outside this narrow
+all-Luna case; full counts and limitations are in
+[`tests/eval/stage-c-verification-2026-09-24.md`](../../tests/eval/stage-c-verification-2026-09-24.md).
 
 ## Evidence and limits
 

@@ -1,5 +1,10 @@
 # GPT-6 Sol and Luna calibration — 2026-09-23 UTC
 
+**2026-09-24:** the `gpt-6-sol` standard-supervisor and final-review routes
+below are superseded by the measured-supported status in
+[`tests/eval/stage-c-verification-2026-09-24.md`](stage-c-verification-2026-09-24.md);
+GPT-6 Luna review is unchanged.
+
 The critical-review and wave rows below were re-measured after the stage B
 harness fixes; see "Re-measure after the stage B harness fixes" at the end of
 this file for the current counts.

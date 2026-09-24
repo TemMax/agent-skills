@@ -366,23 +366,29 @@ for a wave whose executors and ladder rungs never reach `claude-opus-5-5`
 itself (the default ladder included — a `claude-sonnet-5` task whose ladder
 reaches `claude-opus-5-5` is supervised by `claude-fable-5-1` instead), else
 `claude-opus-5`; Codex: `gpt-6-sol` only for a wave whose executors and
-ladder rungs are all `gpt-6-luna` (uncalibrated as a production supervisor,
-9/9 on the supervisor fixture twice on 2026-09-23) — any Sol executor in the
+ladder rungs are all `gpt-6-luna` — measured, not a policy guess: supervisor
+fixture 9/9 on 2026-09-23 (twice) and 9/9 on 2026-09-24 (×3); ship-smoke
+runner mode outside the Codex sandbox, three runs each, `gpt-6-sol`
+supervisor merge-ready first try 3/3 at wall 2.44/2.27/2.14 min and cost
+$0.238/$0.252/$0.200, versus `gpt-6-astra` supervisor 3/3 at wall
+2.17/2.39/2.62 min and cost $0.753/$0.698/$0.768 — Sol ≈3.2× cheaper at the
+same wall time (limits: two-task toy waves with correct work only; defect
+detection comes from the fixture, not these waves) — any Sol executor in the
 wave loses that standard option and needs the premium `gpt-6-astra`
 supervisor instead. The `approvals.premium` rule covers what the plugin
 launches, not the session's own model: `ship`'s final-review child is chosen
 at Gate 1 and recorded in the plan's `"review"` key — the premium
 `gpt-6-astra` with a valid `approvals.premium` entry, or the standard
-`gpt-6-sol` (uncalibrated as a production reviewer, labelled as such in the
-PR); a plan missing the `"review"` key stops `ship` before that review runs.
+`gpt-6-sol` — measured: critical-review strict gate clean 10/10 and planted
+10/10 combined (two 2026-09-24 runs of 5/5 each), PR support 3/4 (one
+withheld-case miss), stated in the PR; a plan missing the `"review"` key
+stops `ship` before that review runs. Full counts and limitations:
+[`tests/eval/stage-c-verification-2026-09-24.md`](tests/eval/stage-c-verification-2026-09-24.md).
 `plan-lint.mjs` now flags retired routes as
 warnings, not silently: GPT-5.6 (Sol/Terra/Luna) in any role, Opus 5 as an
 executor, and every Opus 4.8 executor or rung (the linter cannot tell
 compiled-binary work apart from any other task, so it warns on all of
-them). Planning adds a seam audit between Tasks and Lint — a cheap read-only
-agent checks every contract against the code before lint runs — and Gate 2
-now shows an estimated wall-time and cost range alongside the lint-clean
-plan. When the repository has real `.github/workflows/*.yml` files,
+them). When the repository has real `.github/workflows/*.yml` files,
 `plan-lint.mjs --repo <repo>` also checks the plan's own CI keys against
 them: every `ci.workflows` path must exist under the repo's
 `.github/workflows`, and every `ci.commands` entry must appear verbatim
@@ -394,7 +400,24 @@ crashes on an impossible calendar date (e.g. `2026-02-30`) in
 `approvals.premium.date`, instead rejecting it as invalid; a relative
 workflow path with a leading `..` segment (e.g. `..foo.yml`) is now accepted
 under `ci.workflows` rather than rejected; and a non-array `ladder` value
-now fails the plan closed instead of being silently skipped. `critical-review` adds one findings gate: when several reviews run
+now fails the plan closed instead of being silently skipped. The Codex wave
+runner (`codex-wave-runner.mjs`) must now be launched as an escalated command
+outside the Codex sandbox: macOS seatbelt cannot nest a second sandbox
+profile inside the first, so a runner launched inside a Codex
+`workspace-write` sandbox has its own `codex exec` children fail (`failed to
+initialize in-process app-server client: Operation not permitted`, then,
+with `~/.codex` writable, `sandbox-exec: sandbox_apply: Operation not
+permitted`); the runner now probes for this nested-sandbox condition at
+start and, when blocked, stops before spawning anything with error
+`nested-sandbox` (exit code 2) instead of failing task by task. Planning
+adds a seam audit between Tasks and Lint — a cheap read-only agent checks
+every contract against the code before lint runs, including a same-task
+rule requiring a change and the test helper, fixture, or shared file it
+breaks to stay in the same task — and Gate 2 now requires an estimated
+wall-time range in minutes and a cost range in dollars computed from
+`references/estimates.md`'s price table and formula (never a bare word such
+as "low" or "cheap"), naming which `references/estimates.md` rows fed the
+computation, alongside the lint-clean plan. `critical-review` adds one findings gate: when several reviews run
 for one request, it waits for all of them and presents every finding once,
 in one table per scope, before any fix is asked for. It also states a hard
 secrets prohibition: never open, print, copy, or transmit credentials,

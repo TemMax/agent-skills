@@ -157,6 +157,11 @@ stage B re-measure of the critical-review and wave rows after the scorer,
 supervisor sandbox/working-directory, and `wave.sh` Codex-path fixes; see
 `tests/eval/gpt-6-results-2026-09-23.md`.
 
+**2026-09-24 — stage C verification.** Live suites, the Sol reviewer and
+Sol-vs-Astra supervisor comparison, the seam-audit before/after, and the
+Codex wave runner's macOS nested-sandbox finding are recorded in
+[`tests/eval/stage-c-verification-2026-09-24.md`](eval/stage-c-verification-2026-09-24.md).
+
 ## Telemetry analyzer
 
 `tests/eval/telemetry/` (`telemetry.mjs`) is pure, offline log analysis —
