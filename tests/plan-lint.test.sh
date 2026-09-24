@@ -54,20 +54,8 @@ const json = blocks[0][1].replace(/^   /gm, '').trimEnd()
 const plan = JSON.parse(json)
 const prose = plan.waves.flatMap((wave) => wave.tasks)
   .map((task) => '## Task ' + task.id + '\n\nExample task context.\n').join('\n')
-// The skill's fenced example only documents waves/tasks; ci, e2e and any
-// premium approval are plan-level fields the doc doesn't illustrate, so
-// this harness supplies them the same way it already supplies the header.
-plan.ci = 'none: SKILL.md canonical example has no CI workflows'
-plan.e2e = { task: plan.waves[0].tasks[0].id }
-const premiumModels = [...new Set(plan.waves.flatMap((wave) => [
-  wave.supervisor && wave.supervisor.model,
-  ...wave.tasks.flatMap((task) => [task.executor && task.executor.model,
-    ...(Array.isArray(task.ladder) ? task.ladder : [])]),
-]))].filter((m) => m === 'claude-fable-5-1' || m === 'gpt-6-astra')
-if (premiumModels.length > 0) {
-  plan.approvals = { premium: { models: premiumModels,
-    reason: 'Documented canonical example.', approved_by: 'docs', date: '2026-09-24' } }
-}
+// The skill's fenced example documents ci, e2e and its premium approval
+// directly inside the JSON block, so this harness lints them as written.
 // The skill describes its header and task prose separately from the JSON.
 writeFileSync(target, 'status: draft\nbase: pending\n\n```json wave-plan\n'
   + JSON.stringify(plan, null, 2) + '\n```\n\n' + prose)
@@ -449,17 +437,97 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-6-sol mixed-provider wave exits 1" "1" "$rc"
 contains "gpt-6-sol mixed-provider wave is named" "mixes providers" "$out"
 
-section "ci: required CI entrypoint"
+section "Codex standard supervisor: gpt-6-sol"
 
-mutate '"e2e": { "task": "http-retry" },
-  "approvals": { "premium": { "models": ["claude-fable-5-1"],
-    "reason": "Fable required for narrative QA judging on this wave.",
-    "approved_by": "fixture", "date": "2026-09-24" } }' \
-  '"e2e": { "task": "http-retry" }'
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "premium model without approval exits 1" "1" "$rc"
-contains "premium model without approval named" \
-  'premium model claude-fable-5-1 requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1' "$out"
+expect "gpt-6-sol over gpt-6-luna exits 0" "0" "$rc"
+check "gpt-6-sol over gpt-6-luna has no standard-supervisor error" \
+  '! grep -qF "supervises only waves whose executors and rungs are all gpt-6-luna" <<<"$out"'
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
+s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-6-sol", "effort": "medium"')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol over gpt-6-sol executor exits 1" "1" "$rc"
+contains "gpt-6-sol over gpt-6-sol executor named" \
+  'waves[0].supervisor.model: gpt-6-sol supervises only waves whose executors and rungs are all gpt-6-luna' "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
+s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-5.6-terra", "effort": "medium"')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol over gpt-5.6-terra executor exits 1" "1" "$rc"
+contains "gpt-6-sol over gpt-5.6-terra executor named" \
+  'waves[0].supervisor.model: gpt-6-sol supervises only waves whose executors and rungs are all gpt-6-luna' "$out"
+
+section "Claude default ladder"
+
+mk_default_ladder_plan() {  # $1 = ladder JSON fragment ("" = no ladder key) → writes $W/m.md
+  python3 - "$W/m.md" "$1" <<'PY'
+import json, sys
+dst, ladder_line = sys.argv[1:]
+task = {
+  "id": "sonnet-task",
+  "branch": "wave/sonnet-task",
+  "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+  "contract": {
+    "files_allowed": ["src/**"],
+    "files_forbidden": [],
+    "must_run": [{"cmd": "true", "evidence": "required"}],
+    "forbidden_moves": [],
+    "report_must_answer": ["What changed?"]
+  }
+}
+if ladder_line:
+  task["ladder"] = json.loads(ladder_line)
+plan = {
+  "waves": [{
+    "wave": 1,
+    "supervisor": {"model": "claude-opus-5-5", "effort": "high"},
+    "tasks": [task]
+  }],
+  "ci": "none: fixture plan with no CI workflows",
+  "e2e": {"task": "sonnet-task"}
+}
+out = ('status: draft\nbase: pending\n\n```json wave-plan\n'
+       + json.dumps(plan, indent=2) + '\n```\n\n## Task sonnet-task\n\nExample task context.\n')
+open(dst, 'w').write(out)
+PY
+}
+
+mk_default_ladder_plan ""
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Sonnet task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
+contains "Sonnet task without ladder under Opus 5.5 supervisor named" \
+  'supervisor model also appears as executor or ladder rung' "$out"
+
+mk_default_ladder_plan "[]"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Sonnet task with explicit empty ladder under Opus 5.5 supervisor exits 0" "0" "$rc"
+check "Sonnet task with explicit empty ladder has no supervisor-collision error" \
+  '! grep -qF "supervisor model also appears as executor or ladder rung" <<<"$out"'
+
+section "ci: required CI entrypoint"
 
 mutate '  "ci": "none: fixture repository without CI workflows",
 ' ''
@@ -495,6 +563,19 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "ci wrong shape exits 1" "1" "$rc"
 contains "ci wrong shape named" \
   'ci: must be an object {commands, workflows} or a "none: <reason>" string' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["true", ""], "workflows": [] }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci commands junk entry exits 1" "1" "$rc"
+contains "ci commands junk entry named" \
+  'ci.commands: at least one non-empty command required' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["true"] }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci.workflows missing exits 1" "1" "$rc"
+contains "ci.workflows missing named" 'ci.workflows: array required' "$out"
 
 section "ci: repo-checked commands"
 
@@ -534,6 +615,96 @@ expect "ci command missing from workflow text exits 1" "1" "$rc"
 contains "ci command missing from workflow text named" \
   'ci.commands: "make lint" does not appear in any listed ci.workflows file' "$out"
 
+section "ci.workflows: path safety"
+
+mkdir -p "$W/ci_repo/docs"
+echo '# notes' > "$W/ci_repo/docs/notes.md"
+mkdir -p "$W/ci_repo/.github/workflows/folder.yml"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/plan.md"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "plan path as workflow exits 1" "1" "$rc"
+contains "plan path as workflow named" \
+  'ci.workflows: ".github/workflows/plan.md" must be a .yml/.yaml file under .github/workflows' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": ["../outside.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "../ workflow path exits 1" "1" "$rc"
+contains "../ workflow path named" \
+  'ci.workflows: "../outside.yml" must be a .yml/.yaml file under .github/workflows' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": ["/etc/ci.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "absolute workflow path exits 1" "1" "$rc"
+contains "absolute workflow path named" \
+  'ci.workflows: "/etc/ci.yml" must be a .yml/.yaml file under .github/workflows' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": ["docs/notes.md"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "docs/notes.md workflow path exits 1" "1" "$rc"
+contains "docs/notes.md workflow path named" \
+  'ci.workflows: "docs/notes.md" must be a .yml/.yaml file under .github/workflows' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/folder.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "directory workflow path exits 1" "1" "$rc"
+contains "directory workflow path named" \
+  'ci.workflows: ".github/workflows/folder.yml" is not a file' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "empty workflows when repo has workflows exits 1" "1" "$rc"
+contains "empty workflows when repo has workflows named" \
+  'ci.workflows: required — the repository has CI workflows and none are listed' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/ci.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "safe workflow path under the dir exits 0" "0" "$rc"
+check "safe workflow path under the dir has no path-safety error" \
+  '! grep -qF "must be a .yml/.yaml file" <<<"$out"'
+
+section "ci: command matching"
+
+cat > "$W/ci_repo/.github/workflows/matching.yml" <<'YAML'
+name: Matching
+on: push
+jobs:
+  test:
+    steps:
+      - run: npm ci && npm test
+      - run: |
+          npm run build
+          npm run e2e
+YAML
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm"], "workflows": [".github/workflows/ci.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "truncated command fragment exits 1" "1" "$rc"
+contains "truncated command fragment named" \
+  'ci.commands: "npm" does not appear in any listed ci.workflows file' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/matching.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "compound command line match exits 0" "0" "$rc"
+check "compound command line match has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm run e2e"], "workflows": [".github/workflows/matching.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "run block command line match exits 0" "0" "$rc"
+check "run block command line match has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
 section "e2e: required end-to-end task"
 
 mutate '  "e2e": { "task": "http-retry" },
@@ -565,7 +736,73 @@ expect "e2e wrong shape exits 1" "1" "$rc"
 contains "e2e wrong shape named" \
   'e2e: must be {"task": "<id>"} or a "not-applicable: <reason>" string' "$out"
 
+python3 - "$CLEAN" "$W/m.md" <<'PY'
+import json, re, sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+plan['waves'].append({
+  "wave": 2,
+  "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+  "tasks": [{
+    "id": "docs-followup",
+    "branch": "wave/docs-followup",
+    "executor": {"model": "claude-haiku-4-5-20251001"},
+    "ladder": [],
+    "contract": {
+      "files_allowed": ["docs2/**"],
+      "files_forbidden": [],
+      "must_run": [{"cmd": "true", "evidence": "required"}],
+      "forbidden_moves": [],
+      "report_must_answer": ["What changed?"]
+    }
+  }]
+})
+new_json = json.dumps(plan, indent=2)
+out = s[:m.start(1)] + new_json + s[m.end(1):]
+out += '\n## Task docs-followup\n\nFollow-up doc work.\n'
+open(dst, 'w').write(out)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e task not in last wave exits 0" "0" "$rc"
+contains "e2e task not in last wave warned" 'e2e.task: "http-retry" is not in the last wave' "$out"
+
 section "premium approval"
+
+mutate '"e2e": { "task": "http-retry" },
+  "approvals": { "premium": { "models": ["claude-fable-5-1"],
+    "reason": "Fable required for narrative QA judging on this wave.",
+    "approved_by": "fixture", "date": "2026-09-24" } }' \
+  '"e2e": { "task": "http-retry" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium model without approval exits 1" "1" "$rc"
+contains "premium model without approval named" \
+  'premium model claude-fable-5-1 requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1' "$out"
+
+mutate '"reason": "Fable required for narrative QA judging on this wave.",' '"reason": "too short",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium reason too short exits 1" "1" "$rc"
+contains "premium reason too short named" \
+  'approvals.premium.reason: at least 10 non-space characters required' "$out"
+
+mutate '"approved_by": "fixture",' '"approved_by": "",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium approved_by empty exits 1" "1" "$rc"
+contains "premium approved_by empty named" \
+  'approvals.premium.approved_by: non-empty string required' "$out"
+
+mutate '"date": "2026-09-24" } }' '"date": "2026-02-30" } }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium impossible date exits 1" "1" "$rc"
+contains "premium impossible date named" \
+  'approvals.premium.date: must be a real calendar date (YYYY-MM-DD)' "$out"
+
+mutate '"models": ["claude-fable-5-1"],' '"models": ["gpt-6-astra"],'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium mismatched model exits 1" "1" "$rc"
+contains "premium mismatched model named" \
+  'premium model claude-fable-5-1 requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1' "$out"
 
 python3 - "$CODEX_CLEAN" "$W/m.md" <<'PY'
 import sys
