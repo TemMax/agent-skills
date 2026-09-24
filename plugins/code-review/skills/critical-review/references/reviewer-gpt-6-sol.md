@@ -25,12 +25,19 @@ fixes: clean-diff 7/8, planted-defect 8/8, PR gate 2/2
 (`tests/eval/gpt-6-results-2026-09-23.md`). The one remaining clean-diff
 failure wrote "Overall verdict: No findings" instead of the required word
 "clean" — a real format failure. The strict review gate requires every guard
-at 5/5 in repeated runs; the clean-diff guard is 4/5 in the x5 run, so the
-route stays `unsupported`. Exactly as the GPT-5.6 Sol gate in
-`reviewer-gpt-5-6-sol.md` states its route `unsupported` and defers, a GPT-6
-Sol review must state plainly that its route is uncalibrated and hand final
-judgment upward. System Card capability or alignment scores are not a
-substitute for a dated local evaluation.
+at 5/5 in repeated runs; the clean-diff guard was 4/5 in the x5 run, so the
+route stayed `unsupported` at that point.
+
+A 2026-09-24 UTC local re-measure ran the strict review gate twice more:
+clean-diff 5/5 and planted-defect 5/5 in each run (10/10 combined clean,
+10/10 combined planted), PR gate support 3/4 (one withheld-case miss). Both
+runs cleared the 5/5 strict bar, so the route is now **measured-supported**:
+a GPT-6 Sol model-selection request may return `gpt-6-sol`, stating these
+counts and the PR-support caveat (3/4, one withheld-case miss) alongside it.
+This is a bounded, dated local measurement, not an unconditional pass —
+System Card capability or alignment scores are not a substitute for it, and
+the PR-support caveat must be repeated whenever this route is used for PR
+review.
 
 ## Review method
 
@@ -47,20 +54,25 @@ never itself a blocker.
 
 ## Independence and escalation
 
-Sol has no production consequential-review or supervisor route. Preserve
-the mechanical evidence packet, label the route `unsupported`, and delegate
-final judgment upward. A separately supported Claude review requires a new
-provider-specific flow; never mix providers or silently substitute another
-GPT model. Do not invent a stronger reviewer from a model label or from the
-System Card's lower Coding Deception rate (1.30% at `max` vs GPT-5.6 Sol's
-10.41%, p. 130): that measures honesty under adversarial pressure, not
-defect-detection accuracy, and deception is not zero.
+Sol's review route is measured-supported (see Calibration status above) but
+Sol still has no production supervisor route: the `gpt-6-sol` supervisor of
+all-`gpt-6-luna` waves is a policy decision, uncalibrated in production, not
+a measured pass. Preserve the mechanical evidence packet, state the
+strict-gate and PR-support counts, and hand final judgment upward when the
+PR-support caveat applies. A separately supported Claude review requires a
+new provider-specific flow; never mix providers or silently substitute
+another GPT model. Do not invent a stronger reviewer from a model label or
+from the System Card's lower Coding Deception rate (1.30% at `max` vs
+GPT-5.6 Sol's 10.41%, p. 130): that measures honesty under adversarial
+pressure, not defect-detection accuracy, and deception is not zero.
 
 ## Not measured
 
-No clean or planted-defect evaluation of GPT-6 Sol as a reviewer exists in
-this plugin. The System Card does not measure judge bias, self-preference,
-or superiority over GPT-5.6 Sol or GPT-6 Astra as a reviewer; its Sol-only
+Beyond the dated strict-gate and PR-support counts above, no broader
+evaluation of GPT-6 Sol as a reviewer exists in this plugin — effort other
+than `medium` is uncalibrated, and the PR-support withheld-case miss is not
+diagnosed. The System Card does not measure judge bias, self-preference, or
+superiority over GPT-5.6 Sol or GPT-6 Astra as a reviewer; its Sol-only
 alignment and deployment-simulation findings are guards for the review, not
 routing evidence. Read `gpt-6-sol-reviewer-dossier.md` for sources and
 their limits.

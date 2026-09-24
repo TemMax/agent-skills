@@ -28,17 +28,20 @@ check "credential rule forbids printing, copying or transmitting a credential or
 check "credential rule cites the measured Authorization-value cause" \
   "one_line '$SKILL' | grep -qF 'a reviewer printed an Authorization value from a local config in the same run'"
 
-check "GPT-6 calibration keeps a general no-supported-route claim" \
-  "one_line '$SKILL' | grep -qF 'No GPT-6 review route is supported yet'"
+check "GPT-6 calibration keeps a general no-supported-route claim for Luna and Astra" \
+  "one_line '$SKILL' | grep -qF 'No GPT-6 Luna or Astra review route is supported'"
 
 check "GPT-6 calibration names the one policy supervisor route as uncalibrated" \
   "one_line '$SKILL' | grep -qF 'multi-model'\''s standard \`gpt-6-sol\` supervisor of all-\`gpt-6-luna\` waves' && one_line '$SKILL' | grep -qF 'a policy decision, not a measured pass, and uncalibrated in production'"
 
-check "GPT-6 calibration forbids claiming a supported GPT-6 review route" \
-  "one_line '$SKILL' | grep -qF 'Never claim a supported GPT-6 review route'"
+check "GPT-6 calibration forbids claiming a supported GPT-6 Luna or Astra review route" \
+  "one_line '$SKILL' | grep -qF 'Never claim a supported GPT-6 Luna or Astra review route'"
 
-check "GPT-6 calibration runs a plan-recorded gpt-6-sol review as uncalibrated" \
-  "one_line '$SKILL' | grep -qF 'When a ship plan records \`review.model: gpt-6-sol\`' && one_line '$SKILL' | grep -qF 'review route is uncalibrated (strict gate clean 7/8, planted 8/8)'"
+check "GPT-6 calibration marks the Sol route measured-supported with the 2026-09-24 counts" \
+  "one_line '$SKILL' | grep -qF 'The GPT-6 Sol review route is now **measured-supported**' && one_line '$SKILL' | grep -qF '10/10 combined clean, 10/10 combined planted' && one_line '$SKILL' | grep -qF 'PR support was 3/4, with one withheld-case miss'"
+
+check "GPT-6 calibration runs a plan-recorded gpt-6-sol review as a measured route" \
+  "one_line '$SKILL' | grep -qF 'When a ship plan records \`review.model: gpt-6-sol\`' && one_line '$SKILL' | grep -qF 'the review runs as a measured route' && one_line '$SKILL' | grep -qF '2026-09-24 strict-gate counts (10/10 clean, 10/10 planted)' && one_line '$SKILL' | grep -qF 'PR-support caveat (3/4, one withheld-case miss)'"
 
 check "fix wave routing follows the plan format ci/e2e keys" \
   "one_line '$SKILL' | grep -qF 'A fix wave follows the plan format (\`ci\`, \`e2e\`)'"
