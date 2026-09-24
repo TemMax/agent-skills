@@ -80,7 +80,7 @@ rejects aliases by name.
                 must_run: [{ cmd: "...", evidence: "required" }],
                 forbidden_moves: [...], report_must_answer: [...] },
     executor: { model: "claude-sonnet-5", effort: "medium" },
-    ladder: ["claude-opus-5-5"]      // rungs AFTER the first; omit for the routing default
+    ladder: []      // rungs AFTER the first; omit for the routing default (Sonnet/Haiku then escalate to Opus 5.5, so the supervisor must not be Opus 5.5)
   }]
 }
 ```
