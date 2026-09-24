@@ -10,6 +10,7 @@ is a prior, not a promise.
 - [Claude waves](#claude-waves-this-repository-2026-09-23-sonnet-5-executors-opus-55-supervisor-workflow-runner)
 - [Codex native protocol](#codex-native-protocol-2026-09-22-gpt-56-executors-astrahigh-supervisor-astraxhigh-orchestrator)
 - [Codex runner vs native](#codex-runner-vs-native-ship-smoke-2026-09-23-two-small-tasks-gpt-6-lunasol-executors-astrahigh-supervisor-gpt-6-sol-orchestrator)
+- [Mid-size Codex pilot](#mid-size-codex-pilot-2026-09-24-gpt-6-sol-orchestrator-runner)
 - [How to estimate](#how-to-estimate)
 - [Prices](#prices)
 - [Sources](#sources)
@@ -41,6 +42,23 @@ record.
 - Total cost: $0.75 (runner) vs $1.09 (native).
 - Astra supervision was ≈ 70% of the runner wave's cost.
 
+## Mid-size Codex pilot (2026-09-24, gpt-6-sol orchestrator, runner)
+
+Two runs of the same 7-point feature (inventory report CLI: parse,
+validate, aggregate, report, CLI, fixture + end-to-end test, README),
+planned (super-plan, headless, Gate 1 choice given) and executed
+(multi-model, `codex-wave-runner.mjs` per wave) by one `gpt-6-sol`/high
+Codex orchestrator session, in a disposable repo.
+
+| Run | Tasks / waves | First try | Wall — planning / execution / per wave | Cost split by role | Gate 2 estimate given | Actual |
+|---|---|---|---|---|---|---|
+| Standard (all `gpt-6-luna` executors, `gpt-6-sol` supervisor) | 7 tasks / 3 waves | 7/7 ok, 32 tests green | 12.2 min — ≈ 4.0 min / ≈ 8.1 min / ≈ 2.5 min | $1.14 = orchestrator $0.70 (62%) + Sol supervisor $0.41 + Luna executors $0.02 | 15–40 min, $1–4 | 12.2 min, $1.14 |
+| Premium (`gpt-6-astra` supervisor, executors by routing: 4 Luna, 2 Sol) | 6 tasks / 2 waves | 6/6 ok, one task needed 3 attempts, 25 tests green | 10.2 min — ≈ 3.8 min / ≈ 6.4 min / not separately recorded | $2.99 = Astra supervisor $2.14 (72%) + orchestrator $0.55 + executors $0.29 (Sol $0.28, Luna $0.01) | 15–45 min, $3–10 | 10.2 min, $2.99 |
+
+Both runs finished below the lower bound of their own Gate 2 range — the
+priors that range was built from (derived from GPT-5.6 native runs) were
+too pessimistic for GPT-6 with the runner.
+
 ## How to estimate
 
 - **Wall time** ≈ Σ over waves of (slowest task's attempts × attempt time +
@@ -51,6 +69,14 @@ record.
   cost per attempt + attempts × verifier cost per attempt) + orchestrator
   cost. Apply the same ~30% rework-attempt margin as the wall-time formula —
   the supervisor and the verifier are paid per attempt, not once per task.
+- **Codex runner waves with GPT-6 executors**: use ≈ 4 min of orchestrator
+  planning plus ≈ 2.5 min per wave as the central wall estimate (the Mid-size
+  Codex pilot above). Both pilot runs finished below the lower bound of
+  their own Gate 2 range — priors derived from GPT-5.6 native runs were too
+  pessimistic for GPT-6 with the runner; the older Codex native-protocol
+  and runner-vs-native sections above stay as history. Supervision
+  dominates cost with the Astra supervisor (72%); with the standard Sol
+  supervisor, the orchestrator dominates cost instead (62%).
 
 The critical path for Gate 2 is the sum over waves of each wave's slowest
 task — waves run sequentially, tasks within a wave run in parallel, so only
