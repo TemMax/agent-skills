@@ -140,7 +140,15 @@ approvals.
    them across tasks — even in one wave — leaves each task's own checks
    red; across waves it leaves a wave's merge red. Measured: a
    sibling-task helper anchored on fixture text broke when an eval
-   planner moved the helper change to a later wave.
+   planner moved the helper change to a later wave. A task that
+   documents, tests, or consumes an artifact produced by another task of the same wave
+   — a file, fixture, function, CLI output or behavior that does not
+   exist at the wave's base — goes into a later wave or into the same
+   task. File-disjoint tasks are not dependency-free: an executor that
+   cannot find its input stops and reports `blocked-on-sibling`, and
+   every such attempt is wasted. Measured: a README task documenting a
+   same-wave CLI's output on a same-wave fixture, and ship-smoke's doc
+   task describing a same-wave guard, both hit this.
 
    **Name the end-to-end task, or say there is none.** A feature that
    transforms data through a pipeline (CLI, collector, report, …) gets one
@@ -180,6 +188,11 @@ approvals.
    base expectation is plausible. It also checks the same-task rule
    explicitly: for every changed format, signature or fixture, find every
    reader of it and require that reader be in the same task as the change.
+   For every task, it lists the artifacts that task reads that do not
+   exist at the wave's base, and fails the plan when a same-wave sibling
+   produces any of them. "No file-ownership conflicts" is not a pass on
+   its own — measured: the pilot's audit reported exactly that and missed
+   the dependency.
    Give it the same secrets prohibition
    every executor gets: never open, print, copy or transmit credentials,
    tokens or configuration files that hold them (for example `~/.codex`,

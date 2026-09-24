@@ -237,10 +237,22 @@ check "the Seam audit uses the cheap route" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5\` at \`medium\`; Codex: \`gpt-6-sol\` at \`medium\`'"
 check "the Seam audit explicitly checks the same-task rule for changed formats/signatures/fixtures" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the same-task rule' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'for every changed format, signature or fixture, find every reader of it and require that reader be in the same task as the change'"
+check "the Seam audit lists per-task artifacts absent at the wave's base and fails on same-wave sibling production" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"it lists the artifacts that task reads that do not exist at the wave's base\" && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'fails the plan when a same-wave sibling produces any of them'"
+check "the Seam audit names its measured cause: no file-ownership conflicts is not a pass on its own" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF '\"No file-ownership conflicts\" is not a pass on' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"the pilot's audit reported exactly that and missed the dependency\""
 check "the Tasks step states the same-task rule for a change and what it breaks" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A change and the test helper, fixture or shared file it breaks belong to the same task' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'even in one wave — leaves each task'\''s own checks red; across waves it leaves a wave'\''s merge red'"
 check "the same-task rule names its measured cause" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'a sibling-task helper anchored on fixture text broke when an eval planner moved the helper change to a later wave'"
+check "the sibling-dependency rule requires the exact wave-relative phrase" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'produced by another task of the same wave'"
+check "the sibling-dependency rule names the blocked-on-sibling report" \
+  "grep -qF 'blocked-on-sibling' $SP"
+check "the sibling-dependency rule states file-disjoint tasks are not dependency-free" \
+  "grep -qF 'File-disjoint tasks are not dependency-free' $SP"
+check "the sibling-dependency rule names its measured cause" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"a README task documenting a same-wave CLI's output on a same-wave fixture\" && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"ship-smoke's doc task describing a same-wave guard\""
 check "the Sol supervisor line names its measured fixture and wave evidence" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Sol supervisor of all-Luna waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves merge-ready first try at ≈ 3.2× lower cost than Astra — toy waves, correct work only'"
 check "Gate 2 shows the critical path and a cost range" \
