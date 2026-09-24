@@ -144,6 +144,12 @@ A command that reads nothing under the allowed paths, or whose only fix lies
 behind a `forbidden_move`, cannot be made to pass by any compliant work, and the
 executor in front of you did nothing wrong.
 
+When the REPORT says `blocked-on-sibling` and you confirm the named artifact is
+absent at BASE and outside `files_allowed` (another task creates it), the
+contract is not satisfiable by truthful work: record the `must_run` (or
+`report`) violation with `"satisfiable": false`, and evidence naming the
+missing artifact.
+
 An unsatisfiable contract still fails the verdict. Record the `must_run`
 violation with `"satisfiable": false` and return `ok:false` — the executor's
 innocence lives in that field, never in `ok:true`. A passing verdict says

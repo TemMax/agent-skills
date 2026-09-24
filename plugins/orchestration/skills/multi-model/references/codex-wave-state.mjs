@@ -603,6 +603,7 @@ function executorPrompt(state, id, task, spec) {
     'If data or access is missing, a tool is broken, or the path is impossible —',
     'stop and report what is blocking you. Do not invent values, do not work',
     'around the restriction, and do not pick an interpretation on the user\'s behalf.',
+    'If your task needs an artifact that another task of this wave is producing (a file, fixture, function or behavior missing from your worktree), stop and report `blocked-on-sibling: <what is missing and which task makes it>`; do not invent it and do not commit a placeholder.',
     '',
     '## Prohibitions',
     'Do not spawn subagents. No force-push, no reset --hard, and no rm outside',
