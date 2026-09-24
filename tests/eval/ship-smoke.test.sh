@@ -12,6 +12,7 @@
 # directly by ship-smoke.sh) plus a stub codex on PATH.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
+REPO_ROOT="$(pwd)"
 . tests/lib.sh
 
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
@@ -122,6 +123,18 @@ with open(path, "w", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
 PY
 
+# Simulates the orchestrator's own --json event stream reporting a command
+# it ran, so ship-smoke.sh's detect_skills_source has something to scan.
+# SHIP_SMOKE_STUB_SKILLS_SOURCE=installed-plugin emits a command string
+# naming a /plugins/cache/ path (as if the orchestrator ignored the prompt's
+# instruction and read an installed-plugin copy of the skill); unset or any
+# other value emits one naming this repository's own skill path instead.
+if [ "${SHIP_SMOKE_STUB_SKILLS_SOURCE:-repo}" = installed-plugin ]; then
+  printf '{"type":"item.completed","item":{"type":"command_execution","command":"cat /plugins/cache/orchestration/skills/multi-model/SKILL.md"}}\n'
+else
+  printf '{"type":"item.completed","item":{"type":"command_execution","command":"cat %s/plugins/orchestration/skills/multi-model/SKILL.md"}}\n' "$repo"
+fi
+
 printf '{"type":"thread.started","thread_id":"%s"}\n' "$thread_id"
 exit 0
 SH
@@ -176,14 +189,14 @@ check "comparison.md was written" "[ -f '$RESULTS_NATIVE/comparison.md' ]"
 REPO_NATIVE="$(cat "$RESULTS_NATIVE/native/repo-path.txt")"
 check "the stub codex was invoked without --ephemeral" \
   "! grep -qF -- '--ephemeral' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was invoked with --json --skip-git-repo-check and workspace-write" \
-  "grep -qxF -- '--json' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '--skip-git-repo-check' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- 'workspace-write' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was invoked with --add-dir pointing at the fixture repo's .git" \
-  "grep -qxF -- '--add-dir' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '$REPO_NATIVE/.git' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was invoked with network access enabled for workspace-write" \
-  "grep -qxF -- 'sandbox_workspace_write.network_access=true' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was not invoked with danger-full-access" \
-  "! grep -qxF -- 'danger-full-access' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was invoked with --json --skip-git-repo-check and danger-full-access" \
+  "grep -qxF -- '--json' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '--skip-git-repo-check' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- 'danger-full-access' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was not invoked with --add-dir (removed with the workspace-write sandbox)" \
+  "! grep -qxF -- '--add-dir' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was not invoked with network access override (removed with the workspace-write sandbox)" \
+  "! grep -qxF -- 'sandbox_workspace_write.network_access=true' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was not invoked with workspace-write" \
+  "! grep -qxF -- 'workspace-write' '$REPO_NATIVE/.ship-smoke-stub-argv'"
 check "the fixture's committed .gitignore lists __pycache__/" \
   "git -C '$REPO_NATIVE' show HEAD:.gitignore | grep -qxF '__pycache__/'"
 COMPARISON_NATIVE="$(cat "$RESULTS_NATIVE/comparison.md")"
@@ -199,6 +212,20 @@ check "orchestrator requests column reads 2" "grep -qE '\| 2 \| 8000 \|' '$RESUL
 check "fixture's must_run actually passed after the stub's merge" "[ \"\$(cat '$RESULTS_NATIVE/native/must_run.txt')\" = true ]"
 check "plan.md evidence was copied" "[ -s '$RESULTS_NATIVE/native/plan.md' ]"
 check "runner-summary.json is absent in native mode" "[ ! -e '$RESULTS_NATIVE/native/runner-summary.json' ]"
+
+section "orchestrator prompt names this repository's own skill, not an installed plugin"
+check "prompt names the repo's SKILL.md by absolute path" \
+  "grep -qxF -- '  $REPO_ROOT/plugins/orchestration/skills/multi-model/SKILL.md' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
+check "prompt names the repo's references/ directory by absolute path" \
+  "grep -qxF -- '  $REPO_ROOT/plugins/orchestration/skills/multi-model/references/' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
+check "prompt instructs not to follow an installed-plugin copy" \
+  "grep -qF -- 'installed-plugin' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
+
+section "skills column: orchestrator.jsonl scanned for /plugins/cache/ reads"
+check "skills.txt reads repo for the default stub (no /plugins/cache/ read)" \
+  "[ \"\$(cat '$RESULTS_NATIVE/native/skills.txt')\" = repo ]"
+check "comparison table's skills column reads repo" \
+  "grep -qE '^\| native \| gpt-6-astra \|.*\| pass \| repo \|' '$RESULTS_NATIVE/comparison.md'"
 
 section "the fixture plan is lint-clean against the fixture repo"
 check "plan-lint.mjs reports 0 errors on the fixture" \
@@ -294,6 +321,21 @@ check "the two submodes used different fixture repos" \
 BOTH_COMPARISON="$(cat "$RESULTS_BOTH/comparison.md")"
 contains "comparison table has both rows under --mode both" "| native |" "$BOTH_COMPARISON"
 contains "comparison table has the runner row too" "| runner |" "$BOTH_COMPARISON"
+
+section "skills column: a stub rollout reading an installed-plugin copy is detected"
+RESULTS_PLUGIN="$W/results-plugin"
+set +e
+SHIP_SMOKE_STUB_SKILLS_SOURCE=installed-plugin \
+  CODEX_HOME="$W/codex-home-plugin" PATH="$BIN:$PATH" \
+  bash tests/eval/ship-smoke.sh --mode native --results "$RESULTS_PLUGIN" \
+  > "$W/plugin.out" 2>&1
+rc_plugin=$?
+set -e
+expect "installed-plugin-source mode still exits 0" "0" "$rc_plugin"
+check "skills.txt reads installed-plugin when orchestrator.jsonl names a /plugins/cache/ path" \
+  "[ \"\$(cat '$RESULTS_PLUGIN/native/skills.txt')\" = installed-plugin ]"
+check "comparison table's skills column reads installed-plugin" \
+  "grep -qE '^\| native \| gpt-6-astra \|.*\| pass \| installed-plugin \|' '$RESULTS_PLUGIN/comparison.md'"
 
 section "codex --skip-git-repo-check exec is never invoked with --ephemeral (rollouts persist)"
 check "at least one rollout was captured under the stub CODEX_HOME" \

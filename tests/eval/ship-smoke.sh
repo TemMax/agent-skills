@@ -38,6 +38,8 @@ cd "$(dirname "$0")/../.." || exit 1
 ROOT="$(pwd)"
 
 SKILL_DIR="$ROOT/plugins/orchestration/skills/multi-model"
+SKILL_MD="$SKILL_DIR/SKILL.md"
+REFERENCES_DIR="$SKILL_DIR/references"
 PROTOCOL="$SKILL_DIR/references/codex-wave-protocol.md"
 RUNNER="$SKILL_DIR/references/codex-wave-runner.mjs"
 STATE_HELPER="$SKILL_DIR/references/codex-wave-state.mjs"
@@ -230,6 +232,16 @@ pushed to \`origin\` as the tip of \`master\`).
 The wave plan is at \`$plan\`. Read it before acting. Run wave 1 (two
 independent tasks: add-guard, add-doc; supervisor $supervisor/high).
 
+## Skills
+
+Use this repository's own multi-model orchestration skill, not any
+installed-plugin copy of it. Read and follow:
+  $SKILL_MD
+  $REFERENCES_DIR/
+Only read these repository paths under \`$ROOT/plugins/orchestration\`.
+Do not read or follow a copy of this skill from an installed plugin's
+\`/plugins/cache/\` path, even if one is also available to you.
+
 ## Protocol
 
 Follow the Codex-native supervised wave protocol at:
@@ -298,17 +310,27 @@ run_orchestrator() { # mode repo plan base out-dir -> sets ORCH_RC, ORCH_JSON_LO
   local prompt_file="$out/orchestrator.prompt.md"
   build_prompt "$mode" "$repo" "$plan" "$base" "$SUPERVISOR" > "$prompt_file"
   ORCH_JSON_LOG="$out/orchestrator.jsonl"
-  # workspace-write, scoped to this disposable fixture repo plus its own
-  # .git (creating refs/heads/wave/<task> and a worktree's index lock are
-  # writes under .git that plain workspace-write otherwise refuses), with
-  # network access on for the runner-mode children, which shell out to
-  # `codex exec` and need the model API themselves. This grants write access
-  # to the fixture repo this script builds under a mktemp workdir and
-  # nothing outside it, unlike a full-access sandbox, which would also grant
-  # write access to the real repository this script lives in.
+  # danger-full-access, not workspace-write: macOS Seatbelt cannot nest.
+  # Measured directly (`codex sandbox -- codex sandbox -- ...`): a second,
+  # inner Seatbelt profile applied from inside a process already confined by
+  # an outer one degrades or fails outright — "WARNING: proceeding, even
+  # though we could not create PATH aliases: Operation not permitted (os
+  # error 1)", and a write under a root the outer profile granted still
+  # fails inside the inner profile with "Operation not permitted". Runner
+  # mode's children are exactly this: the orchestrator's own workspace-write
+  # sandbox would wrap its `codex-wave-runner.mjs` shell call, and that
+  # runner spawns its own `codex exec --sandbox workspace-write` children
+  # (see codex-wave-runner.mjs) — a second Seatbelt layer applied from
+  # inside the first. The runner's children already apply their own
+  # sandbox, so the orchestrator doesn't need to pre-sandbox them, and
+  # native mode's spawn_agent/wait_agent children would hit the same nested
+  # profile if the orchestrator were workspace-write, so both modes share
+  # one launch path: danger-full-access. This is safe here because the
+  # orchestrator only ever operates inside the disposable repo this script
+  # builds under mktemp (build_fixture), never the real repository this
+  # script lives in.
   if timeout "$TIMEOUT" "$CODEX_BIN" exec --json --skip-git-repo-check -C "$repo" \
-      --sandbox workspace-write --add-dir "$repo/.git" \
-      -c sandbox_workspace_write.network_access=true \
+      --sandbox danger-full-access \
       --model "$ORCHESTRATOR" \
       -c "model_reasoning_effort=\"$EFFORT\"" - < "$prompt_file" \
       > "$ORCH_JSON_LOG" 2> "$out/orchestrator.stderr"; then
@@ -344,6 +366,51 @@ with stream:
             print(tid)
             sys.exit(0)
 sys.exit(1)
+PY
+}
+
+# Scans the orchestrator's own --json event stream (orchestrator.jsonl) for
+# any command string naming an installed-plugin copy of the skill under
+# /plugins/cache/ (rather than this repository's own copy, which the prompt
+# names by absolute repo path). Prints "installed-plugin" if one is found,
+# "repo" otherwise (including when the file is missing or unparsable, e.g.
+# an orchestrator session that failed before emitting any events).
+detect_skills_source() { # orchestrator-jsonl -> prints repo|installed-plugin
+  python3 - "$1" <<'PY'
+import json, sys
+path = sys.argv[1]
+found = False
+
+def walk(node):
+    global found
+    if found:
+        return
+    if isinstance(node, str):
+        if '/plugins/cache/' in node:
+            found = True
+    elif isinstance(node, list):
+        for item in node:
+            walk(item)
+    elif isinstance(node, dict):
+        for value in node.values():
+            walk(value)
+
+try:
+    with open(path, encoding="utf-8") as stream:
+        for line in stream:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            walk(event)
+            if found:
+                break
+except OSError:
+    pass
+print("installed-plugin" if found else "repo")
 PY
 }
 
@@ -477,6 +544,7 @@ run_one_mode() { # mode
   run_orchestrator "$mode" "$repo" "$plan" "$base" "$mode_dir"
   printf '%s\n' "$ORCH_RC" > "$mode_dir/orchestrator.exit"
   [ "$ORCH_RC" -eq 0 ] || rc=1
+  detect_skills_source "$ORCH_JSON_LOG" > "$mode_dir/skills.txt"
 
   if ! thread_id="$(extract_thread_id "$ORCH_JSON_LOG")"; then
     printf 'ship-smoke: %s: no thread.started event in orchestrator output\n' "$mode" >&2
@@ -525,11 +593,19 @@ def orchestrator_input_tokens(report):
             return g["tokens"]["input"]
     return None
 
+def skills_source(mode):
+    skills_path = os.path.join(results_dir, mode, "skills.txt")
+    if not os.path.exists(skills_path):
+        return "n/a"
+    value = open(skills_path, encoding="utf-8").read().strip()
+    return value if value in ("repo", "installed-plugin") else "n/a"
+
 rows = []
 had_missing = False
 for mode in modes:
     telemetry_path = os.path.join(results_dir, mode, "telemetry.json")
     must_run_path = os.path.join(results_dir, mode, "must_run.txt")
+    skills = skills_source(mode)
     if not os.path.exists(telemetry_path):
         had_missing = True
         rows.append({
@@ -542,6 +618,7 @@ for mode in modes:
             "orch_input_tokens": "n/a",
             "total_cost": "n/a",
             "must_run": "not-run",
+            "skills": skills,
         })
         continue
     with open(telemetry_path, encoding="utf-8") as f:
@@ -564,24 +641,26 @@ for mode in modes:
         "orch_input_tokens": orchestrator_input_tokens(report),
         "total_cost": report["cost"]["total"],
         "must_run": must_run,
+        "skills": skills,
     })
 
 lines = ["# ship-smoke comparison", ""]
 lines.append("| mode | supervisor | wall (min) | orchestrator model (min) | orchestrator share of wall "
-              "| orchestrator requests | orchestrator input tokens | total cost ($) | must_run |")
-lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+              "| orchestrator requests | orchestrator input tokens | total cost ($) | must_run | skills |")
+lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
 for r in rows:
     if r["must_run"] == "not-run":
-        lines.append("| {mode} | {supervisor} | n/a | n/a | n/a | n/a | n/a | n/a | not-run |".format(
-            mode=r["mode"], supervisor=r["supervisor"]))
+        lines.append("| {mode} | {supervisor} | n/a | n/a | n/a | n/a | n/a | n/a | not-run | {skills} |".format(
+            mode=r["mode"], supervisor=r["supervisor"], skills=r["skills"]))
         continue
     lines.append(
         "| {mode} | {supervisor} | {wall_minutes} | {orch_model_minutes} | {share:.1%} | {orch_requests} "
-        "| {orch_input_tokens} | {total_cost} | {must_run} |".format(
+        "| {orch_input_tokens} | {total_cost} | {must_run} | {skills} |".format(
             mode=r["mode"], supervisor=r["supervisor"], wall_minutes=r["wall_minutes"],
             orch_model_minutes=r["orch_model_minutes"],
             share=r["orch_model_share"], orch_requests=r["orch_requests"],
-            orch_input_tokens=r["orch_input_tokens"], total_cost=r["total_cost"], must_run=r["must_run"]))
+            orch_input_tokens=r["orch_input_tokens"], total_cost=r["total_cost"], must_run=r["must_run"],
+            skills=r["skills"]))
 lines.append("")
 text = "\n".join(lines)
 with open(os.path.join(results_dir, "comparison.md"), "w", encoding="utf-8") as f:
