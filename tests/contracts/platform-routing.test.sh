@@ -226,7 +226,7 @@ section "provider-aware Stop drift registration is strict and complete"
 check "Codex drift verdict schema is exact draft 2020-12 JSON" \
   "python3 -c 'import json; d=json.load(open(\"$DS\")); expected={\"\$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"object\",\"additionalProperties\":False,\"properties\":{\"status\":{\"enum\":[\"nothing\",\"advice\"]},\"advice\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"minLength\":1}}},\"required\":[\"status\",\"advice\"]}; raise SystemExit(0 if d == expected else 1)'"
 check "orchestration hook registration preserves both starts and Stop" \
-  "python3 -c 'import json; d=json.load(open(\"$HJ\"))[\"hooks\"]; raise SystemExit(0 if list(d) == [\"SessionStart\",\"SubagentStart\",\"Stop\"] else 1)'"
+  "python3 -c 'import json; d=json.load(open(\"$HJ\"))[\"hooks\"]; raise SystemExit(0 if list(d) == [\"SessionStart\",\"SubagentStart\",\"UserPromptSubmit\",\"Stop\"] else 1)'"
 expect "Stop hook timeout accommodates the bounded Codex judge" "360" \
   "$(python3 -c 'import json; print(json.load(open("'$HJ'"))["hooks"]["Stop"][0]["hooks"][0]["timeout"])')"
 check "drift hook remains executable" "[ -x '$DH' ]"
