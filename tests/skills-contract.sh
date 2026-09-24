@@ -214,7 +214,7 @@ check "Codex rework stays outside the model-transition ladder" \
 check "wave supervisor is chosen over executors and ladder rungs" \
   "grep -qF 'every executor AND every ladder rung' $SP"
 
-section "super-plan: plan quality — ci, e2e, premium approvals, seam audit, estimates"
+section "super-plan: plan quality — ci, e2e, premium approvals, seam audit, no estimates, width"
 # 2026-09-22 ship run: the plan missed the repo's exact CI entrypoint and
 # never ran the shipped corpus through the real CLI end to end, both
 # surfacing only at final review. These keys and the Seam audit step exist
@@ -229,7 +229,6 @@ check "the linter is said to enforce ci, e2e and approvals.premium" \
   "grep -qF 'The linter enforces all three' $SP"
 check "the example wave-plan shows approvals.premium for its fable-5.1 supervisor" \
   "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"claude-fable-5-1\"' && sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"premium\"'"
-check "Gate 1 estimates the supervisor choice's cost"  "grep -qF 'estimated cost from' $SP"
 check "premium supervision needs the user's pick"      "grep -qF 'A premium model is used only' $SP"
 check "the Seam audit step exists"                     "grep -qF '**Seam audit.**' $SP"
 check "the Seam audit runs before lint"                "grep -qF 'Fix what it finds before lint' $SP"
@@ -262,22 +261,11 @@ check "the e2e task sits after every task whose entrypoints or fixtures it runs"
 check "e2e fixture/output documentation stays in the e2e task or a later documentation-only wave" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'goes into the e2e task or a later documentation-only wave'"
 check "the Sol supervisor line names its measured fixture and wave evidence" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Sol supervisor of all-Luna waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves merge-ready first try at ≈ 3.2× lower cost than Astra — toy waves, correct work only'"
-check "Gate 2 shows the critical path and a cost range" \
-  "grep -qF 'critical path' $SP && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'estimated wall-time range in minutes' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'estimated cost range in dollars'"
-check "Gate 2 states the estimate is a prior, not a promise" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the estimate is a prior, not a promise'"
-check "Gate 2 computes the cost range from the estimates price table and formula, never a bare word" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"price table and its wall-time/cost formula\" && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'never a word such as \"low\" or \"cheap\"'"
-check "Gate 2 names which estimates.md rows fed the computation" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"Name which\" && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"rows (executor, supervisor, and\""
-check "the estimates reference ships"                  "[ -s plugins/orchestration/skills/super-plan/references/estimates.md ]"
-check "SKILL points at the estimates reference"        "grep -qF 'references/estimates.md' $SP"
-EST=plugins/orchestration/skills/super-plan/references/estimates.md
-check "estimates.md has a Contents list"               "grep -qx '## Contents' $EST"
-check "estimates.md names its price source"            "grep -qF 'tests/eval/telemetry/prices.json' $EST"
-check "estimates.md prices Opus 5"                     "grep -qF '| \`claude-opus-5\` | 5 | 0.5 | 25 |' $EST"
-check "estimates.md prices Haiku 4.5"                  "grep -qF '| \`claude-haiku-4-5-20251001\` | 1 | 0.1 | 5 |' $EST"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Sol supervisor of all-Luna waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves merge-ready first try — toy waves, correct work only'"
+WCM=tests/eval/wave-cost-measurements-2026-09-24.md
+check "measurements record their price source"         "grep -qF 'tests/eval/telemetry/prices.json' $WCM"
+check "measurements record Opus 5"                     "grep -qF '| \`claude-opus-5\` | 5 | 0.5 | 25 |' $WCM"
+check "measurements record Haiku 4.5"                  "grep -qF '| \`claude-haiku-4-5-20251001\` | 1 | 0.1 | 5 |' $WCM"
 check "Gate 1 fixes wave shape before the supervisor choice" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"Fix each wave's executor tiers and ladder shape at Gate 1\""
 check "a changed wave shape re-asks the supervisor choice before Gate 2" \
@@ -302,8 +290,22 @@ check "headless mode uses standard supervisors only" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A headless run uses'"
 check "headless mode invents no approvals.premium" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the plan carries no \`approvals.premium\` invented by the model'"
-check "estimates.md carries the how-to-estimate formula" \
-  "grep -qF 'attempt time' $EST && grep -qF 'orchestrator overhead' $EST"
+check "Gate 1 names the supervisor choice without a price" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'named and never priced' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'named, never priced'"
+check "Gate 2 shows the plan's shape, never a duration or a cost" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical path as a chain of waves' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Never a duration or a cost'"
+check "super-plan forbids time and cost estimates everywhere" \
+  "grep -qF '## No time or cost estimates' $SP && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Never predict how long a plan, a wave or a task will take'"
+check "super-plan no longer estimates" \
+  "! grep -qF 'estimates.md' $SP && ! grep -qiF 'prior, not a promise' $SP && ! grep -qF 'estimated cost' $SP"
+check "the estimates reference left the skill" \
+  "[ ! -e plugins/orchestration/skills/super-plan/references/estimates.md ]"
+check "super-plan designs for width" \
+  "grep -qF '**Design for width.**' $SP && grep -qF 'cut \`files_allowed\` by file' $SP && grep -qF '## Parallelism' $SP"
+check "the width rule names its measured cause" \
+  "grep -qF '14 waves of one task each' $SP"
+check "Step 0 effort: Claude reads CLAUDE_EFFORT through the shell, never on Codex" \
+  "grep -qF 'run \`printenv CLAUDE_EFFORT\` once with the shell tool' $SP && grep -qF 'Never read \`CLAUDE_EFFORT\` on a Codex host' $SP"
 
 section "ship: the conductor that adds no machinery"
 check "the skill exists"                        "[ -f $SH ]"

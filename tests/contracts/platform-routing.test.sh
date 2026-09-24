@@ -33,8 +33,10 @@ section "all skills resolve one active-seat profile from runtime context"
 
 check "no universal Claude skill dir" \
   "! rg -q 'CLAUDE_SKILL_DIR' plugins/*/skills/*/SKILL.md"
-check "no universal Claude effort variable" \
-  "! rg -q 'CLAUDE_EFFORT' plugins/*/skills/*/SKILL.md"
+check "no Claude effort template substitution in skills" \
+  "! rg -q '\\$\{CLAUDE_EFFORT\}' plugins/*/skills/*/SKILL.md"
+check "every skill naming CLAUDE_EFFORT also forbids reading it on Codex" \
+  "for f in \$(rg -l 'CLAUDE_EFFORT' plugins/*/skills/*/SKILL.md); do grep -qF 'Never read \`CLAUDE_EFFORT\` on a Codex host' \"\$f\" || exit 1; done"
 for skill in "$MM" "$SP" "$SH" "$CR"; do
   check "runtime context contract named by $skill" \
     "grep -qF 'PLUGIN_RUNTIME_CONTEXT_V1' '$skill'"
