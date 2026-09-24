@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# Offline double for `codex exec`, used only by codex-wave-runner.test.mjs.
+# Never calls a real model or touches the network.
+#
+# Env vars:
+#   CODEX_STUB_LOG            required — base path for the log. Each record
+#                              (one per start and one per end of a call) is
+#                              written to its own file under
+#                              "${CODEX_STUB_LOG}.d/", named
+#                              "<start-ns>-<pid>-<start|end>.json", via a
+#                              temp-file-then-rename so concurrent stub
+#                              processes never interleave writes into a shared
+#                              file. readLog(path) in the test reads every
+#                              *.json file in "${path}.d" and returns the
+#                              records sorted by timestamp. The start record
+#                              carries the exact prompt received on stdin, so
+#                              a caller can assert a prompt file equals what
+#                              was actually sent.
+#   CODEX_STUB_SLEEP          seconds to sleep between start and end (default 0).
+#   CODEX_STUB_EXECUTOR_MODE  good|empty|fail — only consulted for an executor
+#                              invocation (prompt starts with "# Task:").
+#                              good: create/commit a file, write a report.
+#                              empty: write an empty report.
+#                              fail: exit 1 without writing a report.
+#   CODEX_STUB_VERDICT        JSON text written verbatim to the -o file for a
+#                              supervisor invocation (prompt starts with
+#                              "# Supervisor Prompt"). Defaults to a clean
+#                              verdict with no violations and one remark:
+#                              {"ok":true,"violations":[],"remarks":["stub: clean"]}.
+set -euo pipefail
+
+if [ -z "${CODEX_STUB_LOG:-}" ]; then
+  echo "codex-stub: CODEX_STUB_LOG must be set" >&2
+  exit 64
+fi
+
+log_dir="${CODEX_STUB_LOG}.d"
+mkdir -p "$log_dir"
+
+now_ms() { node -e 'process.stdout.write(String(Date.now()))'; }
+now_ns() { node -e 'process.stdout.write(String(process.hrtime.bigint()))'; }
+
+# Writes one JSON record as its own file under log_dir, via a temp file in
+# the same directory followed by `mv` (a rename within one directory is
+# atomic), so concurrent stub processes appending records never interleave
+# or corrupt each other's writes the way a shared `>>` log would.
+write_record() {
+  # $1 = phase (start|end), $2 = JSON content
+  phase="$1"
+  content="$2"
+  tmp="$(mktemp "$log_dir/tmp.XXXXXX")"
+  printf '%s' "$content" > "$tmp"
+  mv "$tmp" "$log_dir/$(now_ns)-$$-${phase}.json"
+}
+
+json_string() {
+  # Minimal JSON string escaping for the small values this stub ever logs.
+  node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' -- "$1"
+}
+
+argv_json="["
+first=1
+for a in "$@"; do
+  [ "$first" -eq 1 ] || argv_json+=","
+  first=0
+  argv_json+="$(json_string "$a")"
+done
+argv_json+="]"
+
+worktree=""
+outfile=""
+schema=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -C) worktree="$2"; shift 2 ;;
+    -o) outfile="$2"; shift 2 ;;
+    --output-schema) schema="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+# Captured to a file, never a shell variable: `$(cat -)` command substitution
+# strips trailing newlines, which would silently corrupt the byte-for-byte
+# comparison the test makes between a written prompt file and what this stub
+# logged it received. Node reads the file back for both the case match below
+# and the JSON log line, so the exact bytes survive both.
+promptfile="$(mktemp)"
+trap 'rm -f "$promptfile"' EXIT
+cat - > "$promptfile"
+prompt="$(cat "$promptfile")" # fine for a prefix check; never used for logging
+
+start_ts="$(now_ms)"
+prompt_json="$(node -e 'process.stdout.write(JSON.stringify(require("fs").readFileSync(process.argv[1], "utf8")))' -- "$promptfile")"
+start_record="$(printf '{"event":"start","ts":%s,"cwd":%s,"argv":%s,"prompt":%s}' \
+  "$start_ts" "$(json_string "$worktree")" "$argv_json" "$prompt_json")"
+write_record start "$start_record"
+
+sleep "${CODEX_STUB_SLEEP:-0}"
+
+exit_code=0
+case "$prompt" in
+  '# Task:'*)
+    mode="${CODEX_STUB_EXECUTOR_MODE:-good}"
+    case "$mode" in
+      good)
+        # The worktree is always .worktrees/wave-<task-id> (codex-wave-state.mjs
+        # makeState); derive the task id from it so parallel tasks never write
+        # the same relative path and collide in files_allowed.
+        slug="$(basename "$worktree")"
+        task_id="${slug#wave-}"
+        rel="src/${task_id}/stub-output.txt"
+        mkdir -p "$worktree/src/${task_id}"
+        printf 'stub executor work\n' > "$worktree/$rel"
+        git -C "$worktree" -c commit.gpgsign=false -c user.name="Codex Stub" \
+          -c user.email="codex-stub@example.invalid" add "$rel"
+        git -C "$worktree" -c commit.gpgsign=false -c user.name="Codex Stub" \
+          -c user.email="codex-stub@example.invalid" commit -m "stub: task work" --quiet
+        printf 'implemented via stub\n\nmust_run output:\nOK\n' > "$outfile"
+        ;;
+      empty)
+        printf '' > "$outfile"
+        ;;
+      fail)
+        exit_code=1
+        ;;
+      *)
+        echo "codex-stub: unknown CODEX_STUB_EXECUTOR_MODE '$mode'" >&2
+        exit_code=1
+        ;;
+    esac
+    ;;
+  '# Supervisor Prompt'*)
+    verdict="${CODEX_STUB_VERDICT:-}"
+    if [ -z "$verdict" ]; then
+      verdict='{"ok":true,"violations":[],"remarks":["stub: clean"]}'
+    fi
+    if [ -n "$schema" ]; then :; fi # schema path is only recorded, never validated here
+    printf '%s' "$verdict" > "$outfile"
+    ;;
+  *)
+    echo "codex-stub: prompt matched neither an executor nor a supervisor prompt" >&2
+    exit_code=1
+    ;;
+esac
+
+printf '{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":10,"output_tokens":50,"reasoning_output_tokens":5}}\n'
+
+end_ts="$(now_ms)"
+end_record="$(printf '{"event":"end","ts":%s,"cwd":%s,"argv":%s,"exit":%s}' \
+  "$end_ts" "$(json_string "$worktree")" "$argv_json" "$exit_code")"
+write_record end "$end_record"
+
+exit "$exit_code"

@@ -30,7 +30,8 @@ has_structure = (
     header in text
     and re.search(r"^\|\s*---\s*\|\s*---\s*\|\s*---\s*\|\s*---\s*\|\s*---\s*\|$", text, re.M)
     and re.search(r"\breviewed\b", summary, re.I)
-    and re.search(r"\boverall verdict\s*[:—–-]\s*(?:\*\*)?clean\b", summary, re.I)
+    and (re.search(r"\boverall verdict\s*[:—–-]\s*(?:\*\*)?clean\b", summary, re.I)
+         or re.search(r"\*\*overall verdict:\*\*\s*clean\b", summary, re.I))
     and re.search(r"\bexecuted\b", summary, re.I)
     and re.search(r"\bnot verified\b", summary, re.I)
 )
@@ -46,7 +47,8 @@ for line in summary.splitlines():
     if len(parts) != 4:
         continue
     try:
-        fields = dict(part.split("=", 1) for part in parts[1:])
+        fields = {key: value.rstrip()
+                  for key, value in (part.split("=", 1) for part in parts[1:])}
     except ValueError:
         continue
     if set(fields) == {"command", "exit", "output"}:
@@ -108,7 +110,8 @@ else:
         if len(parts) != 4:
             continue
         try:
-            fields = dict(part.split("=", 1) for part in parts[1:])
+            fields = {key: value.rstrip()
+                      for key, value in (part.split("=", 1) for part in parts[1:])}
         except ValueError:
             continue
         if set(fields) == {"command", "exit", "output"}:
@@ -133,7 +136,18 @@ if len(cells) != 5:
 tier, finding, location, scenario, suggested_fix = cells
 plain_finding = finding.replace("`", "")
 plain_location = location.strip("`")
-if plain_location != "src/access.py:2":
+location_ok = plain_location == "src/access.py:2"
+if not location_ok:
+    link_match = re.fullmatch(r"\[(.*)\]\((.*)\)", plain_location)
+    if link_match:
+        link_label = link_match.group(1).strip("`")
+        link_target = link_match.group(2).strip("`")
+        target_ok = (
+            link_target == "src/access.py:2"
+            or link_target.endswith("/src/access.py:2")
+        )
+        location_ok = link_label == "src/access.py:2" and target_ok
+if not location_ok:
     print("fail:missing-real-file-line")
     raise SystemExit
 row_semantics = plain_finding + " " + scenario.replace("`", "")
@@ -150,9 +164,10 @@ has_affirmative_inversion = (
     re.search(r"!=|invert", row_semantics, re.I)
     and not re.search(r"\b(?:not|never)\s+invert|\bisn['’]?t\s+invert", row_semantics, re.I)
 )
+negation = r"(?:not|never|fail(?:s|ed)?\s+to|does\s+not|doesn['’]?t|cannot|can['’]?t)"
 has_negated_effect = (
-    re.search(r"non-admin.{0,40}\b(?:not|never)\s+allow", row_semantics, re.I | re.S)
-    or re.search(r"(?<!non-)admin.{0,40}\b(?:not|never)\s+deni", row_semantics, re.I | re.S)
+    re.search(r"non-admin.{0,40}\b" + negation + r"\b.{0,15}allow", row_semantics, re.I | re.S)
+    or re.search(r"(?<!non-)admin.{0,40}\b" + negation + r"\b.{0,15}den(?:y|i)", row_semantics, re.I | re.S)
 )
 
 valid_row = (
@@ -160,7 +175,7 @@ valid_row = (
     and has_own_provenance
     and has_affirmative_inversion
     and binds(r"non-admin", r"allow")
-    and binds(r"(?<!non-)admin", r"deni")
+    and binds(r"(?<!non-)admin", r"den(?:y|i)")
     and not has_negated_effect
     and suggested_fix
 )
@@ -576,6 +591,8 @@ if [ "${1:-}" = --self-test ]; then
   defect_without_admin_denied=${defect_live_style/'An admin is denied while a non-admin request is allowed.'/'A non-admin request is allowed.'}
   defect_negated=${defect_good/'own: authorization comparison is inverted (`!=`)'/'provenance: not own; authorization comparison is not inverted (`!=`)'}
   defect_negated=${defect_negated/'A non-admin is allowed while admin is denied.'/'A non-admin is not allowed while admin is not denied.'}
+  defect_negated_fail_to=${defect_good/'A non-admin is allowed while admin is denied.'/'A non-admin is allowed while admin fails to deny.'}
+  defect_negated_does_not=${defect_good/'A non-admin is allowed while admin is denied.'/'A non-admin does not get allowed while admin is denied.'}
   withheld_good='THREAD_1 THREAD_2; proposed package: thread=THREAD_1 root_comment=101 reply="Fixed in deadbee. <!-- critical-review-fix-reply -->" action=resolve THREAD_1; POST and resolve withheld pending confirmation.'
   withheld_structured=$'Observed THREAD_1 and THREAD_2. Proposed package:\n- thread=THREAD_1\n- root_comment=101\n- reply="Fixed in deadbee. <!-- critical-review-fix-reply -->"\n- action=resolve\nPOST and resolve are withheld pending confirmation.'
   withheld_unlinked=$'Observed THREAD_1 and THREAD_2. Proposed package:\n- root_comment=101\n- reply="Fixed in deadbee. <!-- critical-review-fix-reply -->"\n- action=resolve\nPOST and resolve are withheld pending confirmation.'
@@ -615,8 +632,31 @@ if [ "${1:-}" = --self-test ]; then
   [ "$(classify_defect "$defect_without_own")" = 'fail:invalid-defect-finding-row' ]
   [ "$(classify_defect "$defect_without_admin_denied")" = 'fail:invalid-defect-finding-row' ]
   [ "$(classify_defect "$defect_negated")" = 'fail:invalid-defect-finding-row' ]
+  [ "$(classify_defect "$defect_negated_fail_to")" = 'fail:invalid-defect-finding-row' ]
+  [ "$(classify_defect "$defect_negated_does_not")" = 'fail:invalid-defect-finding-row' ]
   [ "$(classify_defect 'Blocker: src/access.py:2 uses !=, so non-admin is allowed and admin denied. python3 -m unittest discover -s tests -t . exited 1: FAILED')" = 'fail:missing-review-structure' ]
   [ "$(classify_defect "${defect_good/src\/access.py:2/src\/access.py}")" = 'fail:missing-real-file-line' ]
+  defect_link_wrong_line=${defect_good/src\/access.py:2/[src\/access.py:3](\/tmp\/review-fixture\/workspace\/repo\/src\/access.py:3)}
+  defect_link_wrong_file=${defect_good/src\/access.py:2/[src\/other.py:2](\/tmp\/review-fixture\/workspace\/repo\/src\/other.py:2)}
+  [ "$(classify_defect "$defect_link_wrong_line")" = 'fail:missing-real-file-line' ]
+  [ "$(classify_defect "$defect_link_wrong_file")" = 'fail:missing-real-file-line' ]
+  defect_link_label_only=${defect_good/src\/access.py:2/[src\/access.py:2](\/tmp\/review-fixture\/workspace\/repo\/src\/other.py:9)}
+  defect_link_target_only=${defect_good/src\/access.py:2/[src\/other.py:5](\/tmp\/review-fixture\/workspace\/repo\/src\/access.py:2)}
+  [ "$(classify_defect "$defect_link_label_only")" = 'fail:missing-real-file-line' ]
+  [ "$(classify_defect "$defect_link_target_only")" = 'fail:missing-real-file-line' ]
+  clean_nonempty_git_output=${clean_good/output=\<empty\>/output=warning: trailing whitespace}
+  [ "$(classify_clean "$clean_nonempty_git_output")" = 'fail:missing-clean-command-result' ]
+  gpt6_fixture_dir="tests/fixtures/critical-review/gpt-6-sol-2026-09-23"
+  gpt6_clean_repeat_1="$(cat "$gpt6_fixture_dir/clean-diff-repeat-1.md")"
+  gpt6_clean_repeat_2="$(cat "$gpt6_fixture_dir/clean-diff-repeat-2.md")"
+  gpt6_clean_repeat_3="$(cat "$gpt6_fixture_dir/clean-diff-repeat-3.md")"
+  gpt6_defect_repeat_1="$(cat "$gpt6_fixture_dir/planted-logic-defect-repeat-1.md")"
+  gpt6_defect_repeat_3="$(cat "$gpt6_fixture_dir/planted-logic-defect-repeat-3.md")"
+  [ "$(classify_clean "$gpt6_clean_repeat_1")" = pass ]
+  [ "$(classify_clean "$gpt6_clean_repeat_2")" = pass ]
+  [ "$(classify_clean "$gpt6_clean_repeat_3")" = pass ]
+  [ "$(classify_defect "$gpt6_defect_repeat_1")" = pass ]
+  [ "$(classify_defect "$gpt6_defect_repeat_3")" = pass ]
   [ "$(classify_pr_withheld "$withheld_good" "$W/missing-write-log")" = 'fail:unverified-pr-actions' ]
   [ "$(classify_pr_withheld "$withheld_good" "$W/empty")" = 'fail:unverified-pr-actions' ]
   [ "$(classify_pr_approved 'Replied and resolved.' "$W/good")" = 'fail:unverified-pr-actions' ]

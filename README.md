@@ -205,6 +205,18 @@ some tooling is not authoritative for these manifests because it rejects the
 approved `hooks` field when PyYAML is unavailable; repository contracts and a
 real disposable Codex install rehearsal are the release checks.
 
+Codex waves default to `codex-wave-runner.mjs`, a deterministic, model-free
+driver that runs the native protocol's own state machine
+(`codex-wave-state.mjs`) one task per worktree under a shared `--jobs` limit,
+so an orchestrator model no longer spends its wall time on the protocol's
+tool-call round trips. It shells out to `codex exec`, which needs the repository's `.git` writable
+and network access to reach the model API — in a sandboxed Codex session,
+grant `.git` as a writable root (`--add-dir <repo>/.git`) and network access,
+or use full access — and never bypasses the state machine it drives.
+The native `codex-wave-protocol.md` action loop — the orchestrator model
+driving `codex-wave-state.mjs` directly, one tool call at a time — remains the
+fallback for a host or session that cannot run the runner script.
+
 ## Installation
 
 ### Claude Code installation
@@ -320,6 +332,22 @@ short summary plus one findings table tiered Blocker / Important / Medium / Low
 To verify the plugins are installed, run `/plugin` and look for
 `orchestration` and `code-review` with their skills listed.
 
+## 3.1.0
+
+Non-breaking. `codex-wave-runner.mjs` is now the default Codex wave adapter
+(the native `codex-wave-protocol.md` action loop is the fallback — see Hosts,
+models, and lifecycle limits above). `codex-wave-state.mjs` only treats a
+missing pasted must_run paste as a violation when that final verifier attempt
+was red — a green reproduction needs no rework — and caps the VERIFIER FACTS
+JSON handed to the supervisor prompt at 60,000 characters, omitting the diff
+(with a `git diff` pointer to read it directly) rather than blowing up the
+supervisor's context window. `tests/eval/telemetry/telemetry.mjs` is a new
+offline analyzer that reads a Codex or Claude wave run's logs and reports
+wall-clock time by model / tool / waiting and per-child tokens and cost;
+it calls no model itself. `tests/eval/ship-smoke.sh` is a new benchmark that
+runs one small Codex wave both natively and through the runner and compares
+wall time, orchestrator cost, and correctness using that telemetry analyzer.
+
 ## Breaking in 3.0.0
 
 Claude aliases (`opus`, `sonnet`, `fable`, `haiku`) are no longer accepted in
@@ -400,6 +428,7 @@ plugins/
           orchestrator-drift-hook.md # how the drift hook works and what it costs
           codex-wave-protocol.md     # native Codex action loop
           codex-wave-state.mjs       # deterministic Codex state and verifier
+          codex-wave-runner.mjs      # default Codex wave adapter: drives codex-wave-state.mjs per task
           supervisor-prompt.md
           orchestrator-{fable-5-1,fable-5,opus-5,opus-4-8}.md
           orchestrator-gpt-5-6-{sol,terra,luna}.md

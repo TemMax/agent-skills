@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 3.0.0
+  version: 3.1.0
 ---
 
 # Orchestrating Multi-Model Development
@@ -154,6 +154,16 @@ English does not mean English replies.
    summary: done / verified / remaining. **Set the wave plan's `status: done`**
    in the same breath — an open plan keeps the drift hook paying for a wave that
    ended.
+
+The orchestrator spends its own effort on decisions, not on reading. It does
+not read whole files or diffs into its own context — that is delegated to a
+research agent or a task's executor; where it needs a scale of a change it
+uses `git diff --stat` and reads only targeted ranges itself. It does not
+keep a journal that duplicates state a helper or runner already holds — the
+wave plan, the state files, and `summary.json` are the record. And it waits
+on a running agent or runner with long waits, not frequent polls — a
+polling loop burns turns on the orchestrator's own round trips instead of on
+the work it is waiting for.
 
 ## Model Routing — Quick Reference
 
@@ -477,7 +487,9 @@ supervised wave, stop before publication rather than push around the gate.
   generates the launch script and invokes the shipped runner).
 - Codex-only wave (GPT-6 Sol/Luna or GPT-5.6 executors, or separately approved
   Astra initial/final rung; Astra supervisor): read and follow
-  `references/codex-wave-protocol.md`; do not invoke Claude Workflow.
+  `references/codex-wave-protocol.md`; do not invoke Claude Workflow. Its
+  default adapter is `references/codex-wave-runner.mjs`, as described there,
+  with the native action loop as fallback.
 - Mixed or unknown-provider wave: stop before spawning and return the linter or
   identity error.
 

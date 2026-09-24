@@ -349,7 +349,7 @@ function mechanicalViolations(t, facts) {
   for (const m of t.contract.must_run) {
     if (m.evidence !== 'required') continue
     const f = (facts.mustRun ?? []).find((x) => x.cmd === m.cmd)
-    if (f && f.pasteFoundInReport === false) {
+    if (f && f.pasteFoundInReport === false && f.exit !== 0) {
       v.push({ rule: 'must_run: ' + m.cmd, class: 'report',
         evidence: 'contract says evidence: required and the report pastes no output for this command' })
     }

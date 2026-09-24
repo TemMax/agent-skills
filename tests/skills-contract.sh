@@ -109,6 +109,14 @@ check "executor and supervisor examples name model" \
   "[ \$(grep -cF 'model: action.model' $CP) -eq 2 ]"
 check "executor and supervisor examples name effort" \
   "[ \$(grep -cF 'reasoning_effort: action.effort' $CP) -eq 2 ]"
+check "Codex protocol names the deterministic runner as its default" \
+  "grep -qF 'codex-wave-runner.mjs' $CP"
+check "Codex protocol's runner section names --add-dir for .git access" \
+  "sed -n '/^## Default: the deterministic runner\$/,/^## /p' $CP | grep -qF -- '--add-dir'"
+check "Codex protocol keeps the native action loop heading" \
+  "grep -qF '## Commands and action loop' $CP"
+check "multi-model Host adapter names the deterministic runner" \
+  "grep -qF 'codex-wave-runner.mjs' $MM"
 check "omitted publication defaults exactly to normal push in its boundary" \
   "sed -n '/^### Invocation publication contract$/,/^- Claude-only wave:/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication\` is optional: if omitted, it means exactly \`publication: push\` and preserves all normal behavior.'"
 check "local publication is explicit critical-review-only and never inferred" \

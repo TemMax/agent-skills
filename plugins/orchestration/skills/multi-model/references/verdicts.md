@@ -20,9 +20,13 @@ contract says `evidence: required`. The verifier runs each `must_run` as one
 `bash -c` command line and records that line's exit status, so negated
 (`! grep …`) and piped commands are judged as written. The runner — not a
 model — then applies the deterministic half of the contract: a branch with no commits, a path
-outside `files_allowed`, a red `must_run`, or missing pasted evidence
-bounces straight back to the executor as a rework, and no judge is paid for
-discovering it. Transcript mining across five real sessions found "work
+outside `files_allowed`, or a red `must_run` bounces straight back to the
+executor as a rework, and no judge is paid for discovering it. Missing
+pasted evidence bounces the same way only when the command was red; a
+missing paste for a command the verifier reproduced green goes to the judge
+instead, because report-only rework loops on that rule re-ran unchanged code
+for no benefit — measured in a 2026-09-22 ship run, and twice in stage A.
+Transcript mining across five real sessions found "work
 done but never committed" to be the single most common rejection (8+
 occurrences), each costing a full Opus verdict to detect.
 

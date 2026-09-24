@@ -30,11 +30,14 @@ run "behaviour — wave-runner reference implementation (simulated)" bash tests/
 run "behaviour — wave launcher generator" bash tests/wave-launch.test.sh
 run "behaviour — plan linter on fixture mutants"                   bash tests/plan-lint.test.sh
 run "behaviour — Codex native wave state" bash tests/codex-wave-state.test.sh
+run "behaviour — codex wave runner" node --test tests/lib/codex-wave-runner.test.mjs
 run "behaviour — model CLI adapter" bash tests/eval/model-cli.test.sh
 run "behaviour — retained Codex rollout diagnostics" node --test tests/eval/codex-rollouts.test.mjs
 run "behaviour — deterministic supervisor fixture" bash tests/eval/supervisor-fixture.test.sh
 run "behaviour — skill-navigation parser and read-check" bash tests/eval/skill-navigation.test.sh
 run "behaviour — gpt-live driver" bash tests/eval/gpt-live.test.sh
+run "behaviour — telemetry analyzer" node --test tests/eval/telemetry/telemetry.test.mjs tests/eval/telemetry/claude.test.mjs
+run "behaviour — ship-smoke Codex wave benchmark" bash tests/eval/ship-smoke.test.sh
 
 for t in plugins/*/hooks/*.test.sh; do
   [ -e "$t" ] || continue
@@ -45,7 +48,7 @@ if [ -n "$LIVE" ]; then
   for e in tests/eval/*.sh; do
     [ -e "$e" ] || continue
     case "$(basename "$e")" in
-      model-cli.sh|gpt-5-6-matrix.sh|gpt-live.sh|gpt-matrix.sh|*.test.sh) continue ;;
+      model-cli.sh|gpt-5-6-matrix.sh|gpt-live.sh|gpt-matrix.sh|ship-smoke.sh|*.test.sh) continue ;;
     esac
     run "evaluation (live model) — $(basename "$e" .sh)" bash "$e"
   done

@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 3.0.0
+  version: 3.1.0
 ---
 
 # Shipping a Feature (ship)
@@ -109,6 +109,9 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    executor is spawned; the same run warms the build caches the wave's
    worktrees fork from cold.
 3. Invoke **multi-model** to run the plan. Only multi-model selects that adapter and owns all subagent execution: it uses the native Codex protocol for Codex plan waves and the Claude Workflow adapter for Claude plan waves.
+   For Codex plans, multi-model's default adapter is the deterministic runner
+   (`codex-wave-runner.mjs`), with the native protocol as fallback — ship does
+   not choose between them.
    ship never invokes provider CLIs, adapter workflows, or state helpers itself:
    in particular, it never invokes `claude`, `codex`, Workflow, or
    `codex-wave-state`; composition boundaries use capability names. multi-model
