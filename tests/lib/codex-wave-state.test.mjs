@@ -1086,8 +1086,14 @@ function withAstraApprovals(text) {
   if (text.includes('"approvals"')) return text
   const approvals = '"approvals": {"premium": {"models": ["gpt-6-astra"], ' +
     '"reason": "Astra requires documented approval for this wave.", ' +
-    '"approved_by": "test", "date": "2026-09-24"}}'
-  return text.replace(/^\] \}$/m, '],\n' + approvals + ' }')
+    '"approved_by": "test", "date": "2026-09-24"}},'
+  const match = /```json wave-plan\n\{/.exec(text)
+  if (!match) {
+    throw new Error('withAstraApprovals: could not find the opening brace of the ' +
+      '```json wave-plan block to insert "approvals" into')
+  }
+  const insertAt = match.index + match[0].length
+  return text.slice(0, insertAt) + ' ' + approvals + text.slice(insertAt)
 }
 
 function withAstraSupervisor(text) {
