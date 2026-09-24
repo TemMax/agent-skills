@@ -72,6 +72,18 @@ fixture copy) and `EVAL_KEEP_DIR` (keeps every model answer and plan as
 evidence). Its scoring rules are tested offline, without a model, by
 `tests/eval/seam-audit.test.sh`.
 
+The effort-detection tier (`tests/eval/effort-detection.sh`) checks that the
+production hook and the host actually surface a session's effort, live: a
+Codex `gpt-6-luna` session started with `model_reasoning_effort="low"` gets a
+`SessionStart` hook whose `additionalContext` reports
+`PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=gpt-6-luna
+effort=low`, and a Claude Code session started with `--effort low` sees that
+effort from its shell tool (`printenv CLAUDE_EFFORT`). It costs two small
+model calls — one `gpt-6-luna` call and one `claude-sonnet-5` call — and,
+because Codex's own seatbelt sandbox cannot nest another sandboxed `codex
+exec`, it must run outside any sandbox; skip a part whose CLI is missing from
+PATH rather than fail it.
+
 The skill-navigation tier (`tests/eval/skill-navigation.sh`) asks whether an
 agent applying the multi-model skill takes the right action at five decision
 points — launching a Claude-only wave, a contract amendment that widens
@@ -293,9 +305,11 @@ composites, and unrelated commands fail closed. The tokenizer disables shell
 comments before exact argv matching. Withheld mode permits exactly one
 completed command execution total; approved mode permits exactly two. Saved JSONL and copied
 `GH_FAKE_LOG`/`GH_FAKE_TRACE` files are secondary diagnostics only. All
-context-bearing semantic probes inject the production hook context's literal
-`effort=unknown`; provider, model, and the matrix's actual effort are preserved
-separately as `EVALUATION_SESSION_METADATA_V1` and status evidence.
+context-bearing semantic probes inject a synthetic hook context with the
+literal `effort=unknown` — the production hook now reports the Codex
+session's effort, and these probes pin the unknown case; provider, model, and
+the matrix's actual effort are preserved separately as
+`EVALUATION_SESSION_METADATA_V1` and status evidence.
 
 ### Optional Codex wave rollouts
 
