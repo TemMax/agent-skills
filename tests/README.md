@@ -58,9 +58,9 @@ ask)" rather than resolve it silently.
 
 The seam-audit tier (`tests/eval/seam-audit.sh`) measures two stage C
 planning rules directly: the Seam audit step catches a cross-task seam
-before execution, and the Gate 2 message actually states the critical path,
-a wall-time and cost estimate, and that the estimate is a prior rather than
-a promise. Its fixture is a two-part feature request over a small report
+before execution, and the Gate 2 message shows the plan's shape — the
+waves, the tasks that run in parallel, the critical path in waves — and
+carries no time or cost estimate. Its fixture is a two-part feature request over a small report
 module where changing `format_row`'s separator in `src/report.py` quietly
 breaks `tests/helpers.py`'s `parse_rows` round trip unless the same task
 owns both files. `SEAM_SKILL_ROOT` (default: this repository's root) points

@@ -22,8 +22,7 @@ field() {  # line key -> value
 
 GOOD_GATE2="$W/good-gate2.txt"
 cat > "$GOOD_GATE2" <<'TXT'
-Critical path: 2 waves. Estimated wall time ~25 minutes, cost about $3.
-This is a prior, not a promise.
+Critical path: 2 waves (format-and-helpers, then summary). Wave 1 runs 1 task; wave 2 runs 2 tasks in parallel.
 TXT
 
 # Lint-clean AND seam-pass (single combined task): doubles as the "lint
@@ -381,34 +380,45 @@ expect "plan with a model alias fails lint" "fail" "$(field "$line" lint)"
 section "Gate 2 rule"
 
 line="$(score "$GOOD_PLAN" "$GOOD_GATE2")"
-expect "all four elements present" "pass" "$(field "$line" gate2)"
+expect "wave shape present, no time or cost estimate" "pass" "$(field "$line" gate2)"
 
-NO_CRITICAL_PATH="$W/gate2-no-critical-path.txt"
-cat > "$NO_CRITICAL_PATH" <<'TXT'
-Estimated wall time ~25 minutes, cost about $3. This is a prior, not a promise.
-TXT
-line="$(score "$GOOD_PLAN" "$NO_CRITICAL_PATH")"
-expect "missing critical path" "fail" "$(field "$line" gate2)"
+HAS_MINUTES="$W/gate2-has-minutes.txt"
+{ cat "$GOOD_GATE2"; printf '%s\n' "Estimated wall time ~25 minutes."; } > "$HAS_MINUTES"
+line="$(score "$GOOD_PLAN" "$HAS_MINUTES")"
+expect "duration in minutes present" "fail" "$(field "$line" gate2)"
 
-NO_DURATION="$W/gate2-no-duration.txt"
-cat > "$NO_DURATION" <<'TXT'
-Critical path: 2 waves. Cost about $3. This is a prior, not a promise.
-TXT
-line="$(score "$GOOD_PLAN" "$NO_DURATION")"
-expect "missing duration" "fail" "$(field "$line" gate2)"
+HAS_HOURS="$W/gate2-has-hours.txt"
+{ cat "$GOOD_GATE2"; printf '%s\n' "about 2 hours."; } > "$HAS_HOURS"
+line="$(score "$GOOD_PLAN" "$HAS_HOURS")"
+expect "duration in hours present" "fail" "$(field "$line" gate2)"
 
-NO_COST="$W/gate2-no-cost.txt"
-cat > "$NO_COST" <<'TXT'
-Critical path: 2 waves. Estimated wall time ~25 minutes. This is a prior, not a promise.
-TXT
-line="$(score "$GOOD_PLAN" "$NO_COST")"
-expect "missing cost" "fail" "$(field "$line" gate2)"
+HAS_DOLLAR_COST="$W/gate2-has-dollar-cost.txt"
+{ cat "$GOOD_GATE2"; printf '%s\n' "cost about \$3."; } > "$HAS_DOLLAR_COST"
+line="$(score "$GOOD_PLAN" "$HAS_DOLLAR_COST")"
+expect "dollar cost present" "fail" "$(field "$line" gate2)"
 
-NO_PRIOR="$W/gate2-no-prior.txt"
-cat > "$NO_PRIOR" <<'TXT'
-Critical path: 2 waves. Estimated wall time ~25 minutes, cost about $3.
+HAS_USD_COST="$W/gate2-has-usd-cost.txt"
+{ cat "$GOOD_GATE2"; printf '%s\n' "12 USD."; } > "$HAS_USD_COST"
+line="$(score "$GOOD_PLAN" "$HAS_USD_COST")"
+expect "USD cost present" "fail" "$(field "$line" gate2)"
+
+HAS_RU_DURATION="$W/gate2-has-ru-duration.txt"
+{ cat "$GOOD_GATE2"; printf '%s\n' "оценка 7–16 часов."; } > "$HAS_RU_DURATION"
+line="$(score "$GOOD_PLAN" "$HAS_RU_DURATION")"
+expect "Russian duration present" "fail" "$(field "$line" gate2)"
+
+NO_WAVES="$W/gate2-no-waves.txt"
+cat > "$NO_WAVES" <<'TXT'
+Critical path: format-and-helpers, then summary; two tasks run in parallel.
 TXT
-line="$(score "$GOOD_PLAN" "$NO_PRIOR")"
-expect "missing the word prior" "fail" "$(field "$line" gate2)"
+line="$(score "$GOOD_PLAN" "$NO_WAVES")"
+expect "missing the word wave/waves" "fail" "$(field "$line" gate2)"
+
+NO_PARALLEL="$W/gate2-no-parallel.txt"
+cat > "$NO_PARALLEL" <<'TXT'
+Critical path: 2 waves.
+TXT
+line="$(score "$GOOD_PLAN" "$NO_PARALLEL")"
+expect "missing the word parallel" "fail" "$(field "$line" gate2)"
 
 summary
