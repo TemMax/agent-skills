@@ -68,7 +68,13 @@ block writing a concrete plan for the existing design and plan approvals.
 ## Process
 
 1. **Research** to decomposition depth: files, dependencies, conventions,
-   test commands that actually run. For a large surface, fan out read-only
+   test commands that actually run. Read the repository's CI workflow files
+   (e.g. `.github/workflows/*.yml`) and record their exact test entrypoints
+   verbatim for the plan's `ci` key — a plan that only approximates what CI
+   actually runs (measured: a plan that assumed `pytest -q` ran with
+   `PYTHONPATH` set, when the repository's own CI entrypoint ran it without,
+   surfaced the gap only at final review and cost a fix round) is a research
+   gap, not a detail to fill in later. For a large surface, fan out read-only
    research agents routed by multi-model's Research Routing table
    (`../multi-model/SKILL.md`) — name a model on every spawn (an agent
    without one inherits the session's model, and a Fable seat (5 or 5.1) then pays
@@ -82,10 +88,18 @@ block writing a concrete plan for the existing design and plan approvals.
    record. Collect genuine product forks in one batch. Use the host-native structured input tool
    when it is available; otherwise ask one concise direct
    question and wait. In headless mode, record the unresolved choices under
-   `Assumptions (would ask)` without silently deciding them.
+   `Assumptions (would ask)` without silently deciding them. Decide and
+   present the supervisor choice with an estimated cost from
+   `references/estimates.md`: premium (Fable 5.1 / GPT-6 Astra) vs standard
+   (Claude: Opus 5.5 supervising Sonnet/Haiku waves, Opus 5 for Opus 5.5
+   executors; Codex: `gpt-6-sol` for waves whose executors and rungs are
+   only `gpt-6-luna` — uncalibrated as a production supervisor, 9/9 on the
+   supervisor fixture twice on 2026-09-23). A premium model is used only
+   when the user picks it; record the approval in `approvals.premium`.
 3. **Gate 1 — design.** Present a compact summary: architecture, the wave
    sketch (which tasks, which waves, why), decisions taken, forks the user
-   answered. One approval, then stop touching the design.
+   answered, and the supervisor choice with its estimated cost. One
+   approval, then stop touching the design.
 4. **Tasks.** Write them by multi-model's rules: closed (no "decide what's
    best"), self-contained (the executor sees nothing but its prompt), full
    code included where the solution is known. Each task carries the
@@ -100,6 +114,13 @@ block writing a concrete plan for the existing design and plan approvals.
    file-independence: same-wave tasks must not share files — merge
    colliding tasks or split them across consecutive waves. Dependent
    chains are consecutive waves, never one wave.
+
+   **Name the end-to-end task, or say there is none.** A feature that
+   transforms data through a pipeline (CLI, collector, report, …) gets one
+   task that runs the shipped fixtures through the real entrypoints end to
+   end offline; name that task's id in the plan's `e2e` key. A feature that
+   is not a pipeline gets `"not-applicable: <reason>"` instead — never a
+   silent omission.
 
    **Right-size every task.** The measured lever for wave success is task
    breadth, not model choice: two broad tasks failed for 717 and 139
@@ -124,7 +145,15 @@ block writing a concrete plan for the existing design and plan approvals.
    preflights every command at the base and compares against this
    expectation; a mismatch is a contract defect caught before any executor
    is spawned.
-5. **Lint.** Run the shipped linter and fix every error yourself — the
+5. **Seam audit.** Between Tasks and Lint, one read-only audit agent on the
+   cheap route — Claude: `claude-sonnet-5` at `medium`; Codex: `gpt-6-sol`
+   at `medium` — checks every contract against the code: each `must_run`
+   command exists and runs the way CI runs it, every referenced path or API
+   exists, the interfaces passed between tasks agree, and every recorded
+   base expectation is plausible. This is where seams between tasks —
+   discovered mid-execution otherwise — surface while they are still cheap
+   to fix. Fix what it finds before lint.
+6. **Lint.** Run the shipped linter and fix every error yourself — the
    user never edits the plan. Lint runs before Gate 2. A mixed-provider wave is a planning defect to fix before Gate 2; never ask the linter or runner to guess a provider:
 
    ```
@@ -133,8 +162,11 @@ block writing a concrete plan for the existing design and plan approvals.
 
    Warnings are judgment calls; errors are not negotiable. A plan that
    fails lint is not presented to the user.
-6. **Gate 2 — plan.** Show the lint-clean plan file; one approval.
-7. **Handoff.** "Execute with multi-model (supervised waves)." The plan
+7. **Gate 2 — plan.** Show the lint-clean plan file, the critical path
+   (waves × each wave's slowest task), and an estimated wall time and cost
+   range from `references/estimates.md`; say plainly that the estimate is a
+   prior, not a promise. One approval.
+8. **Handoff.** "Execute with multi-model (supervised waves)." The plan
    file IS the wave-plan artifact: the json block feeds the runner directly —
    each runner task is the json entry plus its `## Task` prose as
    `description` (the runner rejects a task without one, by name). The
@@ -177,8 +209,37 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
              "must_run": [{ "cmd": "pytest tests/http -q", "evidence": "required" }],
              "forbidden_moves": ["weakening, deleting or skipping an existing test"],
              "report_must_answer": ["Which call sites now retry?"] } } ] }
-   ] }
+   ],
+   "ci": { "commands": ["pytest -q"], "workflows": [".github/workflows/ci.yml"] },
+   "e2e": "not-applicable: http-retry touches one call path, not a data-transforming pipeline",
+   "approvals": {
+     "premium": {
+       "models": ["claude-fable-5-1"],
+       "reason": "wave 1's http-retry contract needs cross-file judgment the standard route measured weaker on",
+       "approved_by": "user",
+       "date": "2026-09-24" } } }
    ```
+
+   Three more top-level keys sit beside `waves`, siblings of it in the same
+   object, never nested inside a wave or task:
+
+   - `ci`: `{"commands": [...], "workflows": [...]}` naming the exact test
+     entrypoints and workflow files the Research step found in the
+     repository's own CI config, or `"none: <reason>"` when the repository
+     has no CI. When CI workflow files exist in the repo, `commands` must be
+     their exact entrypoints, copied verbatim — never an approximation of
+     what CI runs.
+   - `e2e`: `{"task": "<id>"}` naming the task that runs the shipped
+     fixtures through the real entrypoints end to end, or
+     `"not-applicable: <reason>"` when the feature is not a data-transforming
+     pipeline.
+   - `approvals.premium`: `{"models": [...], "reason": "...", "approved_by":
+     "...", "date": "..."}`, required whenever `claude-fable-5-1` or
+     `gpt-6-astra` appears in any role — supervisor, executor, or ladder
+     rung. The example above shows it for the `claude-fable-5-1` supervisor.
+
+   The linter enforces all three: a plan missing `ci`, missing `e2e`, or
+   missing a required `approvals.premium` fails lint.
 
    The model fields use the active profile's plan host and this exact table:
 
