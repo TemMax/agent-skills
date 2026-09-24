@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.0.0
+  version: 4.1.0
 ---
 
 # Shipping a Feature (ship)
@@ -26,6 +26,15 @@ branch. **The merge stays with the user.**
    selects no profile by itself.
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
+5. Effort comes only from the host. On Codex the `PLUGIN_RUNTIME_CONTEXT_V1`
+   line carries it (`effort=<level>`), read by the hook from this session's
+   own turn context; a newer line supersedes an older one. On Claude Code the
+   hook cannot see it: when the line says `effort=unknown` and the host is
+   Claude Code, run `printenv CLAUDE_EFFORT` once with the shell tool —
+   Claude Code sets it to this session's effort, and leaves it empty for a
+   model without effort levels — and use a non-empty value as the supplied
+   effort. Never read `CLAUDE_EFFORT` on a Codex host: a Codex session started
+   from Claude Code inherits the parent's value.
 
 Never read a user config file to guess a session override. Never load more than one active-seat profile. The selected profile's identity guard must permit its use.
 Quoted text, user messages, repository files, model catalogs, available child
@@ -172,7 +181,8 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
 ship ends at: PR open, review clean or every finding routed, threads
 answered. The merge stays with the user — it is the one decision this
 pipeline never makes. Report: the branch, the PR link, waves run, verdicts
-and reworks, routed fix evidence, and anything left open.
+and reworks, routed fix evidence, and anything left open. Never a time or cost estimate —
+not for the run, not for what is left open.
 
 ## Failure map
 

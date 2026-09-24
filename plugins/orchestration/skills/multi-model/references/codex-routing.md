@@ -100,7 +100,7 @@ branch/publication approval and feature-branch discipline, super-plan's gates,
 and critical-review's fix/publication gates. A failed integration suite stops
 publication. Ship never merges the PR or deploys. Ship's final critical-review
 runs in a fresh child of the model the plan's `review` key names — chosen by
-the user at Gate 1 with its estimated cost: `gpt-6-astra` (premium, recorded
+the user at Gate 1: `gpt-6-astra` (premium, recorded
 in `approvals.premium`) or `gpt-6-sol` (measured 2026-09-24: clean 10/10,
 planted 10/10, PR support 3/4; the PR says so). If the plan has no `review`
 key, stop and ask the user before invoking the review; never pick. The fresh

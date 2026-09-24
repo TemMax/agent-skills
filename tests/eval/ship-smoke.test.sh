@@ -56,7 +56,7 @@ git -C "$repo" worktree remove --force "$repo/.worktrees/wave-add-guard"
 
 git -C "$repo" branch wave/add-doc "$base"
 git -C "$repo" worktree add -q "$repo/.worktrees/wave-add-doc" wave/add-doc
-printf 'The divide() guard returns None instead of raising on division by zero.\n' \
+printf 'tests/test_calc.py requires divide(x, 0) to return None; this note\ndocuments that contract, not the implementation.\n' \
   > "$repo/.worktrees/wave-add-doc/docs/NOTE.md"
 git -C "$repo/.worktrees/wave-add-doc" add docs/NOTE.md
 git -C "$repo/.worktrees/wave-add-doc" commit -q -m 'document the guard'

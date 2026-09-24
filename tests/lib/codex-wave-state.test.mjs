@@ -271,6 +271,7 @@ test('C3 next preserves approved task prose and all six mandatory prompt blocks'
   for (const key of ['files_allowed', 'files_forbidden', 'must_run',
     'forbidden_moves', 'report_must_answer']) assert.match(action.prompt, new RegExp(key))
   assert.match(action.prompt, /Never open, print, copy or transmit credentials/)
+  assert.match(action.prompt, /blocked-on-sibling/)
 })
 
 test('C3b GPT-6 wave dispatches gpt-6-luna executor then gpt-6-astra supervisor', () => {
@@ -485,6 +486,7 @@ test('C6 supervisor prompt carries artifacts but redacts every executor id occur
   assert.equal((out.prompt.match(/\[executor-model-redacted\]/g) || []).length, 2)
   assert.doesNotMatch(out.prompt, /gpt-5\.6-luna/)
   assert.match(out.prompt, /Never open, print, copy or transmit credentials/)
+  assert.match(out.prompt, /blocked-on-sibling/)
 })
 
 test('C7 clean verdict yields merge-ready and done summary', () => {
@@ -576,6 +578,17 @@ test('C11 satisfiable:false stops task immediately', () => {
   prepareAttempt(env)
   recordVerdict(env.statePath, failed('unfixable command', 'must_run',
     { satisfiable: false }))
+  const action = next(env.statePath)
+  assert.equal(action.action, 'stop')
+  assert.equal(action.reason, 'contract-unsatisfiable')
+  assert.equal(state(env.statePath).tasks['divide-guard'].status, 'contract-unsatisfiable')
+})
+
+test('C11b a report-class violation with satisfiable:false also stops the task', () => {
+  const env = init()
+  prepareAttempt(env)
+  recordVerdict(env.statePath, failed('blocked-on-sibling: missing fixture, task creates it',
+    'report', { satisfiable: false }))
   const action = next(env.statePath)
   assert.equal(action.action, 'stop')
   assert.equal(action.reason, 'contract-unsatisfiable')

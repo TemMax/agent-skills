@@ -382,11 +382,36 @@ if (plan) {
       const lastWaveIds = lastWave && Array.isArray(lastWave.tasks)
         ? lastWave.tasks.filter((t) => t && typeof t === 'object').map((t) => t.id) : []
       if (!lastWaveIds.includes(e2e.task)) {
-        warn('e2e.task: "' + e2e.task + '" is not in the last wave')
+        const e2eWaveIndex = plan.waves.findIndex((w) => w && Array.isArray(w.tasks)
+          && w.tasks.some((t) => t && typeof t === 'object' && t.id === e2e.task))
+        const laterWaves = e2eWaveIndex >= 0 ? plan.waves.slice(e2eWaveIndex + 1) : []
+        const laterTasks = laterWaves.flatMap((w) => Array.isArray(w.tasks)
+          ? w.tasks.filter((t) => t && typeof t === 'object') : [])
+        const isDocOnly = (t) => t.contract && Array.isArray(t.contract.files_allowed)
+          && t.contract.files_allowed.length > 0
+          && t.contract.files_allowed.every((f) => typeof f === 'string'
+            && (f.endsWith('.md') || f.startsWith('docs/')))
+        const allDocsOnly = laterTasks.length > 0 && laterTasks.every(isDocOnly)
+        if (!allDocsOnly) {
+          warn('e2e.task: "' + e2e.task + '" is not in the last wave')
+        }
       }
     }
   } else {
     err('e2e: must be {"task": "<id>"} or a "not-applicable: <reason>" string')
+  }
+
+  // ---- parallelism: too many single-task waves signals the plan wasn't
+  // cut for width, unless the author explains it under "## Parallelism" ----
+  const waves = plan.waves
+  if (Array.isArray(waves)) {
+    const single = waves.filter((w) => w && typeof w === 'object'
+      && Array.isArray(w.tasks) && w.tasks.length === 1
+      && w.tasks[0] && typeof w.tasks[0] === 'object').length
+    if (waves.length >= 3 && single * 2 > waves.length
+      && !/^## Parallelism[ \t]*$/m.test(text)) {
+      warn('parallelism: ' + single + ' of ' + waves.length + ' waves hold a single task — re-cut for width (files_allowed by file, a contract-first wave, independent chains side by side) or explain each single-task wave under "## Parallelism"')
+    }
   }
 }
 

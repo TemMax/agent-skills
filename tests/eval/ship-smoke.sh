@@ -201,7 +201,7 @@ PY
     printf '## Task add-guard\n\n'
     printf 'Add a guard for division by zero in `src/calc.py` without modifying the\ntests.\n\n'
     printf '## Task add-doc\n\n'
-    printf 'Write a short `docs/NOTE.md` describing the division-by-zero guard.\n'
+    printf 'Write a short `docs/NOTE.md` describing the division-by-zero contract\nthe test requires (tests/test_calc.py: `divide(x, 0)` returns `None`),\nwithout describing `src/calc.py`'"'"'s implementation.\n'
   } > "$PLAN"
   git -C "$REPO" init -q
   git -C "$REPO" symbolic-ref HEAD refs/heads/master

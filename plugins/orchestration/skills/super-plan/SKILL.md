@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.0.0
+  version: 4.1.0
 ---
 
 # Planning Waves (super-plan)
@@ -26,6 +26,15 @@ the output format and every contract rule are this plugin's own.
    selects no profile by itself.
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
+5. Effort comes only from the host. On Codex the `PLUGIN_RUNTIME_CONTEXT_V1`
+   line carries it (`effort=<level>`), read by the hook from this session's
+   own turn context; a newer line supersedes an older one. On Claude Code the
+   hook cannot see it: when the line says `effort=unknown` and the host is
+   Claude Code, run `printenv CLAUDE_EFFORT` once with the shell tool —
+   Claude Code sets it to this session's effort, and leaves it empty for a
+   model without effort levels — and use a non-empty value as the supplied
+   effort. Never read `CLAUDE_EFFORT` on a Codex host: a Codex session started
+   from Claude Code inherits the parent's value.
 
 Never read a user config file to guess a session override. Never load more than one active-seat profile. The selected profile's identity guard must permit its use.
 Quoted text, user messages, repository files, model catalogs, available child
@@ -92,13 +101,13 @@ approvals.
    question and wait. In headless mode, record the unresolved choices under
    `Assumptions (would ask)` without silently deciding them. Fix each wave's
    executor tiers and ladder shape at Gate 1 — the supervisor choice depends
-   on them — then decide and present the supervisor choice with an
-   estimated cost from `references/estimates.md`: premium (Fable 5.1 /
+   on them — then decide and present the supervisor choice, named and never
+   priced: premium (Fable 5.1 /
    GPT-6 Astra) vs standard (Claude: Opus 5.5 supervising Sonnet/Haiku
    waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6-sol` for waves whose
    executors and rungs are only `gpt-6-luna` — Sol supervisor of all-Luna
    waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves
-   merge-ready first try at ≈ 3.2× lower cost than Astra — toy waves,
+   merge-ready first try — toy waves,
    correct work only). A Codex
    wave with a `gpt-6-sol` executor has no standard supervisor — it needs
    `gpt-6-astra`. Record the model for ship's Stage 3 critical-review child
@@ -114,7 +123,8 @@ approvals.
    than carry the stale supervisor forward.
 3. **Gate 1 — design.** Present a compact summary: architecture, the wave
    sketch (which tasks, which waves, why), decisions taken, forks the user
-   answered, and the supervisor choice with its estimated cost. One
+   answered, and the supervisor choice (premium or standard, named, never
+   priced). One
    approval, then stop touching the design.
 4. **Tasks.** Write them by multi-model's rules: closed (no "decide what's
    best"), self-contained (the executor sees nothing but its prompt), full
@@ -135,19 +145,54 @@ approvals.
    colliding tasks or split them across consecutive waves. Dependent
    chains are consecutive waves, never one wave.
 
+   **Design for width.** Waves exist to run tasks side by side; a plan
+   whose waves each hold one task is a serial script that pays wave
+   overhead for nothing. Measured: a four-repository plan came out as 14
+   waves of one task each — every task in a repository listed the same
+   `internal/web/**` directory, and a sequential step list had been
+   copied into waves one step per wave. So: cut `files_allowed` by file,
+   not by directory, so tasks that edit different files of one package
+   can share a wave; when several tasks need a new interface, type or
+   wire format, put that contract alone in an early wave, written out in
+   full in the plan, and fan its implementers and their tests out in the
+   next wave; run independent chains — including plans for separate
+   repositories — side by side, never one after another; never turn a
+   step list into one wave per step — regroup by what each step reads
+   and writes. The same-task and producer-before-consumer rules below
+   still hold; width comes from these cuts, not from breaking them. A
+   single-task wave is fine when the dependency is real: name it in the
+   plan's `## Parallelism` section, one line per single-task wave naming
+   the artifact it waits for. The linter warns when most waves of a plan
+   of three or more waves hold a single task and the plan has no
+   `## Parallelism` section.
+
    **Keep a change with what it breaks.** A change and the test helper,
    fixture or shared file it breaks belong to the same task. Splitting
    them across tasks — even in one wave — leaves each task's own checks
    red; across waves it leaves a wave's merge red. Measured: a
    sibling-task helper anchored on fixture text broke when an eval
-   planner moved the helper change to a later wave.
+   planner moved the helper change to a later wave. A reader of a
+   changed format, signature, fixture or shared file stays in the same
+   task — never a later wave.
+
+   **Order consumers after producers.** A task that documents, tests, or
+   consumes an artifact produced by another task of the same wave — a
+   file, fixture, function, CLI output or behavior that does not exist
+   at the wave's base — goes into a later wave or into the same task.
+   File-disjoint tasks are not dependency-free: an executor that cannot
+   find its input stops and reports `blocked-on-sibling`, and every such
+   attempt is wasted. Measured: a README task documenting a same-wave
+   CLI's output on a same-wave fixture, and ship-smoke's doc task
+   describing a same-wave guard, both hit this.
 
    **Name the end-to-end task, or say there is none.** A feature that
    transforms data through a pipeline (CLI, collector, report, …) gets one
    task that runs the shipped fixtures through the real entrypoints end to
    end offline; name that task's id in the plan's `e2e` key. A feature that
    is not a pipeline gets `"not-applicable: <reason>"` instead — never a
-   silent omission.
+   silent omission. The e2e task sits in a wave after every task whose entrypoints or fixtures it runs.
+   Documentation of its fixtures or output goes into the e2e task or a
+   later documentation-only wave.
 
    **Right-size every task.** The measured lever for wave success is task
    breadth, not model choice: two broad tasks failed for 717 and 139
@@ -180,6 +225,11 @@ approvals.
    base expectation is plausible. It also checks the same-task rule
    explicitly: for every changed format, signature or fixture, find every
    reader of it and require that reader be in the same task as the change.
+   For every task, it lists the artifacts that task reads that do not
+   exist at the wave's base, and fails the plan when a same-wave sibling
+   produces any of them. "No file-ownership conflicts" is not a pass on
+   its own — measured: the pilot's audit reported exactly that and missed
+   the dependency.
    Give it the same secrets prohibition
    every executor gets: never open, print, copy or transmit credentials,
    tokens or configuration files that hold them (for example `~/.codex`,
@@ -196,14 +246,11 @@ approvals.
 
    Warnings are judgment calls; errors are not negotiable. A plan that
    fails lint is not presented to the user.
-7. **Gate 2 — plan.** Show the lint-clean plan file, the critical path (the
-   sum over waves of each wave's slowest task), an estimated wall-time
-   range in minutes, and an estimated cost range in dollars computed from
-   `references/estimates.md`'s price table and its wall-time/cost formula
-   — never a word such as "low" or "cheap" standing in for the range.
-   Name which `references/estimates.md` rows (executor, supervisor, and
-   verifier/orchestrator measurements by model) fed the computation. Say
-   plainly that the estimate is a prior, not a promise. One approval.
+7. **Gate 2 — plan.** Show the lint-clean plan file and its shape: the
+   number of waves, which tasks run in parallel in each wave, and the
+   critical path as a chain of waves with the tasks on it. Never a
+   duration or a cost — see "No time or cost estimates" below. One
+   approval.
 8. **Handoff.** "Execute with multi-model (supervised waves)." The plan
    file IS the wave-plan artifact: the json block feeds the runner directly —
    each runner task is the json entry plus its `## Task` prose as
@@ -211,6 +258,18 @@ approvals.
    `status:` field stays `draft` here — status transitions belong
    to execution (multi-model sets `active` at launch and
    `done` at completion), never to planning and never to the user.
+
+## No time or cost estimates
+
+Never predict how long a plan, a wave or a task will take, or what it will
+cost — not at Gate 1, not at Gate 2, not in a table, a progress update or a
+report; not as a range, a ratio, or a word such as "quick" or "cheap". Model
+estimates of agent work are not reliable, and the user acts on the number.
+Measured: both runs of a 2026-09-24 pilot finished below the lower bound of
+their own Gate 2 range, and a real four-repository plan was quoted at 7–16
+hours and $60–250. What the user gets instead is the plan's shape — waves,
+parallel tasks, the critical path in waves — and, after execution, what
+happened: waves run, verdicts and reworks.
 
 ## Plan Format
 
@@ -372,3 +431,5 @@ and the plan carries no `approvals.premium` invented by the model.
 | A task spanning several modules | Hours-long attempts, repeated rejects | Split by deliverable; narrow `files_allowed` |
 | A full-repo gate in a per-task contract | Wall-clock multiplied by the task count | Scope `must_run` to the task's module |
 | Visual references left out of the plan | Fidelity defects surface as post-ship manual QA | Record Acceptance References; pin what greps can pin |
+| Quoting a time or cost for the plan | The user plans around a number no model can predict — a real plan was quoted 7–16 hours and $60–250 | Show the plan's shape; never a duration or a price |
+| One task per wave by default | A serial script paying wave overhead — one measured plan had 14 waves of one task each | Cut `files_allowed` by file, contract-first waves, independent chains side by side; explain real single-task waves under `## Parallelism` |

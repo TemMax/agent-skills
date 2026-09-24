@@ -1,16 +1,16 @@
-# Estimates — measured priors for Gate 1 and Gate 2
+# Wave time and cost measurements (history)
 
-Read for the Decisions/Gate 1 supervisor-choice estimate and the Gate 2
-wall-time and cost range. Every number here is a measured prior from a named
-run, not a spec; a plan built from it still says so at Gate 2 — the estimate
-is a prior, not a promise.
+Measured wall time and cost of past waves, kept as history for maintainers.
+No skill reads this file, and no agent turns it into an estimate: since
+orchestration 4.1.0 the planning and execution skills never predict time or
+cost (super-plan, "No time or cost estimates").
 
 ## Contents
 
 - [Claude waves](#claude-waves-this-repository-2026-09-23-sonnet-5-executors-opus-55-supervisor-workflow-runner)
 - [Codex native protocol](#codex-native-protocol-2026-09-22-gpt-56-executors-astrahigh-supervisor-astraxhigh-orchestrator)
 - [Codex runner vs native](#codex-runner-vs-native-ship-smoke-2026-09-23-two-small-tasks-gpt-6-lunasol-executors-astrahigh-supervisor-gpt-6-sol-orchestrator)
-- [How to estimate](#how-to-estimate)
+- [Mid-size Codex pilot](#mid-size-codex-pilot-2026-09-24-gpt-6-sol-orchestrator-runner)
 - [Prices](#prices)
 - [Sources](#sources)
 
@@ -41,20 +41,26 @@ record.
 - Total cost: $0.75 (runner) vs $1.09 (native).
 - Astra supervision was ≈ 70% of the runner wave's cost.
 
-## How to estimate
+## Mid-size Codex pilot (2026-09-24, gpt-6-sol orchestrator, runner)
 
-- **Wall time** ≈ Σ over waves of (slowest task's attempts × attempt time +
-  supervisor time + verifier time) + orchestrator overhead. Add one rework
-  attempt for ~30% of tasks — first-try failure is common enough that a
-  plan without rework margin under-estimates.
-- **Cost** ≈ Σ tasks × (attempts × per-attempt cost + attempts × supervisor
-  cost per attempt + attempts × verifier cost per attempt) + orchestrator
-  cost. Apply the same ~30% rework-attempt margin as the wall-time formula —
-  the supervisor and the verifier are paid per attempt, not once per task.
+Two runs of the same 7-point feature (inventory report CLI: parse,
+validate, aggregate, report, CLI, fixture + end-to-end test, README),
+planned (super-plan, headless, Gate 1 choice given) and executed
+(multi-model, `codex-wave-runner.mjs` per wave) by one `gpt-6-sol`/high
+Codex orchestrator session, in a disposable repo.
 
-The critical path for Gate 2 is the sum over waves of each wave's slowest
-task — waves run sequentially, tasks within a wave run in parallel, so only
-the slowest task in each wave sets that wave's wall time.
+| Run | Tasks / waves | First try | Wall — planning / execution / per wave | Cost split by role | Gate 2 estimate given | Actual |
+|---|---|---|---|---|---|---|
+| Standard (all `gpt-6-luna` executors, `gpt-6-sol` supervisor) | 7 tasks / 3 waves | 7/7 ok, 32 tests green | 12.2 min — ≈ 4.0 min / ≈ 8.1 min / ≈ 2.7 min | $1.14 = orchestrator $0.70 (62%) + Sol supervisor $0.41 + Luna executors $0.02 | 15–40 min, $1–4 | 12.2 min, $1.14 |
+| Premium (`gpt-6-astra` supervisor, executors by routing: 4 Luna, 2 Sol) | 6 tasks / 2 waves | 6/6 ok, one task needed 3 attempts, 25 tests green | 10.2 min — ≈ 3.8 min / ≈ 6.4 min / ≈ 3.2 min | $2.99 = Astra supervisor $2.14 (72%) + orchestrator $0.55 + executors $0.29 (Sol $0.28, Luna $0.01) | 15–45 min, $3–10 | 10.2 min, $2.99 |
+
+Both runs finished below the lower bound of their own Gate 2 range — the
+priors that range was built from (derived from GPT-5.6 native runs) were
+too pessimistic for GPT-6 with the runner.
+
+The standard run's cost parts are rounded: $0.70 + $0.41 + $0.02 = $1.13 of
+the reported $1.14 total, and $0.70/$1.14 ≈ 61% (displayed as 62% above from
+unrounded inputs).
 
 ## Prices
 
@@ -77,4 +83,5 @@ Per-1M-token input / cached-input / output, copied from
 
 Claude wave and Codex runner-vs-native numbers: PR #13's description and
 `tests/eval/gpt-6-results-2026-09-23.md`. Codex native-protocol numbers
-(#485): the #485 transcript analysis summarized in PR #13.
+(#485): the #485 transcript analysis summarized in PR #13. Mid-size Codex
+pilot numbers (2026-09-24): PR #15's description.

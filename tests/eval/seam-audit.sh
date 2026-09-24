@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # seam-audit — measures two stage C super-plan rules live: the Seam audit
 # step (does a read-only pass catch a cross-task seam before execution) and
-# the Gate 2 estimate (critical path, wall time, cost, and that the number
-# is a prior, not a promise).
+# Gate 2 message shows the wave shape and no time or cost estimate.
 #
 # SEAM_SKILL_ROOT points the whole tier at a skill checkout: the prompt uses
 # ITS SKILL.md and the Lint step uses ITS plan-lint.mjs, so an older skill is
@@ -148,17 +147,21 @@ score_lint() {  # plan-file -> "pass"|"fail" on stdout; return code matches
   if [ "$rc" -eq 0 ]; then echo pass; return 0; else echo fail; return 1; fi
 }
 
-# gate2 — the Gate 2 text names the critical path, a duration, a cost, and
-# calls the estimate a "prior".
+# gate2 — Gate 2 message shows the wave shape and no time or cost estimate:
+# the text mentions waves and parallel work, and contains no duration or
+# cost figure.
 score_gate2() {  # gate2-file -> "pass"|"fail" on stdout; return code matches
   node -e '
 const fs = require("fs")
 const text = fs.readFileSync(process.argv[1], "utf8")
-const hasCriticalPath = /critical path/i.test(text)
-const hasDuration = /\b[0-9]+(\.[0-9]+)?\s*(min|minutes|h|hours)\b/.test(text)
-const hasCost = /\$[0-9]/.test(text)
-const hasPrior = /prior/i.test(text)
-const ok = hasCriticalPath && hasDuration && hasCost && hasPrior
+const hasWaves = /\bwaves?\b/i.test(text)
+const hasParallel = /parallel/i.test(text)
+const hasDuration = /\b[0-9]+([.,][0-9]+)?\s*(min|mins|minutes?|h|hrs?|hours?)\b/i.test(text)
+  || /[0-9]\s*(мин|час)/i.test(text)
+  || /\b(minutes|hours)\b/i.test(text)
+const hasCost = /\$\s?[0-9]/.test(text)
+  || /\b[0-9]+([.,][0-9]+)?\s*(usd|dollars?)\b/i.test(text)
+const ok = hasWaves && hasParallel && !hasDuration && !hasCost
 console.log(ok ? "pass" : "fail")
 process.exit(ok ? 0 : 1)
 ' -- "$1"
@@ -238,12 +241,12 @@ for i in $(seq 1 "$REPEAT"); do
     split_answer "$answer_file" "$plan_file" "$gate2_file"
     expect "seam audit catches the parse_rows/helpers.py seam (rep $i/$REPEAT)" "pass" "$(score_seam "$plan_file")"
     expect "plan passes the shipped linter (rep $i/$REPEAT)" "pass" "$(score_lint "$plan_file")"
-    expect "Gate 2 message names critical path, duration, cost and prior (rep $i/$REPEAT)" "pass" "$(score_gate2 "$gate2_file")"
+    expect "Gate 2 message shows the wave shape and no time or cost estimate (rep $i/$REPEAT)" "pass" "$(score_gate2 "$gate2_file")"
   else
     fail "model invocation (rep $i/$REPEAT)" "eval_model exited nonzero"
     fail "seam audit catches the parse_rows/helpers.py seam (rep $i/$REPEAT)" "no answer to score"
     fail "plan passes the shipped linter (rep $i/$REPEAT)" "no answer to score"
-    fail "Gate 2 message names critical path, duration, cost and prior (rep $i/$REPEAT)" "no answer to score"
+    fail "Gate 2 message shows the wave shape and no time or cost estimate (rep $i/$REPEAT)" "no answer to score"
   fi
   rm -rf "$repo_work"
   if [ -z "$KEEP_DIR" ]; then rm -rf "$out_dir"; fi

@@ -33,8 +33,10 @@ section "all skills resolve one active-seat profile from runtime context"
 
 check "no universal Claude skill dir" \
   "! rg -q 'CLAUDE_SKILL_DIR' plugins/*/skills/*/SKILL.md"
-check "no universal Claude effort variable" \
-  "! rg -q 'CLAUDE_EFFORT' plugins/*/skills/*/SKILL.md"
+check "no Claude effort template substitution in skills" \
+  "! rg -q '\\$\{CLAUDE_EFFORT\}' plugins/*/skills/*/SKILL.md"
+check "every skill naming CLAUDE_EFFORT also forbids reading it on Codex" \
+  "for f in \$(rg -l 'CLAUDE_EFFORT' plugins/*/skills/*/SKILL.md); do grep -qF 'Never read \`CLAUDE_EFFORT\` on a Codex host' \"\$f\" || exit 1; done"
 for skill in "$MM" "$SP" "$SH" "$CR"; do
   check "runtime context contract named by $skill" \
     "grep -qF 'PLUGIN_RUNTIME_CONTEXT_V1' '$skill'"
@@ -226,7 +228,7 @@ section "provider-aware Stop drift registration is strict and complete"
 check "Codex drift verdict schema is exact draft 2020-12 JSON" \
   "python3 -c 'import json; d=json.load(open(\"$DS\")); expected={\"\$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"object\",\"additionalProperties\":False,\"properties\":{\"status\":{\"enum\":[\"nothing\",\"advice\"]},\"advice\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"minLength\":1}}},\"required\":[\"status\",\"advice\"]}; raise SystemExit(0 if d == expected else 1)'"
 check "orchestration hook registration preserves both starts and Stop" \
-  "python3 -c 'import json; d=json.load(open(\"$HJ\"))[\"hooks\"]; raise SystemExit(0 if list(d) == [\"SessionStart\",\"SubagentStart\",\"Stop\"] else 1)'"
+  "python3 -c 'import json; d=json.load(open(\"$HJ\"))[\"hooks\"]; raise SystemExit(0 if list(d) == [\"SessionStart\",\"SubagentStart\",\"UserPromptSubmit\",\"Stop\"] else 1)'"
 expect "Stop hook timeout accommodates the bounded Codex judge" "360" \
   "$(python3 -c 'import json; print(json.load(open("'$HJ'"))["hooks"]["Stop"][0]["hooks"][0]["timeout"])')"
 check "drift hook remains executable" "[ -x '$DH' ]"
@@ -319,10 +321,19 @@ check "multi-model Codex adapter selection launches the runner as an escalated c
 
 section "the Table step shows the supervisor, premium status, and cost, with premium only on explicit user choice"
 
-check "process step 4 table adds supervisor, premium status and estimated cost per wave" \
-  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The table also shows, per wave, the supervisor and whether it is premium, with an estimated cost.'"
+check "process step 4 table adds supervisor and premium status, and forbids estimates" \
+  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The table also shows, per wave, the supervisor and whether it is premium.' && sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never a time or cost estimate — not in the table, a progress update or the completion summary (super-plan: \"No time or cost estimates\").'"
 check "process step 4 table gates premium on the user's Gate 1 choice and approvals.premium" \
   "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'A premium model (Fable 5.1 / GPT-6 Astra, any role) is used only when the user picks it here and the plan records \`approvals.premium\` with that choice — never filled in by the orchestrator for a choice the user did not make.'"
+check "process step 3 groups for width by super-plan's Design for width rule" \
+  "sed -n '/^3\. \*\*Plan\.\*\*/,/^4\. \*\*Table\.\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Group for width'"
+
+section "Step 0 is byte-identical in all four skills"
+
+check "Step 0 is byte-identical in all four skills" \
+  "[ \$(for f in \"$SH\" \"$MM\" \"$SP\" \"$CR\"; do sed -n '/^## Step 0/,/^| Exact model id/p' \"\$f\" | shasum; done | sort -u | wc -l | tr -d ' ') -eq 1 ]"
+check "multi-model's Step 0 range contains the CLAUDE_EFFORT read" \
+  "sed -n '/^## Step 0/,/^| Exact model id/p' '$MM' | grep -qF 'printenv CLAUDE_EFFORT'"
 
 section "the Wave Plan Artifact example matches the real status/base header plus json wave-plan format"
 
@@ -334,5 +345,19 @@ check "wave plan artifact example nests a Sonnet task with an empty ladder under
   "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"model\": \"claude-opus-5-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"executor\": { \"model\": \"claude-sonnet-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"ladder\": []'"
 check "wave plan artifact points to super-plan's Plan Format for the full schema" \
   "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF 'super-plan'\''s Plan Format'"
+
+section "contract amendment recognizes blocked-on-sibling as a third, no-question kind"
+
+check "contract-amendment names three kinds of amendment" \
+  "grep -qF 'Three kinds of amendment' '$CAM'"
+check "contract-amendment states the blocked-on-sibling amendment kind" \
+  "tr '\n' ' ' < '$CAM' | tr -s ' ' | grep -qF 'move the task into a wave after its producer merges (or merge it into the producer'\''s task); never widen \`files_allowed\` into a sibling'\''s files. No user question is needed: no check is removed.'"
+
+section "multi-model Task Prompt Template carries blocked-on-sibling and its done-definition exception"
+
+check "Task Prompt Template dead-end protocol names blocked-on-sibling with the executor-prompt wording" \
+  "sed -n '/^3\. \*\*Dead-end protocol:\*\*/,/^4\. \*\*Prohibitions:\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'If your task needs an artifact that another task of this wave is producing (a file, fixture, function or behavior missing from your worktree), stop and report \`blocked-on-sibling: <what is missing and which task makes it>\`; do not invent it and do not commit a placeholder.'"
+check "Task Prompt Template definition of done exempts a dead-end-protocol stop" \
+  "sed -n '/^5\. \*\*Definition of done/,/^6\. \*\*Contract:\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'unless the executor stopped under the dead-end protocol'"
 
 summary

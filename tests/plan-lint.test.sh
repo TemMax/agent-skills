@@ -777,6 +777,142 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "e2e task not in last wave exits 0" "0" "$rc"
 contains "e2e task not in last wave warned" 'e2e.task: "http-retry" is not in the last wave' "$out"
 
+python3 - "$CLEAN" "$W/m.md" <<'PY'
+import json, re, sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+plan['waves'] = [
+  { "wave": 1,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "http-prep",
+      "branch": "wave/http-prep",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": [],
+      "contract": {
+        "files_allowed": ["src/prep/**"],
+        "files_forbidden": [],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": [],
+        "report_must_answer": ["What changed?"]
+      }
+    }]
+  },
+  { "wave": 2,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "http-retry",
+      "branch": "wave/http-retry",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": ["claude-opus-5-5"],
+      "contract": {
+        "files_allowed": ["src/http/**"],
+        "files_forbidden": ["src/auth/**"],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": ["weakening, deleting or skipping an existing test"],
+        "report_must_answer": ["Which call sites now retry?"]
+      }
+    }]
+  },
+  { "wave": 3,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "docs-followup",
+      "branch": "wave/docs-followup",
+      "executor": {"model": "claude-haiku-4-5-20251001"},
+      "ladder": [],
+      "contract": {
+        "files_allowed": ["docs/notes.md", "CHANGELOG.md"],
+        "files_forbidden": [],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": [],
+        "report_must_answer": ["What changed?"]
+      }
+    }]
+  }
+]
+new_json = json.dumps(plan, indent=2)
+out = s[:m.start(1)] + new_json + s[m.end(1):]
+out = re.sub(r'\n## Task docs-sync\n\nUpdate the docs to describe retries\.\n', '', out)
+out += '\n## Task http-prep\n\nPrep work before retries.\n'
+out += '\n## Task docs-followup\n\nFollow-up doc work.\n'
+open(dst, 'w').write(out)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e task documentation-only later wave exits 0" "0" "$rc"
+check "e2e task documentation-only later wave has no not-in-last-wave warning" \
+  '! grep -qF "is not in the last wave" <<<"$out"'
+
+python3 - "$CLEAN" "$W/m.md" <<'PY'
+import json, re, sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+plan['waves'] = [
+  { "wave": 1,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "http-prep",
+      "branch": "wave/http-prep",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": [],
+      "contract": {
+        "files_allowed": ["src/prep/**"],
+        "files_forbidden": [],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": [],
+        "report_must_answer": ["What changed?"]
+      }
+    }]
+  },
+  { "wave": 2,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "http-retry",
+      "branch": "wave/http-retry",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": ["claude-opus-5-5"],
+      "contract": {
+        "files_allowed": ["src/http/**"],
+        "files_forbidden": ["src/auth/**"],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": ["weakening, deleting or skipping an existing test"],
+        "report_must_answer": ["Which call sites now retry?"]
+      }
+    }]
+  },
+  { "wave": 3,
+    "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+    "tasks": [{
+      "id": "src-followup",
+      "branch": "wave/src-followup",
+      "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+      "ladder": [],
+      "contract": {
+        "files_allowed": ["src/other/**"],
+        "files_forbidden": [],
+        "must_run": [{"cmd": "true", "evidence": "required"}],
+        "forbidden_moves": [],
+        "report_must_answer": ["What changed?"]
+      }
+    }]
+  }
+]
+new_json = json.dumps(plan, indent=2)
+out = s[:m.start(1)] + new_json + s[m.end(1):]
+out = re.sub(r'\n## Task docs-sync\n\nUpdate the docs to describe retries\.\n', '', out)
+out += '\n## Task http-prep\n\nPrep work before retries.\n'
+out += '\n## Task src-followup\n\nFollow-up source work.\n'
+open(dst, 'w').write(out)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e task documentation-only later wave with src exits 0" "0" "$rc"
+contains "e2e task documentation-only later wave with src still warned" \
+  'e2e.task: "http-retry" is not in the last wave' "$out"
+
 section "premium approval"
 
 mutate '"e2e": { "task": "http-retry" },
@@ -954,5 +1090,84 @@ out="$(node "$LINT" "$W/m2.md" 2>&1)"; rc=$?
 expect "Astra only as review model with impossible approval date exits 1" "1" "$rc"
 contains "Astra only as review model with impossible approval date named" \
   'approvals.premium.date: must be a real calendar date (YYYY-MM-DD)' "$out"
+
+section "parallelism: single-task-wave width warning"
+
+# Builds a plan with one wave per entry in $1 (a Python list literal of task
+# counts, e.g. "[1, 1, 1]"), each task a distinct, valid single-file task, and
+# the last wave's last task named as e2e.task. $2 = target path. $3 = "section"
+# to also add a "## Parallelism" heading, exercising the escape hatch.
+build_width_plan() {  # $1 = counts, $2 = dst, $3 = "section" (optional)
+  python3 - "$CLEAN" "$2" "$1" "${3:-}" <<'PY'
+import json, re, sys
+src, dst, counts_src, add_section = sys.argv[1:5]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+counts = json.loads(counts_src)
+waves = []
+tasks_flat = []
+tid = 0
+for wi, n in enumerate(counts, start=1):
+    tasks = []
+    for _ in range(n):
+        tid += 1
+        name = 'w%d-t%d' % (wi, tid)
+        tasks.append({
+            "id": name,
+            "branch": "wave/" + name,
+            "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+            "ladder": ["claude-opus-5-5"],
+            "contract": {
+                "files_allowed": ["src/" + name + "/**"],
+                "files_forbidden": [],
+                "must_run": [{"cmd": "true", "evidence": "required"}],
+                "forbidden_moves": [],
+                "report_must_answer": ["What changed?"]
+            }
+        })
+        tasks_flat.append(name)
+    waves.append({"wave": wi, "supervisor": {"model": "claude-fable-5-1", "effort": "high"}, "tasks": tasks})
+plan['waves'] = waves
+plan['e2e'] = {"task": tasks_flat[-1]}
+prose = '\n'.join('## Task %s\n\nWork for %s.\n' % (t, t) for t in tasks_flat)
+heading = '# Plan — width test\n\n'
+if add_section == 'section':
+  heading += '## Parallelism\n\nEach single-task wave depends on the prior wave completing.\n\n'
+out = 'status: draft\nbase: pending\n\n' + heading + '```json wave-plan\n' \
+  + json.dumps(plan, indent=2) + '\n```\n\n' + prose
+open(dst, 'w').write(out)
+PY
+}
+
+build_width_plan '[1, 1, 1]' "$W/m.md"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "3 of 3 single-task waves exits 0" "0" "$rc"
+contains "3 of 3 single-task waves warned" \
+  'parallelism: 3 of 3 waves hold a single task' "$out"
+
+build_width_plan '[1, 1, 1]' "$W/m.md" section
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "3 of 3 single-task waves with Parallelism section exits 0" "0" "$rc"
+check "3 of 3 single-task waves with Parallelism section has no parallelism warning" \
+  '! grep -qF "parallelism:" <<<"$out"'
+
+build_width_plan '[1, 1, 2]' "$W/m.md"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "2 of 3 single-task waves exits 0" "0" "$rc"
+contains "2 of 3 single-task waves warned" \
+  'parallelism: 2 of 3 waves hold a single task' "$out"
+
+build_width_plan '[1, 1, 2, 2]' "$W/m.md"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "2 of 4 single-task waves exits 0" "0" "$rc"
+check "2 of 4 single-task waves has no parallelism warning" \
+  '! grep -qF "parallelism:" <<<"$out"'
+
+build_width_plan '[1, 1]' "$W/m.md"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "2 of 2 single-task waves exits 0" "0" "$rc"
+check "2 of 2 single-task waves has no parallelism warning" \
+  '! grep -qF "parallelism:" <<<"$out"'
 
 summary
