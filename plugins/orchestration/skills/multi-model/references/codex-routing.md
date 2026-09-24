@@ -98,15 +98,13 @@ This route grants no additional authority for out-of-task edits, discovered
 credentials, destructive actions, publication, merge or deploy. Keep ship's
 branch/publication approval and feature-branch discipline, super-plan's gates,
 and critical-review's fix/publication gates. A failed integration suite stops
-publication. Ship never merges the PR or deploys. For ship's independent final
-critical-review, Stage 3 critical-review runs in a fresh child of the
-model the plan's `review` key names (chosen at Gate 1; `gpt-6-astra`
-recorded in `approvals.premium`, or `gpt-6-sol`, uncalibrated); if the plan
-has no `review` key, stop and ask the user before invoking the review;
-never pick. The fresh child keeps a GPT-5.6 main seat from accidentally
-selecting a GPT-5.6 consequential-reviewer profile, and keeps the review
-independent from the coordinator's context —
-it is not a plan role and has no calibrated GPT alternative —
-disclosed with its cost at Gate 1.
+publication. Ship never merges the PR or deploys. Ship's final critical-review
+runs in a fresh child of the model the plan's `review` key names — chosen by
+the user at Gate 1 with its estimated cost: `gpt-6-astra` (premium, recorded
+in `approvals.premium`) or `gpt-6-sol` (uncalibrated as a reviewer; the PR
+says so). If the plan has no `review` key, stop and ask the user before
+invoking the review; never pick. The fresh child keeps a GPT-5.6 main seat
+from selecting a GPT-5.6 consequential-reviewer profile and keeps the review
+independent from the coordinator's context.
 Its findings and fix gates remain owned by critical-review; the coordinator
 retains its own integrated review and handoff responsibilities.
