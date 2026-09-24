@@ -37,6 +37,9 @@ check "GPT-6 calibration names the one policy supervisor route as uncalibrated" 
 check "GPT-6 calibration forbids claiming a supported GPT-6 review route" \
   "one_line '$SKILL' | grep -qF 'Never claim a supported GPT-6 review route'"
 
+check "GPT-6 calibration runs a plan-recorded gpt-6-sol review as uncalibrated" \
+  "one_line '$SKILL' | grep -qF 'When a ship plan records \`review.model: gpt-6-sol\`' && one_line '$SKILL' | grep -qF 'review route is uncalibrated (strict gate clean 7/8, planted 8/8)'"
+
 check "fix wave routing follows the plan format ci/e2e keys" \
   "one_line '$SKILL' | grep -qF 'A fix wave follows the plan format (\`ci\`, \`e2e\`)'"
 
