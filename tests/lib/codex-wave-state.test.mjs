@@ -584,6 +584,17 @@ test('C11 satisfiable:false stops task immediately', () => {
   assert.equal(state(env.statePath).tasks['divide-guard'].status, 'contract-unsatisfiable')
 })
 
+test('C11b a report-class violation with satisfiable:false also stops the task', () => {
+  const env = init()
+  prepareAttempt(env)
+  recordVerdict(env.statePath, failed('blocked-on-sibling: missing fixture, task creates it',
+    'report', { satisfiable: false }))
+  const action = next(env.statePath)
+  assert.equal(action.action, 'stop')
+  assert.equal(action.reason, 'contract-unsatisfiable')
+  assert.equal(state(env.statePath).tasks['divide-guard'].status, 'contract-unsatisfiable')
+})
+
 test('C12 terminal Sol gets one higher-effort retry, then stops without max', () => {
   const env = init()
   prepareAttempt(env)
