@@ -104,4 +104,34 @@ check "relative --repo: exits non-zero" "[ $rc -ne 0 ]"
 contains "relative --repo: reason named" "--repo must be an absolute path" "$out"
 check "relative --repo: nothing written" "[ ! -e relative ]"
 
+section "the lint call is repo-aware: a repo's CI workflows are checked at launch"
+CI_REPO="$W/ci-repo"
+mkdir -p "$CI_REPO/.github/workflows"
+cat > "$CI_REPO/.github/workflows/ci.yml" <<'YML'
+name: ci
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
+YML
+python3 - "$CLEAN" "$W/ci-none.md" <<'PY'
+import sys
+src, dst = sys.argv[1:3]
+s = open(src).read()
+old = '"ci": "none: fixture repository without CI workflows",'
+assert old in s, 'mutation target missing'
+open(dst, 'w').write(s.replace(old, '"ci": "none: no ci here at all",', 1))
+PY
+out="$(node "$GEN_TOOL" "$W/ci-none.md" --wave 1 --base "$BASE" --repo "$CI_REPO" --default-branch main 2>&1)"; rc=$?
+check "ci none plan against repo with workflows: exits non-zero" "[ $rc -ne 0 ]"
+contains "ci none plan against repo with workflows: reason names the cause" "the repository has CI workflows" "$out"
+check "ci none plan against repo with workflows: nothing written" "[ ! -e '$CI_REPO/.worktrees' ]"
+
+NO_CI_REPO="$W/no-ci-repo"
+out="$(node "$GEN_TOOL" "$W/ci-none.md" --wave 1 --base "$BASE" --repo "$NO_CI_REPO" --default-branch main 2>"$W/ci-err")"; rc=$?
+expect "ci none plan against repo without workflows: exits 0" "0" "$rc"
+check "ci none plan against repo without workflows: launches" "[ -f '$NO_CI_REPO/.worktrees/launch/wave-1.workflow.mjs' ]"
+
 summary
