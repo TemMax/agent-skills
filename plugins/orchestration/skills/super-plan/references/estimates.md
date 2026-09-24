@@ -51,14 +51,14 @@ in each wave sets that wave's wall time.
 ## Prices
 
 Per-1M-token input / cached-input / output, copied from
-[`tests/eval/telemetry/prices.json`](../../../../../tests/eval/telemetry/prices.json)
+`tests/eval/telemetry/prices.json` in the agent-skills repository
 — that file is the source of truth; re-copy from it if these drift.
 
 | Model | Input | Cached input | Output |
 |---|---|---|---|
-| `opus-5-5` | 4 | 0.4 | 20 |
-| `sonnet-5` | 3 | 0.3 | 15 |
-| `fable-5-1` | 15 | 1.5 | 75 |
+| `claude-opus-5-5` | 4 | 0.4 | 20 |
+| `claude-sonnet-5` | 3 | 0.3 | 15 |
+| `claude-fable-5-1` | 15 | 1.5 | 75 |
 | `gpt-6-astra` | 10 | 1 | 50 |
 | `gpt-6-sol` | 2 | 0.2 | 10 |
 | `gpt-6-luna` | 0.1 | 0.01 | 0.5 |

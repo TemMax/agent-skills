@@ -210,7 +210,7 @@ expensive rate available. Never spawn a research agent without naming its model.
 | Mechanical pattern search: occurrences of a known string or shape | Haiku 4.5 (`claude-haiku-4-5-20251001`) | Zero decisions; simple file searches are its documented lane |
 | Closed enumeration: files, call sites, conventions, test commands that actually run | Sonnet 5 (`claude-sonnet-5`), low/medium | Strong at digging through large code volumes (ProgramBench 76–86%, 1M context) and cheap; a closed question neutralizes its documented fabricate-when-information-is-missing failure (Sonnet 5 card, p. 71) |
 | Open research sub-question: how a subsystem works, what depends on what, why it is shaped this way | Opus 5.5 (`claude-opus-5-5`), medium/high | Cheaper than Opus 5 ($4 / $20 vs $5 / $25 per million tokens, p. 180) at DRACO parity (87.4 vs 88.3, p. 187) |
-| A report the orchestrator will trust without re-verification, or reasoning over a near-1M-token surface | Opus 5.5 (`claude-opus-5-5`), medium/high | Best honesty-audit numbers in the Opus 5.5 card; cheaper than Opus 4.8 |
+| A report the orchestrator will trust without re-verification, or reasoning over a near-1M-token surface | Opus 5.5 (`claude-opus-5-5`), medium/high | Strongest tested Claude model or tied on most honesty metrics of the automated behavioral audit (Opus 5.5 card p. 110); its MASK honesty-under-pressure rate is below Opus 5's and Sonnet 5's (p. 130), so a report it produces under user pressure still gets spot-checked; cheaper than Opus 4.8 ($4 / $20 vs $5 / $25) |
 
 Torn between Haiku and Sonnet → Sonnet, as always. The route comes from this
 table, never from inheritance: on an Opus 5.5 seat the open-research route
