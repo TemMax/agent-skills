@@ -140,22 +140,28 @@ approvals.
    them across tasks — even in one wave — leaves each task's own checks
    red; across waves it leaves a wave's merge red. Measured: a
    sibling-task helper anchored on fixture text broke when an eval
-   planner moved the helper change to a later wave. A task that
-   documents, tests, or consumes an artifact produced by another task of the same wave
-   — a file, fixture, function, CLI output or behavior that does not
-   exist at the wave's base — goes into a later wave or into the same
-   task. File-disjoint tasks are not dependency-free: an executor that
-   cannot find its input stops and reports `blocked-on-sibling`, and
-   every such attempt is wasted. Measured: a README task documenting a
-   same-wave CLI's output on a same-wave fixture, and ship-smoke's doc
-   task describing a same-wave guard, both hit this.
+   planner moved the helper change to a later wave. A reader of a
+   changed format, signature, fixture or shared file stays in the same
+   task — never a later wave.
+
+   **Order consumers after producers.** A task that documents, tests, or
+   consumes an artifact produced by another task of the same wave — a
+   file, fixture, function, CLI output or behavior that does not exist
+   at the wave's base — goes into a later wave or into the same task.
+   File-disjoint tasks are not dependency-free: an executor that cannot
+   find its input stops and reports `blocked-on-sibling`, and every such
+   attempt is wasted. Measured: a README task documenting a same-wave
+   CLI's output on a same-wave fixture, and ship-smoke's doc task
+   describing a same-wave guard, both hit this.
 
    **Name the end-to-end task, or say there is none.** A feature that
    transforms data through a pipeline (CLI, collector, report, …) gets one
    task that runs the shipped fixtures through the real entrypoints end to
    end offline; name that task's id in the plan's `e2e` key. A feature that
    is not a pipeline gets `"not-applicable: <reason>"` instead — never a
-   silent omission.
+   silent omission. The e2e task sits in a wave after every task whose entrypoints or fixtures it runs.
+   Documentation of its fixtures or output goes into the e2e task or a
+   later documentation-only wave.
 
    **Right-size every task.** The measured lever for wave success is task
    breadth, not model choice: two broad tasks failed for 717 and 139
