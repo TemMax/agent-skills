@@ -364,9 +364,9 @@ in `ok:true`. The `tests/eval/ship-smoke.sh` fixture is fixed for the
 same class of bug: its `add-doc` task used to describe "the
 division-by-zero guard", which only exists once the sibling `add-guard`
 task writes it in the same wave, making the two nominally independent
-tasks implicitly dependent; it now documents only
-`tests/test_calc.py`'s already-present `divide(x, 0) -> None` behavior
-and is steered away from describing `src/calc.py`'s implementation.
+tasks implicitly dependent; it now documents only the expectation in
+tests/test_calc.py and is steered away from describing `src/calc.py`'s
+implementation.
 `references/estimates.md` adds a mid-size Codex pilot (2026-09-24,
 `gpt-6-sol` orchestrator, runner): two runs of the same 7-point feature,
 planned and executed by one Codex orchestrator session in a disposable
@@ -376,8 +376,12 @@ Premium (`gpt-6-astra` supervisor, executors routed 4 Luna / 2 Sol, 6
 tasks / 2 waves): 6/6 tasks ok, 25 tests green, 10.2 min wall, $2.99.
 Both runs finished below the lower bound of their own Gate 2 estimate;
 the estimating guide now gives a Codex-runner-specific central wall
-estimate (≈ 4 min orchestrator planning + ≈ 2.5 min per wave) drawn from
-these two runs.
+estimate (≈ 4 min orchestrator planning before Gate 2, then ≈ 3 min per
+wave for execution after Gate 2) drawn from these two runs. This release
+also folds in review fixes: the Claude runner routes a blocked-on-sibling
+stop to the judge, satisfiable covers report violations, a
+blocked-on-sibling contract amendment, e2e placement and the docs-only
+lint exception, and the estimates ≈ 3 min per wave figure above.
 
 ## 4.0.0
 
@@ -495,7 +499,7 @@ resolving it, because an alias can re-point to a different model silently.
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.0.0, code-review 1.9.0):
+orchestration 4.1.0, code-review 1.9.0):
 
 | Before | After |
 |---|---|
