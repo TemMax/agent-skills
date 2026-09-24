@@ -5,8 +5,8 @@
 //
 // Usage: node plan-lint.mjs <plan-file> [--repo <path>]
 // Exit 0 = clean (warnings allowed), 1 = errors, 2 = usage.
-import { readFileSync, existsSync, readdirSync } from 'node:fs'
-import { join, isAbsolute } from 'node:path'
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
+import { join, isAbsolute, resolve, relative } from 'node:path'
 
 // Claude plans name models by full ID only; aliases re-point silently when
 // a model ships (probe wf_e635018e-8f3, 2026-09-22: `opus` moved to Opus
@@ -19,6 +19,13 @@ const CLAUDE_MODELS = [
   'claude-opus-4-8',
   'claude-fable-5-1',
 ]
+// The runner's default escalation ladder for a Claude task with no explicit
+// `ladder` key: the models after the executor in this order.
+const CLAUDE_DEFAULT_LADDER_ORDER = ['claude-haiku-4-5-20251001', 'claude-sonnet-5', 'claude-opus-5-5']
+const defaultLadderFor = (execModel) => {
+  const i = CLAUDE_DEFAULT_LADDER_ORDER.indexOf(execModel)
+  return i === -1 ? [] : CLAUDE_DEFAULT_LADDER_ORDER.slice(i + 1)
+}
 const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const CODEX_MODELS = ['gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const ASTRA = 'gpt-6-astra'
@@ -102,17 +109,13 @@ const ids = []
 if (plan) {
   const premiumApproval = plan.approvals && typeof plan.approvals === 'object'
     && !Array.isArray(plan.approvals) ? plan.approvals.premium : undefined
-  const premiumApprovalValid = !!(premiumApproval && typeof premiumApproval === 'object'
-    && !Array.isArray(premiumApproval)
-    && Array.isArray(premiumApproval.models)
-    && typeof premiumApproval.reason === 'string' && premiumApproval.reason.trim() !== ''
-    && typeof premiumApproval.approved_by === 'string' && premiumApproval.approved_by.trim() !== ''
-    && typeof premiumApproval.date === 'string' && DATE_RE.test(premiumApproval.date))
+  const premiumModelsValid = !!(premiumApproval && typeof premiumApproval === 'object'
+    && !Array.isArray(premiumApproval) && Array.isArray(premiumApproval.models))
   const usedPremiumModels = new Set()
   const checkPremium = (path, model) => {
     if (!PREMIUM_MODELS.includes(model)) return
     usedPremiumModels.add(model)
-    if (!premiumApprovalValid || !premiumApproval.models.includes(model)) {
+    if (!premiumModelsValid || !premiumApproval.models.includes(model)) {
       err(path + ': premium model ' + model
         + ' requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1')
     }
@@ -126,7 +129,7 @@ if (plan) {
     if (model === 'claude-opus-5') {
       warn('retired route: Opus 5 is no longer an executor route (use claude-opus-5-5)')
     } else if (model === 'claude-opus-4-8') {
-      warn('Opus 4.8 is routed only for compiled-binary work')
+      warn('Opus 4.8 is routed only for compiled-binary work — ignore this warning if the task is compiled-binary reverse-engineering')
     }
   }
 
@@ -219,8 +222,12 @@ if (plan) {
             err(tat + '.ladder: ladder transitions must use distinct models across executor and ladder')
           }
         }
+        const effectiveLadder = Array.isArray(t.ladder)
+          ? t.ladder
+          : (t.executor && providerForModel(t.executor.model) === 'claude'
+            ? defaultLadderFor(t.executor.model) : [])
         if (w.supervisor && t.executor
-          && [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : [])].includes(w.supervisor.model)
+          && [t.executor.model, ...effectiveLadder].includes(w.supervisor.model)
           && !(usesAstra && astraReasonValid && w.supervisor.model === ASTRA)) {
           err(tat + ': supervisor model also appears as executor or ladder rung')
         }
@@ -249,6 +256,14 @@ if (plan) {
           }
         }
       })
+      if (w.supervisor && w.supervisor.model === 'gpt-6-sol') {
+        const allLuna = w.tasks.every((t) => t && typeof t === 'object'
+          && t.executor && t.executor.model === 'gpt-6-luna'
+          && (!Array.isArray(t.ladder) || t.ladder.every((m) => m === 'gpt-6-luna')))
+        if (!allLuna) {
+          err(at + '.supervisor.model: gpt-6-sol supervises only waves whose executors and rungs are all gpt-6-luna')
+        }
+      }
       const waveModels = [
         w.supervisor && w.supervisor.model,
         ...w.tasks.flatMap((t) => t && typeof t === 'object'
@@ -278,6 +293,23 @@ if (plan) {
   const dup = [...new Set(ids.filter((x, i) => ids.indexOf(x) !== i))]
   for (const d of dup) err('ids: duplicate task id "' + d + '"')
 
+  // Field-level premium approval errors, reported once and independent of
+  // the model-specific errors checkPremium already raised above.
+  if (usedPremiumModels.size > 0) {
+    const pa = premiumApproval && typeof premiumApproval === 'object' && !Array.isArray(premiumApproval)
+      ? premiumApproval : {}
+    if (!(typeof pa.reason === 'string' && pa.reason.replace(/\s/g, '').length >= 10)) {
+      err('approvals.premium.reason: at least 10 non-space characters required')
+    }
+    if (!(typeof pa.approved_by === 'string' && pa.approved_by.trim() !== '')) {
+      err('approvals.premium.approved_by: non-empty string required')
+    }
+    if (!(typeof pa.date === 'string' && DATE_RE.test(pa.date)
+      && new Date(pa.date + 'T00:00:00Z').toISOString().slice(0, 10) === pa.date)) {
+      err('approvals.premium.date: must be a real calendar date (YYYY-MM-DD)')
+    }
+  }
+
   if (premiumApproval && Array.isArray(premiumApproval.models)) {
     for (const m of premiumApproval.models) {
       if (typeof m === 'string' && PREMIUM_MODELS.includes(m) && !usedPremiumModels.has(m)) {
@@ -295,10 +327,11 @@ if (plan) {
       err('ci: "none: <reason>" requires a reason of at least 10 characters')
     }
   } else if (ci && typeof ci === 'object' && !Array.isArray(ci)) {
-    if (!Array.isArray(ci.commands) || !ci.commands.some((c) => typeof c === 'string' && c.trim() !== '')) {
+    if (!Array.isArray(ci.commands) || ci.commands.length === 0
+      || !ci.commands.every((c) => typeof c === 'string' && c.trim() !== '')) {
       err('ci.commands: at least one non-empty command required')
     }
-    if (ci.workflows !== undefined && !Array.isArray(ci.workflows)) {
+    if (!Array.isArray(ci.workflows)) {
       err('ci.workflows: array required')
     }
   } else {
@@ -316,6 +349,13 @@ if (plan) {
   } else if (e2e && typeof e2e === 'object' && !Array.isArray(e2e)) {
     if (typeof e2e.task !== 'string' || !ids.includes(e2e.task)) {
       err('e2e.task: must name a task id that exists in the plan')
+    } else if (Array.isArray(plan.waves) && plan.waves.length > 0) {
+      const lastWave = plan.waves[plan.waves.length - 1]
+      const lastWaveIds = lastWave && Array.isArray(lastWave.tasks)
+        ? lastWave.tasks.filter((t) => t && typeof t === 'object').map((t) => t.id) : []
+      if (!lastWaveIds.includes(e2e.task)) {
+        warn('e2e.task: "' + e2e.task + '" is not in the last wave')
+      }
     }
   } else {
     err('e2e: must be {"task": "<id>"} or a "not-applicable: <reason>" string')
@@ -331,6 +371,45 @@ for (const id of proseIds) {
   if (!ids.includes(id)) err('prose: section "## Task ' + id + '" has no matching task in the json block')
 }
 
+// Split a workflow file's text into the lines a command may be matched
+// against: normal lines have leading whitespace, an optional `- ` and an
+// optional `run:`/`run: |` prefix stripped; a `run: |` block scalar's
+// following more-indented lines are each their own raw line.
+const deriveWorkflowLines = (workflowText) => {
+  const rawLines = workflowText.split(/\r?\n/)
+  const out = []
+  let blockIndent = null
+  for (const raw of rawLines) {
+    const indent = (raw.match(/^[ \t]*/) || [''])[0].length
+    const isBlank = raw.trim() === ''
+    if (blockIndent !== null) {
+      if (isBlank) { out.push(''); continue }
+      if (indent > blockIndent) { out.push(raw.trim()); continue }
+      blockIndent = null // dedented past the block; fall through
+    }
+    let stripped = raw.replace(/^[ \t]+/, '')
+    stripped = stripped.replace(/^-\s+/, '')
+    if (/^run:\s*\|\s*$/.test(stripped)) {
+      blockIndent = indent
+      out.push('')
+      continue
+    }
+    out.push(stripped.replace(/^run:\s*/, '').trim())
+  }
+  return out
+}
+// A command matches a line when it IS the line, or occurs in it bounded on
+// the left by line start/`&&`/`;`/`|` and on the right by line end/`&&`/
+// `;`/`|`/`\` (whitespace around the boundary ignored) — never as a bare
+// substring fragment of a longer token.
+const cmdMatchesLine = (cmd, line) => {
+  const esc = cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp('(?:^|&&|;|\\|)\\s*' + esc + '\\s*(?:&&|;|\\||\\\\|$)')
+  return re.test(line)
+}
+const commandInWorkflows = (cmd, workflowTexts) =>
+  workflowTexts.some((t) => deriveWorkflowLines(t).some((l) => cmdMatchesLine(cmd, l)))
+
 // ---- repo-checked ci: a repo with real workflows must name real commands ----
 if (repo && plan) {
   let workflowDirEntries = []
@@ -342,12 +421,24 @@ if (repo && plan) {
       err('ci: the repository has CI workflows; list their commands in ci.commands')
     } else if (ci && typeof ci === 'object' && !Array.isArray(ci)) {
       const workflows = Array.isArray(ci.workflows) ? ci.workflows : []
+      if (workflows.length === 0) {
+        err('ci.workflows: required — the repository has CI workflows and none are listed')
+      }
+      const workflowsDir = join(repo, '.github/workflows')
       const workflowTexts = []
       for (const wfPath of workflows) {
         if (typeof wfPath !== 'string') continue
-        const full = join(repo, wfPath)
+        const isYaml = wfPath.endsWith('.yml') || wfPath.endsWith('.yaml')
+        const escapesDir = relative(workflowsDir, resolve(repo, wfPath)).startsWith('..')
+        if (isAbsolute(wfPath) || escapesDir || !isYaml) {
+          err('ci.workflows: "' + wfPath + '" must be a .yml/.yaml file under .github/workflows')
+          continue
+        }
+        const full = resolve(repo, wfPath)
         if (!existsSync(full)) {
           err('ci.workflows: "' + wfPath + '" does not exist under ' + repo)
+        } else if (!statSync(full).isFile()) {
+          err('ci.workflows: "' + wfPath + '" is not a file')
         } else {
           try { workflowTexts.push(readFileSync(full, 'utf8')) } catch (e) { /* unreadable; skip */ }
         }
@@ -356,7 +447,7 @@ if (repo && plan) {
         ? ci.commands.filter((c) => typeof c === 'string' && c.trim() !== '') : []
       for (const cmd of commands) {
         const trimmed = cmd.trim()
-        if (!workflowTexts.some((t) => t.includes(trimmed))) {
+        if (!commandInWorkflows(trimmed, workflowTexts)) {
           err('ci.commands: "' + trimmed + '" does not appear in any listed ci.workflows file')
         }
       }

@@ -21,6 +21,7 @@ base: pending
       { "id": "docs-sync",
         "branch": "wave/docs-sync",
         "executor": { "model": "claude-haiku-4-5-20251001" },
+        "ladder": [],
         "contract": {
           "files_allowed": ["docs/**"],
           "files_forbidden": [],
