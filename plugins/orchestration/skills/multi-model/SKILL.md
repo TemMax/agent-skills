@@ -377,7 +377,10 @@ reduce the documented failure modes:
 3. **Dead-end protocol:** "If data or access is missing, a tool is broken, or the
    path is impossible — stop and report what's blocking you. Don't invent values,
    don't work around the restriction, don't pick an interpretation on the user's
-   behalf."
+   behalf." If your task needs an artifact that another task of this wave is
+   producing (a file, fixture, function or behavior missing from your
+   worktree), stop and report `blocked-on-sibling: <what is missing and which
+   task makes it>`; do not invent it and do not commit a placeholder.
 4. **Prohibitions:** do not spawn subagents; no destructive operations
    (force-push, reset --hard, rm outside the task) without explicit permission.
    Never open, print, copy or transmit credentials, tokens or configuration
@@ -390,7 +393,8 @@ reduce the documented failure modes:
    committed-work proof: `git log --oneline <base>..HEAD` (non-empty) and
    `git status --porcelain` (empty), both pasted — uncommitted work does
    not exist for the wave, and "done but never committed" is the most
-   common rejection on record.
+   common rejection on record — unless the executor stopped under the
+   dead-end protocol.
 6. **Contract:** the machine-checkable half of the task. Prose carries intent;
    the contract carries what a supervisor can decide without arguing about
    intent.
