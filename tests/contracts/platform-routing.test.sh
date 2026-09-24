@@ -321,10 +321,19 @@ check "multi-model Codex adapter selection launches the runner as an escalated c
 
 section "the Table step shows the supervisor, premium status, and cost, with premium only on explicit user choice"
 
-check "process step 4 table adds supervisor, premium status and estimated cost per wave" \
-  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The table also shows, per wave, the supervisor and whether it is premium, with an estimated cost.'"
+check "process step 4 table adds supervisor and premium status, and forbids estimates" \
+  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The table also shows, per wave, the supervisor and whether it is premium.' && sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never a time or cost estimate — not in the table, a progress update or the completion summary (super-plan: \"No time or cost estimates\").'"
 check "process step 4 table gates premium on the user's Gate 1 choice and approvals.premium" \
   "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'A premium model (Fable 5.1 / GPT-6 Astra, any role) is used only when the user picks it here and the plan records \`approvals.premium\` with that choice — never filled in by the orchestrator for a choice the user did not make.'"
+check "process step 3 groups for width by super-plan's Design for width rule" \
+  "sed -n '/^3\. \*\*Plan\.\*\*/,/^4\. \*\*Table\.\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Group for width'"
+
+section "Step 0 is byte-identical in all four skills"
+
+check "Step 0 is byte-identical in all four skills" \
+  "[ \$(for f in \"$SH\" \"$MM\" \"$SP\" \"$CR\"; do sed -n '/^## Step 0/,/^| Exact model id/p' \"\$f\" | shasum; done | sort -u | wc -l | tr -d ' ') -eq 1 ]"
+check "multi-model's Step 0 range contains the CLAUDE_EFFORT read" \
+  "sed -n '/^## Step 0/,/^| Exact model id/p' '$MM' | grep -qF 'printenv CLAUDE_EFFORT'"
 
 section "the Wave Plan Artifact example matches the real status/base header plus json wave-plan format"
 

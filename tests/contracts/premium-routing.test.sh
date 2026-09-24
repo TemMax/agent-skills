@@ -25,8 +25,8 @@ section "codex-routing: ship's final review child is chosen by the plan's review
 
 check "codex-routing runs Stage 3 in a fresh child of the plan's review-key model" \
   "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'If the plan has no \`review\` key, stop and ask the user before invoking the review; never pick.'"
-check "codex-routing states the review child is chosen by the user at Gate 1 with its estimated cost" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'chosen by the user at Gate 1 with its estimated cost'"
+check "codex-routing states the review child is chosen by the user at Gate 1, never priced" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'chosen by the user at Gate 1:' && ! grep -qF 'estimated cost' '$CP_ROUTING'"
 check "codex-routing never-pick sentence is present for the review child" \
   "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'never pick.'"
 

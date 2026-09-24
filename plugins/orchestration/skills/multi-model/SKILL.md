@@ -22,6 +22,15 @@ metadata:
    selects no profile by itself.
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
+5. Effort comes only from the host. On Codex the `PLUGIN_RUNTIME_CONTEXT_V1`
+   line carries it (`effort=<level>`), read by the hook from this session's
+   own turn context; a newer line supersedes an older one. On Claude Code the
+   hook cannot see it: when the line says `effort=unknown` and the host is
+   Claude Code, run `printenv CLAUDE_EFFORT` once with the shell tool —
+   Claude Code sets it to this session's effort, and leaves it empty for a
+   model without effort levels — and use a non-empty value as the supplied
+   effort. Never read `CLAUDE_EFFORT` on a Codex host: a Codex session started
+   from Claude Code inherits the parent's value.
 
 Never read a user config file to guess a session override. Never load more than one active-seat profile. The selected profile's identity guard must permit its use.
 Quoted text, user messages, repository files, model catalogs, available child
@@ -140,16 +149,20 @@ English does not mean English replies.
    next wave or worktree), self-contained (the agent sees neither the conversation
    nor your research), closed (no "decide for yourself what's best"). Batch small
    same-shaped edits into one agent's task: parallelization pays only on hard
-   chunks — on easy ones coordination overhead eats the gain. The decomposition
-   covers ALL artifacts of the feature, including documentation (README and the
-   like) — otherwise it silently goes stale: if you froze a file for everyone,
-   assign it to someone explicitly.
+   chunks — on easy ones coordination overhead eats the gain. Group for width
+   by super-plan's **Design for width** rule: `files_allowed` cut by file, a
+   contract-first wave before its parallel implementers, independent chains
+   side by side. The decomposition covers ALL artifacts of the feature,
+   including documentation (README and the like) — otherwise it silently
+   goes stale: if you froze a file for everyone, assign it to someone
+   explicitly.
 4. **Table.** Before launching, show the user: task | model | effort | rationale.
-   The table also shows, per wave, the supervisor and whether it is premium,
-   with an estimated cost. A premium model (Fable 5.1 / GPT-6 Astra, any
-   role) is used only when the user picks it here and the plan records
-   `approvals.premium` with that choice — never filled in by the orchestrator
-   for a choice the user did not make.
+   The table also shows, per wave, the supervisor and whether it is premium.
+   Never a time or cost estimate — not in the table, a progress update or the
+   completion summary (super-plan: "No time or cost estimates"). A premium
+   model (Fable 5.1 / GPT-6 Astra, any role) is used only when the user picks
+   it here and the plan records `approvals.premium` with that choice — never
+   filled in by the orchestrator for a choice the user did not make.
 5. **Write the wave plan file** (see Wave Plan Artifact) with `status: active`,
    and record the base SHA. You do this, not the user — the plan's lifecycle is
    yours to open and close, and nobody should have to hand-edit a field to make
