@@ -235,10 +235,22 @@ check "the Seam audit step exists"                     "grep -qF '**Seam audit.*
 check "the Seam audit runs before lint"                "grep -qF 'Fix what it finds before lint' $SP"
 check "the Seam audit uses the cheap route" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5\` at \`medium\`; Codex: \`gpt-6-sol\` at \`medium\`'"
+check "the Seam audit explicitly checks the same-task rule for changed formats/signatures/fixtures" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the same-task rule' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'for every changed format, signature or fixture, find every reader of it and require that reader be in the same task as the change'"
+check "the Tasks step states the same-task rule for a change and what it breaks" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A change and the test helper, fixture or shared file it breaks belong to the same task' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'even in one wave — leaves each task'\''s own checks red; across waves it leaves a wave'\''s merge red'"
+check "the same-task rule names its measured cause" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'a sibling-task helper anchored on fixture text broke when an eval planner moved the helper change to a later wave'"
+check "the Sol supervisor line names its measured fixture and wave evidence" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Sol supervisor of all-Luna waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves merge-ready first try at ≈ 3.2× lower cost than Astra — toy waves, correct work only'"
 check "Gate 2 shows the critical path and a cost range" \
-  "grep -qF 'critical path' $SP && grep -qF 'estimated wall time and cost' $SP"
+  "grep -qF 'critical path' $SP && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'estimated wall-time range in minutes' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'estimated cost range in dollars'"
 check "Gate 2 states the estimate is a prior, not a promise" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the estimate is a prior, not a promise'"
+check "Gate 2 computes the cost range from the estimates price table and formula, never a bare word" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"price table and its wall-time/cost formula\" && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'never a word such as \"low\" or \"cheap\"'"
+check "Gate 2 names which estimates.md rows fed the computation" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"Name which\" && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"rows (executor, supervisor, and\""
 check "the estimates reference ships"                  "[ -s plugins/orchestration/skills/super-plan/references/estimates.md ]"
 check "SKILL points at the estimates reference"        "grep -qF 'references/estimates.md' $SP"
 EST=plugins/orchestration/skills/super-plan/references/estimates.md
@@ -252,12 +264,16 @@ check "a changed wave shape re-asks the supervisor choice before Gate 2" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 're-ask the user before Gate 2'"
 check "a Codex Sol executor forces the Astra supervisor" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A Codex wave with a \`gpt-6-sol\` executor has no standard supervisor'"
-check "super-plan records ship's Stage 3 review child in the plan's review key, Astra default with a Sol cost line" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'by default, recorded in \`approvals.premium\`, or, when the user picks it to save that cost, \`gpt-6-sol\` — uncalibrated as a reviewer — disclosed at Gate 1 too.'"
+check "super-plan records ship's Stage 3 review child in the plan's review key, Sol measured with a strict-gate line" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'by default, recorded in \`approvals.premium\`, or, when the user picks it to save that cost, \`gpt-6-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-24 — disclosed at Gate 1 too.'"
 check "super-plan documents the optional review key next to ci/e2e/approvals" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'optional, only on Codex plans that ship carry it' && grep -qF '\"review\"' $SP"
 check "super-plan says the linter also checks the review key" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the optional \`review\` key'"
+check "the review key is documented as an object with model and effort" \
+  "grep -qF '\"review\": {\"model\": \"gpt-6-sol\", \"effort\": \"high\"}' $SP && grep -qF '\"review\": {\"model\":' $SP"
+check "no wording in super-plan is left uncalibrated" \
+  "! grep -qi 'uncalibrated' $SP"
 check "the supervisor-vs-executor example names Opus 5 and Fable 5.1" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'takes Opus 5 (\`claude-opus-5\`, standard) or Fable 5.1 (premium, with \`approvals.premium\`)'"
 check "an omitted ladder under an Opus 5.5 supervisor is spelled out as empty" \

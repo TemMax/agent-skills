@@ -96,13 +96,16 @@ approvals.
    estimated cost from `references/estimates.md`: premium (Fable 5.1 /
    GPT-6 Astra) vs standard (Claude: Opus 5.5 supervising Sonnet/Haiku
    waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6-sol` for waves whose
-   executors and rungs are only `gpt-6-luna` — uncalibrated as a production
-   supervisor, 9/9 on the supervisor fixture twice on 2026-09-23). A Codex
+   executors and rungs are only `gpt-6-luna` — Sol supervisor of all-Luna
+   waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves
+   merge-ready first try at ≈ 3.2× lower cost than Astra — toy waves,
+   correct work only). A Codex
    wave with a `gpt-6-sol` executor has no standard supervisor — it needs
    `gpt-6-astra`. Record the model for ship's Stage 3 critical-review child
    in the plan's `review` key here too: `gpt-6-astra` by default, recorded
    in `approvals.premium`, or, when the user picks it to save that cost,
-   `gpt-6-sol` — uncalibrated as a reviewer — disclosed at Gate 1 too.
+   `gpt-6-sol` — strict review gate clean 10/10, planted 10/10; PR support
+   3/4 on 2026-09-24 — disclosed at Gate 1 too.
    A premium model is used only when the user picks it; record the
    approval in `approvals.premium`. If
    the Tasks step later changes a wave so the chosen supervisor no longer
@@ -131,6 +134,13 @@ approvals.
    file-independence: same-wave tasks must not share files — merge
    colliding tasks or split them across consecutive waves. Dependent
    chains are consecutive waves, never one wave.
+
+   **Keep a change with what it breaks.** A change and the test helper,
+   fixture or shared file it breaks belong to the same task. Splitting
+   them across tasks — even in one wave — leaves each task's own checks
+   red; across waves it leaves a wave's merge red. Measured: a
+   sibling-task helper anchored on fixture text broke when an eval
+   planner moved the helper change to a later wave.
 
    **Name the end-to-end task, or say there is none.** A feature that
    transforms data through a pipeline (CLI, collector, report, …) gets one
@@ -167,7 +177,10 @@ approvals.
    at `medium` — checks every contract against the code: each `must_run`
    command exists and runs the way CI runs it, every referenced path or API
    exists, the interfaces passed between tasks agree, and every recorded
-   base expectation is plausible. Give it the same secrets prohibition
+   base expectation is plausible. It also checks the same-task rule
+   explicitly: for every changed format, signature or fixture, find every
+   reader of it and require that reader be in the same task as the change.
+   Give it the same secrets prohibition
    every executor gets: never open, print, copy or transmit credentials,
    tokens or configuration files that hold them (for example `~/.codex`,
    `~/.claude`, app configs with Authorization headers); if it needs a
@@ -184,9 +197,13 @@ approvals.
    Warnings are judgment calls; errors are not negotiable. A plan that
    fails lint is not presented to the user.
 7. **Gate 2 — plan.** Show the lint-clean plan file, the critical path (the
-   sum over waves of each wave's slowest task), and an estimated wall time and cost
-   range from `references/estimates.md`; say plainly that the estimate is a
-   prior, not a promise. One approval.
+   sum over waves of each wave's slowest task), an estimated wall-time
+   range in minutes, and an estimated cost range in dollars computed from
+   `references/estimates.md`'s price table and its wall-time/cost formula
+   — never a word such as "low" or "cheap" standing in for the range.
+   Name which `references/estimates.md` rows (executor, supervisor, and
+   verifier/orchestrator measurements by model) fed the computation. Say
+   plainly that the estimate is a prior, not a promise. One approval.
 8. **Handoff.** "Execute with multi-model (supervised waves)." The plan
    file IS the wave-plan artifact: the json block feeds the runner directly —
    each runner task is the json entry plus its `## Task` prose as
@@ -260,10 +277,13 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      rung. The example above shows it for the `claude-fable-5-1` supervisor.
    - `review`: optional, only on Codex plans that ship carry it — Claude
      plans never carry it, since Claude's Stage 3 review runs in the
-     session. Names the model for ship's Stage 3 critical-review child,
-     e.g. `"review": "gpt-6-astra"` (the default, recorded in
-     `approvals.premium`) or `"review": "gpt-6-sol"` (cheaper, uncalibrated
-     as a reviewer).
+     session. Names the model and effort for ship's Stage 3
+     critical-review child, as an object, e.g.:
+     `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,
+     recorded in `approvals.premium`) or
+     `"review": {"model": "gpt-6-sol", "effort": "high"}` (measured:
+     strict review gate clean 10/10, planted 10/10; PR support 3/4 on
+     2026-09-24).
 
    The linter enforces all three: a plan missing `ci`, missing `e2e`, or
    missing a required `approvals.premium` fails lint. It also checks the
