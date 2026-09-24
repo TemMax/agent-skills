@@ -178,10 +178,14 @@ function deriveTaskPlan({ originalText, plan, waveIndex, taskId, outPath, planBa
   derivedPlan.waves[waveIndex] = { ...clone(wave), tasks: [clone(task)] }
   // The derived single-task plan otherwise keeps every other top-level key
   // (ci, approvals, ...) exactly as cloned above. e2e is the one exception:
-  // when the original plan names a wave-level e2e task that this derived
-  // plan dropped (because it isn't taskId), the derived plan can no longer
-  // claim that e2e coverage, so it is marked not-applicable instead.
-  if (plan.e2e && typeof plan.e2e === 'object' && plan.e2e.task !== taskId) {
+  // when the original plan names a wave-level e2e task that this wave's
+  // derived plan dropped (because it isn't taskId, but it was one of this
+  // wave's sibling tasks), the derived plan can no longer claim that e2e
+  // coverage, so it is marked not-applicable instead. An e2e task that
+  // belongs to another wave entirely is untouched by this derivation and is
+  // passed through unchanged.
+  if (plan.e2e && typeof plan.e2e === 'object' && plan.e2e.task !== taskId
+    && wave.tasks.some((t) => t && t.id === plan.e2e.task)) {
     derivedPlan.e2e = 'not-applicable: derived single-task plan; the wave-level e2e task is ' + plan.e2e.task
   }
   let text = replaceWavePlanBlock(originalText, derivedPlan)
