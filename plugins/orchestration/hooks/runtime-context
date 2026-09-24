@@ -3,8 +3,55 @@ set -u
 PLUGIN_NAME=orchestration
 payload="$(cat 2>/dev/null || true)"
 printf '%s' "$payload" | python3 -c '
-import json, sys
+import json, os, re, sys
+
 plugin, raw = sys.argv[1], sys.stdin.read()
+
+# Effort is never read from CLAUDE_EFFORT or any other environment variable:
+# measured on Codex CLI 0.155.1 / Claude Code (2026-09-24), Claude Code hook
+# payloads carry no effort field, and the CLAUDE_EFFORT a hook sees is only
+# whatever the parent process happened to inherit (a `claude -p --effort low`
+# child launched with CLAUDE_EFFORT=xhigh still gave its hooks xhigh) -- it
+# never reflects the running session'"'"'s actual effort on either host.
+EFFORT_RE = re.compile(r"^[a-z]{2,12}$")
+
+def normalize_model(model):
+    if model == "gpt-5.6":
+        return "gpt-5.6-sol"
+    return model
+
+def read_turn_context_records(transcript_path):
+    if not isinstance(transcript_path, str):
+        return []
+    try:
+        if not os.path.isfile(transcript_path):
+            return []
+    except Exception:
+        return []
+    records = []
+    try:
+        with open(transcript_path, "r", encoding="utf-8", errors="strict") as fh:
+            for line in fh:
+                if "\"turn_context\"" not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if not isinstance(rec, dict) or rec.get("type") != "turn_context":
+                    continue
+                turn_payload = rec.get("payload")
+                if not isinstance(turn_payload, dict):
+                    continue
+                records.append({
+                    "turn_id": turn_payload.get("turn_id"),
+                    "model": turn_payload.get("model"),
+                    "effort": turn_payload.get("effort"),
+                })
+    except Exception:
+        return []
+    return records
+
 try:
     data = json.loads(raw)
 except Exception:
@@ -13,17 +60,79 @@ except Exception:
 if not isinstance(data, dict):
     print("{}")
     raise SystemExit
+
 event = data.get("hook_event_name")
-model = data.get("model")
-if event not in {"SessionStart", "SubagentStart"} or not isinstance(model, str):
+if event not in {"SessionStart", "SubagentStart", "UserPromptSubmit"}:
     print("{}")
     raise SystemExit
-if model == "gpt-5.6":
-    model = "gpt-5.6-sol"
+
+model = data.get("model")
+if not isinstance(model, str):
+    print("{}")
+    raise SystemExit
+
+model = normalize_model(model)
 host = "codex" if model.startswith("gpt-") else "claude" if model.startswith("claude-") else "unknown"
 if host == "unknown":
     print("{}")
     raise SystemExit
-context = f"PLUGIN_RUNTIME_CONTEXT_V1 plugin={plugin} host={host} model={model} effort=unknown"
+
+records = []
+if host == "codex" and event in {"SessionStart", "UserPromptSubmit"}:
+    records = read_turn_context_records(data.get("transcript_path"))
+
+current = None
+if event == "UserPromptSubmit":
+    turn_id = data.get("turn_id")
+    if isinstance(turn_id, str):
+        for rec in records:
+            if rec.get("turn_id") == turn_id:
+                current = rec
+    if current is None and records:
+        current = records[-1]
+elif records:
+    current = records[-1]
+
+effort = "unknown"
+if current is not None:
+    rec_model = current.get("model")
+    rec_effort = current.get("effort")
+    if (
+        isinstance(rec_model, str)
+        and normalize_model(rec_model) == model
+        and isinstance(rec_effort, str)
+        and EFFORT_RE.match(rec_effort)
+    ):
+        effort = rec_effort
+
+if event == "UserPromptSubmit":
+    if host != "codex":
+        print("{}")
+        raise SystemExit
+    emit = True
+    if current is not None:
+        current_turn_id = current.get("turn_id")
+        idx = None
+        for i in range(len(records) - 1, -1, -1):
+            if records[i] is current:
+                idx = i
+                break
+        found = None
+        if idx is not None:
+            for i in range(idx - 1, -1, -1):
+                if records[i].get("turn_id") != current_turn_id:
+                    found = records[i]
+                    break
+        if found is not None:
+            found_model = found.get("model")
+            found_model = normalize_model(found_model) if isinstance(found_model, str) else found_model
+            cur_model = current.get("model")
+            cur_model = normalize_model(cur_model) if isinstance(cur_model, str) else cur_model
+            emit = found_model != cur_model or found.get("effort") != current.get("effort")
+    if not emit:
+        print("{}")
+        raise SystemExit
+
+context = f"PLUGIN_RUNTIME_CONTEXT_V1 plugin={plugin} host={host} model={model} effort={effort}"
 print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": context}}, separators=(",", ":")))
 ' "$PLUGIN_NAME"
