@@ -607,6 +607,7 @@ function executorPrompt(state, id, task, spec) {
     '## Prohibitions',
     'Do not spawn subagents. No force-push, no reset --hard, and no rm outside',
     'the task\'s files. Do not work around a failing check — report it.',
+    'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example ~/.codex, ~/.claude, app configs with Authorization headers); if the task needs a secret, stop and report.',
     '',
     '## Definition of done and report format',
     'Report the changed files, the gist of the change, the verbatim output of',

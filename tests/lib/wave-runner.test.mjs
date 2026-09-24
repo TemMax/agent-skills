@@ -310,6 +310,7 @@ test('S1 clean pass: one executor call, one supervisor call, no escalation', asy
   assert.equal(execCalls(calls, 't-one')[0].opts.model, 'claude-sonnet-5')
   assert.deepEqual(verdictAttempts(result.tasks[0]).map((a) => a.escalation), [null])
   assert.equal(verifyCalls(calls, 't-one').length, 1)
+  assert.match(execCalls(calls, 't-one')[0].prompt, /Never open, print, copy or transmit credentials/)
 })
 
 test('S2 rework: same model, prior verdict travels in the prompt', async () => {
