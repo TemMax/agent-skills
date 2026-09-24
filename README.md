@@ -339,6 +339,46 @@ short summary plus one findings table tiered Blocker / Important / Medium / Low
 To verify the plugins are installed, run `/plugin` and look for
 `orchestration` and `code-review` with their skills listed.
 
+## 4.1.0
+
+Non-breaking. `super-plan` names a sibling-dependency planning rule: a
+task that documents, tests, or consumes an artifact produced by another
+task of the same wave — a file, fixture, function, CLI output, or
+behavior that does not exist at the wave's base — goes into a later
+wave or into the same task, because file-disjoint tasks are not
+dependency-free. The Seam audit now checks this explicitly: for every
+task it lists the artifacts that task reads that do not exist at the
+wave's base, and fails the plan when a same-wave sibling produces any
+of them; "no file-ownership conflicts" is not a pass on its own —
+measured: the pilot's audit reported exactly that and missed the
+dependency. On the execution side, an executor whose task needs an
+artifact that another task of the same wave is producing (a file,
+fixture, function, or behavior missing from its worktree) stops and
+reports `blocked-on-sibling: <what is missing and which task makes
+it>` instead of inventing it or committing a placeholder; when the
+supervisor confirms the named artifact is absent at base and outside
+`files_allowed`, it records the violation with `"satisfiable": false`
+— the contract was not satisfiable by truthful work, and the verdict
+still fails, with the executor's innocence carried in that field, never
+in `ok:true`. The `tests/eval/ship-smoke.sh` fixture is fixed for the
+same class of bug: its `add-doc` task used to describe "the
+division-by-zero guard", which only exists once the sibling `add-guard`
+task writes it in the same wave, making the two nominally independent
+tasks implicitly dependent; it now documents only
+`tests/test_calc.py`'s already-present `divide(x, 0) -> None` behavior
+and is steered away from describing `src/calc.py`'s implementation.
+`references/estimates.md` adds a mid-size Codex pilot (2026-09-24,
+`gpt-6-sol` orchestrator, runner): two runs of the same 7-point feature,
+planned and executed by one Codex orchestrator session in a disposable
+repo. Standard (all `gpt-6-luna` executors, `gpt-6-sol` supervisor, 7
+tasks / 3 waves): 7/7 tasks ok, 32 tests green, 12.2 min wall, $1.14.
+Premium (`gpt-6-astra` supervisor, executors routed 4 Luna / 2 Sol, 6
+tasks / 2 waves): 6/6 tasks ok, 25 tests green, 10.2 min wall, $2.99.
+Both runs finished below the lower bound of their own Gate 2 estimate;
+the estimating guide now gives a Codex-runner-specific central wall
+estimate (≈ 4 min orchestrator planning + ≈ 2.5 min per wave) drawn from
+these two runs.
+
 ## 4.0.0
 
 Breaking: plans that lack the new required `ci` and `e2e` keys, or that use
