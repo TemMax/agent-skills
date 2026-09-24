@@ -52,6 +52,12 @@ function makeRepo() {
 // gpt-6-sol ladder rung, gpt-6-astra/high supervisor. Distinct files_allowed
 // globs per task so the *original* plan itself stays lint-clean (same-wave
 // tasks must not share files) before the runner ever splits it.
+//
+// Top-level plan keys: ci is "none" (no CI in this fixture repo), e2e names
+// the first task (an existing id) so a derived-plan test can exercise both
+// the kept-object and the rewritten-to-not-applicable cases, and approvals
+// carries the premium sign-off required whenever gpt-6-astra is used (the
+// fixture's supervisor, always).
 function planText(taskIds) {
   const tasks = taskIds.map((id) => [
     '      { "id": "' + id + '", "branch": "wave/' + id + '",',
@@ -78,7 +84,13 @@ function planText(taskIds) {
     '    "tasks": [',
     tasks,
     '    ] }',
-    '] }',
+    '  ],',
+    '  "ci": "none: this fixture repo has no CI to run",',
+    '  "e2e": { "task": "' + taskIds[0] + '" },',
+    '  "approvals": { "premium": { "models": ["gpt-6-astra"],',
+    '    "reason": "wave supervisor", "approved_by": "codex-wave-runner-test",',
+    '    "date": "2026-09-24" } }',
+    '}',
     '```',
     '',
     prose,
@@ -449,6 +461,36 @@ test('(j) a violation with null quote/pasteReproduced and satisfiable:true is st
     + JSON.stringify(executors))
   assert.notEqual(result.json.stopped.find((s) => s.task === 'task-a')?.reason, 'contract-unsatisfiable',
     'satisfiable:true must never stop the task as contract-unsatisfiable')
+})
+
+test('(l) a derived single-task plan rewrites a dropped wave-level e2e task to not-applicable, and keeps '
+  + 'it for the e2e task itself', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a', 'task-b']) // e2e names task-a (planText's first taskId)
+  const outPath = join(root, 'out')
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+
+  const readDerivedPlan = (taskId) => {
+    const text = readFileSync(join(outPath, 'plans', 'plan--' + taskId + '.md'), 'utf8')
+    return JSON.parse(text.match(/```json wave-plan\n([\s\S]*?)\n```/)[1])
+  }
+
+  const e2eTaskPlan = readDerivedPlan('task-a')
+  assert.deepEqual(e2eTaskPlan.e2e, { task: 'task-a' }, 'the e2e task\'s own derived plan keeps the e2e object')
+  assert.equal(e2eTaskPlan.ci, 'none: this fixture repo has no CI to run', 'ci is copied unchanged')
+  assert.ok(e2eTaskPlan.approvals && e2eTaskPlan.approvals.premium, 'approvals is copied unchanged')
+
+  const otherTaskPlan = readDerivedPlan('task-b')
+  assert.equal(otherTaskPlan.e2e, 'not-applicable: derived single-task plan; the wave-level e2e task is task-a',
+    'a derived plan for a non-e2e task carries the not-applicable string naming the dropped e2e task')
+  assert.equal(otherTaskPlan.ci, 'none: this fixture repo has no CI to run', 'ci is copied unchanged')
+  assert.ok(otherTaskPlan.approvals && otherTaskPlan.approvals.premium, 'approvals is copied unchanged')
 })
 
 test('(k) an inconsistent verdict (ok:true with a violation) is a supervisor null-result, not a runner crash', () => {

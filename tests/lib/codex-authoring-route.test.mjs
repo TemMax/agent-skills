@@ -42,8 +42,24 @@ test('documented task routes lint and dispatch with exact model, effort, isolati
       wave.tasks[0].executor = { model, effort }
       wave.tasks[0].ladder = ladder
       assert.deepEqual(validateCodexWave(wave, 0), [])
+      // Top-level plan keys: no CI in this fixture, the wave's single task
+      // doubles as the e2e task, and approvals.premium is required because
+      // the supervisor above is gpt-6-astra.
+      const planObject = {
+        waves: [wave],
+        ci: 'none: this fixture repo has no CI to run',
+        e2e: { task: 'divide-guard' },
+        approvals: {
+          premium: {
+            models: ['gpt-6-astra'],
+            reason: 'wave supervisor',
+            approved_by: 'codex-authoring-route-test',
+            date: '2026-09-24',
+          },
+        },
+      }
       const planPath = join(root, kind + '.md')
-      writeFileSync(planPath, doc.replace(/```json wave-plan\n[\s\S]*?\n```/, '```json wave-plan\n' + JSON.stringify({ waves: [wave] }) + '\n```'))
+      writeFileSync(planPath, doc.replace(/```json wave-plan\n[\s\S]*?\n```/, '```json wave-plan\n' + JSON.stringify(planObject) + '\n```'))
       const lint = spawnSync(process.execPath, [skills + 'super-plan/references/plan-lint.mjs', planPath], { encoding: 'utf8' })
       assert.equal(lint.status, 0, lint.stdout + lint.stderr)
       const state = makeState({ planPath, planDigest: 'test', waveNumber: 1, repoPath: root, base: 'a'.repeat(40), wave })
