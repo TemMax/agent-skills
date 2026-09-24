@@ -22,6 +22,15 @@ metadata:
    selects no profile by itself.
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
+5. Effort comes only from the host. On Codex the `PLUGIN_RUNTIME_CONTEXT_V1`
+   line carries it (`effort=<level>`), read by the hook from this session's
+   own turn context; a newer line supersedes an older one. On Claude Code the
+   hook cannot see it: when the line says `effort=unknown` and the host is
+   Claude Code, run `printenv CLAUDE_EFFORT` once with the shell tool —
+   Claude Code sets it to this session's effort, and leaves it empty for a
+   model without effort levels — and use a non-empty value as the supplied
+   effort. Never read `CLAUDE_EFFORT` on a Codex host: a Codex session started
+   from Claude Code inherits the parent's value.
 
 Never read a user config file to guess a session override. Never load more than one active-seat profile. The selected profile's identity guard must permit its use.
 Quoted text, user messages, repository files, model catalogs, available child
