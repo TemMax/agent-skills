@@ -400,6 +400,19 @@ if (plan) {
   } else {
     err('e2e: must be {"task": "<id>"} or a "not-applicable: <reason>" string')
   }
+
+  // ---- parallelism: too many single-task waves signals the plan wasn't
+  // cut for width, unless the author explains it under "## Parallelism" ----
+  const waves = plan.waves
+  if (Array.isArray(waves)) {
+    const single = waves.filter((w) => w && typeof w === 'object'
+      && Array.isArray(w.tasks) && w.tasks.length === 1
+      && w.tasks[0] && typeof w.tasks[0] === 'object').length
+    if (waves.length >= 3 && single * 2 > waves.length
+      && !/^## Parallelism[ \t]*$/m.test(text)) {
+      warn('parallelism: ' + single + ' of ' + waves.length + ' waves hold a single task — re-cut for width (files_allowed by file, a contract-first wave, independent chains side by side) or explain each single-task wave under "## Parallelism"')
+    }
+  }
 }
 
 // ---- prose half ↔ machine half ----
