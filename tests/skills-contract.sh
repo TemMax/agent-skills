@@ -214,6 +214,39 @@ check "Codex rework stays outside the model-transition ladder" \
 check "wave supervisor is chosen over executors and ladder rungs" \
   "grep -qF 'every executor AND every ladder rung' $SP"
 
+section "super-plan: plan quality — ci, e2e, premium approvals, seam audit, estimates"
+# 2026-09-22 ship run: the plan missed the repo's exact CI entrypoint and
+# never ran the shipped corpus through the real CLI end to end, both
+# surfacing only at final review. These keys and the Seam audit step exist
+# to catch that class of defect before execution, not after.
+check "research records the repo's CI entrypoints"  "grep -qF '.github/workflows/*.yml' $SP"
+check "plan format documents the ci key"            "grep -qF '\`ci\`:' $SP"
+check "plan format documents the e2e key"            "grep -qF '\`e2e\`:' $SP"
+check "plan format documents approvals.premium"      "grep -qF '\`approvals.premium\`:' $SP"
+check "approvals.premium is tied to the premium models" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'whenever \`claude-fable-5-1\` or \`gpt-6-astra\` appears in any role'"
+check "the linter is said to enforce ci, e2e and approvals.premium" \
+  "grep -qF 'The linter enforces all three' $SP"
+check "the example wave-plan shows approvals.premium for its fable-5.1 supervisor" \
+  "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"claude-fable-5-1\"' && sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"premium\"'"
+check "Gate 1 estimates the supervisor choice's cost"  "grep -qF 'estimated cost from' $SP"
+check "premium supervision needs the user's pick"      "grep -qF 'A premium model is used only' $SP"
+check "the Seam audit step exists"                     "grep -qF '**Seam audit.**' $SP"
+check "the Seam audit runs before lint"                "grep -qF 'Fix what it finds before lint' $SP"
+check "the Seam audit uses the cheap route" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5\` at \`medium\`; Codex: \`gpt-6-sol\` at \`medium\`'"
+check "Gate 2 shows the critical path and a cost range" \
+  "grep -qF 'critical path' $SP && grep -qF 'estimated wall time and cost' $SP"
+check "Gate 2 states the estimate is a prior, not a promise" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the estimate is a prior, not a promise'"
+check "the estimates reference ships"                  "[ -s plugins/orchestration/skills/super-plan/references/estimates.md ]"
+check "SKILL points at the estimates reference"        "grep -qF 'references/estimates.md' $SP"
+EST=plugins/orchestration/skills/super-plan/references/estimates.md
+check "estimates.md has a Contents list"               "grep -qx '## Contents' $EST"
+check "estimates.md names its price source"            "grep -qF 'tests/eval/telemetry/prices.json' $EST"
+check "estimates.md carries the how-to-estimate formula" \
+  "grep -qF 'attempt time' $EST && grep -qF 'orchestrator overhead' $EST"
+
 section "ship: the conductor that adds no machinery"
 check "the skill exists"                        "[ -f $SH ]"
 check "ship adds no machinery"                  "grep -q 'ship adds no machinery' $SH"
