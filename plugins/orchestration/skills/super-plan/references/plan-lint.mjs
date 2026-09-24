@@ -382,7 +382,19 @@ if (plan) {
       const lastWaveIds = lastWave && Array.isArray(lastWave.tasks)
         ? lastWave.tasks.filter((t) => t && typeof t === 'object').map((t) => t.id) : []
       if (!lastWaveIds.includes(e2e.task)) {
-        warn('e2e.task: "' + e2e.task + '" is not in the last wave')
+        const e2eWaveIndex = plan.waves.findIndex((w) => w && Array.isArray(w.tasks)
+          && w.tasks.some((t) => t && typeof t === 'object' && t.id === e2e.task))
+        const laterWaves = e2eWaveIndex >= 0 ? plan.waves.slice(e2eWaveIndex + 1) : []
+        const laterTasks = laterWaves.flatMap((w) => Array.isArray(w.tasks)
+          ? w.tasks.filter((t) => t && typeof t === 'object') : [])
+        const isDocOnly = (t) => t.contract && Array.isArray(t.contract.files_allowed)
+          && t.contract.files_allowed.length > 0
+          && t.contract.files_allowed.every((f) => typeof f === 'string'
+            && (f.endsWith('.md') || f.startsWith('docs/')))
+        const allDocsOnly = laterTasks.length > 0 && laterTasks.every(isDocOnly)
+        if (!allDocsOnly) {
+          warn('e2e.task: "' + e2e.task + '" is not in the last wave')
+        }
       }
     }
   } else {
