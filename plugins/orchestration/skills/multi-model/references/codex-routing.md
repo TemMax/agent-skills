@@ -16,9 +16,9 @@ plan approvals still apply; existing authorization remains valid.
 
 | Task class | Initial executor | Effort | Optional ladder, in order |
 |---|---|---|---|
-| mechanical | `gpt-5.6-luna` | `medium` | `gpt-5.6-terra`, `gpt-5.6-sol` |
-| ordinary | `gpt-5.6-terra` | `medium` | `gpt-5.6-sol` |
-| difficult | `gpt-5.6-sol` | `high` | none |
+| mechanical | `gpt-6-luna` | `medium` | `gpt-6-sol` |
+| ordinary | `gpt-6-sol` | `medium` | none |
+| difficult | `gpt-6-sol` | `high` | none |
 
 Mechanical means a narrow edit with complete instructions and checkable output;
 ordinary means a closed implementation across call sites; difficult means a
@@ -26,15 +26,21 @@ bounded bug or implementation requiring substantial reasoning. Resolve product
 ambiguity before dispatch. Select the initial tier by task needs, not by the
 coordinator's model. If it is unavailable, choose an available higher tier before
 plan approval and record why; use that model's initial effort from the table
-(Terra/medium or Sol/high), since this is initial selection, not runtime
+(Sol/medium or Sol/high), since this is initial selection, not runtime
 escalation. Omit unavailable optional rungs. If no suitable
 executor exists, report that capability gap. Every rung is an exact model ID;
 escalated rungs use `high`. Never default to `max`.
 
-Read-only research uses Luna/medium for exact enumeration, Terra/medium for
+Read-only research uses Luna/medium for exact enumeration, Sol/medium for
 closed codebase questions, or Sol/high for difficult investigation. Preserve the
 mandatory evidence, missing-data and source-reading instructions in multi-model.
 Research never replaces independent supervision or the coordinator's decisions.
+
+GPT-5.6 Sol, Terra and Luna are no longer chosen for new plans: GPT-6 Sol and
+Luna cost half as much per token and measure far lower on coding deception and
+on inventing results when a tool is broken (dossiers `gpt-6-sol-dossier.md`,
+`gpt-6-luna-dossier.md`). Already approved plans that name GPT-5.6 IDs still
+execute unchanged.
 
 ## Verification and stops
 

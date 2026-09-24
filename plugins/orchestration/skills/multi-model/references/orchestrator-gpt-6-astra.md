@@ -16,7 +16,7 @@ the model name or configuration defaults.
 
 Astra owns research synthesis, task decomposition, contracts, coordination,
 and integrated review in `super-plan`, `multi-model`, and `ship`. Delegate
-implementation to named GPT-5.6 executors in isolated worktrees. Reading code,
+implementation to named GPT-6 Sol and Luna executors in isolated worktrees. Reading code,
 running checks, and preparing task contracts are still the orchestrator's work.
 Do not turn an executor failure into an inline implementation by Astra. A
 separately approved Astra executor exception may be initial or final-rung only,
@@ -49,7 +49,9 @@ An approved, lint-clean plan still controls execution exactly. This profile
 guides plan authoring and explicit amendments, not rerouting an active wave.
 The drift hook checks this Astra orchestrator with a different model,
 `gpt-5.6-sol` at `high`; that narrow advisory role needs its own calibration
-and does not qualify Sol as a general supervisor of Astra's work.
+and does not qualify Sol as a general supervisor of Astra's work. GPT-6
+judges raised false drift alarms on clean runs in the 2026-09-23 calibration
+(`tests/eval/gpt-6-results-2026-09-23.md`).
 
 ## Autonomy and verification
 

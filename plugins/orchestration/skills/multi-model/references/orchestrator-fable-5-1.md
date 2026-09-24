@@ -11,6 +11,15 @@ on agentic coding (p. 5). You also carry a documented tendency to
 over-deliver beyond the requested scope and, as a judge, a small measured
 self-recognition bias.
 
+## Contents
+
+- Session Effort
+- Amendments to the Process
+- Amendment to Model Routing
+- Your Own Documented Quirks (Fable 5.1)
+- Not re-measured for you (Fable 5 findings)
+- Common Mistakes (Fable-5.1-specific)
+
 ## Session Effort
 
 No fixed level is pinned for a Fable 5.1 orchestrator. The Opus 4.8

@@ -9,6 +9,7 @@ cd "$(dirname "$0")/.." || exit 1
 LINT=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
 CLEAN=tests/fixtures/plans/clean.md
 CODEX_CLEAN=tests/fixtures/plans/codex-clean.md
+GPT6_CLEAN=tests/fixtures/plans/codex-clean-gpt6.md
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 
 if ! command -v node >/dev/null 2>&1; then
@@ -93,7 +94,7 @@ mutate '"branch": "wave/docs-sync"' '"branch": "docs-sync"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "bad branch named" 'must be "wave/docs-sync"' "$out"
 
-mutate '"model": "haiku"' '"model": "claude-haiku-4-5"'
+mutate '"model": "claude-haiku-4-5-20251001"' '"model": "claude-haiku-4-5"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "long model id rejected" "executor.model" "$out"
 
@@ -138,22 +139,73 @@ expect "repo warnings exit 0" "0" "$rc"
 contains "missing path prefix warned" 'prefix "src/http" does not exist' "$out"
 contains "missing command warned" 'command "definitely-not-a-real-binary-xyz" found neither' "$out"
 
+mutate '"cmd": "true"' '"cmd": "! grep -q x README.md"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"; rc=$?
+expect "negated grep must_run exits 0" "0" "$rc"
+check "negated grep produces no found-neither warning" '! grep -qF "found neither" <<<"$out"'
+
+mutate '"cmd": "true"' '"cmd": "FOO=1 true"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"; rc=$?
+expect "env-assignment must_run exits 0" "0" "$rc"
+check "env-assignment produces no found-neither warning" '! grep -qF "found neither" <<<"$out"'
+
+mutate '"cmd": "true"' '"cmd": "! definitely-not-a-real-binary-xyz"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"; rc=$?
+expect "negated missing command exits 0" "0" "$rc"
+contains "negated missing command warned" 'command "definitely-not-a-real-binary-xyz" found neither' "$out"
+
 section "the pinned full id"
 
-mutate '"model": "sonnet"' '"model": "claude-opus-4-8"'
+mutate '"model": "claude-sonnet-5"' '"model": "claude-opus-4-8"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "pinned full id in executor.model exits 0" "0" "$rc"
 contains "pinned full id in executor.model is clean" "OK: 0 error(s)" "$out"
 
-mutate '"ladder": ["opus"]' '"ladder": ["claude-opus-4-8"]'
+mutate '"ladder": ["claude-opus-5-5"]' '"ladder": ["claude-opus-4-8"]'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "pinned full id in ladder exits 0" "0" "$rc"
 contains "pinned full id in ladder is clean" "OK: 0 error(s)" "$out"
 
-mutate '"model": "sonnet"' '"model": "opus-4-8"'
+mutate '"model": "claude-sonnet-5"' '"model": "opus-4-8"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "unpinned full-looking id exits 1" "1" "$rc"
 contains "unpinned full-looking id named" "executor.model" "$out"
+
+section "Claude full ids only"
+
+for alias in haiku sonnet opus fable; do
+  mutate '"model": "claude-sonnet-5"' "\"model\": \"$alias\""
+  out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+  expect "alias $alias as executor.model exits 1" "1" "$rc"
+  contains "alias $alias as executor.model is named an alias" "is an alias" "$out"
+done
+
+mutate '"model": "claude-fable-5-1"' '"model": "fable"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "alias supervisor exits 1" "1" "$rc"
+contains "alias supervisor is named an alias" "supervisor.model: \"fable\" is an alias" "$out"
+
+mutate '"ladder": ["claude-opus-5-5"]' '"ladder": ["opus"]'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "alias in ladder exits 1" "1" "$rc"
+contains "alias in ladder is named an alias" "ladder" "$out"
+contains "alias in ladder is named an alias" "is an alias" "$out"
+
+for full in claude-opus-5 claude-fable-5-1; do
+  cp "$CLEAN" "$W/m.md"
+  python3 - "$W/m.md" "$full" <<'PY'
+import sys
+p, full = sys.argv[1:]
+s = open(p).read()
+s = s.replace('"model": "claude-fable-5-1"', '"model": "claude-opus-5-5"', 1)
+s = s.replace('"ladder": ["claude-opus-5-5"]', '"ladder": ["claude-sonnet-5"]', 1)
+s = s.replace('"model": "claude-sonnet-5"', f'"model": "{full}"', 1)
+open(p, 'w').write(s)
+PY
+  out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+  expect "$full as explicit executor exits 0" "0" "$rc"
+  contains "$full as explicit executor is clean" "OK: 0 error(s)" "$out"
+done
 
 section "Codex exact ids"
 while read -r executor supervisor rung; do
@@ -162,10 +214,10 @@ while read -r executor supervisor rung; do
 import sys
 p, executor, supervisor, rung = sys.argv[1:]
 s = open(p).read()
-s = s.replace('"model": "sonnet"', f'"model": "{executor}"')
-s = s.replace('"model": "haiku"', f'"model": "{executor}", "effort": "medium"')
-s = s.replace('"model": "fable"', f'"model": "{supervisor}"')
-s = s.replace('"ladder": ["opus"]', f'"ladder": ["{rung}"]')
+s = s.replace('"model": "claude-sonnet-5"', f'"model": "{executor}"')
+s = s.replace('"model": "claude-haiku-4-5-20251001"', f'"model": "{executor}", "effort": "medium"')
+s = s.replace('"model": "claude-fable-5-1"', f'"model": "{supervisor}"')
+s = s.replace('"ladder": ["claude-opus-5-5"]', f'"ladder": ["{rung}"]')
 open(p, 'w').write(s)
 PY
   out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -220,12 +272,12 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "Codex repeated-transition ladder exits 1" "1" "$rc"
 contains "Codex repeated-transition ladder is named" "ladder transitions must use distinct models" "$out"
 
-mutate '"model": "sonnet"' '"model": "gpt-5.6"'
+mutate '"model": "claude-sonnet-5"' '"model": "gpt-5.6"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-5.6 alias exits 1" "1" "$rc"
 contains "gpt-5.6 alias is rejected" "executor.model" "$out"
 
-mutate '"model": "sonnet"' '"model": "gpt-5.6-mini"'
+mutate '"model": "claude-sonnet-5"' '"model": "gpt-5.6-mini"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-5.6-mini alias exits 1" "1" "$rc"
 contains "gpt-5.6-mini alias is rejected" "executor.model" "$out"
@@ -235,7 +287,7 @@ python3 - "$W/m.md" <<'PY'
 import sys
 p = sys.argv[1]
 s = open(p).read()
-s = s.replace('"model": "sonnet"', '"model": "gpt-5.6-sol"')
+s = s.replace('"model": "claude-sonnet-5"', '"model": "gpt-5.6-sol"')
 open(p, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -247,10 +299,10 @@ python3 - "$W/m.md" <<'PY'
 import sys
 p = sys.argv[1]
 s = open(p).read()
-s = s.replace('"model": "sonnet"', '"model": "gpt-5.6-sol"')
-s = s.replace('"model": "haiku"', '"model": "gpt-5.6-luna"')
-s = s.replace('"model": "fable"', '"model": "gpt-5.6-terra"')
-s = s.replace('"ladder": ["opus"]', '"ladder": ["gpt-5.6-terra"]')
+s = s.replace('"model": "claude-sonnet-5"', '"model": "gpt-5.6-sol"')
+s = s.replace('"model": "claude-haiku-4-5-20251001"', '"model": "gpt-5.6-luna"')
+s = s.replace('"model": "claude-fable-5-1"', '"model": "gpt-5.6-terra"')
+s = s.replace('"ladder": ["claude-opus-5-5"]', '"ladder": ["gpt-5.6-terra"]')
 open(p, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -334,5 +386,45 @@ PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "non-terminal Astra rung exits 1" "1" "$rc"
 contains "non-terminal Astra rung is named" "final executor rung" "$out"
+
+section "GPT-6 exact ids"
+
+out="$(node "$LINT" "$GPT6_CLEAN" 2>&1)"; rc=$?
+expect "GPT-6 clean plan exits 0" "0" "$rc"
+contains "GPT-6 clean plan summary line" "OK: 0 error(s)" "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-6-sol", "effort": "medium"')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol executor with empty ladder exits 0" "0" "$rc"
+contains "gpt-6-sol executor with empty ladder is clean" "OK: 0 error(s)" "$out"
+
+mutate '"model": "claude-sonnet-5"' '"model": "gpt-6"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6 bare exits 1" "1" "$rc"
+contains "gpt-6 bare is rejected" "executor.model" "$out"
+
+mutate '"model": "claude-sonnet-5"' '"model": "gpt-6-mini"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-mini exits 1" "1" "$rc"
+contains "gpt-6-mini is rejected" "executor.model" "$out"
+
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"model": "claude-sonnet-5"', '"model": "gpt-6-sol"')
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol mixed-provider wave exits 1" "1" "$rc"
+contains "gpt-6-sol mixed-provider wave is named" "mixes providers" "$out"
 
 summary

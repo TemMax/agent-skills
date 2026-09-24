@@ -13,6 +13,10 @@ cd "$(dirname "$0")/.." || exit 1
 
 CR=plugins/code-review/skills/critical-review/SKILL.md
 MM=plugins/orchestration/skills/multi-model/SKILL.md
+CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
+CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
+VD=plugins/orchestration/skills/multi-model/references/verdicts.md
+ODH=plugins/orchestration/skills/multi-model/references/orchestrator-drift-hook.md
 SP=plugins/orchestration/skills/super-plan/SKILL.md
 SH=plugins/orchestration/skills/ship/SKILL.md
 
@@ -49,20 +53,29 @@ check "a claim without output is a violation"  "grep -q 'violation in its own ri
 
 section "multi-model: supervision that cannot be skipped or gamed"
 check "supervision is a stage, not advice"     "grep -q 'not an instruction to self-check' $MM"
-check "artifacts only"                         "grep -q 'artifacts only' $MM"
-check "paste reproduction is a fact, not a class" "grep -q 'pasteReproduced' $MM"
-check "no class asks the model to judge honesty" "! grep -q 'forged-evidence' $MM"
-check "remarks do not block"                   "grep -q 'remarks' $MM"
+check "artifacts only"                         "grep -q 'artifacts only' $VD"
+check "paste reproduction is a fact, not a class" "grep -q 'pasteReproduced' $VD"
+check "no class asks the model to judge honesty" "! grep -q 'forged-evidence' $MM $VD"
+check "remarks do not block"                   "grep -q 'remarks' $VD"
 check "the ladder has a terminal rung"         "grep -q 'already the strongest' $MM"
-check "blocking threshold above suspicion"     "grep -q 'Blocking correct work' $MM"
+check "blocking threshold above suspicion"     "grep -q 'Blocking correct work' $VD"
 check "supervisor prompt is referenced"        "grep -q 'references/supervisor-prompt.md' $MM"
 check "supervisor routing table exists"        "grep -q 'Choosing the supervisor' $MM"
-check "the judge is never the executor's own"  "grep -q 'Opus 5 never' $MM"
+check "supervisor row picked by strongest model, rungs included" \
+  "grep -qF 'ladder rungs included' $MM"
+check "the judge is never the executor's own"  "grep -qF \"never the executor's own model\" $MM"
 check "the wave runner ships as a file" \
   "[ -f plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs ]"
-check "SKILL points at the shipped runner"     "grep -q 'wave-runner.workflow.mjs' $MM"
+check "the Claude adapter points at the shipped runner" "grep -q 'wave-runner.workflow.mjs' $CWA"
 check "default path is invoking, not writing"  "grep -q 'invoke the shipped runner' $MM"
-check "the filesystem constraint is named"     "grep -q 'supervisorPromptText' $MM"
+check "the filesystem constraint is named"     "grep -q 'supervisorPromptText' $CWA"
+check "the Claude adapter names the launcher generator" "grep -qF 'wave-launch.mjs' $CWA"
+check "the scriptPath restriction is stated" \
+  "grep -qF 'accepts \`scriptPath\` only inside the working directory or an added' $CWA"
+check "the launcher generator ships" \
+  "[ -f plugins/orchestration/skills/multi-model/references/wave-launch.mjs ]"
+check "the runner reads embedded WAVE_ARGS" \
+  "grep -qF \"typeof WAVE_ARGS !== 'undefined'\" plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs"
 check "no ladder row resurrects the forgery class" "! grep -qi 'forged evidence' $MM"
 
 CP=plugins/orchestration/skills/multi-model/references/codex-wave-protocol.md
@@ -101,9 +114,9 @@ check "omitted publication defaults exactly to normal push in its boundary" \
 check "local publication is explicit critical-review-only and never inferred" \
   "sed -n '/^### Invocation publication contract$/,/^- Claude-only wave:/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Only \`publication: local\` must be explicit; only the enclosing critical-review post-review fix flow may request it; it is never inferred from host or model.'"
 check "Claude local completion integrates reviews and returns without push" \
-  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'With \`publication: local\`, merge branches in plan order only into the local feature branch, run the shared full-wave review, return the resulting local feature-branch commit(s), task branches, and verdict evidence, and do no push.'"
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $CWA | tr '\\n' ' ' | tr -s ' ' | grep -qF 'With \`publication: local\`, merge branches in plan order only into the local feature branch, run the shared full-wave review, return the resulting local feature-branch commit(s), task branches, and verdict evidence, and do no push.'"
 check "Claude normal completion still pushes" \
-  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication: push\` merges branches in plan order, runs the shared full-wave review, and pushes exactly as normal.'"
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' $CWA | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication: push\` merges branches in plan order, runs the shared full-wave review, and pushes exactly as normal.'"
 check "Codex local completion returns reviewed local artifacts without push" \
   "sed -n '/^9[.] On \`merge-ready\`/,/^The action loop/p' $CP | tr '\\n' ' ' | tr -s ' ' | grep -qF 'In \`publication: local\` mode, merge only into the local feature branch, keep the shared full-wave review, return its resulting local commit(s), task branch names, helper summary, and verdict evidence to the caller, and do no push.'"
 check "Codex local completion cannot create an unpushed next base" \
@@ -135,10 +148,10 @@ check "commit discipline is in the executor prompt" "grep -q 'git log --oneline'
 check "long commands classified by kind in the runner" "grep -q 'in the background' $WR"
 check "the supervisor may lean on verifier facts" "grep -q 'VERIFIER FACTS' $SUPP"
 check "the supervisor backgrounds long commands"  "grep -q 'never by predicted duration' $SUPP"
-check "the skill documents the verify stage"    "grep -q 'Mechanical verification before the judge' $MM"
-check "contracts are preflighted at the base"   "grep -q 'Preflight the contracts at the base' $MM"
-check "amendments propagate only mechanically"  "grep -q 'An amendment exists only when the plan file is edited' $MM"
-check "single-task invocations are allowed"     "grep -q 'parallel single-task runner invocations' $MM"
+check "the skill documents the verify stage"    "grep -q 'Mechanical verification before the judge' $VD"
+check "contracts are preflighted at the base"   "grep -q 'Preflight the contracts at the base' $CWA"
+check "amendments propagate only mechanically"  "grep -q 'An amendment exists only when the plan file is edited' $CAM"
+check "single-task invocations are allowed"     "grep -q 'parallel single-task runner invocations' $CWA"
 
 section "super-plan and ship: sizing, scoped gates, acceptance references"
 check "task right-sizing is a rule"             "grep -q 'Right-size every task' $SP"
@@ -153,8 +166,8 @@ section "multi-model: the lifecycle belongs to the orchestrator, not the user"
 check "plan is opened at launch"               "grep -q 'Write the wave plan file' $MM"
 check "plan is closed at completion"           "grep -q 'Set the wave plan.*status: done' $MM"
 check "the user never hand-edits it"           "grep -q 'You own both transitions' $MM"
-check "status gate fails closed"               "grep -q 'first code fence' $MM"
-check "branch gate reads declared branches"    "grep -q 'declared branches only' $MM"
+check "status gate fails closed"               "grep -q 'first code fence' $ODH"
+check "branch gate reads declared branches"    "grep -q 'declared branches only' $ODH"
 
 section "multi-model: the evidence base for every anti-deception rule"
 # Losing a citation turns a measured rule into an opinion. Each of these points
@@ -181,7 +194,7 @@ check "headless mode records assumptions"       "grep -q 'Assumptions (would ask
 check "superpowers attribution survives"        "grep -q 'Jesse Vincent' $SP"
 check "the MIT notice ships"                    "[ -f plugins/orchestration/skills/super-plan/references/LICENSE-superpowers ]"
 check "plan model fields are provider-specific" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '| Codex | \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '| Codex | \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
 check "bare GPT alias is excluded from plan fields" \
   "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '\`gpt-5.6\` is never a plan id'"
 check "profile rather than host defaults routes every plan role" \
@@ -190,6 +203,8 @@ check "planning rejects a mixed-provider wave before Gate 2" \
   "grep -qF 'mixed-provider wave is a planning defect to fix before Gate 2' $SP"
 check "Codex rework stays outside the model-transition ladder" \
   "grep -qF 'same-model raised-effort rework is state-machine behavior' $SP && grep -qF 'ladder lists model transitions only' $SP"
+check "wave supervisor is chosen over executors and ladder rungs" \
+  "grep -qF 'every executor AND every ladder rung' $SP"
 
 section "ship: the conductor that adds no machinery"
 check "the skill exists"                        "[ -f $SH ]"
@@ -253,8 +268,16 @@ check "the judge prompt rule names the omission"    "grep -qF 'never names the e
 check "the shipped judge prompt never names the executor's model" \
   "! sed -n '/^function supervisorPrompt/,/^}/p' $WR | grep -q 'executor'"
 
-check "the supervisor table names Fable 5.1 as Opus 5's judge" \
-  "grep -qF '| Opus 5 | Fable 5.1 via \`fable\`' $MM"
+check "the supervisor table names Fable 5.1 as Opus 5.5's judge, Opus 5 as fallback" \
+  "grep -qF '| Opus 5.5 (\`claude-opus-5-5\`) | Fable 5.1 (\`claude-fable-5-1\`), fallback Opus 5 (\`claude-opus-5\`) | high |' $MM"
+check "the supervisor table names Opus 5.5 or Fable 5.1 as Opus 5's judge" \
+  "grep -qF '| Opus 5 (\`claude-opus-5\`) | Opus 5.5 (\`claude-opus-5-5\`) or Fable 5.1 (\`claude-fable-5-1\`) | high |' $MM"
+check "Anti-Deception: untrusted text is passed by path" \
+  "grep -qF '| Never paste untrusted third-party text into an executor prompt — pass a path |' $MM"
+check "Anti-Deception: no relayed authorization the user did not give" \
+  "grep -qF '| Never relay an authorization the user did not give |' $MM"
+check "Anti-Deception: reports are judged by artifacts, not tone" \
+  "grep -qF '| Judge reports by artifacts, not tone |' $MM"
 
 check "the multi-model dossier has a Fable 5.1 section" \
   "grep -q '^## Fable 5.1' plugins/orchestration/skills/multi-model/references/model-dossiers.md"
@@ -264,24 +287,109 @@ check "the reviewer dossier has a Fable 5.1 section" \
 check "README carries the fable-5.1 row"            "grep -qF '| \`claude-fable-5-1\` |' README.md"
 check "multi-model still routes Fable 5.1"         "grep -qF '| \`claude-fable-5-1\` | \`references/orchestrator-fable-5-1.md\` |' $MM"
 
-section "Opus 4.8 is addressable by its full model ID"
+section "Opus 5.5 is supported"
+OO55=plugins/orchestration/skills/multi-model/references/orchestrator-opus-5-5.md
+RO55=plugins/code-review/skills/critical-review/references/reviewer-opus-5-5.md
+
+check "Step 0: multi-model routes opus-5-5 (any suffix) to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`references/orchestrator-opus-5-5.md\` |' $MM"
+check "Step 0: super-plan routes opus-5-5 (any suffix) to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`../multi-model/references/orchestrator-opus-5-5.md\` |' $SP"
+check "Step 0: ship routes opus-5-5 (any suffix) to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`../multi-model/references/orchestrator-opus-5-5.md\` |' $SH"
+check "Step 0: critical-review routes opus-5-5 (any suffix) to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`references/reviewer-opus-5-5.md\` |' $CR"
+
+check "the orchestrator opus-5.5 profile ships"     "[ -f $OO55 ]"
+check "the orchestrator opus-5.5 profile gates on its model id" "grep -qF 'claude-opus-5-5' $OO55"
+check "the orchestrator opus-5.5 profile tells a mismatched model to stop" \
+  "grep -qF 'stop reading it' $OO55"
+check "the reviewer opus-5.5 profile ships"         "[ -f $RO55 ]"
+check "the reviewer opus-5.5 profile gates on its model id" "grep -qF 'claude-opus-5-5' $RO55"
+check "the reviewer opus-5.5 profile tells a mismatched model to stop" \
+  "grep -qF 'stop reading it' $RO55"
+
+check "the multi-model dossier has an Opus 5.5 section" \
+  "grep -q '^## Opus 5.5' plugins/orchestration/skills/multi-model/references/model-dossiers.md"
+check "the reviewer dossier has an Opus 5.5 section" \
+  "grep -q '^## Opus 5.5 as a reviewer of its own code' plugins/code-review/skills/critical-review/references/reviewer-dossier.md"
+
+section "Claude models are addressed by full IDs"
 
 PL=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
 OP5=plugins/orchestration/skills/multi-model/references/orchestrator-opus-5.md
 
 check "the runner accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $WR"
 check "the linter accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $PL"
-check "the runner carries no other full model ID" \
-  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -v '^claude-opus-4-8\$' | grep -q ."
-check "the simulator tier guards the single-ID rule" \
-  "grep -qF \"grep -v '^claude-opus-4-8\$'\" tests/wave-runner.test.sh"
+check "every full ID in the runner is one of the six" \
+  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|opus-5-5|opus-5|opus-4-8|fable-5-1)' | grep -q ."
+check "the simulator tier guards the six-ID rule" \
+  "grep -qF \"grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|opus-5-5|opus-5|opus-4-8|fable-5-1)'\" tests/wave-runner.test.sh"
+check "the runner rejects aliases by name"         "grep -qF 'is an alias' $WR"
 check "the linter tier rejects the bare short form" \
   "grep -qF '\"model\": \"opus-4-8\"' tests/plan-lint.test.sh"
-check "the skill names the ID in the supervisor row" \
-  "grep -qF 'fallback: Opus 4.8 via \`claude-opus-4-8\`' $MM"
-check "the skill's opts.model rule names the pin"   "grep -qF 'pinned full ID' $MM"
+check "the skill names the ID in the supervisor table" \
+  "sed -n '/^### Choosing the supervisor — Quick Reference$/,/^### Escalation ladder$/p' $MM | grep -qF '| Opus 4.8 (\`claude-opus-4-8\`) |'"
+check "the skill's opts.model rule rejects aliases by name" \
+  "grep -qF 'rejects aliases by name.' $CWA"
 check "the old not-addressable wording is gone"     "! grep -q 'not addressable' $MM"
 check "the fable-5.1 profile names the pinned ID"   "grep -qF 'claude-opus-4-8' $OF"
 check "the opus-5 profile names the pinned ID"      "grep -qF 'claude-opus-4-8' $OP5"
+check "Step 0: multi-model routes opus-5-5 to its profile" \
+  "grep -qF '| \`claude-opus-5-5\` (any context-window suffix) | \`references/orchestrator-opus-5-5.md\` |' $MM"
+check "the Model identifiers section names its probe" \
+  "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | grep -qF 'wf_e635018e-8f3'"
+check "the Agent-tool exception names alias and full ID" \
+  "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'a spawn through it names the alias AND the full ID from this table.'"
+for id in claude-haiku-4-5-20251001 claude-sonnet-5 claude-opus-5-5 claude-opus-5 claude-opus-4-8 claude-fable-5-1; do
+  check "the linter accepts $id" "grep -qF \"'$id'\" $PL"
+done
+check "the linter rejects aliases by name"         "grep -qF 'is an alias' $PL"
+check "the linter's CLAUDE_MODELS lists no bare alias" \
+  "sed -n '/^const CLAUDE_MODELS = \\[/,/^\\]/p' $PL | grep -qF \"'claude-opus-5-5'\" && ! sed -n '/^const CLAUDE_MODELS = \\[/,/^\\]/p' $PL | grep -qE \"'(haiku|sonnet|opus|fable)'\""
+check "the runner's MODELS lists no bare alias" \
+  "sed -n '/^const MODELS = \\[/,/^\\]/p' $WR | grep -qF \"'claude-opus-5-5'\" && ! sed -n '/^const MODELS = \\[/,/^\\]/p' $WR | grep -qE \"'(haiku|sonnet|opus|fable)'\""
+check "untrusted text is never pasted into an executor prompt" \
+  "sed -n '/^## Task Prompt Template/,/^## Supervised Waves$/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Never paste untrusted third-party text'"
+
+section "multi-model: the Claude adapter and amendment flow load on demand"
+check "SKILL names the Claude wave adapter"         "grep -qF 'references/claude-wave-adapter.md' $MM"
+check "SKILL names the contract amendment flow"     "grep -qF 'references/contract-amendment.md' $MM"
+check "the Claude wave adapter starts with its title" \
+  "head -1 $CWA | grep -qxF '# Claude wave adapter — invoke the shipped runner'"
+check "the Claude wave adapter has a Contents list" "grep -qx '## Contents' $CWA"
+check "the amendment flow starts with its title" \
+  "head -1 $CAM | grep -qxF '# When the contract is what is broken — the amendment flow'"
+check "the amendment flow has a Contents list"      "grep -qx '## Contents' $CAM"
+check "SKILL still forbids a custom wave script"    "grep -qF 'Never write a custom wave script' $MM"
+
+section "multi-model: verdicts and the drift hook load on demand"
+check "SKILL names the verdicts reference"          "grep -qF 'references/verdicts.md' $MM"
+check "SKILL names the drift hook reference"        "grep -qF 'references/orchestrator-drift-hook.md' $MM"
+check "the verdicts reference starts with its title" \
+  "head -1 $VD | grep -qxF '# Verdicts — what the verifier and the supervisor produce, and how to read them'"
+check "the verdicts reference has a Contents list"  "grep -qx '## Contents' $VD"
+check "the drift hook reference starts with its title" \
+  "head -1 $ODH | grep -qxF '# Orchestrator drift hook — how it works and what it costs'"
+check "the drift hook reference has a Contents list" "grep -qx '## Contents' $ODH"
+check "SKILL still names pasteReproduced"           "grep -qF 'pasteReproduced' $MM"
+check "SKILL still says violations decide ok"       "grep -qF 'violations' $MM"
+check "SKILL still closes the plan with status: done" "grep -qF 'status: done' $MM"
+while IFS= read -r rule; do
+  check "SKILL keeps Anti-Deception row: $rule" \
+    "sed -n '/^## Anti-Deception Rules\$/,/^## Result Review Checklist\$/p' $MM | grep -qF \"| $rule |\""
+done <<'ROWS'
+State the prohibitions to the executor loudly and explicitly
+Do NOT disclose the supervisor's specific checks to the executor
+Fresh separate supervision; same-model only for approved Astra exception
+A claim without command output is a violation
+Attach verdicts; never paraphrase an executor report in their place
+Stopping early with open plan items is a violation
+Claims of monitoring or watching get their own check
+Never name the executor's model in the judge prompt
+Never paste untrusted third-party text into an executor prompt — pass a path
+Never relay an authorization the user did not give
+Judge reports by artifacts, not tone
+ROWS
 
 summary

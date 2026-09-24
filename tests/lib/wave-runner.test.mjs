@@ -4,6 +4,8 @@
 import assert from 'node:assert/strict'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { runWorkflow } from './workflow-sim.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -40,8 +42,8 @@ function task(over = {}) {
       forbidden_moves: ['weakening, deleting or skipping an existing test'],
       report_must_answer: ['what changed?'],
     },
-    executor: { model: 'sonnet', effort: 'medium' },
-    ladder: ['opus'],
+    executor: { model: 'claude-sonnet-5', effort: 'medium' },
+    ladder: ['claude-opus-5-5'],
     ...over,
   }
 }
@@ -52,7 +54,7 @@ function waveArgs(over = {}) {
     defaultBranch: 'main',
     repoPath: '/tmp/simrepo',
     supervisorPromptText: SUP,
-    supervisor: { model: 'fable', effort: 'high' },
+    supervisor: { model: 'claude-fable-5-1', effort: 'high' },
     tasks: [task()],
     ...over,
   }
@@ -136,7 +138,7 @@ test('S8b missing base and empty tasks → named errors, zero agent calls', asyn
 
 test('S8c wrong supervisor prompt text and bad model names are named', async () => {
   const bad = waveArgs({ supervisorPromptText: 'some other file entirely' })
-  bad.tasks = [task({ executor: { model: 'claude-sonnet-5' }, ladder: ['gpt'] })]
+  bad.tasks = [task({ executor: { model: 'claude-sonnet-4' }, ladder: ['gpt'] })]
   const { result, calls } = await runWorkflow(SCRIPT, {
     args: bad,
     agentStub: () => { throw new Error('no agent may be called') },
@@ -159,9 +161,9 @@ test('S8d a null task entry fails closed, not with a crash', async () => {
   assert.equal(calls.length, 0)
 })
 
-test('S9a the pinned full ID claude-opus-4-8 runs as executor under a fable supervisor', async () => {
+test('S9a the full ID claude-opus-4-8 runs as executor under a claude-fable-5-1 supervisor', async () => {
   const pinned = waveArgs({
-    supervisor: { model: 'fable', effort: 'high' },
+    supervisor: { model: 'claude-fable-5-1', effort: 'high' },
     tasks: [task({ executor: { model: 'claude-opus-4-8', effort: 'high' }, ladder: [] })],
   })
   const { result, calls } = await runWorkflow(SCRIPT, {
@@ -173,10 +175,10 @@ test('S9a the pinned full ID claude-opus-4-8 runs as executor under a fable supe
   assert.ok(calls.some((c) => c.opts.model === 'claude-opus-4-8'))
 })
 
-test('S9b the pinned full ID claude-opus-4-8 runs as supervisor over a short-ID ladder', async () => {
+test('S9b the full ID claude-opus-4-8 runs as supervisor over a full-ID ladder', async () => {
   const pinned = waveArgs({
     supervisor: { model: 'claude-opus-4-8', effort: 'high' },
-    tasks: [task({ executor: { model: 'sonnet', effort: 'medium' }, ladder: ['opus'] })],
+    tasks: [task({ executor: { model: 'claude-sonnet-5', effort: 'medium' }, ladder: ['claude-opus-5-5'] })],
   })
   const { result, calls } = await runWorkflow(SCRIPT, {
     args: pinned,
@@ -189,8 +191,8 @@ test('S9b the pinned full ID claude-opus-4-8 runs as supervisor over a short-ID 
 
 test('S9c a ladder containing the supervisor model fails closed with zero agent calls', async () => {
   const bad = waveArgs({
-    supervisor: { model: 'fable', effort: 'high' },
-    tasks: [task({ ladder: ['fable'] })],
+    supervisor: { model: 'claude-fable-5-1', effort: 'high' },
+    tasks: [task({ ladder: ['claude-fable-5-1'] })],
   })
   const { result, calls } = await runWorkflow(SCRIPT, {
     args: bad,
@@ -201,9 +203,9 @@ test('S9c a ladder containing the supervisor model fails closed with zero agent 
   assert.equal(calls.length, 0)
 })
 
-test('S9d an unpinned short form is rejected while the pinned ID elsewhere is not enough to save it', async () => {
+test('S9d a truncated ID is rejected as executor and as ladder rung', async () => {
   const bad = waveArgs()
-  bad.tasks = [task({ executor: { model: 'opus-4-8' }, ladder: ['claude-sonnet-5'] })]
+  bad.tasks = [task({ executor: { model: 'opus-4-8' }, ladder: ['sonnet-5'] })]
   const { result, calls } = await runWorkflow(SCRIPT, {
     args: bad,
     agentStub: () => { throw new Error('no agent may be called') },
@@ -216,7 +218,7 @@ test('S9d an unpinned short form is rejected while the pinned ID elsewhere is no
 })
 
 test('S9e repeated or self-transitioning ladder models fail closed with zero agent calls', async () => {
-  for (const ladder of [['sonnet'], ['opus', 'opus']]) {
+  for (const ladder of [['claude-sonnet-5'], ['claude-opus-5-5', 'claude-opus-5-5']]) {
     const { result, calls } = await runWorkflow(SCRIPT, {
       args: waveArgs({ tasks: [task({ ladder })] }),
       agentStub: () => { throw new Error('no agent may be called') },
@@ -225,6 +227,72 @@ test('S9e repeated or self-transitioning ladder models fail closed with zero age
     assert.match(result.errors.join('; '), /ladder transitions must use distinct models/)
     assert.equal(calls.length, 0)
   }
+})
+
+// ---------- S10: full IDs only, aliases rejected by name ----------
+
+const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
+
+test('S10a every alias is rejected by name as executor, ladder rung, supervisor and verifier', async () => {
+  for (const alias of ALIASES) {
+    const cases = [
+      ['executor.model', waveArgs({ tasks: [task({ executor: { model: alias }, ladder: [] })] })],
+      ['ladder', waveArgs({ tasks: [task({ ladder: [alias] })] })],
+      ['supervisor.model', waveArgs({ supervisor: { model: alias, effort: 'high' } })],
+      ['verifier.model', waveArgs({ verifier: { model: alias, effort: 'low' } })],
+    ]
+    for (const [field, args] of cases) {
+      const { result, calls } = await runWorkflow(SCRIPT, {
+        args,
+        agentStub: () => { throw new Error('no agent may be called') },
+      })
+      assert.equal(result.status, 'invalid-args', alias + ' as ' + field)
+      const hit = result.errors.find((e) => e.includes(field + ': "' + alias + '" is an alias'))
+      assert.ok(hit, alias + ' as ' + field + ' → ' + result.errors.join('; '))
+      assert.match(hit, /claude-haiku-4-5-20251001\/claude-sonnet-5\/claude-opus-5-5/)
+      assert.equal(calls.length, 0)
+    }
+  }
+})
+
+test('S10b the default ladder from claude-haiku-4-5-20251001 climbs to claude-sonnet-5, then claude-opus-5-5', async () => {
+  const t = task({ executor: { model: 'claude-haiku-4-5-20251001', effort: 'medium' } })
+  delete t.ladder
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs({ tasks: [t] }),
+    agentStub: stub({ 't-one': [V.files(), V.files(), V.files(), V.files(), V.ok()] }),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.deepEqual(execCalls(calls, 't-one').map((c) => c.opts.model), [
+    'claude-haiku-4-5-20251001', 'claude-haiku-4-5-20251001',
+    'claude-sonnet-5', 'claude-sonnet-5',
+    'claude-opus-5-5',
+  ])
+})
+
+test('S10c claude-opus-5 and claude-fable-5-1 run as explicit executor and rung', async () => {
+  const explicit = waveArgs({
+    supervisor: { model: 'claude-opus-5-5', effort: 'high' },
+    tasks: [task({ executor: { model: 'claude-opus-5', effort: 'high' }, ladder: ['claude-fable-5-1'] })],
+  })
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: explicit,
+    agentStub: stub({ 't-one': [V.files(), V.files(), V.ok()] }),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.deepEqual(execCalls(calls, 't-one').map((c) => c.opts.model),
+    ['claude-opus-5', 'claude-opus-5', 'claude-fable-5-1'])
+})
+
+test('S10d the default verifier call uses claude-sonnet-5', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  const ver = verifyCalls(calls, 't-one')
+  assert.equal(ver.length, 1)
+  assert.equal(ver[0].opts.model, 'claude-sonnet-5')
 })
 
 // ---------- S1–S7: the ladder itself ----------
@@ -239,7 +307,7 @@ test('S1 clean pass: one executor call, one supervisor call, no escalation', asy
   assert.equal(result.tasks[0].branch, 'wave/t-one')
   assert.equal(execCalls(calls, 't-one').length, 1)
   assert.equal(supCalls(calls, 't-one').length, 1)
-  assert.equal(execCalls(calls, 't-one')[0].opts.model, 'sonnet')
+  assert.equal(execCalls(calls, 't-one')[0].opts.model, 'claude-sonnet-5')
   assert.deepEqual(verdictAttempts(result.tasks[0]).map((a) => a.escalation), [null])
   assert.equal(verifyCalls(calls, 't-one').length, 1)
 })
@@ -251,7 +319,7 @@ test('S2 rework: same model, prior verdict travels in the prompt', async () => {
   })
   assert.equal(result.tasks[0].status, 'ok')
   const ex = execCalls(calls, 't-one')
-  assert.deepEqual(ex.map((c) => c.opts.model), ['sonnet', 'sonnet'])
+  assert.deepEqual(ex.map((c) => c.opts.model), ['claude-sonnet-5', 'claude-sonnet-5'])
   assert.match(ex[1].prompt, /Prior attempt was rejected/)
   assert.match(ex[1].prompt, /"class": "files"/)
 })
@@ -262,7 +330,7 @@ test('S3 same (class, rule) twice → next rung, model actually changes', async 
     agentStub: stub({ 't-one': [V.files(), V.files(), V.ok()] }),
   })
   assert.equal(result.tasks[0].status, 'ok')
-  assert.deepEqual(execCalls(calls, 't-one').map((c) => c.opts.model), ['sonnet', 'sonnet', 'opus'])
+  assert.deepEqual(execCalls(calls, 't-one').map((c) => c.opts.model), ['claude-sonnet-5', 'claude-sonnet-5', 'claude-opus-5-5'])
   assert.deepEqual(verdictAttempts(result.tasks[0]).map((a) => a.escalation),
     [null, 'same-rule-repeat', null])
 })
@@ -274,7 +342,7 @@ test('S3b a different rule the second time also escalates, labeled rung-exhauste
   })
   assert.equal(result.tasks[0].status, 'ok')
   assert.equal(verdictAttempts(result.tasks[0])[1].escalation, 'rung-exhausted')
-  assert.equal(execCalls(calls, 't-one')[2].opts.model, 'opus')
+  assert.equal(execCalls(calls, 't-one')[2].opts.model, 'claude-opus-5-5')
 })
 
 test('S4 two pasteReproduced:false strikes → escalation labeled paste-two-strikes', async () => {
@@ -284,7 +352,7 @@ test('S4 two pasteReproduced:false strikes → escalation labeled paste-two-stri
   })
   assert.equal(result.tasks[0].status, 'ok')
   assert.equal(verdictAttempts(result.tasks[0])[1].escalation, 'paste-two-strikes')
-  assert.equal(execCalls(calls, 't-one')[2].opts.model, 'opus')
+  assert.equal(execCalls(calls, 't-one')[2].opts.model, 'claude-opus-5-5')
 })
 
 test('S4b second strike on a later rung skips its remaining attempt', async () => {
@@ -332,15 +400,15 @@ test('S6 ladder exhausted → failed with the full attempt trace', async () => {
   assert.equal(result.tasks[0].status, 'failed')
   assert.equal(verdictAttempts(result.tasks[0]).length, 4)
   assert.deepEqual(verdictAttempts(result.tasks[0]).map((a) => a.model),
-    ['sonnet', 'sonnet', 'opus', 'opus'])
+    ['claude-sonnet-5', 'claude-sonnet-5', 'claude-opus-5-5', 'claude-opus-5-5'])
 })
 
 test('S6b absolute cap: six executor attempts, however long the ladder', async () => {
   // 4 distinct rungs × 2 would be 8; the queue holds exactly 6 verdicts, so a 7th
   // supervisor call would throw and fail this test by itself.
   const capArgs = waveArgs({ tasks: [task({
-    executor: { model: 'haiku', effort: 'medium' },
-    ladder: ['sonnet', 'opus', 'claude-opus-4-8'],
+    executor: { model: 'claude-haiku-4-5-20251001', effort: 'medium' },
+    ladder: ['claude-sonnet-5', 'claude-opus-5-5', 'claude-opus-4-8'],
   })] })
   const { result } = await runWorkflow(SCRIPT, {
     args: capArgs,
@@ -498,6 +566,59 @@ test('V7 a repeated rule mixed with a fresh one goes to the judge, not another b
   assert.equal(result.tasks[0].attempts[0].kind, 'mechanical')
   assert.equal(supCalls(calls, 't-one').length, 1)
   assert.match(supCalls(calls, 't-one')[0].prompt, /VERIFIER FACTS/)
+})
+
+// ---------- L: launch hook and verifier exit-status rule ----------
+
+// Mirrors the launch generator: insert `const WAVE_ARGS = <json>` after the
+// first line that is exactly `}` following `export const meta = {`.
+async function runEmbedded(waveInput, agentStub) {
+  const lines = (await readFile(SCRIPT, 'utf8')).split('\n')
+  const start = lines.indexOf('export const meta = {')
+  assert.ok(start >= 0, 'meta block not found')
+  const end = lines.indexOf('}', start)
+  assert.ok(end > start, 'meta block end not found')
+  lines.splice(end + 1, 0, 'const WAVE_ARGS = ' + JSON.stringify(waveInput))
+  const dir = await mkdtemp(join(tmpdir(), 'wave-launch-'))
+  const copy = join(dir, 'wave-runner.workflow.mjs')
+  try {
+    await writeFile(copy, lines.join('\n'))
+    return await runWorkflow(copy, { args: undefined, agentStub })
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
+test('L1 embedded WAVE_ARGS with args undefined runs exactly like the same object passed as args', async () => {
+  const embedded = await runEmbedded(waveArgs(), stub({ 't-one': [V.ok()] }))
+  const passed = await runWorkflow(SCRIPT, { args: waveArgs(), agentStub: stub({ 't-one': [V.ok()] }) })
+  assert.equal(embedded.result.status, 'done')
+  assert.equal(embedded.result.tasks[0].status, 'ok')
+  assert.deepEqual(embedded.result, passed.result)
+  assert.deepEqual(embedded.calls, passed.calls)
+  // An invalid embedded object fails closed exactly as an invalid passed one.
+  const bad = waveArgs({ tasks: [] })
+  const noAgent = () => { throw new Error('no agent may be called') }
+  const badEmbedded = await runEmbedded(bad, noAgent)
+  const badPassed = await runWorkflow(SCRIPT, { args: bad, agentStub: noAgent })
+  assert.equal(badEmbedded.result.status, 'invalid-args')
+  assert.deepEqual(badEmbedded.result, badPassed.result)
+  assert.equal(badEmbedded.calls.length, 0)
+})
+
+test('L2 the verifier prompt records the exit status of the whole command line', async () => {
+  const { calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  const v = verifyCalls(calls, 't-one')
+  assert.ok(v.length > 0)
+  const p = v[0].prompt
+  assert.ok(p.includes("bash -c '<cmd>'"), 'names bash -c')
+  assert.ok(p.includes('whole command line'), 'says whole command line')
+  assert.ok(p.includes('leading ! negates'), 'mentions the leading !')
+  assert.ok(p.includes('never of a command inside it'), 'forbids inner exit codes')
+  assert.ok(!p.includes("Record each command's exit code"), 'old ambiguous sentence is gone')
 })
 
 let failed = 0

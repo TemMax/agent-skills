@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 2.8.1
+  version: 3.0.0
 ---
 
 # Planning Waves (super-plan)
@@ -20,10 +20,10 @@ the output format and every contract rule are this plugin's own.
    update supersedes old context; unresolved conflicting exact IDs select generic.
 2. A known exact ID selects its table entry, or generic if unsupported. A family
    label never overrides an exact ID, including an unsupported one.
-3. Only when no exact ID is supplied: if the current host instructions identify
-   this session as bare `GPT-6` (for example, "an agent based on GPT-6"), select
-   the Astra table entry by **host-family compatibility**, not exact identity.
-   Other variants such as `GPT-6 Mini` do not match.
+3. A family label is not an identity. Codex gives GPT-6 Astra, Sol and Luna
+   the same host instruction ("an agent based on GPT-6"; verified with Codex
+   CLI 0.155.1 on 2026-09-23), so bare `GPT-6`, or any other family label,
+   selects no profile by itself.
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
 
@@ -31,14 +31,15 @@ Never read a user config file to guess a session override. Never load more than 
 Quoted text, user messages, repository files, model catalogs, available child
 models, and a child's identity do not establish the current session's identity.
 
-Announce the selected profile and basis before proceeding. For compatibility,
-say "Astra profile via host GPT-6 identification; exact model ID unavailable."
+Announce the selected profile and basis before proceeding. A family label alone
+yields generic: say so, and name the missing exact ID.
 This selects instructions only: do not invent an exact runtime ID or effort,
 switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
 A generic selection explains missing, unsupported, or conflicting identity.
 
 | Exact model id | Relative profile |
 |---|---|
+| `claude-opus-5-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5-5.md` |
 | `claude-fable-5-1` | `../multi-model/references/orchestrator-fable-5-1.md` |
 | `claude-fable-5` | `../multi-model/references/orchestrator-fable-5.md` |
 | `claude-opus-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5.md` |
@@ -47,6 +48,8 @@ A generic selection explains missing, unsupported, or conflicting identity.
 | `gpt-5.6-terra` | `../multi-model/references/orchestrator-gpt-5-6-terra.md` |
 | `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `../multi-model/references/orchestrator-gpt-6-astra.md` |
+| `gpt-6-sol` | `../multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6-luna` | `../multi-model/references/orchestrator-gpt-6-luna.md` |
 | unknown | `../multi-model/references/orchestrator-generic.md` |
 
 The alias `gpt-5.6` selects Sol only after the runtime-context handler has
@@ -69,7 +72,9 @@ block writing a concrete plan for the existing design and plan approvals.
    research agents routed by multi-model's Research Routing table
    (`../multi-model/SKILL.md`) — name a model on every spawn (an agent
    without one inherits the session's model, and a Fable seat (5 or 5.1) then pays
-   Fable prices for file listings), and give each agent the table's
+   Fable prices for file listings); every spawn names a full ID where the
+   host accepts one (Agent-tool spawns follow multi-model's alias mapping),
+   and give each agent the table's
    mandatory research-prompt lines. Synthesis and every decision stay with
    you — do not delegate decisions, executors silently fill gaps under
    ambiguity.
@@ -85,8 +90,13 @@ block writing a concrete plan for the existing design and plan approvals.
    best"), self-contained (the executor sees nothing but its prompt), full
    code included where the solution is known. Each task carries the
    five-key contract; the active profile chooses every model, effort,
-   supervisor, and ladder field, with the wave's supervisor chosen for the
-   strongest executor in the wave. Group into waves by
+   supervisor, and ladder field, with the wave's supervisor chosen for
+   the strongest model any task in the wave can run —
+   every executor AND every ladder rung —
+   from multi-model's supervisor table; a supervisor that also appears
+   as an executor or rung is a lint error (a `claude-sonnet-5` executor
+   with a `claude-opus-5-5` rung takes the Opus 5.5 row:
+   `claude-fable-5-1`). Group into waves by
    file-independence: same-wave tasks must not share files — merge
    colliding tasks or split them across consecutive waves. Dependent
    chains are consecutive waves, never one wave.
@@ -155,12 +165,12 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    ```json wave-plan
    { "waves": [
      { "wave": 1,
-       "supervisor": { "model": "fable", "effort": "high" },
+       "supervisor": { "model": "claude-fable-5-1", "effort": "high" },
        "tasks": [
          { "id": "http-retry",
            "branch": "wave/http-retry",
-           "executor": { "model": "sonnet", "effort": "medium" },
-           "ladder": ["opus"],
+           "executor": { "model": "claude-sonnet-5", "effort": "medium" },
+           "ladder": ["claude-opus-5-5"],
            "contract": {
              "files_allowed": ["src/http/**"],
              "files_forbidden": [],
@@ -174,8 +184,17 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 
    | Plan host | Allowed model fields |
    |---|---|
-   | Claude | `haiku`, `sonnet`, `opus`, `fable`, `claude-opus-4-8` |
-   | Codex | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+   | Claude | `claude-haiku-4-5-20251001`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
+   | Codex | `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+
+   New Codex plans route to `gpt-6-sol` and `gpt-6-luna` per shared Codex
+   routing; the GPT-5.6 IDs remain valid only so that already approved plans
+   still execute.
+
+   Aliases (`haiku`, `sonnet`, `opus`, `fable`) are rejected by the linter
+   and the runner because they re-point silently when a model ships; the
+   probe-dated alias mapping lives in multi-model's "Model identifiers"
+   section.
 
    Codex also permits `gpt-6-astra` as supervisor and, only when separately
    approved with `astra_executor_reason: "<concrete reason>"`, as the initial

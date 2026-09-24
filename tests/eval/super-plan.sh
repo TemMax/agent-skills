@@ -18,7 +18,10 @@ cd "$(dirname "$0")/../.." || exit 1
 # to lint) across repeated runs of this same script, while Sonnet 5 was
 # markedly more reliable — clean on most runs, though one run out of several
 # still produced a P2 plan that failed lint. See tests/README.md, which is
-# the authoritative honest statement of what this tier proves.
+# the authoritative honest statement of what this tier proves. The planner
+# now runs the skill's Lint step on a draft in the fixture's temp dir
+# (measured 2026-09-22: Sonnet 5 3/3 runs, 18/18 checks); previously "Write
+# NOTHING to disk" made the Lint step impossible.
 if [ "${EVAL_PROVIDER:-claude}" = codex ]; then
   MODEL="${EVAL_MODEL:-gpt-5.6-sol}"
 else
@@ -26,6 +29,7 @@ else
 fi
 SKILL=plugins/orchestration/skills/super-plan/SKILL.md
 LINT=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
+ROOT_ABS="$(pwd)"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 
 R="$W/repo"; mkdir -p "$R/src" "$R/tests" "$R/docs"
@@ -55,13 +59,16 @@ plan() {  # $1 = feature request  → prints the model's plan file content
 
 EVAL MODE: you are running headless under an evaluation harness — apply the
 skill's headless evaluation mode. The repository to plan against is at $R
-(explore it with your tools). Write NOTHING to disk. Print ONLY the complete
-plan file content (markdown, all three layers), no prose before or after it.
-Do not wrap the output in an outer code fence.
+(explore it with your tools). Do not modify anything under $R. Apply the
+skill's Lint step for real: write your draft plan to $W/draft-plan.md, run
+node $ROOT_ABS/$LINT $W/draft-plan.md --repo $R, fix every error, and repeat
+until it prints OK. Then print ONLY the final lint-clean plan file content
+(markdown, all three layers), no prose before or after it. Do not wrap the
+output in an outer code fence.
 
 Feature request:
 $1" > "$prompt_file"
-  EVAL_MODEL="$MODEL" eval_model_answer "$R" read-only "$prompt_file" "$answer_file"
+  EVAL_MODEL="$MODEL" eval_model_answer "$R" workspace-write "$prompt_file" "$answer_file"
 }
 
 section "P1 — overlap temptation (both changes land in src/app.py)"

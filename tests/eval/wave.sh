@@ -590,17 +590,17 @@ if supervisor_prompt != expected_supervisor_prompt or executor_model in supervis
     fail("unverified-native-actions")
 
 expected_supervisor = {"model": "gpt-6-astra" if orchestrator_model == "gpt-6-astra" else "gpt-5.6-terra", "effort": "high"}
-expected_executor = {"model": "gpt-5.6-luna", "effort": "medium"}
+expected_executor = {"model": "gpt-6-luna", "effort": "medium"}
 if wave.get("supervisor") != expected_supervisor \
         or plan_task.get("executor") != expected_executor \
-        or plan_task.get("ladder") != ["gpt-5.6-sol"] \
+        or plan_task.get("ladder") != ["gpt-6-sol"] \
         or state.get("supervisor") != expected_supervisor \
-        or task.get("rungs") != ["gpt-5.6-luna", "gpt-5.6-sol"] \
+        or task.get("rungs") != ["gpt-6-luna", "gpt-6-sol"] \
         or task.get("rung") != 0:
     fail("wrong-plan-model-tuple")
 verdicts = task.get("verdicts")
 if not isinstance(verdicts, list) or not verdicts \
-        or verdicts[-1].get("model") != "gpt-5.6-luna" \
+        or verdicts[-1].get("model") != "gpt-6-luna" \
         or verdicts[-1].get("effort") != "medium":
     fail("wrong-plan-model-tuple")
 
@@ -759,6 +759,9 @@ PY
   else
     command cp tests/fixtures/plans/codex-clean.md "$R/plan.md"
   fi
+  sed -e 's/"model": "gpt-5.6-luna"/"model": "gpt-6-luna"/' -e 's/"gpt-5.6-sol"/"gpt-6-sol"/' \
+    "$R/plan.md" > "$root/renamed-plan.md"
+  command mv "$root/renamed-plan.md" "$R/plan.md"
   if [ "${EVAL_MODEL:-}" = gpt-6-astra ]; then
     sed 's/"model": "gpt-5.6-terra"/"model": "gpt-6-astra"/' "$R/plan.md" > "$root/astra-plan.md"
     command mv "$root/astra-plan.md" "$R/plan.md"
@@ -841,7 +844,7 @@ if [ "${1:-}" = --self-test ]; then
 import json, sys
 state = json.load(open(sys.argv[1]))
 assert state["supervisor"] == {"model": "gpt-6-astra", "effort": "high"}
-assert state["tasks"]["divide-guard"]["rungs"] == ["gpt-5.6-luna", "gpt-5.6-sol"]
+assert state["tasks"]["divide-guard"]["rungs"] == ["gpt-6-luna", "gpt-6-sol"]
 PY
   mkdir -p "$W/astra-cell"
   capture_codex_evidence success "$A_REPO" "$A_BASE" "$W/astra/answer.txt" \
@@ -991,7 +994,7 @@ replacements = {
     "branch": ("BRANCH: wave/divide-guard", "BRANCH: wave/other-task"),
 }
 if mutation == "executor-model-leak":
-    prompt += "\nexecutor model: gpt-5.6-luna"
+    prompt += "\nexecutor model: gpt-6-luna"
 else:
     old, new = replacements[mutation]
     if old not in prompt:
@@ -1294,7 +1297,7 @@ sup = open('plugins/orchestration/skills/multi-model/references/supervisor-promp
 json.dump({
     "base": base, "defaultBranch": branch, "repoPath": repo,
     "supervisorPromptText": sup,
-    "supervisor": {"model": "sonnet", "effort": "medium"},
+    "supervisor": {"model": "claude-sonnet-5", "effort": "medium"},
     "tasks": [{
         "id": "divide-guard",
         "description": "Make divide() return None when the divisor is zero, so the whole suite passes.",
@@ -1305,7 +1308,7 @@ json.dump({
             "forbidden_moves": ["weakening, deleting or skipping an existing test"],
             "report_must_answer": ["What happens when the divisor is zero?"]
         },
-        "executor": {"model": "haiku", "effort": "medium"}, "ladder": []
+        "executor": {"model": "claude-haiku-4-5-20251001", "effort": "medium"}, "ladder": []
     }]
 }, open(out, "w"))
 PY

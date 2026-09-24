@@ -14,7 +14,7 @@ test('all entrypoints and Codex profiles resolve the packaged route', () => {
   for (const name of ['multi-model', 'super-plan', 'ship']) {
     assert.match(read(skills + name + '/SKILL.md'), /codex-routing\.md/)
   }
-  for (const name of ['gpt-5-6-sol', 'gpt-5-6-terra', 'gpt-5-6-luna', 'gpt-6-astra', 'generic']) {
+  for (const name of ['gpt-5-6-sol', 'gpt-5-6-terra', 'gpt-5-6-luna', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'generic']) {
     const profile = read(refs + 'orchestrator-' + name + '.md')
     assert.match(profile, /codex-routing\.md/)
     assert.doesNotMatch(profile, /Do not author a production GPT-5\.6|Return `unsupported`/)
@@ -27,9 +27,9 @@ test('documented task routes lint and dispatch with exact model, effort, isolati
   const rows = [...read(refs + 'codex-routing.md').matchAll(/^\| (mechanical|ordinary|difficult) \| `([^`]+)` \| `([^`]+)` \| (.*?) \|$/gm)]
   assert.equal(rows.length, 3)
   const expected = {
-    mechanical: ['gpt-5.6-luna', 'medium', ['gpt-5.6-terra', 'gpt-5.6-sol']],
-    ordinary: ['gpt-5.6-terra', 'medium', ['gpt-5.6-sol']],
-    difficult: ['gpt-5.6-sol', 'high', []],
+    mechanical: ['gpt-6-luna', 'medium', ['gpt-6-sol']],
+    ordinary: ['gpt-6-sol', 'medium', []],
+    difficult: ['gpt-6-sol', 'high', []],
   }
   const root = mkdtempSync(join(tmpdir(), 'codex-authoring-'))
   try {

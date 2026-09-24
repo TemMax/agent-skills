@@ -36,14 +36,25 @@ to exactly one profile file and forbids reading the others:
 
 | Model ID | orchestration profile | code-review profile |
 |---|---|---|
+| `claude-opus-5-5` (any context suffix) | `references/orchestrator-opus-5-5.md` | `references/reviewer-opus-5-5.md` |
 | `claude-fable-5-1` | `references/orchestrator-fable-5-1.md` | `references/reviewer-fable-5-1.md` |
 | `claude-fable-5` | `references/orchestrator-fable-5.md` | `references/reviewer-fable-5.md` |
 | `claude-opus-5` (any context suffix) | `references/orchestrator-opus-5.md` | `references/reviewer-opus-5.md` |
 | `claude-opus-4-8` (any context suffix, e.g. `[1m]`) | `references/orchestrator-opus-4-8.md` | `references/reviewer-opus-4-8.md` |
 | anything else | none — model-agnostic rules only, and the skill says so | same |
 
-Opus 5 is the **default heavy executor and verifier**; Opus 4.8 is retained only
-for compiled-binary reverse-engineering (Opus 5's Fable-class cyber classifier
+Opus 5.5 (`claude-opus-5-5`) is the **default heavy executor, verifier, and
+open-research route**: an upgrade to Opus 5 on every evaluation in its summary
+table at a lower list price ($4 / $20 per million input/output tokens vs Opus
+5's $5 / $25), and it matches Fable 5.1 as the most injection-robust route
+through tool results (IPI 0.1% at k=1). Untrusted text must still be handed to
+it by path, not pasted: compliance with instructions planted in pasted text
+rises from 2.1% at default effort to 7.4% at max. Grounded in the Claude Opus
+5.5 system card (230 pp., September 2026).
+
+Opus 5 (`claude-opus-5`) is the **previous default heavy executor and
+verifier**, retained as the supervisor fallback; Opus 4.8 is retained only for
+compiled-binary reverse-engineering (Opus 5's Fable-class cyber classifier
 blocks it) and as the cyber-refusal fallback. Opus 5's effort rule **inverts**
 Opus 4.8's — higher effort makes it *worse* on long-horizon work (documented
 overthinking / self-verification loops), so its profile runs at `high`, not
@@ -60,7 +71,7 @@ of its measurements change the rules: as a judge it is the first model since
 Opus 4.7 with a measured self-recognition bias (0.1 points out of 10, lenient
 when told the author is Claude, p. 124) — the runner's judge prompt never
 names the executor and the bias is bounded by the contract's mechanical
-half, so `fable` still judges Opus 5, and the prompt rule is now a contract
+half, so Fable 5.1 (`claude-fable-5-1`) still judges Opus 5, and the prompt rule is now a contract
 test; on scoped coding its score peaks at `medium` because higher
 effort adds unrequested out-of-scope edits (p. 169), so every Fable 5.1
 executor prompt carries a scope line; and it is the most injection-robust
@@ -68,8 +79,9 @@ model to date (IPI 0.1% at k=1, p. 83), the executor for untrusted content
 whose compromise would reach secrets or actions. Its card also documents an
 orchestrator failure the profile guards against: distorting user intent to
 subagents, including a fabricated user authorization and a
-`bypassPermissions` launch (pp. 95–96). The short name `fable` now resolves
-to Fable 5.1; Fable 5's profiles and dossier sections stay for history.
+`bypassPermissions` launch (pp. 95–96). Plans address it as `claude-fable-5-1`
+(`fable` is only its Agent-tool alias); Fable 5's profiles and dossier sections
+stay for history.
 
 The profile carries everything that is genuinely model-specific: the session's
 reasoning-effort guidance, amendments to the numbered process steps, and the
@@ -116,6 +128,16 @@ Both skills also ship a dossier (`references/model-dossiers.md`,
 modes, and page references to the system cards — loaded on demand for contested
 calls.
 
+**Full model IDs.** Plans and runner args name full Claude IDs, never
+aliases: `claude-haiku-4-5-20251001`, `claude-sonnet-5`, `claude-opus-5-5`,
+`claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1`. Aliases are rejected
+by name because they re-point silently — on 2026-09-22 `opus` moved from
+Opus 5 to Opus 5.5, so every route still written as `opus` would have changed
+model without an edit. The one alias-only surface is the Claude Code Agent
+tool, whose schema accepts only aliases; that exception is covered by the
+probe-dated alias mapping in `multi-model`'s Model identifiers table, which is
+re-verified whenever a new Claude model ships.
+
 All skills always reply to the user in the language the user writes in.
 
 ## Hosts, models, and lifecycle limits
@@ -127,18 +149,22 @@ is deliberately narrower than a claim that every profile is a production route:
 
 | Host | Exact model IDs with a profile | Role / effort conclusion |
 |---|---|---|
-| Claude Code | `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
+| Claude Code | `claude-opus-5-5`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
 | Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. A separately approved Astra initial executor or final rung is uncalibrated and requires a fresh Astra supervisor. |
+| Codex | `gpt-6-sol` | Exact profiles and dossiers; default Codex executors per shared routing; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review and supervisor routes unsupported. |
+| Codex | `gpt-6-luna` | Exact profiles and dossiers; default Codex executors per shared routing; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review and supervisor routes unsupported. |
 | Either | any other model ID | The generic profile applies; missing identity/effort stay unknown, and no model-specific reliability claim follows. |
 
-When the host identifies the current session only as **GPT-6**, the skills load
-the Astra profile by compatibility and disclose that the exact ID is unknown.
-An exact ID takes priority; unsupported IDs or unresolved conflicts select
-generic. Quotes and available child-model lists are not session identity.
-This fallback needs no lifecycle hook and does not change models or effort.
+A bare family label such as **GPT-6** does not select any exact profile by
+itself: Codex CLI 0.155.1 gives Astra, Sol, and Luna the identical host
+instruction "You are Codex, an agent based on GPT-6" (verified 2026-09-23), so
+that phrase cannot distinguish between them and the skills load the generic
+profile instead. An exact ID takes priority; unsupported IDs or unresolved
+conflicts select generic. Quotes and available child-model lists are not
+session identity.
 
 The `gpt-5.6` alias normalizes only to `gpt-5.6-sol`; it is not a plan model
 ID. The dated record is
@@ -157,13 +183,18 @@ Luna, Terra, or Sol, with a separate Astra supervisor. A separately approved
 Astra initial executor or final rung requires `astra_executor_reason` and a
 fresh Astra supervisor; Sol exhaustion never promotes, resets, or raises effort
 automatically. A fresh Astra reviewer provides context separation, not a
-different-model check. The advisory drift hook selects Sol/high for an Astra
-orchestrator; that pairing also needs calibration. Other profiles retain their
+different-model check. The drift hook judges every GPT-6 orchestrator with
+`gpt-5.6-sol` at `high`, chosen by the 2026-09-23 calibration. Other profiles retain their
 existing rules. See [the role decision](docs/decisions/005-astra-active-seat.md)
 and the [Astra dossier](plugins/orchestration/skills/multi-model/references/gpt-6-astra-dossier.md).
 The [bounded Astra pilot](tests/eval/gpt-6-astra-pilot-2026-09-07.md) records
 offline checks, bounded live cases, preserved failures and scorer disagreement,
-and the remaining end-to-end calibration gaps.
+and the remaining end-to-end calibration gaps. Per
+[decision 006](docs/decisions/006-gpt-6-family.md), Codex routing for new
+plans moves to `gpt-6-sol`/`gpt-6-luna` executors with the fixed
+`gpt-6-astra`/`high` supervisor: GPT-5.6 IDs are no longer chosen for new
+plans, but an already-approved plan carrying GPT-5.6 fields still runs to
+completion.
 
 Both Codex manifests intentionally retain their `hooks` fields, including the
 orchestration advisory drift hook. Lifecycle behavior is host-dependent;
@@ -289,6 +320,13 @@ short summary plus one findings table tiered Blocker / Important / Medium / Low
 To verify the plugins are installed, run `/plugin` and look for
 `orchestration` and `code-review` with their skills listed.
 
+## Breaking in 3.0.0
+
+Claude aliases (`opus`, `sonnet`, `fable`, `haiku`) are no longer accepted in
+plans or runner args — name the full Claude ID instead (see Full model IDs
+above). The linter and the runner reject an alias by name rather than
+resolving it, because an alias can re-point to a different model silently.
+
 ## Migration from 1.x
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
@@ -355,16 +393,25 @@ plugins/
         SKILL.md
         references/
           wave-runner.workflow.mjs   # the escalation ladder as code
+          wave-launch.mjs            # generates the Claude wave launch script
+          claude-wave-adapter.md     # Claude host adapter: invoke the shipped runner
+          contract-amendment.md      # the contract amendment flow
+          verdicts.md                # verifier facts and supervisor verdicts
+          orchestrator-drift-hook.md # how the drift hook works and what it costs
           codex-wave-protocol.md     # native Codex action loop
           codex-wave-state.mjs       # deterministic Codex state and verifier
           supervisor-prompt.md
           orchestrator-{fable-5-1,fable-5,opus-5,opus-4-8}.md
           orchestrator-gpt-5-6-{sol,terra,luna}.md
           orchestrator-gpt-6-astra.md
+          orchestrator-gpt-6-sol.md
+          orchestrator-gpt-6-luna.md
           orchestrator-generic.md
           model-dossiers.md
           gpt-5-6-dossier.md
           gpt-6-astra-dossier.md
+          gpt-6-sol-dossier.md
+          gpt-6-luna-dossier.md
   code-review/
     .claude-plugin/plugin.json
     .codex-plugin/plugin.json
@@ -378,10 +425,14 @@ plugins/
           reviewer-{fable-5-1,fable-5,opus-5,opus-4-8}.md
           reviewer-gpt-5-6-{sol,terra,luna}.md
           reviewer-gpt-6-astra.md
+          reviewer-gpt-6-sol.md
+          reviewer-gpt-6-luna.md
           reviewer-generic.md
           reviewer-dossier.md
           gpt-5-6-reviewer-dossier.md
           gpt-6-astra-reviewer-dossier.md
+          gpt-6-sol-reviewer-dossier.md
+          gpt-6-luna-reviewer-dossier.md
 tests/                           # structure / contracts / behaviour / live eval
   run.sh                         # ./tests/run.sh [--live]
 ```

@@ -47,4 +47,25 @@ check "generic reviewer requires file or line evidence" "grep -qF 'file/line evi
 check "generic reviewer requires a concrete failure scenario" "grep -qF 'concrete failure scenario' '$GENERIC'"
 check "generic reviewer keeps suspicion non-blocking" "grep -qF 'Suspicion is never a blocker' '$GENERIC'"
 
+SOL6_DOSSIER="$REFS/gpt-6-sol-reviewer-dossier.md"
+LUNA6_DOSSIER="$REFS/gpt-6-luna-reviewer-dossier.md"
+
+for id in sol luna; do
+  f="$REFS/reviewer-gpt-6-$id.md"
+  d="$REFS/gpt-6-$id-reviewer-dossier.md"
+  check "gpt-6-$id reviewer profile exists" "[ -f '$f' ]"
+  check "gpt-6-$id reviewer dossier exists" "[ -f '$d' ]"
+  check "gpt-6-$id reviewer exact guard" "grep -qF 'gpt-6-$id' '$f'"
+  check "gpt-6-$id reviewer stops mismatched reader" "grep -qF 'stop using this profile' '$f'"
+  check "gpt-6-$id reviewer has Review method" "grep -q '^## Review method' '$f'"
+  check "gpt-6-$id reviewer has Not measured" "grep -q '^## Not measured' '$f'"
+  check "gpt-6-$id reviewer has Common mistakes" "grep -q '^## Common mistakes' '$f'"
+  check "gpt-6-$id reviewer requires diff code test evidence" \
+    "perl -0777 -ne 'exit(/diff.{0,120}?code.{0,120}?tests/is ? 0 : 1)' '$f'"
+  check "gpt-6-$id reviewer does not make suspicion a blocker" \
+    "perl -0777 -ne 'exit(/suspicion.{0,120}?blocker/is ? 0 : 1)' '$f'"
+  check "gpt-6-$id reviewer mentions uncalibrated" "grep -qi 'uncalibrated' '$f'"
+  check "gpt-6-$id reviewer dossier cites the PDF" "grep -qF 'gpt-6-astra.pdf' '$d'"
+done
+
 summary

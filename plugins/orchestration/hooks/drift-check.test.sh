@@ -265,8 +265,12 @@ setup_repo; write_plan active "branch: wave/alpha"; write_transcript "$CLAIM"
 git -C "$WORK/repo" branch wave/alpha
 ROUTING_CLAIM='Summary: 2 tasks done, verified, nothing remaining.'
 expect "Claude dry-run output is unchanged" "would-call" "$(run_hook "$ROUTING_CLAIM" claude-fable-5-1)"
-expect "Astra routes to an independent Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
+expect "Astra routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
   "$(run_hook 'Summary: all tasks done, nothing remaining.' gpt-6-astra)"
+expect "GPT-6 Sol routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
+  "$(run_hook "$ROUTING_CLAIM" gpt-6-sol)"
+expect "GPT-6 Luna routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
+  "$(run_hook "$ROUTING_CLAIM" gpt-6-luna)"
 expect "Sol routes to Terra-high" "would-call: host=codex judge=gpt-5.6-terra effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-5.6-sol)"
 expect "normalized Sol alias routes to Terra-high" "would-call: host=codex judge=gpt-5.6-terra effort=high" \
@@ -480,15 +484,16 @@ expect "Claude judge clean answer remains silent" "{}" \
 if [ -s "$WORK/claude.args" ] && python3 -c '
 import json,sys
 args=json.load(open(sys.argv[1]))
-ok=(len(args) == 9 and args[0] == "-p" and "Plan (" in args[1]
+ok=(len(args) == 11 and args[0] == "-p" and "Plan (" in args[1]
     and "Summary: all tasks done, nothing remaining." in args[1]
     and args[2:] == ["--model", "claude-haiku-4-5-20251001",
-                    "--permission-mode", "plan", "--permission-prompts", "none",
+                    "--permission-mode", "dontAsk", "--tools", "",
+                    "--permission-prompts", "none",
                     "--no-session-persistence"]
     and "bypassPermissions" not in args)
 sys.exit(0 if ok else 1)
 ' "$WORK/claude.args"; then
-  echo "PASS  Claude judge keeps complete-prompt safe plan-mode invocation"
+  echo "PASS  Claude judge keeps complete-prompt safe no-tools invocation"
 else
   echo "FAIL  Claude judge invocation was incomplete or unsafe"; fail=1
 fi

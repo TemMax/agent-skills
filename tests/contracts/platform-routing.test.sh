@@ -4,6 +4,8 @@ cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
 MM=plugins/orchestration/skills/multi-model/SKILL.md
+CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
+CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
 SP=plugins/orchestration/skills/super-plan/SKILL.md
 SH=plugins/orchestration/skills/ship/SKILL.md
 CR=plugins/code-review/skills/critical-review/SKILL.md
@@ -46,6 +48,10 @@ section "orchestration skills map every supported GPT id and generic fallback"
 for skill in "$SP" "$SH"; do
   check "$skill maps Astra" \
     "grep -qF '| \`gpt-6-astra\` | \`../multi-model/references/orchestrator-gpt-6-astra.md\` |' '$skill'"
+  check "$skill maps GPT-6 Sol" \
+    "grep -qF '| \`gpt-6-sol\` | \`../multi-model/references/orchestrator-gpt-6-sol.md\` |' '$skill'"
+  check "$skill maps GPT-6 Luna" \
+    "grep -qF '| \`gpt-6-luna\` | \`../multi-model/references/orchestrator-gpt-6-luna.md\` |' '$skill'"
   check "$skill maps Sol" \
     "grep -qF '| \`gpt-5.6-sol\` | \`../multi-model/references/orchestrator-gpt-5-6-sol.md\` |' '$skill'"
   check "$skill maps Terra" \
@@ -60,6 +66,10 @@ check "multi-model maps Sol" \
   "grep -qF '| \`gpt-5.6-sol\` | \`references/orchestrator-gpt-5-6-sol.md\` |' '$MM'"
 check "multi-model maps Astra" \
   "grep -qF '| \`gpt-6-astra\` | \`references/orchestrator-gpt-6-astra.md\` |' '$MM'"
+check "multi-model maps GPT-6 Sol" \
+  "grep -qF '| \`gpt-6-sol\` | \`references/orchestrator-gpt-6-sol.md\` |' '$MM'"
+check "multi-model maps GPT-6 Luna" \
+  "grep -qF '| \`gpt-6-luna\` | \`references/orchestrator-gpt-6-luna.md\` |' '$MM'"
 check "multi-model maps Terra" \
   "grep -qF '| \`gpt-5.6-terra\` | \`references/orchestrator-gpt-5-6-terra.md\` |' '$MM'"
 check "multi-model maps Luna" \
@@ -73,6 +83,10 @@ check "critical-review maps Sol" \
   "grep -qF '| \`gpt-5.6-sol\` | \`references/reviewer-gpt-5-6-sol.md\` |' '$CR'"
 check "critical-review maps Astra" \
   "grep -qF '| \`gpt-6-astra\` | \`references/reviewer-gpt-6-astra.md\` |' '$CR'"
+check "critical-review maps GPT-6 Sol" \
+  "grep -qF '| \`gpt-6-sol\` | \`references/reviewer-gpt-6-sol.md\` |' '$CR'"
+check "critical-review maps GPT-6 Luna" \
+  "grep -qF '| \`gpt-6-luna\` | \`references/reviewer-gpt-6-luna.md\` |' '$CR'"
 check "Astra review fixes use the shared routing protocol" \
   "grep -qF 'shared Post-Review Fix Protocol' plugins/code-review/skills/critical-review/references/reviewer-gpt-6-astra.md"
 check "critical-review maps Terra" \
@@ -91,12 +105,21 @@ check "super-plan keeps exact headless heading" \
 check "super-plan no longer pins a Claude-only question tool" \
   "! grep -q 'AskUserQuestion' '$SP'"
 
+section "the retired bare-GPT-6 compatibility sentence is gone everywhere"
+
+for skill in "$MM" "$SP" "$SH" "$CR"; do
+  check "$skill no longer carries the old Astra-via-host-GPT-6 sentence" \
+    "! grep -qF 'Astra profile via host GPT-6 identification' '$skill'"
+done
+
 section "super-plan emits provider-pure wave plans from the active profile"
 
-check "plan-format table retains Claude plan identifiers" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Claude | \`haiku\`, \`sonnet\`, \`opus\`, \`fable\`, \`claude-opus-4-8\` |'"
+check "plan-format table names every full Claude plan identifier" \
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Claude | \`claude-haiku-4-5-20251001\`, \`claude-sonnet-5\`, \`claude-opus-5-5\`, \`claude-opus-5\`, \`claude-opus-4-8\`, \`claude-fable-5-1\` |'"
+check "example wave-plan block uses a full Claude supervisor id" \
+  "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' '$SP' | grep -qF '\"model\": \"claude-fable-5-1\"'"
 check "plan-format table names every exact Codex plan identifier" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Codex | \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Codex | \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
 check "the bare GPT alias is never a plan identifier" \
   "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '\`gpt-5.6\` is never a plan id'"
 check "the active profile owns all planning routes" \
@@ -117,7 +140,7 @@ CS=plugins/orchestration/skills/multi-model/references/codex-wave-state.mjs
 section "multi-model selects the native host adapter"
 
 check "Claude adapter remains the shipped Workflow runner" \
-  "grep -qF 'references/wave-runner.workflow.mjs' '$MM'"
+  "grep -qF 'references/wave-runner.workflow.mjs' '$CWA'"
 check "GPT adapter names the Codex protocol" \
   "grep -qF 'references/codex-wave-protocol.md' '$MM'"
 check "Codex spawns name exact model and effort" \
@@ -158,9 +181,9 @@ check "omitted publication defaults exactly to normal push in its boundary" \
 check "local publication is explicit critical-review-only and never inferred" \
   "sed -n '/^### Invocation publication contract$/,/^- Claude-only wave:/p' '$MM' | tr '\\n' ' ' | tr -s ' ' | grep -qF 'Only \`publication: local\` must be explicit; only the enclosing critical-review post-review fix flow may request it; it is never inferred from host or model.'"
 check "Claude local completion integrates reviews and returns without push" \
-  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' '$MM' | tr '\\n' ' ' | tr -s ' ' | grep -qF 'With \`publication: local\`, merge branches in plan order only into the local feature branch, run the shared full-wave review, return the resulting local feature-branch commit(s), task branches, and verdict evidence, and do no push.'"
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' '$CWA' | tr '\\n' ' ' | tr -s ' ' | grep -qF 'With \`publication: local\`, merge branches in plan order only into the local feature branch, run the shared full-wave review, return the resulting local feature-branch commit(s), task branches, and verdict evidence, and do no push.'"
 check "Claude normal completion still pushes" \
-  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' '$MM' | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication: push\` merges branches in plan order, runs the shared full-wave review, and pushes exactly as normal.'"
+  "sed -n '/^Claude adapter completion /,/^4[.] Act on the returned statuses/p' '$CWA' | tr '\\n' ' ' | tr -s ' ' | grep -qF '\`publication: push\` merges branches in plan order, runs the shared full-wave review, and pushes exactly as normal.'"
 check "Codex local completion returns reviewed local artifacts without push" \
   "sed -n '/^9[.] On \`merge-ready\`/,/^The action loop/p' '$CP' | tr '\\n' ' ' | tr -s ' ' | grep -qF 'In \`publication: local\` mode, merge only into the local feature branch, keep the shared full-wave review, return its resulting local commit(s), task branch names, helper summary, and verdict evidence to the caller, and do no push.'"
 check "Codex local completion never advances from an unpushed base" \

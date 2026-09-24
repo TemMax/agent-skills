@@ -54,6 +54,86 @@ tempts same-wave file overlap must still produce a lint-clean plan, and a
 request hiding a product fork must surface it under "Assumptions (would
 ask)" rather than resolve it silently.
 
+The skill-navigation tier (`tests/eval/skill-navigation.sh`) asks whether an
+agent applying the multi-model skill takes the right action at five decision
+points — launching a Claude-only wave, a contract amendment that widens
+`files_allowed` and one that would delete a `must_run` entry, a failed verdict
+with `pasteReproduced: false`, and drift advice from the Stop hook — and,
+where the rule lives in a reference file, whether the agent actually opened
+it (read from the `Read` tool calls in the `stream-json` events; a reference
+file absent from the layout under test prints `SKIP read-check` and passes).
+Answers are graded as JSON fields, `k/n` over `EVAL_REPEAT`. It defaults to
+`EVAL_MODEL=claude-opus-5-5` and this checkout's skill; point it at another
+layout with `SKILL_DIR=/path/to/plugins/orchestration/skills/multi-model bash
+tests/eval/skill-navigation.sh`. Its parser and read-check are tested offline
+by `tests/eval/skill-navigation.test.sh`. The tier also runs on Codex with
+`EVAL_PROVIDER=codex EVAL_MODEL=<gpt-model> [EVAL_EFFORT=medium]`, recovering
+reads from the shell commands inside `codex exec --json` events since Codex
+has no Read tool. In Codex mode N1 is replaced by N1c (a Codex-only wave,
+read-check `references/codex-wave-protocol.md`), while N2-N5 speak of the
+wave's state helper instead of the wave runner.
+
+**2026-09-23 — multi-model split, measured.** `SKILL.md` went from 925 to 622
+lines (58,142 to 41,464 bytes) by moving four conditional sections verbatim
+into `references/claude-wave-adapter.md`, `contract-amendment.md`,
+`verdicts.md` and `orchestrator-drift-hook.md`. The skill-navigation tier
+(x3) before the split: Opus 5.5 30/30, Sonnet 5 28/30 — both misses were runs
+that did not open `SKILL.md` at all, and their answers were still correct.
+After the split: Opus 5.5 30/30 with every reference opened at its trigger
+3/3, and Sonnet 5 29/30 with every mandatory reference opened 3/3 and N5
+(drift advice from the Stop hook) answered correctly without opening
+`orchestrator-drift-hook.md` — hence that probe's read-check is now optional
+rather than pass/fail. The full live suite (`EVAL_REPEAT=3`) was green on the
+default models and on Opus 5.5 after the split.
+
+**2026-09-23 — the same split, measured on Codex.** The tier in Codex mode
+(`EVAL_PROVIDER=codex`, `EVAL_EFFORT=medium`, x3) against the layout before
+and after the split. Answers after the split were correct on every probe for
+`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` and `gpt-6-astra`; before the
+split, Luna answered N3 (a contract fix that deletes a `must_run`) with
+`ask_user = true` in only 2/3 runs (1/3 in an earlier run). Totals, before →
+after: Sol 31/31 → 31/31, Terra 31/31 → 30/31, Luna 30/31 → 31/31, Astra
+31/31 → 31/31. Terra's one miss after the split is a read-check, not an
+answer: in one N4 run it found the rule with `rg -C 8` over the whole skill
+directory instead of opening `verdicts.md`, and answered correctly 3/3. An
+earlier run also showed one Luna N2 run that answered correctly without
+opening `contract-amendment.md`. Reads are recovered from shell commands, so
+`nav_parse_codex` understands `cd`, globs, shell variables and `for` loops;
+before it did, two of the first run's "misses" were reads it failed to see.
+
+## GPT live tiers (parallel)
+
+`tests/eval/gpt-5-6-matrix.sh` runs every tier x model strictly sequentially,
+which is right for its deep per-cell evidence capture but too slow as a
+routine live check. `tests/eval/gpt-live.sh` runs the same live tiers as a
+parallel driver — each (model, tier) pair is one background job, bounded by
+`--jobs` — so a full default run finishes in minutes, not hours:
+
+```sh
+bash tests/eval/gpt-live.sh [--models "gpt-6-sol gpt-6-luna"]
+  [--tiers "supervisor drift super-plan skill-navigation safety profile-routing"]
+  [--jobs 6] [--effort medium] [--repeat 1] [--results DIR]
+```
+
+Those are its exact defaults. It is not part of `tests/run.sh --live` — that
+entry point explicitly skips `gpt-live.sh` (and `gpt-5-6-matrix.sh`) and
+cannot silently expand into a live run. Like the matrix, `--results` is part
+of the evidence contract, not a cache: a run accepts a missing or empty
+directory and refuses any nonempty results path (exit 73), so a results
+directory is never overwritten. It writes `<results>/summary.tsv` and a
+per-job log at `<results>/<model>/<tier>.log`. Review current model prices
+before authorizing a run; the target is a full default run (2 models x 6
+tiers) finishing in minutes at a few dollars, not the matrix's hours.
+
+**2026-09-23 — GPT-6 Sol/Luna calibration.** The dated record is
+[`tests/eval/gpt-6-results-2026-09-23.md`](eval/gpt-6-results-2026-09-23.md):
+supervisor, drift, super-plan, and skill-navigation for both models via the
+parallel driver (`tests/eval/gpt-live.sh --jobs 8`) finished in 277 s for 12
+working jobs; the remaining tiers (safety, profile-routing, critical-review,
+wave) were run by hand against a per-tier `EVAL_RESULTS_DIR` in 879 s.
+Failures remain failures; no GPT-6 production review or supervisor route
+follows from this record.
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
@@ -236,9 +316,26 @@ The simulator's own fidelity is the tier's trust anchor, so it has a
 self-test, and the Workflow-boundary rules (single export, literal meta, no
 Date) are pinned by static checks that each cost a launch rejection once.
 
+**wave-launch (launcher)** — `tests/wave-launch.test.sh` runs the shipped
+`wave-launch.mjs` generator on the clean plan fixture and asserts the
+generated script is the shipped runner byte-for-byte plus exactly one
+`const WAVE_ARGS` line after the `meta` literal, that it runs in the
+simulator from `WAVE_ARGS` alone with `args` undefined, and that each refused
+input (a plan that is not lint-clean, a missing wave, a malformed base sha, a
+relative `--repo`) exits non-zero with its reason and writes nothing. It
+backs the SKILL's launch step: the host's Workflow tool rejects a
+plugin-cache `scriptPath`, so the runner is launched from a generated copy
+inside the repository. Requires `node`.
+
 **plan linter** — `tests/plan-lint.test.sh` mutates the canonical clean plan
 fixture one defect at a time and asserts the shipped `plan-lint.mjs` names
-each error class; warnings are asserted non-fatal. Requires `node`.
+each error class; warnings are asserted non-fatal. Requires `node`. Both the
+linter and the runner accept Claude models by full ID only —
+`claude-haiku-4-5-20251001`, `claude-sonnet-5`, `claude-opus-5-5`,
+`claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` — and reject the aliases
+`haiku`, `sonnet`, `opus` and `fable` by name, because an alias re-points
+silently when a model ships (probe wf_e635018e-8f3, 2026-09-22, in
+`tests/eval/wave-insession.md`).
 
 ## Repeating the guards
 
@@ -279,14 +376,22 @@ Worth stating plainly, because a green run is easy to over-read.
   lint-clean, the fork surfaced). Single runs — "can", not a rate — except
   the two false-positive guards, which hold 5/5 (see Repeating the guards). Its
   first live use as a wave supervisor is recorded in
-  `tests/eval/wave-insession.md`.
+  `tests/eval/wave-insession.md`. Measured 2026-09-23 with
+  `EVAL_REPEAT=5 ./tests/run.sh --live`: the default models (Haiku 4.5 for
+  supervisor/drift/wave, Sonnet 5 for super-plan) passed supervisor 9/9
+  (F3 5/5), drift 3/3 (D3 5/5), super-plan 6/6, and wave 3/3 (a real verdict
+  over the `Workflow` boundary, not the skip branch); Opus 5.5
+  (`EVAL_MODEL=claude-opus-5-5`) matched all four: supervisor 9/9 (F3 5/5),
+  drift 3/3 (D3 5/5), super-plan 6/6, wave 3/3. The Codex/GPT tiers
+  (critical-review GPT matrix, profile-routing, safety, ship GPT probe) are
+  Codex-provider-only and were not run.
 - **The super-plan floor is Sonnet, not Haiku — measured, not assumed, and
   still not perfect.** Measured 2026-08-18 across repeated live runs of
   `tests/eval/super-plan.sh`: Haiku 4.5 did not reliably follow the skill's
   plan format — observed failures included prose printed before the plan
   content despite an explicit instruction not to, `branch` values that did
   not match `wave/<id>`, a `ladder` array holding branch names instead of
-  short model names, and a same-wave file overlap that survived to lint — on
+  model names (short names then; plans now take full IDs only), and a same-wave file overlap that survived to lint — on
   some runs, while other runs were fully clean. Sonnet 5 was markedly more
   reliable (clean on most runs, including every run of the overlap-temptation
   fixture) but not flawless either: one run out of several produced a P2 plan
@@ -294,6 +399,17 @@ Worth stating plainly, because a green run is easy to over-read.
   here — a run proves a case *can* pass, not that it reliably does.
   `EVAL_MODEL=claude-haiku-4-5-20251001` still runs it on Haiku for anyone
   who wants to see the weaker model's failure modes firsthand.
+- **Harness modes changed 2026-09-22, after two measured defects.** The
+  Claude `read-only` adapter no longer uses plan mode: plan mode injects the
+  host's own plan-mode system prompt, and models discarded the harness's EVAL
+  MODE instruction as an injection — Haiku 4.5 F3 went 0/5 in plan mode and
+  5/5 with `--permission-mode dontAsk`, an allowlist of `Read,Glob,Grep,Bash`
+  and `Edit,Write,NotebookEdit` disallowed. "read-only" there means no
+  file-editing tools; Bash stays because the supervisor fixture must run
+  commands. The super-plan tier now runs `workspace-write` so the planner can
+  apply the skill's Lint step for real on a draft in the fixture's temp dir;
+  the old "Write NOTHING to disk" instruction made that step impossible.
+  Measured the same day: Sonnet 5 3/3 runs, 18/18 checks.
 - **ship's live fixture has no external side effects.** It uses a disposable
   repository, a local bare remote, and the self-testing fake `gh`. The success
   case checks the ordered handoffs through fake PR creation; the failure case

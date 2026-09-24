@@ -242,6 +242,16 @@ test('C2 selected Claude wave is host-mismatch and creates nothing', () => {
   assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
 })
 
+test('C2b selected wave with a full Claude ID is host-mismatch and creates nothing', () => {
+  const env = init({ invalid: true, planText: (text) => text.replace(
+    '"model": "gpt-5.6-luna"', '"model": "claude-sonnet-5"') })
+  assert.notEqual(env.result.status, 0)
+  assert.equal(env.result.json.status, 'invalid')
+  assert.match(env.result.json.errors.join('; '), /host-mismatch/)
+  assert.equal(existsSync(join(env.repo, '.worktrees')), false)
+  assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
+})
+
 test('C3 next preserves approved task prose and all six mandatory prompt blocks', () => {
   const env = init()
   const action = next(env.statePath)
@@ -260,6 +270,32 @@ test('C3 next preserves approved task prose and all six mandatory prompt blocks'
   }
   for (const key of ['files_allowed', 'files_forbidden', 'must_run',
     'forbidden_moves', 'report_must_answer']) assert.match(action.prompt, new RegExp(key))
+})
+
+test('C3b GPT-6 wave dispatches gpt-6-luna executor then gpt-6-astra supervisor', () => {
+  const env = init({ planText: (text) => text
+    .replace('"model": "gpt-5.6-terra", "effort": "high"', '"model": "gpt-6-astra", "effort": "high"')
+    .replace('"model": "gpt-5.6-luna", "effort": "medium"', '"model": "gpt-6-luna", "effort": "medium"')
+    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-sol"]') })
+  const executorAction = next(env.statePath)
+  assert.equal(executorAction.action, 'spawn-executor')
+  assert.equal(executorAction.model, 'gpt-6-luna')
+  assert.equal(executorAction.effort, 'medium')
+  prepareAttempt(env)
+  const supervisorAction = next(env.statePath)
+  assert.equal(supervisorAction.action, 'spawn-supervisor')
+  assert.equal(supervisorAction.model, 'gpt-6-astra')
+  assert.equal(supervisorAction.effort, 'high')
+})
+
+test('C3c bare gpt-6 is rejected at init', () => {
+  const env = init({ invalid: true, planText: (text) => text.replace(
+    '"model": "gpt-5.6-luna"', '"model": "gpt-6"') })
+  assert.notEqual(env.result.status, 0)
+  assert.equal(env.result.json.status, 'invalid')
+  assert.match(env.result.json.errors.join('; '), /executor\.model/)
+  assert.equal(existsSync(join(env.repo, '.worktrees')), false)
+  assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
 })
 
 test('C4 record-executor stores only report text and advances to verify', () => {
@@ -782,6 +818,7 @@ test('C18b every safety-relevant stored field is validated before next', () => {
     ['wave', (s) => { s.wave = 0 }],
     ['base', (s) => { s.base = 'abc' }],
     ['supervisor.model', (s) => { s.supervisor.model = 'sonnet' }],
+    ['supervisor.model full Claude ID', (s) => { s.supervisor.model = 'claude-sonnet-5' }],
     ['supervisor.effort', (s) => { s.supervisor.effort = 'extreme' }],
     ['tasks', (s) => { s.tasks = {} }],
     ['task id', (s) => { s.tasks.Bad = s.tasks['divide-guard']; delete s.tasks['divide-guard'] }],
@@ -1303,8 +1340,11 @@ test('C21j plan linter enforces the same Astra executor opt-in contract', () => 
       .replace('"model": "gpt-6-astra", "effort": "high"',
         '"model": "gpt-6-astra"'), 1, /supervisor\.effort/],
     ['mixed providers', withAstraSupervisor(original)
-      .replace('"model": "gpt-5.6-luna"', '"model": "sonnet"'),
+      .replace('"model": "gpt-5.6-luna"', '"model": "claude-sonnet-5"'),
     1, /mixes providers/],
+    ['Claude alias in a Codex plan', withAstraSupervisor(original)
+      .replace('"model": "gpt-5.6-luna"', '"model": "sonnet"'),
+    1, /is an alias/],
   ]
   for (const [label, markdown, status, message] of cases) {
     writeFileSync(env.plan, markdown)
