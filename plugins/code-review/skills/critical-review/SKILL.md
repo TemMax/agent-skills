@@ -70,8 +70,11 @@ review guidance is unchanged. Full counts and limitations:
 
 ### GPT-6 Sol and Luna calibration — 2026-09-23 UTC
 
-No GPT-6 Sol or Luna production consequential-review or supervisor route is
-supported yet. Re-measured review-guard counts after the stage B harness
+No GPT-6 review route is supported yet. The one supervisor route that
+exists is multi-model's standard `gpt-6-sol` supervisor of all-`gpt-6-luna`
+waves — a policy decision, not a measured pass, and uncalibrated in
+production. Never claim a supported GPT-6 review route. Re-measured
+review-guard counts after the stage B harness
 fixes: Sol clean 7/8, planted 8/8, PR gate 2/2; Luna clean 0/3, planted 3/3,
 PR gate 2/2. The scorer was fixed and the review re-measured; Sol missed the
 strict 5/5 clean guard by one format failure, so the route stays
@@ -260,9 +263,12 @@ section by design.
    review was still running, which forced a second fix approval and a second
    fix plan.
 
-Never open, print, copy or transmit credentials, tokens or configuration
-files that hold them (for example `~/.codex`, `~/.claude`, app configs with
-Authorization headers) while reviewing; report their presence by name only.
+Review the files the diff's scope actually touches, including a config file
+the diff adds or changes — but never reproduce a secret value found there:
+cite `file:line` and the key name only. Never open credential stores or
+configuration files outside the review's scope (for example `~/.codex`,
+`~/.claude`) even when they might hold context, and never print, copy or
+transmit a credential or token value from any file, in or out of scope.
 Measured cause: a reviewer printed an Authorization value from a local
 config in the same run.
 
@@ -317,7 +323,11 @@ is read-only, as Review Method item 6 requires.
 2. **Route every approved fix; the coordinator never authors a fix**, including
    prose. Each route names an explicit available host, model, supported effort,
    bounded paths and contract, with rationale from multi-model's shared routing
-   rules — never severity, coordinator identity, or inherited child defaults.
+   rules — never severity, coordinator identity, or inherited child defaults. A
+   fix wave follows the plan format (`ci`, `e2e`), and a premium model (Fable
+   5.1 / GPT-6 Astra) in any role of that wave needs `approvals.premium`
+   recorded from the user's choice at this fix gate — the approval to fix is
+   not an approval to spend premium, and premium use is never inferred from it.
    If any required skill, host, model, or effort is unavailable, stop and report
    that bounded route; never fall back to self-implementation. Behavior changes,
    including instruction/config text that changes actual behavior, use
