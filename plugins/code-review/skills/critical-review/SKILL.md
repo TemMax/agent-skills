@@ -82,6 +82,11 @@ strict 5/5 clean guard by one format failure, so the route stays
 `unsupported`, exactly as for GPT-5.6. Full counts and limitations:
 `tests/eval/gpt-6-results-2026-09-23.md`.
 
+When a ship plan records `review.model: gpt-6-sol` — the user's explicit
+Gate 1 choice — the review runs. Its summary must state that the GPT-6 Sol
+review route is uncalibrated (strict gate clean 7/8, planted 8/8). This is
+not a supported route: never claim a supported GPT-6 review route.
+
 ## Overview
 
 This skill drives a critical, evidence-based review of either uncommitted
