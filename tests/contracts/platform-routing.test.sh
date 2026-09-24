@@ -335,4 +335,18 @@ check "wave plan artifact example nests a Sonnet task with an empty ladder under
 check "wave plan artifact points to super-plan's Plan Format for the full schema" \
   "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF 'super-plan'\''s Plan Format'"
 
+section "contract amendment recognizes blocked-on-sibling as a third, no-question kind"
+
+check "contract-amendment names three kinds of amendment" \
+  "grep -qF 'Three kinds of amendment' '$CAM'"
+check "contract-amendment states the blocked-on-sibling amendment kind" \
+  "tr '\n' ' ' < '$CAM' | tr -s ' ' | grep -qF 'move the task into a wave after its producer merges (or merge it into the producer'\''s task); never widen \`files_allowed\` into a sibling'\''s files. No user question is needed: no check is removed.'"
+
+section "multi-model Task Prompt Template carries blocked-on-sibling and its done-definition exception"
+
+check "Task Prompt Template dead-end protocol names blocked-on-sibling with the executor-prompt wording" \
+  "sed -n '/^3\. \*\*Dead-end protocol:\*\*/,/^4\. \*\*Prohibitions:\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'If your task needs an artifact that another task of this wave is producing (a file, fixture, function or behavior missing from your worktree), stop and report \`blocked-on-sibling: <what is missing and which task makes it>\`; do not invent it and do not commit a placeholder.'"
+check "Task Prompt Template definition of done exempts a dead-end-protocol stop" \
+  "sed -n '/^5\. \*\*Definition of done/,/^6\. \*\*Contract:\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'unless the executor stopped under the dead-end protocol'"
+
 summary

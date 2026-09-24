@@ -31,8 +31,8 @@ supervisors in that run said as much before it happened.
 Record the amendment in the wave plan with its reason — before and after — so the
 change is on the record rather than in your head.
 
-Two kinds of amendment, and the line between them is decidable by diffing the old
-contract against the new:
+Three kinds of amendment, and the line between them is decidable by diffing the
+old contract against the new:
 
 - **Widening `files_allowed`, correcting a wrong path, fixing a broken command** —
   make the change and carry on. None of these can hide a defect: the check still
@@ -42,6 +42,9 @@ contract against the new:
   naming exactly what stops being checked. This is the only edit that can make an
   inconvenient check disappear, and the agent that benefits from it is the one
   proposing it.
+- **`blocked-on-sibling`** — move the task into a wave after its producer
+  merges (or merge it into the producer's task); never widen `files_allowed`
+  into a sibling's files. No user question is needed: no check is removed.
 
 The user edits nothing. You detect, you draft, you apply. What goes to them is a
 decision — whether they accept losing that check — not a file to open. Asking
