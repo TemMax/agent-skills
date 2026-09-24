@@ -253,6 +253,18 @@ section by design.
    a hunch — either verify it into a finding or drop it.
 6. The review is read-only: do not mutate the working tree, index, HEAD, or
    branch state; no fixes unless the user asks after seeing the review.
+7. When several reviews run for one request — several PRs, or several
+   reviewers in parallel — wait until every one has finished, then present
+   all findings once, in one table per scope, before asking to fix anything.
+   Measured cause: in a 2026-09-22 run, findings were shown while a second
+   review was still running, which forced a second fix approval and a second
+   fix plan.
+
+Never open, print, copy or transmit credentials, tokens or configuration
+files that hold them (for example `~/.codex`, `~/.claude`, app configs with
+Authorization headers) while reviewing; report their presence by name only.
+Measured cause: a reviewer printed an Authorization value from a local
+config in the same run.
 
 ## Output Format
 
