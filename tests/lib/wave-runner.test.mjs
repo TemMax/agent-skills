@@ -258,6 +258,27 @@ test('S9g the same task with an explicit empty ladder opts out of the default an
   assert.ok(calls.some((c) => c.opts.model === 'claude-opus-5-5'))
 })
 
+test('S9h a non-iterable ladder (not an array) fails closed with the ladder-type error, not a crash', async () => {
+  {
+    const { result, calls } = await runWorkflow(SCRIPT, {
+      args: waveArgs({ tasks: [task({ ladder: 5 })] }),
+      agentStub: () => { throw new Error('no agent may be called') },
+    })
+    assert.equal(result.status, 'invalid-args')
+    assert.match(result.errors.join('; '), /ladder/)
+    assert.equal(calls.length, 0)
+  }
+  {
+    const { result, calls } = await runWorkflow(SCRIPT, {
+      args: waveArgs({ tasks: [task({ ladder: {} })] }),
+      agentStub: () => { throw new Error('no agent may be called') },
+    })
+    assert.equal(result.status, 'invalid-args')
+    assert.match(result.errors.join('; '), /ladder/)
+    assert.equal(calls.length, 0)
+  }
+})
+
 // ---------- S10: full IDs only, aliases rejected by name ----------
 
 const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']

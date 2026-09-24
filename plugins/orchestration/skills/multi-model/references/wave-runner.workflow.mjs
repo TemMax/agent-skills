@@ -141,7 +141,7 @@ if (!Array.isArray(wave.tasks) || wave.tasks.length === 0) {
       }
     }
     if (wave.supervisor && t.executor
-      && [t.executor.model, ...(t.ladder ?? defaultLadder(t.executor.model))].includes(wave.supervisor.model)) {
+      && [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : t.ladder === undefined ? defaultLadder(t.executor.model) : [])].includes(wave.supervisor.model)) {
       errors.push(at + ': supervisor model also appears as executor or ladder rung')
     }
   })
