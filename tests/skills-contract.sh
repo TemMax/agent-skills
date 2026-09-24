@@ -252,8 +252,12 @@ check "a changed wave shape re-asks the supervisor choice before Gate 2" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 're-ask the user before Gate 2'"
 check "a Codex Sol executor forces the Astra supervisor" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A Codex wave with a \`gpt-6-sol\` executor has no standard supervisor'"
-check "ship's final Codex review is disclosed at Gate 1 as a reviewer exemption" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'disclose that reviewer exemption and its cost at Gate 1'"
+check "super-plan records ship's Stage 3 review child in the plan's review key, Astra default with a Sol cost line" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'by default, recorded in \`approvals.premium\`, or, when the user picks it to save that cost, \`gpt-6-sol\` — uncalibrated as a reviewer — disclosed at Gate 1 too.'"
+check "super-plan documents the optional review key next to ci/e2e/approvals" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'optional, only on Codex plans that ship carry it' && grep -qF '\"review\"' $SP"
+check "super-plan says the linter also checks the review key" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the optional \`review\` key'"
 check "the supervisor-vs-executor example names Opus 5 and Fable 5.1" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'takes Opus 5 (\`claude-opus-5\`, standard) or Fable 5.1 (premium, with \`approvals.premium\`)'"
 check "an omitted ladder under an Opus 5.5 supervisor is spelled out as empty" \
