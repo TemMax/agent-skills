@@ -332,29 +332,43 @@ short summary plus one findings table tiered Blocker / Important / Medium / Low
 To verify the plugins are installed, run `/plugin` and look for
 `orchestration` and `code-review` with their skills listed.
 
-## 3.2.0
+## 4.0.0
 
-Non-breaking. The plan format gains three required top-level keys the shipped
-linter now enforces: `ci` (the repository's own CI test entrypoints and
-workflow files, copied verbatim from `.github/workflows/*.yml`, or
-`"none: <reason>"`), `e2e` (the id of the task that runs the feature's real
-entrypoints end to end, or `"not-applicable: <reason>"` for a non-pipeline
-feature), and `approvals.premium` — required whenever `claude-fable-5-1` or
-`gpt-6-astra` appears in any role (supervisor, executor, or ladder rung),
-recording an explicit Gate 1 choice rather than a silent default. Codex plans
-gain a standard supervisor option for Luna-only waves: `gpt-6-sol` supervises
-a wave whose executors and ladder rungs are all `gpt-6-luna`. `plan-lint.mjs`
-now flags retired routes as warnings, not silently: GPT-5.6 (Sol/Terra/Luna)
-in any role, Opus 5 as an executor, and Opus 4.8 outside compiled-binary work.
-Planning adds a seam audit between Tasks and Lint — a cheap read-only agent
-checks every contract against the code before lint runs — and Gate 2 now
-shows an estimated wall-time and cost range alongside the lint-clean plan.
-`critical-review` adds one findings gate: when several reviews run for one
-request, it waits for all of them and presents every finding once, in one
-table per scope, before any fix is asked for. It also states a hard secrets
-prohibition: never open, print, copy, or transmit credentials, tokens, or
-configuration files that hold them while reviewing; report their presence by
-name only.
+Breaking: plans that lack the new required `ci` and `e2e` keys, or that use
+`claude-fable-5-1` or `gpt-6-astra` in any role without a recorded
+`approvals.premium`, now fail `plan-lint.mjs`; both launchers lint plans
+before running them (`wave-launch.mjs` for Claude waves, and the Codex
+runner's derived per-task plans), so a previously approved plan stops
+launching until it is migrated. To migrate, add next to `"waves"` in the
+plan's `` ```json wave-plan ``` `` block: `"ci"` (`{"commands": [...],
+"workflows": [...]}`, copied verbatim from the repository's own CI
+entrypoints and `.github/workflows/*.yml`, or `"none: <reason>"`), `"e2e"`
+(`{"task": "<id>"}` naming the task that runs the feature's real entrypoints
+end to end, or `"not-applicable: <reason>"` for a non-pipeline feature), and,
+wherever a premium model is used, `"approvals": {"premium": {"models":
+[...], "reason": "...", "approved_by": "...", "date": "YYYY-MM-DD"}}`.
+
+The plan format still gains the three required top-level keys above the
+shipped linter now enforces: `ci`, `e2e`, and `approvals.premium` — required
+whenever `claude-fable-5-1` or `gpt-6-astra` appears in any role (supervisor,
+executor, or ladder rung), recording an explicit Gate 1 choice rather than a
+silent default. Codex plans gain a standard supervisor option for Luna-only
+waves: `gpt-6-sol` supervises a wave whose executors and ladder rungs are all
+`gpt-6-luna`. `plan-lint.mjs` now flags retired routes as warnings, not
+silently: GPT-5.6 (Sol/Terra/Luna) in any role, Opus 5 as an executor, and
+Opus 4.8 outside compiled-binary work. Planning adds a seam audit between
+Tasks and Lint — a cheap read-only agent checks every contract against the
+code before lint runs — and Gate 2 now shows an estimated wall-time and cost
+range alongside the lint-clean plan. `critical-review` adds one findings
+gate: when several reviews run for one request, it waits for all of them and
+presents every finding once, in one table per scope, before any fix is asked
+for. It also states a hard secrets prohibition: never open, print, copy, or
+transmit credentials, tokens, or configuration files that hold them while
+reviewing; report their presence by name only. The executor and supervisor
+prompts (the Claude and Codex runners, and multi-model's task template) carry
+that same secrets prohibition. The trusted-report research route — a report
+the orchestrator will trust without re-verification — moved from Opus 4.8 to
+Opus 5.5. `code-review` stays at 1.9.0 (non-breaking).
 
 ## 3.1.0
 
