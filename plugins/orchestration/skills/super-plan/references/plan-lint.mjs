@@ -293,6 +293,33 @@ if (plan) {
   const dup = [...new Set(ids.filter((x, i) => ids.indexOf(x) !== i))]
   for (const d of dup) err('ids: duplicate task id "' + d + '"')
 
+  // ---- review (optional): the Codex final-review child chosen at Gate 1;
+  // Claude plans review in-session and must not name one ----
+  const review = plan.review
+  if (review !== undefined) {
+    if (!review || typeof review !== 'object' || Array.isArray(review)) {
+      err('review: must be an object {"model", "effort"}')
+    } else {
+      const reviewModelValid = review.model === ASTRA || review.model === 'gpt-6-sol'
+      if (!reviewModelValid) {
+        err('review.model: one of gpt-6-astra/gpt-6-sol — the Codex final-review child chosen at Gate 1')
+      } else {
+        checkPremium('review.model', review.model)
+      }
+      if (!EFFORTS.includes(review.effort)) {
+        err('review.effort: one of ' + EFFORTS.join('/'))
+      }
+      const reviewPlanModels = Array.isArray(plan.waves) ? plan.waves.flatMap((w) => w && typeof w === 'object'
+        ? [w.supervisor && w.supervisor.model, ...(Array.isArray(w.tasks) ? w.tasks.flatMap((t) => t && typeof t === 'object'
+          ? [t.executor && t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : [])] : []) : [])]
+        : []) : []
+      const reviewPlanProviders = new Set(reviewPlanModels.map(providerForModel).filter(Boolean))
+      if (reviewPlanProviders.size === 1 && reviewPlanProviders.has('claude')) {
+        err('review: only Codex plans name a final-review child; Claude reviews run in the session')
+      }
+    }
+  }
+
   // Field-level premium approval errors, reported once and independent of
   // the model-specific errors checkPremium already raised above.
   if (usedPremiumModels.size > 0) {
@@ -360,33 +387,6 @@ if (plan) {
     }
   } else {
     err('e2e: must be {"task": "<id>"} or a "not-applicable: <reason>" string')
-  }
-
-  // ---- review (optional): the Codex final-review child chosen at Gate 1;
-  // Claude plans review in-session and must not name one ----
-  const review = plan.review
-  if (review !== undefined) {
-    if (!review || typeof review !== 'object' || Array.isArray(review)) {
-      err('review: must be an object {"model", "effort"}')
-    } else {
-      const reviewModelValid = review.model === ASTRA || review.model === 'gpt-6-sol'
-      if (!reviewModelValid) {
-        err('review.model: one of gpt-6-astra/gpt-6-sol — the Codex final-review child chosen at Gate 1')
-      } else {
-        checkPremium('review.model', review.model)
-      }
-      if (!EFFORTS.includes(review.effort)) {
-        err('review.effort: one of ' + EFFORTS.join('/'))
-      }
-      const reviewPlanModels = Array.isArray(plan.waves) ? plan.waves.flatMap((w) => w && typeof w === 'object'
-        ? [w.supervisor && w.supervisor.model, ...(Array.isArray(w.tasks) ? w.tasks.flatMap((t) => t && typeof t === 'object'
-          ? [t.executor && t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : [])] : []) : [])]
-        : []) : []
-      const reviewPlanProviders = new Set(reviewPlanModels.map(providerForModel).filter(Boolean))
-      if (reviewPlanProviders.size === 1 && reviewPlanProviders.has('claude')) {
-        err('review: only Codex plans name a final-review child; Claude reviews run in the session')
-      }
-    }
   }
 }
 

@@ -922,4 +922,37 @@ expect "Claude plan with review exits 1" "1" "$rc"
 contains "Claude plan with review named" \
   'review: only Codex plans name a final-review child; Claude reviews run in the session' "$out"
 
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"supervisor": { "model": "gpt-6-astra", "effort": "high" },',
+              '"supervisor": { "model": "gpt-6-sol", "effort": "high" },')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '')
+s = s.replace('"e2e": { "task": "divide-guard" },',
+              '"e2e": { "task": "divide-guard" },\n  "review": { "model": "gpt-6-astra", "effort": "high" },')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Astra only as review model exits 0" "0" "$rc"
+check "Astra only as review model prints no never-used warning" \
+  '! grep -qF "is listed but never used in the plan" <<<"$out"'
+
+python3 - "$GPT6_CLEAN" "$W/m2.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"supervisor": { "model": "gpt-6-astra", "effort": "high" },',
+              '"supervisor": { "model": "gpt-6-sol", "effort": "high" },')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '')
+s = s.replace('"e2e": { "task": "divide-guard" },',
+              '"e2e": { "task": "divide-guard" },\n  "review": { "model": "gpt-6-astra", "effort": "high" },')
+s = s.replace('"date": "2026-09-24"', '"date": "2026-02-30"')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m2.md" 2>&1)"; rc=$?
+expect "Astra only as review model with impossible approval date exits 1" "1" "$rc"
+contains "Astra only as review model with impossible approval date named" \
+  'approvals.premium.date: must be a real calendar date (YYYY-MM-DD)' "$out"
+
 summary
