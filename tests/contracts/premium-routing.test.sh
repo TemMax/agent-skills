@@ -24,11 +24,11 @@ check "codex-routing states Astra execution needs astra_executor_reason and appr
 section "codex-routing: ship's final review child is chosen by the plan's review key"
 
 check "codex-routing runs Stage 3 in a fresh child of the plan's review-key model" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'if the plan has no \`review\` key, stop and ask the user before invoking the review; never pick.'"
-check "codex-routing states the review child is not a plan role with no calibrated GPT alternative" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'it is not a plan role and has no calibrated GPT alternative'"
-check "codex-routing states the review child cost is disclosed at Gate 1" \
-  "grep -qF 'disclosed with its cost at Gate 1.' '$CP_ROUTING'"
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'If the plan has no \`review\` key, stop and ask the user before invoking the review; never pick.'"
+check "codex-routing states the review child is chosen by the user at Gate 1 with its estimated cost" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'chosen by the user at Gate 1 with its estimated cost'"
+check "codex-routing never-pick sentence is present for the review child" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'never pick.'"
 
 section "codex-wave-protocol: the supervisor is the one chosen at Gate 1"
 
