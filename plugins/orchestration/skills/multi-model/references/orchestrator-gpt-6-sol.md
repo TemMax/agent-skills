@@ -40,7 +40,9 @@ session always reasons about decomposition, ambiguity, and delegation.
   records `approvals.premium`), or — only for a wave whose executors and
   rungs are all `gpt-6-luna` — the standard `gpt-6-sol`. A wave with a Sol
   executor needs Astra. Sol never supervises its own or another Sol
-  executor's work.
+  executor's work. Local measurement, 2026-09-23: the supervisor fixture
+  recorded Sol 9/9 twice (`tests/eval/gpt-6-results-2026-09-23.md`), a
+  repeated fixture pass, not production calibration across live waves.
 - Preserve isolated worktrees, task contracts, mechanical checks, and fresh
   independent verdicts. Never mix providers or silently reroute an approved
   plan.

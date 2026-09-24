@@ -41,6 +41,8 @@ section "ship: Stage 3 critical-review child is chosen by the plan's review key"
 
 check "ship runs Stage 3 in a fresh child of the plan's review-key model" \
   "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'if the plan has no \`review\` key, stop and ask the user before invoking the review; never pick.'"
+check "ship's PR body line for a gpt-6-sol review child reads Review route: gpt-6-sol" \
+  "grep -qF 'Review route: gpt-6-sol' '$SH' && ! grep -qi 'uncalibrated' '$SH'"
 
 section "ship: Stage 2 step 4 still runs ci.commands before the final push"
 

@@ -2,7 +2,9 @@
 
 Reviewed 2026-09-23. Evidence status: exact-ID Appendix A evidence in the
 GPT-6 Astra System Card; production reliability of Sol-led routes is not yet
-calibrated. Operational policy is maintained separately in
+calibrated, except the standard supervisor route and the final-review route,
+each of which now carries a dated local measurement (see "Routing hypotheses
+and limits" below). Operational policy is maintained separately in
 [codex-routing.md](codex-routing.md): uncalibrated reliability is not a
 blanket prohibition on supervised use.
 
@@ -103,9 +105,13 @@ this profile; only the exact ID `gpt-6-sol` can.
 
 Shared Codex routing now runs ordinary tasks on `gpt-6-sol`/`medium` and
 difficult tasks on `gpt-6-sol`/`high`, and uses `gpt-6-sol` as the ladder
-rung after a `gpt-6-luna` initial executor. These routes are operational but
-uncalibrated: no local calibration record exists yet for this plugin's Sol
-routes. `codex-routing.md` governs.
+rung after a `gpt-6-luna` initial executor. These executor routes are
+operational but uncalibrated: no local calibration record exists yet for
+them. Two other Sol routes do carry a dated local measurement: the standard
+supervisor (fixture 9/9 twice, 2026-09-23,
+`tests/eval/gpt-6-results-2026-09-23.md`) and the final-review route
+(measured 2026-09-24: clean 10/10, planted 10/10, PR support 3/4); neither
+measurement is production calibration. `codex-routing.md` governs.
 
 ## Unmeasured properties
 
