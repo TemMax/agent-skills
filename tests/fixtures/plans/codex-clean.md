@@ -19,7 +19,10 @@ base: pending
           "forbidden_moves": ["weakening, deleting or skipping an existing test"],
           "report_must_answer": ["How is division by zero handled?"] } }
     ] }
-] }
+],
+  "ci": "none: fixture repository without CI workflows",
+  "e2e": { "task": "divide-guard" }
+}
 ```
 
 ## Task divide-guard

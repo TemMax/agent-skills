@@ -5,7 +5,7 @@
 //
 // Usage: node plan-lint.mjs <plan-file> [--repo <path>]
 // Exit 0 = clean (warnings allowed), 1 = errors, 2 = usage.
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, isAbsolute } from 'node:path'
 
 // Claude plans name models by full ID only; aliases re-point silently when
@@ -35,6 +35,12 @@ const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
   'forbidden_moves', 'report_must_answer']
+
+// Premium models need a recorded, dated Gate 1 approval before a plan may
+// route to them. Retired routes are a softer nudge — warnings, never errors.
+const PREMIUM_MODELS = ['claude-fable-5-1', 'gpt-6-astra']
+const RETIRED_GPT56 = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 const argv = process.argv.slice(2)
 const planFile = argv.find((a) => !a.startsWith('--'))
@@ -94,6 +100,36 @@ const prefixesCollide = (a, b) => {
 
 const ids = []
 if (plan) {
+  const premiumApproval = plan.approvals && typeof plan.approvals === 'object'
+    && !Array.isArray(plan.approvals) ? plan.approvals.premium : undefined
+  const premiumApprovalValid = !!(premiumApproval && typeof premiumApproval === 'object'
+    && !Array.isArray(premiumApproval)
+    && Array.isArray(premiumApproval.models)
+    && typeof premiumApproval.reason === 'string' && premiumApproval.reason.trim() !== ''
+    && typeof premiumApproval.approved_by === 'string' && premiumApproval.approved_by.trim() !== ''
+    && typeof premiumApproval.date === 'string' && DATE_RE.test(premiumApproval.date))
+  const usedPremiumModels = new Set()
+  const checkPremium = (path, model) => {
+    if (!PREMIUM_MODELS.includes(model)) return
+    usedPremiumModels.add(model)
+    if (!premiumApprovalValid || !premiumApproval.models.includes(model)) {
+      err(path + ': premium model ' + model
+        + ' requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1')
+    }
+  }
+  const retiredWarn = (model) => {
+    if (RETIRED_GPT56.includes(model)) {
+      warn('retired route: ' + model + ' is not chosen for new plans (GPT-6 Sol/Luna replace it)')
+    }
+  }
+  const retiredExecLadderWarn = (model) => {
+    if (model === 'claude-opus-5') {
+      warn('retired route: Opus 5 is no longer an executor route (use claude-opus-5-5)')
+    } else if (model === 'claude-opus-4-8') {
+      warn('Opus 4.8 is routed only for compiled-binary work')
+    }
+  }
+
   if (!Array.isArray(plan.waves) || plan.waves.length === 0) {
     err('machine half: `waves` must be a non-empty array')
   } else {
@@ -111,6 +147,10 @@ if (plan) {
       } else if (w.supervisor && w.supervisor.effort !== undefined
         && !EFFORTS.includes(w.supervisor.effort)) {
         err(at + '.supervisor.effort: one of ' + EFFORTS.join('/'))
+      }
+      if (w.supervisor && typeof w.supervisor.model === 'string') {
+        checkPremium(at + '.supervisor.model', w.supervisor.model)
+        retiredWarn(w.supervisor.model)
       }
       if (!Array.isArray(w.tasks) || w.tasks.length === 0) {
         err(at + '.tasks: non-empty array required'); return
@@ -136,12 +176,25 @@ if (plan) {
           && !EFFORTS.includes(t.executor.effort)) {
           err(tat + '.executor.effort: one of ' + EFFORTS.join('/'))
         }
+        if (t.executor && typeof t.executor.model === 'string') {
+          checkPremium(tat + '.executor.model', t.executor.model)
+          retiredWarn(t.executor.model)
+          retiredExecLadderWarn(t.executor.model)
+        }
         if (t.ladder !== undefined && (!Array.isArray(t.ladder)
           || t.ladder.some((m) => !EXECUTOR_MODELS.includes(m)))) {
           const alias = Array.isArray(t.ladder) && t.ladder.find((m) => CLAUDE_ALIASES.includes(m))
           err(alias
             ? aliasError(tat + '.ladder', alias)
             : tat + '.ladder: array of ' + EXECUTOR_MODELS.join('/'))
+        }
+        if (Array.isArray(t.ladder)) {
+          t.ladder.forEach((m, li) => {
+            if (typeof m !== 'string') return
+            checkPremium(tat + '.ladder[' + li + ']', m)
+            retiredWarn(m)
+            retiredExecLadderWarn(m)
+          })
         }
         const transitions = t.executor && EXECUTOR_MODELS.includes(t.executor.model)
           ? [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : [])] : []
@@ -224,6 +277,49 @@ if (plan) {
   }
   const dup = [...new Set(ids.filter((x, i) => ids.indexOf(x) !== i))]
   for (const d of dup) err('ids: duplicate task id "' + d + '"')
+
+  if (premiumApproval && Array.isArray(premiumApproval.models)) {
+    for (const m of premiumApproval.models) {
+      if (typeof m === 'string' && PREMIUM_MODELS.includes(m) && !usedPremiumModels.has(m)) {
+        warn('approvals.premium.models: "' + m + '" is listed but never used in the plan')
+      }
+    }
+  }
+
+  // ---- ci (required): CI entrypoint commands, or an explicit opt-out ----
+  const ci = plan.ci
+  if (ci === undefined) {
+    err('ci: required — the exact CI entrypoint commands, or "none: <reason>"')
+  } else if (typeof ci === 'string') {
+    if (!ci.startsWith('none: ') || ci.slice('none: '.length).trim().length < 10) {
+      err('ci: "none: <reason>" requires a reason of at least 10 characters')
+    }
+  } else if (ci && typeof ci === 'object' && !Array.isArray(ci)) {
+    if (!Array.isArray(ci.commands) || !ci.commands.some((c) => typeof c === 'string' && c.trim() !== '')) {
+      err('ci.commands: at least one non-empty command required')
+    }
+    if (ci.workflows !== undefined && !Array.isArray(ci.workflows)) {
+      err('ci.workflows: array required')
+    }
+  } else {
+    err('ci: must be an object {commands, workflows} or a "none: <reason>" string')
+  }
+
+  // ---- e2e (required): the task that runs the shipped fixtures end to end ----
+  const e2e = plan.e2e
+  if (e2e === undefined) {
+    err('e2e: required — the task that runs the shipped fixtures end to end, or "not-applicable: <reason>"')
+  } else if (typeof e2e === 'string') {
+    if (!e2e.startsWith('not-applicable: ') || e2e.slice('not-applicable: '.length).trim().length < 10) {
+      err('e2e: "not-applicable: <reason>" requires a reason of at least 10 characters')
+    }
+  } else if (e2e && typeof e2e === 'object' && !Array.isArray(e2e)) {
+    if (typeof e2e.task !== 'string' || !ids.includes(e2e.task)) {
+      err('e2e.task: must name a task id that exists in the plan')
+    }
+  } else {
+    err('e2e: must be {"task": "<id>"} or a "not-applicable: <reason>" string')
+  }
 }
 
 // ---- prose half ↔ machine half ----
@@ -233,6 +329,39 @@ for (const id of ids) {
 }
 for (const id of proseIds) {
   if (!ids.includes(id)) err('prose: section "## Task ' + id + '" has no matching task in the json block')
+}
+
+// ---- repo-checked ci: a repo with real workflows must name real commands ----
+if (repo && plan) {
+  let workflowDirEntries = []
+  try { workflowDirEntries = readdirSync(join(repo, '.github/workflows')) } catch (e) { workflowDirEntries = [] }
+  const repoHasWorkflows = workflowDirEntries.some((f) => /\.ya?ml$/i.test(f))
+  if (repoHasWorkflows) {
+    const ci = plan.ci
+    if (typeof ci === 'string') {
+      err('ci: the repository has CI workflows; list their commands in ci.commands')
+    } else if (ci && typeof ci === 'object' && !Array.isArray(ci)) {
+      const workflows = Array.isArray(ci.workflows) ? ci.workflows : []
+      const workflowTexts = []
+      for (const wfPath of workflows) {
+        if (typeof wfPath !== 'string') continue
+        const full = join(repo, wfPath)
+        if (!existsSync(full)) {
+          err('ci.workflows: "' + wfPath + '" does not exist under ' + repo)
+        } else {
+          try { workflowTexts.push(readFileSync(full, 'utf8')) } catch (e) { /* unreadable; skip */ }
+        }
+      }
+      const commands = Array.isArray(ci.commands)
+        ? ci.commands.filter((c) => typeof c === 'string' && c.trim() !== '') : []
+      for (const cmd of commands) {
+        const trimmed = cmd.trim()
+        if (!workflowTexts.some((t) => t.includes(trimmed))) {
+          err('ci.commands: "' + trimmed + '" does not appear in any listed ci.workflows file')
+        }
+      }
+    }
+  }
 }
 
 // ---- optional repo checks (warnings only) ----
