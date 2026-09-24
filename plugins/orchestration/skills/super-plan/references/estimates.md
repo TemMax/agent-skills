@@ -12,6 +12,7 @@ is a prior, not a promise.
 - [Codex runner vs native](#codex-runner-vs-native-ship-smoke-2026-09-23-two-small-tasks-gpt-6-lunasol-executors-astrahigh-supervisor-gpt-6-sol-orchestrator)
 - [How to estimate](#how-to-estimate)
 - [Prices](#prices)
+- [Sources](#sources)
 
 ## Claude waves (this repository, 2026-09-23, Sonnet 5 executors, Opus 5.5 supervisor, Workflow runner)
 
@@ -23,7 +24,12 @@ is a prior, not a promise.
 
 ## Codex native protocol (2026-09-22, GPT-5.6 executors, Astra/high supervisor, Astra/xhigh orchestrator)
 
-- Executor medians: Sol/high 24 min (max 58 min), Terra/medium 4.8 min.
+GPT-5.6 Sol and Terra are retired routes (new plans route to GPT-6 Sol and
+Luna); these numbers are kept as the only native-protocol measurement on
+record.
+
+- Executor medians: GPT-5.6 Sol/high 24 min (max 58 min), GPT-5.6
+  Terra/medium 4.8 min.
 - Astra supervisor: 1.4 min.
 - The orchestrator was 72% of wall time (830 sequential requests) and ≈ 63%
   of ≈ $298 total.
@@ -41,12 +47,14 @@ is a prior, not a promise.
   supervisor time + verifier time) + orchestrator overhead. Add one rework
   attempt for ~30% of tasks — first-try failure is common enough that a
   plan without rework margin under-estimates.
-- **Cost** ≈ Σ tasks × per-attempt cost + supervisor cost × tasks +
-  orchestrator cost.
+- **Cost** ≈ Σ tasks × (attempts × per-attempt cost + attempts × supervisor
+  cost per attempt + attempts × verifier cost per attempt) + orchestrator
+  cost. Apply the same ~30% rework-attempt margin as the wall-time formula —
+  the supervisor and the verifier are paid per attempt, not once per task.
 
-The critical path for Gate 2 is waves × each wave's slowest task — waves run
-sequentially, tasks within a wave run in parallel, so only the slowest task
-in each wave sets that wave's wall time.
+The critical path for Gate 2 is the sum over waves of each wave's slowest
+task — waves run sequentially, tasks within a wave run in parallel, so only
+the slowest task in each wave sets that wave's wall time.
 
 ## Prices
 
@@ -57,8 +65,16 @@ Per-1M-token input / cached-input / output, copied from
 | Model | Input | Cached input | Output |
 |---|---|---|---|
 | `claude-opus-5-5` | 4 | 0.4 | 20 |
+| `claude-opus-5` | 5 | 0.5 | 25 |
 | `claude-sonnet-5` | 3 | 0.3 | 15 |
+| `claude-haiku-4-5-20251001` | 1 | 0.1 | 5 |
 | `claude-fable-5-1` | 15 | 1.5 | 75 |
 | `gpt-6-astra` | 10 | 1 | 50 |
 | `gpt-6-sol` | 2 | 0.2 | 10 |
 | `gpt-6-luna` | 0.1 | 0.01 | 0.5 |
+
+## Sources
+
+Claude wave and Codex runner-vs-native numbers: PR #13's description and
+`tests/eval/gpt-6-results-2026-09-23.md`. Codex native-protocol numbers
+(#485): the #485 transcript analysis summarized in PR #13.

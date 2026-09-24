@@ -244,6 +244,24 @@ check "SKILL points at the estimates reference"        "grep -qF 'references/est
 EST=plugins/orchestration/skills/super-plan/references/estimates.md
 check "estimates.md has a Contents list"               "grep -qx '## Contents' $EST"
 check "estimates.md names its price source"            "grep -qF 'tests/eval/telemetry/prices.json' $EST"
+check "estimates.md prices Opus 5"                     "grep -qF '| \`claude-opus-5\` | 5 | 0.5 | 25 |' $EST"
+check "estimates.md prices Haiku 4.5"                  "grep -qF '| \`claude-haiku-4-5-20251001\` | 1 | 0.1 | 5 |' $EST"
+check "Gate 1 fixes wave shape before the supervisor choice" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"Fix each wave's executor tiers and ladder shape at Gate 1\""
+check "a changed wave shape re-asks the supervisor choice before Gate 2" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 're-ask the user before Gate 2'"
+check "a Codex Sol executor forces the Astra supervisor" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A Codex wave with a \`gpt-6-sol\` executor has no standard supervisor'"
+check "ship's final Codex review is disclosed at Gate 1 as a reviewer exemption" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'disclose that reviewer exemption and its cost at Gate 1'"
+check "the supervisor-vs-executor example names Opus 5 and Fable 5.1" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'takes Opus 5 (\`claude-opus-5\`, standard) or Fable 5.1 (premium, with \`approvals.premium\`)'"
+check "an omitted ladder under an Opus 5.5 supervisor is spelled out as empty" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'gives its Sonnet/Haiku tasks \`\"ladder\": []\`'"
+check "headless mode uses standard supervisors only" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A headless run uses'"
+check "headless mode invents no approvals.premium" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the plan carries no \`approvals.premium\` invented by the model'"
 check "estimates.md carries the how-to-estimate formula" \
   "grep -qF 'attempt time' $EST && grep -qF 'orchestrator overhead' $EST"
 
