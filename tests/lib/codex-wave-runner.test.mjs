@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
-  mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -135,6 +135,45 @@ test('usage text is printed for --help', () => {
   assert.equal(result.status, 0)
   assert.match(result.stdout, /^usage: node codex-wave-runner\.mjs/)
   assert.match(result.stdout, /--jobs 3/)
+})
+
+test('CODEX_WAVE_RUNNER_SANDBOX_PROBE=fail exits 2 with the nested-sandbox error and launches nothing', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_WAVE_RUNNER_SANDBOX_PROBE: 'fail' },
+  )
+  assert.equal(result.status, 2, result.stdout + result.stderr)
+  assert.ok(result.json, 'stdout must be one JSON error object: ' + result.stdout)
+  assert.deepEqual(result.json, {
+    status: 'error',
+    error: 'nested-sandbox',
+    message: 'codex-wave-runner.mjs is running inside a sandbox that forbids nested sandboxing '
+      + '(macOS seatbelt cannot nest), so its codex exec children cannot run commands. Run this '
+      + 'command outside the Codex sandbox (escalated permissions); the children keep their own '
+      + 'sandboxes.',
+  })
+  assert.equal(existsSync(logPath + '.d'), false, 'the stub must never have been invoked')
+  assert.equal(existsSync(join(root, 'out')), false, 'no run directory may be created')
+})
+
+test('CODEX_WAVE_RUNNER_SANDBOX_PROBE=skip bypasses the probe and the wave runs to merge-ready', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const outPath = join(root, 'out')
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_WAVE_RUNNER_SANDBOX_PROBE: 'skip' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.ok(result.json, 'stdout must be one JSON summary')
+  assert.equal(result.json.status, 'merge-ready')
 })
 
 test('(a) two tasks, good executor, clean verdict reach merge-ready', () => {
