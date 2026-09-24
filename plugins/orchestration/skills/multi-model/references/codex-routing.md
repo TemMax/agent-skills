@@ -13,7 +13,7 @@ The wave's supervisor is chosen at Gate 1 — the premium `gpt-6-astra` at
 rungs are all `gpt-6-luna`, the standard `gpt-6-sol` at `high` (see
 Verification and stops); then use the task table below. Availability is a
 capability check, not a reliability claim. Missing historical reports or
-uncalibrated pairings do not
+pairings with no dated local measurement do not
 require separate calibration permission. Normal scope, design and lint-clean
 plan approvals still apply; existing authorization remains valid.
 
@@ -101,9 +101,10 @@ and critical-review's fix/publication gates. A failed integration suite stops
 publication. Ship never merges the PR or deploys. Ship's final critical-review
 runs in a fresh child of the model the plan's `review` key names — chosen by
 the user at Gate 1 with its estimated cost: `gpt-6-astra` (premium, recorded
-in `approvals.premium`) or `gpt-6-sol` (uncalibrated as a reviewer; the PR
-says so). If the plan has no `review` key, stop and ask the user before
-invoking the review; never pick. The fresh child keeps a GPT-5.6 main seat
+in `approvals.premium`) or `gpt-6-sol` (measured 2026-09-24: clean 10/10,
+planted 10/10, PR support 3/4; the PR says so). If the plan has no `review`
+key, stop and ask the user before invoking the review; never pick. The fresh
+child keeps a GPT-5.6 main seat
 from selecting a GPT-5.6 consequential-reviewer profile and keeps the review
 independent from the coordinator's context.
 Its findings and fix gates remain owned by critical-review; the coordinator
