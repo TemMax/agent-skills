@@ -78,4 +78,17 @@ check "gpt-6-sol dossier coding deception values" \
 check "gpt-6-luna dossier broken search tool values" \
   "grep -qF '| Broken Search Tool failure at \`max\` | 28.67% | 78.25% |' '$LUNA6_DOSSIER'"
 
+ASTRA6="$REFS/orchestrator-gpt-6-astra.md"
+
+check "gpt-6-astra profile exists" "[ -f '$ASTRA6' ]"
+
+for f in "$SOL6" "$ASTRA6" "$SOL" "$TERRA" "$LUNA"; do
+  check "$f drops the fixed-Astra-only supervisor sentence" \
+    "! grep -qF 'Every wave uses a fixed, separate \`gpt-6-astra\` supervisor' '$f' && ! grep -qF 'Every wave uses a separate \`gpt-6-astra\` supervisor' '$f' && ! grep -qF 'independent Astra/high supervision' '$f'"
+  check "$f states the Gate 1 supervisor choice" "grep -qF 'chosen at Gate 1' '$f'"
+  check "$f names the premium and standard supervisor options" \
+    "grep -qF 'the premium \`gpt-6-astra\`' '$f' && grep -qF 'the standard \`gpt-6-sol\`' '$f'"
+  check "$f requires Astra for a Sol executor" "grep -qF 'A wave with a Sol' '$f' && grep -qF 'needs Astra' '$f'"
+done
+
 summary
