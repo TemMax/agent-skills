@@ -253,6 +253,14 @@ check "the sibling-dependency rule states file-disjoint tasks are not dependency
   "grep -qF 'File-disjoint tasks are not dependency-free' $SP"
 check "the sibling-dependency rule names its measured cause" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"a README task documenting a same-wave CLI's output on a same-wave fixture\" && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"ship-smoke's doc task describing a same-wave guard\""
+check "the sibling-dependency rule has its own bold lead-in, separate from the change-breaks rule" \
+  "grep -qF '**Order consumers after producers.**' $SP"
+check "a reader of a changed format, signature, fixture or shared file never moves to a later wave" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A reader of a changed format, signature, fixture or shared file stays in the same task — never a later wave'"
+check "the e2e task sits after every task whose entrypoints or fixtures it runs" \
+  "grep -qF 'after every task whose entrypoints or fixtures it runs' $SP"
+check "e2e fixture/output documentation stays in the e2e task or a later documentation-only wave" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'goes into the e2e task or a later documentation-only wave'"
 check "the Sol supervisor line names its measured fixture and wave evidence" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Sol supervisor of all-Luna waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves merge-ready first try at ≈ 3.2× lower cost than Astra — toy waves, correct work only'"
 check "Gate 2 shows the critical path and a cost range" \
