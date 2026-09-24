@@ -26,6 +26,8 @@ outright, so this tier must never be red.
 changes what an agent *does* or reopens a defect that has already cost us. Be
 clear-eyed about this tier: in the 2026-08-11 review it was fully green while
 three serious defects were live. It catches deletion, not wrongness.
+`tests/contracts/critical-review-rules.test.sh` covers the one-findings-gate
+wait rule and the secrets prohibition in `critical-review`'s SKILL.md.
 
 **behaviour** — `plugins/*/hooks/*.test.sh`, co-located with the code they
 cover. The drift hook's gates run offline through `CLAUDE_DRIFT_CHECK_DRYRUN=1`,
@@ -53,6 +55,22 @@ The super-plan tier asks the inverse planning questions: a request that
 tempts same-wave file overlap must still produce a lint-clean plan, and a
 request hiding a product fork must surface it under "Assumptions (would
 ask)" rather than resolve it silently.
+
+The seam-audit tier (`tests/eval/seam-audit.sh`) measures two stage C
+planning rules directly: the Seam audit step catches a cross-task seam
+before execution, and the Gate 2 message actually states the critical path,
+a wall-time and cost estimate, and that the estimate is a prior rather than
+a promise. Its fixture is a two-part feature request over a small report
+module where changing `format_row`'s separator in `src/report.py` quietly
+breaks `tests/helpers.py`'s `parse_rows` round trip unless the same task
+owns both files. `SEAM_SKILL_ROOT` (default: this repository's root) points
+the whole tier — the prompt's `SKILL.md` and the Lint step's linter — at a
+skill checkout, so pointing it at an older copy compares that skill's seam
+and Gate 2 behavior against this one, each linted by its own linter. Honors
+`EVAL_REPEAT` (each repetition is an independent run against its own
+fixture copy) and `EVAL_KEEP_DIR` (keeps every model answer and plan as
+evidence). Its scoring rules are tested offline, without a model, by
+`tests/eval/seam-audit.test.sh`.
 
 The skill-navigation tier (`tests/eval/skill-navigation.sh`) asks whether an
 agent applying the multi-model skill takes the right action at five decision
@@ -138,6 +156,11 @@ follows from this record.
 stage B re-measure of the critical-review and wave rows after the scorer,
 supervisor sandbox/working-directory, and `wave.sh` Codex-path fixes; see
 `tests/eval/gpt-6-results-2026-09-23.md`.
+
+**2026-09-24 — stage C verification.** Live suites, the Sol reviewer and
+Sol-vs-Astra supervisor comparison, the seam-audit before/after, and the
+Codex wave runner's macOS nested-sandbox finding are recorded in
+[`tests/eval/stage-c-verification-2026-09-24.md`](eval/stage-c-verification-2026-09-24.md).
 
 ## Telemetry analyzer
 

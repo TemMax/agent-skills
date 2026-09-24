@@ -55,7 +55,7 @@ for (const f of ['--wave', '--base', '--repo', '--default-branch']) {
 }
 
 // ---- 1. the plan must be lint-clean ----
-const lint = spawnSync(process.execPath, [LINT, planFile], { encoding: 'utf8' })
+const lint = spawnSync(process.execPath, [LINT, planFile, '--repo', opts['--repo']], { encoding: 'utf8' })
 if (lint.status !== 0) {
   const first = String(lint.stdout || lint.stderr || '').split('\n').find((l) => l.startsWith('error:'))
   die('plan is not lint-clean' + (first ? ' (' + first.trim() + ')' : ''))

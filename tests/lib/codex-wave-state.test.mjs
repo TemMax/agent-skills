@@ -270,6 +270,7 @@ test('C3 next preserves approved task prose and all six mandatory prompt blocks'
   }
   for (const key of ['files_allowed', 'files_forbidden', 'must_run',
     'forbidden_moves', 'report_must_answer']) assert.match(action.prompt, new RegExp(key))
+  assert.match(action.prompt, /Never open, print, copy or transmit credentials/)
 })
 
 test('C3b GPT-6 wave dispatches gpt-6-luna executor then gpt-6-astra supervisor', () => {
@@ -483,6 +484,7 @@ test('C6 supervisor prompt carries artifacts but redacts every executor id occur
   assert.match(out.prompt, /REPORT/)
   assert.equal((out.prompt.match(/\[executor-model-redacted\]/g) || []).length, 2)
   assert.doesNotMatch(out.prompt, /gpt-5\.6-luna/)
+  assert.match(out.prompt, /Never open, print, copy or transmit credentials/)
 })
 
 test('C7 clean verdict yields merge-ready and done summary', () => {
@@ -1075,9 +1077,30 @@ test('C20 multi-task next skips ready-to-merge tasks until the wave is ready', (
   assert.equal(ok(['summary', '--state', env.statePath]).status, 'done')
 })
 
+// Inserts the top-level "approvals" object the linter requires whenever
+// gpt-6-astra is used as a supervisor, executor or ladder model. A no-op
+// when the plan text already carries one, so composing these helpers never
+// inserts it twice. The insertion anchors on the opening brace of the
+// ```json wave-plan block (rather than, say, a specific existing key) so it
+// works regardless of which other top-level keys a given fixture's plan
+// text does or doesn't already have.
+function withAstraApprovals(text) {
+  if (text.includes('"approvals"')) return text
+  const approvals = '"approvals": {"premium": {"models": ["gpt-6-astra"], ' +
+    '"reason": "Astra requires documented approval for this wave.", ' +
+    '"approved_by": "test", "date": "2026-09-24"}},'
+  const match = /```json wave-plan\n\{/.exec(text)
+  if (!match) {
+    throw new Error('withAstraApprovals: could not find the opening brace of the ' +
+      '```json wave-plan block to insert "approvals" into')
+  }
+  const insertAt = match.index + match[0].length
+  return text.slice(0, insertAt) + ' ' + approvals + text.slice(insertAt)
+}
+
 function withAstraSupervisor(text) {
-  return text.replace('"model": "gpt-5.6-terra", "effort": "high"',
-    '"model": "gpt-6-astra", "effort": "high"')
+  return withAstraApprovals(text.replace('"model": "gpt-5.6-terra", "effort": "high"',
+    '"model": "gpt-6-astra", "effort": "high"'))
 }
 
 function withAstraReason(text, reason = 'Only Astra can exercise the required executor capability.') {
@@ -1086,9 +1109,9 @@ function withAstraReason(text, reason = 'Only Astra can exercise the required ex
 }
 
 function withInitialAstra(text) {
-  return withAstraSupervisor(withAstraReason(text)
+  return withAstraApprovals(withAstraSupervisor(withAstraReason(text)
     .replace('"model": "gpt-5.6-luna"', '"model": "gpt-6-astra"')
-    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": []'))
+    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": []')))
 }
 
 function withoutLadder(text) {
@@ -1096,8 +1119,8 @@ function withoutLadder(text) {
 }
 
 function withAstraRung(text) {
-  return withAstraSupervisor(withAstraReason(text)
-    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]'))
+  return withAstraApprovals(withAstraSupervisor(withAstraReason(text)
+    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6-astra"]')))
 }
 
 test('C21 Astra supervises each ordinary GPT-5.6 executor without replacing it', () => {

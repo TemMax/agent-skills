@@ -1,7 +1,8 @@
 # GPT-6 Sol reviewer evidence dossier
 
-Reviewed 2026-09-23. Exact-ID appendix evidence only; production review
-accuracy and effort guidance remain uncalibrated. This plugin installs
+Reviewed 2026-09-23; local review counts re-measured 2026-09-24. Exact-ID
+appendix evidence is card evidence only — not review-accuracy evidence — and
+effort guidance beyond `medium` remains uncalibrated. This plugin installs
 independently of orchestration, so its review evidence is retained here.
 
 ## Sources and their limits
@@ -38,11 +39,12 @@ independently of orchestration, so its review evidence is retained here.
 
 ## Review hypothesis
 
-Sol is a candidate for a bounded reviewer role, comparing `medium` and
-`high` results separately, the same way GPT-5.6 Sol was tested before its
-route existed. No clean/planted-defect evaluation has been run for this
-model in this plugin: no local calibration exists. Neither a capability
-benchmark nor a single successful review qualifies a consequential
-reviewer. GPT-5.6-only calibration cannot be inherited by Sol, and this
-card does not measure self-preference or a false-positive/negative rate
-for this plugin's checklist.
+A 2026-09-24 local re-measure cleared the strict review gate twice at
+`medium` effort (clean 10/10, planted 10/10 combined) with PR support 3/4,
+one withheld-case miss; see `reviewer-gpt-6-sol.md` for the dated counts
+and the PR-support caveat. `high` and other efforts remain untested and
+uncalibrated. Neither this local measurement nor a capability benchmark
+alone qualifies an unconditional consequential reviewer — the PR-support
+caveat still applies. GPT-5.6-only calibration cannot be inherited by Sol,
+and the System Card does not measure self-preference or a
+false-positive/negative rate for this plugin's checklist.

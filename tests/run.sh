@@ -38,6 +38,7 @@ run "behaviour — skill-navigation parser and read-check" bash tests/eval/skill
 run "behaviour — gpt-live driver" bash tests/eval/gpt-live.test.sh
 run "behaviour — telemetry analyzer" node --test tests/eval/telemetry/telemetry.test.mjs tests/eval/telemetry/claude.test.mjs
 run "behaviour — ship-smoke Codex wave benchmark" bash tests/eval/ship-smoke.test.sh
+run "behaviour — seam-audit scorer" bash tests/eval/seam-audit.test.sh
 
 for t in plugins/*/hooks/*.test.sh; do
   [ -e "$t" ] || continue

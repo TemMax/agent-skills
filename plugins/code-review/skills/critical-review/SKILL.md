@@ -3,7 +3,7 @@ name: critical-review
 description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.8.0
+  version: 1.9.0
 ---
 
 # Reviewing Changes Critically
@@ -68,16 +68,34 @@ evidence, but it must state that its GPT route is uncalibrated. Existing Claude
 review guidance is unchanged. Full counts and limitations:
 `tests/eval/gpt-5-6-results-2026-09-04.md`.
 
-### GPT-6 Sol and Luna calibration — 2026-09-23 UTC
+### GPT-6 Sol and Luna calibration — 2026-09-24 UTC
 
-No GPT-6 Sol or Luna production consequential-review or supervisor route is
-supported yet. Re-measured review-guard counts after the stage B harness
-fixes: Sol clean 7/8, planted 8/8, PR gate 2/2; Luna clean 0/3, planted 3/3,
-PR gate 2/2. The scorer was fixed and the review re-measured; Sol missed the
-strict 5/5 clean guard by one format failure, so the route stays
-`unsupported`. A GPT-6 Sol or Luna model-selection request returns
-`unsupported`, exactly as for GPT-5.6. Full counts and limitations:
-`tests/eval/gpt-6-results-2026-09-23.md`.
+No GPT-6 Luna or Astra review route is supported. The one supervisor route
+that exists outside Sol's measured route below is multi-model's standard
+`gpt-6-sol` supervisor of all-`gpt-6-luna` waves — a policy decision, not a
+measured pass, and uncalibrated in production. Never claim a supported
+GPT-6 Luna or Astra review route. Re-measured review-guard counts after the
+stage B harness fixes: Sol clean 7/8, planted 8/8, PR gate 2/2; Luna clean
+0/3, planted 3/3, PR gate 2/2. The scorer was fixed and the review
+re-measured; Sol missed the strict 5/5 clean guard by one format failure,
+so the route stayed `unsupported` at that point. A GPT-6 Luna model-
+selection request returns `unsupported`, exactly as for GPT-5.6. Full
+counts and limitations: `tests/eval/gpt-6-results-2026-09-23.md`.
+
+A 2026-09-24 UTC local re-measure ran the strict review gate twice more:
+Sol passed clean 5/5 and planted 5/5 in each run (10/10 combined clean,
+10/10 combined planted); PR support was 3/4, with one withheld-case miss.
+The GPT-6 Sol review route is now **measured-supported**: a GPT-6 Sol
+model-selection request may return `gpt-6-sol` with these counts and the
+PR-support caveat stated alongside it. GPT-6 Luna stays `unsupported`
+(clean 0/3). Never silently substitute another GPT model, mix providers, or
+make `max` a default.
+
+When a ship plan records `review.model: gpt-6-sol` — the user's explicit
+Gate 1 choice — the review runs as a measured route. Its summary must state
+the 2026-09-24 strict-gate counts (10/10 clean, 10/10 planted) and the
+PR-support caveat (3/4, one withheld-case miss). Never claim a supported
+GPT-6 Luna or Astra review route.
 
 ## Overview
 
@@ -253,6 +271,21 @@ section by design.
    a hunch — either verify it into a finding or drop it.
 6. The review is read-only: do not mutate the working tree, index, HEAD, or
    branch state; no fixes unless the user asks after seeing the review.
+7. When several reviews run for one request — several PRs, or several
+   reviewers in parallel — wait until every one has finished, then present
+   all findings once, in one table per scope, before asking to fix anything.
+   Measured cause: in a 2026-09-22 run, findings were shown while a second
+   review was still running, which forced a second fix approval and a second
+   fix plan.
+
+Review the files the diff's scope actually touches, including a config file
+the diff adds or changes — but never reproduce a secret value found there:
+cite `file:line` and the key name only. Never open credential stores or
+configuration files outside the review's scope (for example `~/.codex`,
+`~/.claude`) even when they might hold context, and never print, copy or
+transmit a credential or token value from any file, in or out of scope.
+Measured cause: a reviewer printed an Authorization value from a local
+config in the same run.
 
 ## Output Format
 
@@ -305,7 +338,11 @@ is read-only, as Review Method item 6 requires.
 2. **Route every approved fix; the coordinator never authors a fix**, including
    prose. Each route names an explicit available host, model, supported effort,
    bounded paths and contract, with rationale from multi-model's shared routing
-   rules — never severity, coordinator identity, or inherited child defaults.
+   rules — never severity, coordinator identity, or inherited child defaults. A
+   fix wave follows the plan format (`ci`, `e2e`), and a premium model (Fable
+   5.1 / GPT-6 Astra) in any role of that wave needs `approvals.premium`
+   recorded from the user's choice at this fix gate — the approval to fix is
+   not an approval to spend premium, and premium use is never inferred from it.
    If any required skill, host, model, or effort is unavailable, stop and report
    that bounded route; never fall back to self-implementation. Behavior changes,
    including instruction/config text that changes actual behavior, use

@@ -12,6 +12,7 @@
 # directly by ship-smoke.sh) plus a stub codex on PATH.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
+REPO_ROOT="$(pwd)"
 . tests/lib.sh
 
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
@@ -122,10 +123,37 @@ with open(path, "w", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
 PY
 
+# Simulates the orchestrator's own --json event stream reporting a command
+# it ran, so ship-smoke.sh's detect_skills_source has something to scan.
+# SHIP_SMOKE_STUB_SKILLS_SOURCE=installed-plugin emits a command string
+# naming a /plugins/cache/ path (as if the orchestrator ignored the prompt's
+# instruction and read an installed-plugin copy of the skill); unset or any
+# other value emits one naming this repository's own skill path instead.
+if [ "${SHIP_SMOKE_STUB_SKILLS_SOURCE:-repo}" = installed-plugin ]; then
+  printf '{"type":"item.completed","item":{"type":"command_execution","command":"cat /plugins/cache/orchestration/skills/multi-model/SKILL.md"}}\n'
+else
+  printf '{"type":"item.completed","item":{"type":"command_execution","command":"cat %s/plugins/orchestration/skills/multi-model/SKILL.md"}}\n' "$repo"
+fi
+
 printf '{"type":"thread.started","thread_id":"%s"}\n' "$thread_id"
 exit 0
 SH
 chmod +x "$BIN/codex"
+
+# Extracts the ```json wave-plan fenced block from a generated plan.md and
+# prints it as compact JSON on stdout. Kept as its own script (rather than
+# inline in a `check` expression) because `check` re-parses its argument with
+# `eval`, and a literal ``` fence inside a double-quoted string would be
+# re-interpreted as command substitution on that second pass.
+cat > "$W/extract-plan.py" <<'PY'
+import json, re, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+fence = chr(96) * 3
+m = re.search(r"" + fence + r"json wave-plan\r?\n([\s\S]*?)\r?\n" + fence, text)
+if not m:
+    sys.exit(1)
+json.dump(json.loads(m.group(1)), sys.stdout)
+PY
 
 section "usage and argument validation"
 check "no arguments prints usage and exits 2" \
@@ -134,6 +162,8 @@ check "--mode with a bad value exits 2" \
   "PATH=\"$BIN:\$PATH\" bash tests/eval/ship-smoke.sh --mode nonsense --results $W/r-bad-mode; [ \$? -eq 2 ]"
 check "missing --results exits 2" \
   "PATH=\"$BIN:\$PATH\" bash tests/eval/ship-smoke.sh --mode native; [ \$? -eq 2 ]"
+check "--supervisor with a bad value exits 2 with the usage error" \
+  "PATH=\"$BIN:\$PATH\" bash tests/eval/ship-smoke.sh --mode native --supervisor gpt-6-nonsense --results $W/r-bad-supervisor > $W/bad-supervisor.out 2>&1; rc=\$?; [ \$rc -eq 2 ] && grep -qF -- '--supervisor must be gpt-6-astra or gpt-6-sol' $W/bad-supervisor.out"
 
 DIRTY="$W/dirty-results"; mkdir -p "$DIRTY"
 printf 'pre-existing evidence\n' > "$DIRTY/keep.txt"
@@ -159,31 +189,90 @@ check "comparison.md was written" "[ -f '$RESULTS_NATIVE/comparison.md' ]"
 REPO_NATIVE="$(cat "$RESULTS_NATIVE/native/repo-path.txt")"
 check "the stub codex was invoked without --ephemeral" \
   "! grep -qF -- '--ephemeral' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was invoked with --json --skip-git-repo-check and workspace-write" \
-  "grep -qxF -- '--json' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '--skip-git-repo-check' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- 'workspace-write' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was invoked with --add-dir pointing at the fixture repo's .git" \
-  "grep -qxF -- '--add-dir' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '$REPO_NATIVE/.git' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was invoked with network access enabled for workspace-write" \
-  "grep -qxF -- 'sandbox_workspace_write.network_access=true' '$REPO_NATIVE/.ship-smoke-stub-argv'"
-check "the stub codex was not invoked with danger-full-access" \
-  "! grep -qxF -- 'danger-full-access' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was invoked with --json --skip-git-repo-check and danger-full-access" \
+  "grep -qxF -- '--json' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- '--skip-git-repo-check' '$REPO_NATIVE/.ship-smoke-stub-argv' && grep -qxF -- 'danger-full-access' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was not invoked with --add-dir (removed with the workspace-write sandbox)" \
+  "! grep -qxF -- '--add-dir' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was not invoked with network access override (removed with the workspace-write sandbox)" \
+  "! grep -qxF -- 'sandbox_workspace_write.network_access=true' '$REPO_NATIVE/.ship-smoke-stub-argv'"
+check "the stub codex was not invoked with workspace-write" \
+  "! grep -qxF -- 'workspace-write' '$REPO_NATIVE/.ship-smoke-stub-argv'"
 check "the fixture's committed .gitignore lists __pycache__/" \
   "git -C '$REPO_NATIVE' show HEAD:.gitignore | grep -qxF '__pycache__/'"
 COMPARISON_NATIVE="$(cat "$RESULTS_NATIVE/comparison.md")"
 contains "comparison table has a native row" "| native |" "$COMPARISON_NATIVE"
 contains "comparison table's must_run column reads pass" "pass |" "$COMPARISON_NATIVE"
-check "wall minutes column is the expected 4" "grep -qE '^\| native \| 4(\.0+)? \|' '$RESULTS_NATIVE/comparison.md'"
+check "comparison table has a supervisor column reading gpt-6-astra by default" \
+  "grep -qE '^\| native \| gpt-6-astra \|' '$RESULTS_NATIVE/comparison.md'"
+check "wall minutes column is the expected 4" "grep -qE '^\| native \| gpt-6-astra \| 4(\.0+)? \|' '$RESULTS_NATIVE/comparison.md'"
 check "orchestrator model-minutes column is the expected 2" \
-  "grep -qE '^\| native \| 4(\.0+)? \| 2(\.0+)? \|' '$RESULTS_NATIVE/comparison.md'"
+  "grep -qE '^\| native \| gpt-6-astra \| 4(\.0+)? \| 2(\.0+)? \|' '$RESULTS_NATIVE/comparison.md'"
 check "orchestrator share-of-wall column reads 50.0%" "grep -qF '50.0%' '$RESULTS_NATIVE/comparison.md'"
 check "orchestrator requests column reads 2" "grep -qE '\| 2 \| 8000 \|' '$RESULTS_NATIVE/comparison.md'"
 check "fixture's must_run actually passed after the stub's merge" "[ \"\$(cat '$RESULTS_NATIVE/native/must_run.txt')\" = true ]"
 check "plan.md evidence was copied" "[ -s '$RESULTS_NATIVE/native/plan.md' ]"
 check "runner-summary.json is absent in native mode" "[ ! -e '$RESULTS_NATIVE/native/runner-summary.json' ]"
 
+section "orchestrator prompt names this repository's own skill, not an installed plugin"
+check "prompt names the repo's SKILL.md by absolute path" \
+  "grep -qxF -- '  $REPO_ROOT/plugins/orchestration/skills/multi-model/SKILL.md' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
+check "prompt names the repo's references/ directory by absolute path" \
+  "grep -qxF -- '  $REPO_ROOT/plugins/orchestration/skills/multi-model/references/' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
+check "prompt instructs not to follow an installed-plugin copy" \
+  "grep -qF -- 'installed-plugin' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
+
+section "skills column: orchestrator.jsonl scanned for /plugins/cache/ reads"
+check "skills.txt reads repo for the default stub (no /plugins/cache/ read)" \
+  "[ \"\$(cat '$RESULTS_NATIVE/native/skills.txt')\" = repo ]"
+check "comparison table's skills column reads repo" \
+  "grep -qE '^\| native \| gpt-6-astra \|.*\| pass \| repo \|' '$RESULTS_NATIVE/comparison.md'"
+
 section "the fixture plan is lint-clean against the fixture repo"
 check "plan-lint.mjs reports 0 errors on the fixture" \
   "node plugins/orchestration/skills/super-plan/references/plan-lint.mjs '$RESULTS_NATIVE/native/plan.md' --repo '$REPO_NATIVE' | grep -qE '^OK: 0 error'"
+
+section "default supervisor (--supervisor omitted): plan unchanged"
+PLAN_JSON_NATIVE="$W/plan-native.json"
+python3 "$W/extract-plan.py" "$RESULTS_NATIVE/native/plan.md" > "$PLAN_JSON_NATIVE"
+check "default plan's wave supervisor is gpt-6-astra/high" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); s=p['waves'][0]['supervisor']; exit(0 if s=={'model':'gpt-6-astra','effort':'high'} else 1)\""
+check "default plan's add-guard executor/ladder unchanged (gpt-6-luna/medium, ladder gpt-6-sol)" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); tk=p['waves'][0]['tasks'][0]; exit(0 if tk['executor']=={'model':'gpt-6-luna','effort':'medium'} and tk['ladder']==['gpt-6-sol'] else 1)\""
+check "default plan's add-doc executor unchanged (gpt-6-sol/medium, no ladder key)" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); tk=p['waves'][0]['tasks'][1]; exit(0 if tk['executor']=={'model':'gpt-6-sol','effort':'medium'} and 'ladder' not in tk else 1)\""
+check "default plan still carries approvals.premium for gpt-6-astra" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); a=p.get('approvals',{}).get('premium',{}); exit(0 if a.get('models')==['gpt-6-astra'] else 1)\""
+check "default orchestrator prompt names supervisor gpt-6-astra/high" \
+  "grep -qF 'supervisor gpt-6-astra/high' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
+
+section "--supervisor gpt-6-sol: standard-supervisor plan variant"
+RESULTS_SOL="$W/results-sol"
+set +e
+CODEX_HOME="$W/codex-home-sol" PATH="$BIN:$PATH" \
+  bash tests/eval/ship-smoke.sh --mode native --supervisor gpt-6-sol --results "$RESULTS_SOL" \
+  > "$W/sol.out" 2>&1
+rc_sol=$?
+set -e
+expect "Sol supervisor mode exits 0" "0" "$rc_sol"
+check "Sol variant plan.md evidence was copied" "[ -s '$RESULTS_SOL/native/plan.md' ]"
+REPO_SOL="$(cat "$RESULTS_SOL/native/repo-path.txt")"
+PLAN_JSON_SOL="$W/plan-sol.json"
+python3 "$W/extract-plan.py" "$RESULTS_SOL/native/plan.md" > "$PLAN_JSON_SOL"
+check "Sol variant plan's wave supervisor is gpt-6-sol/high" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL')); s=p['waves'][0]['supervisor']; exit(0 if s=={'model':'gpt-6-sol','effort':'high'} else 1)\""
+check "Sol variant's add-guard executor is gpt-6-luna/medium with empty ladder" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL')); tk=p['waves'][0]['tasks'][0]; exit(0 if tk['executor']=={'model':'gpt-6-luna','effort':'medium'} and tk['ladder']==[] else 1)\""
+check "Sol variant's add-doc executor is gpt-6-luna/medium with empty ladder" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL')); tk=p['waves'][0]['tasks'][1]; exit(0 if tk['executor']=={'model':'gpt-6-luna','effort':'medium'} and tk['ladder']==[] else 1)\""
+check "Sol variant plan carries no approvals key (no premium model used)" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL')); exit(0 if 'approvals' not in p else 1)\""
+check "Sol variant plan's other fields (ci/e2e/contracts) unchanged" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL')); w=p['waves'][0]; exit(0 if w['tasks'][0]['contract']['files_allowed']==['src/**'] and w['tasks'][1]['contract']['files_allowed']==['docs/**'] and p['ci']=='none: disposable fixture repository without CI' else 1)\""
+check "Sol variant orchestrator prompt names supervisor gpt-6-sol/high" \
+  "grep -qF 'supervisor gpt-6-sol/high' '$RESULTS_SOL/native/orchestrator.prompt.md'"
+check "Sol variant plan is lint-clean against its fixture repo" \
+  "node plugins/orchestration/skills/super-plan/references/plan-lint.mjs '$RESULTS_SOL/native/plan.md' --repo '$REPO_SOL' | grep -qE '^OK: 0 error'"
+contains "Sol variant comparison.md shows the supervisor" "| native | gpt-6-sol |" "$(cat "$RESULTS_SOL/comparison.md")"
 
 section "runner mode: --sessions override, summary.json children merged in"
 RESULTS_RUNNER="$W/results-runner"
@@ -233,6 +322,21 @@ BOTH_COMPARISON="$(cat "$RESULTS_BOTH/comparison.md")"
 contains "comparison table has both rows under --mode both" "| native |" "$BOTH_COMPARISON"
 contains "comparison table has the runner row too" "| runner |" "$BOTH_COMPARISON"
 
+section "skills column: a stub rollout reading an installed-plugin copy is detected"
+RESULTS_PLUGIN="$W/results-plugin"
+set +e
+SHIP_SMOKE_STUB_SKILLS_SOURCE=installed-plugin \
+  CODEX_HOME="$W/codex-home-plugin" PATH="$BIN:$PATH" \
+  bash tests/eval/ship-smoke.sh --mode native --results "$RESULTS_PLUGIN" \
+  > "$W/plugin.out" 2>&1
+rc_plugin=$?
+set -e
+expect "installed-plugin-source mode still exits 0" "0" "$rc_plugin"
+check "skills.txt reads installed-plugin when orchestrator.jsonl names a /plugins/cache/ path" \
+  "[ \"\$(cat '$RESULTS_PLUGIN/native/skills.txt')\" = installed-plugin ]"
+check "comparison table's skills column reads installed-plugin" \
+  "grep -qE '^\| native \| gpt-6-astra \|.*\| pass \| installed-plugin \|' '$RESULTS_PLUGIN/comparison.md'"
+
 section "codex --skip-git-repo-check exec is never invoked with --ephemeral (rollouts persist)"
 check "at least one rollout was captured under the stub CODEX_HOME" \
   "find '$W/codex-home-native/sessions' -name '*.jsonl' -print -quit | grep -q ."
@@ -260,6 +364,6 @@ check "comparison.md was still written instead of crashing" "[ -f '$RESULTS_BROK
 COMPARISON_BROKEN="$(cat "$RESULTS_BROKEN/comparison.md")"
 contains "comparison table still has a native row" "| native |" "$COMPARISON_BROKEN"
 contains "comparison table shows n/a values and must_run=not-run for the missing-telemetry mode" \
-  "| native | n/a | n/a | n/a | n/a | n/a | n/a | not-run |" "$COMPARISON_BROKEN"
+  "| native | gpt-6-astra | n/a | n/a | n/a | n/a | n/a | n/a | not-run |" "$COMPARISON_BROKEN"
 
 summary

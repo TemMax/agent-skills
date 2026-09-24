@@ -214,6 +214,77 @@ check "Codex rework stays outside the model-transition ladder" \
 check "wave supervisor is chosen over executors and ladder rungs" \
   "grep -qF 'every executor AND every ladder rung' $SP"
 
+section "super-plan: plan quality — ci, e2e, premium approvals, seam audit, estimates"
+# 2026-09-22 ship run: the plan missed the repo's exact CI entrypoint and
+# never ran the shipped corpus through the real CLI end to end, both
+# surfacing only at final review. These keys and the Seam audit step exist
+# to catch that class of defect before execution, not after.
+check "research records the repo's CI entrypoints"  "grep -qF '.github/workflows/*.yml' $SP"
+check "plan format documents the ci key"            "grep -qF '\`ci\`:' $SP"
+check "plan format documents the e2e key"            "grep -qF '\`e2e\`:' $SP"
+check "plan format documents approvals.premium"      "grep -qF '\`approvals.premium\`:' $SP"
+check "approvals.premium is tied to the premium models" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'whenever \`claude-fable-5-1\` or \`gpt-6-astra\` appears in any role'"
+check "the linter is said to enforce ci, e2e and approvals.premium" \
+  "grep -qF 'The linter enforces all three' $SP"
+check "the example wave-plan shows approvals.premium for its fable-5.1 supervisor" \
+  "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"claude-fable-5-1\"' && sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"premium\"'"
+check "Gate 1 estimates the supervisor choice's cost"  "grep -qF 'estimated cost from' $SP"
+check "premium supervision needs the user's pick"      "grep -qF 'A premium model is used only' $SP"
+check "the Seam audit step exists"                     "grep -qF '**Seam audit.**' $SP"
+check "the Seam audit runs before lint"                "grep -qF 'Fix what it finds before lint' $SP"
+check "the Seam audit uses the cheap route" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5\` at \`medium\`; Codex: \`gpt-6-sol\` at \`medium\`'"
+check "the Seam audit explicitly checks the same-task rule for changed formats/signatures/fixtures" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the same-task rule' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'for every changed format, signature or fixture, find every reader of it and require that reader be in the same task as the change'"
+check "the Tasks step states the same-task rule for a change and what it breaks" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A change and the test helper, fixture or shared file it breaks belong to the same task' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'even in one wave — leaves each task'\''s own checks red; across waves it leaves a wave'\''s merge red'"
+check "the same-task rule names its measured cause" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'a sibling-task helper anchored on fixture text broke when an eval planner moved the helper change to a later wave'"
+check "the Sol supervisor line names its measured fixture and wave evidence" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Sol supervisor of all-Luna waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves merge-ready first try at ≈ 3.2× lower cost than Astra — toy waves, correct work only'"
+check "Gate 2 shows the critical path and a cost range" \
+  "grep -qF 'critical path' $SP && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'estimated wall-time range in minutes' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'estimated cost range in dollars'"
+check "Gate 2 states the estimate is a prior, not a promise" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the estimate is a prior, not a promise'"
+check "Gate 2 computes the cost range from the estimates price table and formula, never a bare word" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"price table and its wall-time/cost formula\" && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'never a word such as \"low\" or \"cheap\"'"
+check "Gate 2 names which estimates.md rows fed the computation" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"Name which\" && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"rows (executor, supervisor, and\""
+check "the estimates reference ships"                  "[ -s plugins/orchestration/skills/super-plan/references/estimates.md ]"
+check "SKILL points at the estimates reference"        "grep -qF 'references/estimates.md' $SP"
+EST=plugins/orchestration/skills/super-plan/references/estimates.md
+check "estimates.md has a Contents list"               "grep -qx '## Contents' $EST"
+check "estimates.md names its price source"            "grep -qF 'tests/eval/telemetry/prices.json' $EST"
+check "estimates.md prices Opus 5"                     "grep -qF '| \`claude-opus-5\` | 5 | 0.5 | 25 |' $EST"
+check "estimates.md prices Haiku 4.5"                  "grep -qF '| \`claude-haiku-4-5-20251001\` | 1 | 0.1 | 5 |' $EST"
+check "Gate 1 fixes wave shape before the supervisor choice" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"Fix each wave's executor tiers and ladder shape at Gate 1\""
+check "a changed wave shape re-asks the supervisor choice before Gate 2" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 're-ask the user before Gate 2'"
+check "a Codex Sol executor forces the Astra supervisor" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A Codex wave with a \`gpt-6-sol\` executor has no standard supervisor'"
+check "super-plan records ship's Stage 3 review child in the plan's review key, Sol measured with a strict-gate line" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'by default, recorded in \`approvals.premium\`, or, when the user picks it to save that cost, \`gpt-6-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-24 — disclosed at Gate 1 too.'"
+check "super-plan documents the optional review key next to ci/e2e/approvals" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'optional, only on Codex plans that ship carry it' && grep -qF '\"review\"' $SP"
+check "super-plan says the linter also checks the review key" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the optional \`review\` key'"
+check "the review key is documented as an object with model and effort" \
+  "grep -qF '\"review\": {\"model\": \"gpt-6-sol\", \"effort\": \"high\"}' $SP && grep -qF '\"review\": {\"model\":' $SP"
+check "no wording in super-plan is left uncalibrated" \
+  "! grep -qi 'uncalibrated' $SP"
+check "the supervisor-vs-executor example names Opus 5 and Fable 5.1" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'takes Opus 5 (\`claude-opus-5\`, standard) or Fable 5.1 (premium, with \`approvals.premium\`)'"
+check "an omitted ladder under an Opus 5.5 supervisor is spelled out as empty" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'gives its Sonnet/Haiku tasks \`\"ladder\": []\`'"
+check "headless mode uses standard supervisors only" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A headless run uses'"
+check "headless mode invents no approvals.premium" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the plan carries no \`approvals.premium\` invented by the model'"
+check "estimates.md carries the how-to-estimate formula" \
+  "grep -qF 'attempt time' $EST && grep -qF 'orchestrator overhead' $EST"
+
 section "ship: the conductor that adds no machinery"
 check "the skill exists"                        "[ -f $SH ]"
 check "ship adds no machinery"                  "grep -q 'ship adds no machinery' $SH"

@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
-  mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -52,6 +52,12 @@ function makeRepo() {
 // gpt-6-sol ladder rung, gpt-6-astra/high supervisor. Distinct files_allowed
 // globs per task so the *original* plan itself stays lint-clean (same-wave
 // tasks must not share files) before the runner ever splits it.
+//
+// Top-level plan keys: ci is "none" (no CI in this fixture repo), e2e names
+// the first task (an existing id) so a derived-plan test can exercise both
+// the kept-object and the rewritten-to-not-applicable cases, and approvals
+// carries the premium sign-off required whenever gpt-6-astra is used (the
+// fixture's supervisor, always).
 function planText(taskIds) {
   const tasks = taskIds.map((id) => [
     '      { "id": "' + id + '", "branch": "wave/' + id + '",',
@@ -78,7 +84,13 @@ function planText(taskIds) {
     '    "tasks": [',
     tasks,
     '    ] }',
-    '] }',
+    '  ],',
+    '  "ci": "none: this fixture repo has no CI to run",',
+    '  "e2e": { "task": "' + taskIds[0] + '" },',
+    '  "approvals": { "premium": { "models": ["gpt-6-astra"],',
+    '    "reason": "wave supervisor", "approved_by": "codex-wave-runner-test",',
+    '    "date": "2026-09-24" } }',
+    '}',
     '```',
     '',
     prose,
@@ -123,6 +135,45 @@ test('usage text is printed for --help', () => {
   assert.equal(result.status, 0)
   assert.match(result.stdout, /^usage: node codex-wave-runner\.mjs/)
   assert.match(result.stdout, /--jobs 3/)
+})
+
+test('CODEX_WAVE_RUNNER_SANDBOX_PROBE=fail exits 2 with the nested-sandbox error and launches nothing', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_WAVE_RUNNER_SANDBOX_PROBE: 'fail' },
+  )
+  assert.equal(result.status, 2, result.stdout + result.stderr)
+  assert.ok(result.json, 'stdout must be one JSON error object: ' + result.stdout)
+  assert.deepEqual(result.json, {
+    status: 'error',
+    error: 'nested-sandbox',
+    message: 'codex-wave-runner.mjs is running inside a sandbox that forbids nested sandboxing '
+      + '(macOS seatbelt cannot nest), so its codex exec children cannot run commands. Run this '
+      + 'command outside the Codex sandbox (escalated permissions); the children keep their own '
+      + 'sandboxes.',
+  })
+  assert.equal(existsSync(logPath + '.d'), false, 'the stub must never have been invoked')
+  assert.equal(existsSync(join(root, 'out')), false, 'no run directory may be created')
+})
+
+test('CODEX_WAVE_RUNNER_SANDBOX_PROBE=skip bypasses the probe and the wave runs to merge-ready', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const outPath = join(root, 'out')
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_WAVE_RUNNER_SANDBOX_PROBE: 'skip' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.ok(result.json, 'stdout must be one JSON summary')
+  assert.equal(result.json.status, 'merge-ready')
 })
 
 test('(a) two tasks, good executor, clean verdict reach merge-ready', () => {
@@ -449,6 +500,128 @@ test('(j) a violation with null quote/pasteReproduced and satisfiable:true is st
     + JSON.stringify(executors))
   assert.notEqual(result.json.stopped.find((s) => s.task === 'task-a')?.reason, 'contract-unsatisfiable',
     'satisfiable:true must never stop the task as contract-unsatisfiable')
+})
+
+test('(l) a derived single-task plan rewrites a dropped wave-level e2e task to not-applicable, and keeps '
+  + 'it for the e2e task itself', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a', 'task-b']) // e2e names task-a (planText's first taskId)
+  const outPath = join(root, 'out')
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+
+  const readDerivedPlan = (taskId) => {
+    const text = readFileSync(join(outPath, 'plans', 'plan--' + taskId + '.md'), 'utf8')
+    return JSON.parse(text.match(/```json wave-plan\n([\s\S]*?)\n```/)[1])
+  }
+
+  const e2eTaskPlan = readDerivedPlan('task-a')
+  assert.deepEqual(e2eTaskPlan.e2e, { task: 'task-a' }, 'the e2e task\'s own derived plan keeps the e2e object')
+  assert.equal(e2eTaskPlan.ci, 'none: this fixture repo has no CI to run', 'ci is copied unchanged')
+  assert.ok(e2eTaskPlan.approvals && e2eTaskPlan.approvals.premium, 'approvals is copied unchanged')
+
+  const otherTaskPlan = readDerivedPlan('task-b')
+  assert.equal(otherTaskPlan.e2e, 'not-applicable: derived single-task plan; the wave-level e2e task is task-a',
+    'a derived plan for a non-e2e task carries the not-applicable string naming the dropped e2e task')
+  assert.equal(otherTaskPlan.ci, 'none: this fixture repo has no CI to run', 'ci is copied unchanged')
+  assert.ok(otherTaskPlan.approvals && otherTaskPlan.approvals.premium, 'approvals is copied unchanged')
+})
+
+// Two-wave fixture for the (l1)/(l2) cases below: each wave gets its own
+// tasks() block (see planText above), a distinct wave number and its own
+// supervisor, so the derived plan for a wave-1 task can be checked against
+// an e2e task that lives entirely outside that wave.
+function tasksJson(taskIds) {
+  return taskIds.map((id) => [
+    '      { "id": "' + id + '", "branch": "wave/' + id + '",',
+    '        "executor": { "model": "gpt-6-luna", "effort": "medium" },',
+    '        "ladder": ["gpt-6-sol"],',
+    '        "contract": {',
+    '          "files_allowed": ["src/' + id + '/**"],',
+    '          "files_forbidden": [],',
+    '          "must_run": [{ "cmd": "true", "evidence": "required" }],',
+    '          "forbidden_moves": [],',
+    '          "report_must_answer": ["What did the stub change?"] } }',
+  ].join('\n')).join(',\n')
+}
+
+function planTextMultiWave(waveTaskIds, e2eValue) {
+  const waves = waveTaskIds.map((ids, i) => [
+    '  { "wave": ' + (i + 1) + ',',
+    '    "supervisor": { "model": "gpt-6-astra", "effort": "high" },',
+    '    "tasks": [',
+    tasksJson(ids),
+    '    ] }',
+  ].join('\n')).join(',\n')
+  const prose = waveTaskIds.flat().map((id) => '## Task ' + id + '\n\nStub work for ' + id + '.\n').join('\n')
+  return [
+    'status: draft',
+    'base: pending',
+    '',
+    '# Plan — codex wave runner fixture',
+    '',
+    '```json wave-plan',
+    '{ "waves": [',
+    waves,
+    '  ],',
+    '  "ci": "none: this fixture repo has no CI to run",',
+    '  "e2e": ' + JSON.stringify(e2eValue) + ',',
+    '  "approvals": { "premium": { "models": ["gpt-6-astra"],',
+    '    "reason": "wave supervisor", "approved_by": "codex-wave-runner-test",',
+    '    "date": "2026-09-24" } }',
+    '}',
+    '```',
+    '',
+    prose,
+  ].join('\n')
+}
+
+test('(l1) a derived single-task plan keeps a wave-level e2e task that lives in another wave', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = join(root, 'plan.md')
+  // e2e names task-c, which belongs to wave 2 — not a sibling dropped by
+  // deriving wave 1's task-a plan, so it must survive untouched.
+  writeFileSync(planPath, planTextMultiWave([['task-a'], ['task-c']], { task: 'task-c' }))
+  const outPath = join(root, 'out')
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+
+  const derivedText = readFileSync(join(outPath, 'plans', 'plan--task-a.md'), 'utf8')
+  const derivedPlan = JSON.parse(derivedText.match(/```json wave-plan\n([\s\S]*?)\n```/)[1])
+  assert.deepEqual(derivedPlan.e2e, { task: 'task-c' },
+    'an e2e task belonging to another wave is not one of this wave\'s dropped siblings, so it is kept as-is')
+})
+
+test('(l2) a string e2e value is passed through unchanged in every derived plan', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = join(root, 'plan.md')
+  writeFileSync(planPath, planTextMultiWave([['task-a', 'task-b']],
+    'not-applicable: no end-to-end fixture in this repo'))
+  const outPath = join(root, 'out')
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+
+  for (const id of ['task-a', 'task-b']) {
+    const derivedText = readFileSync(join(outPath, 'plans', 'plan--' + id + '.md'), 'utf8')
+    const derivedPlan = JSON.parse(derivedText.match(/```json wave-plan\n([\s\S]*?)\n```/)[1])
+    assert.equal(derivedPlan.e2e, 'not-applicable: no end-to-end fixture in this repo',
+      'a string e2e value is never an object, so the rewrite condition never applies to it')
+  }
 })
 
 test('(k) an inconsistent verdict (ok:true with a violation) is a supervisor null-result, not a runner crash', () => {

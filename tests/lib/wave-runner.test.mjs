@@ -229,6 +229,56 @@ test('S9e repeated or self-transitioning ladder models fail closed with zero age
   }
 })
 
+test('S9f an omitted ladder defaults to the escalation ladder, which validation checks too: ' +
+  'a claude-sonnet-5 task under a claude-opus-5-5 supervisor fails closed', async () => {
+  const bad = waveArgs({
+    supervisor: { model: 'claude-opus-5-5', effort: 'high' },
+    tasks: [task({ executor: { model: 'claude-sonnet-5', effort: 'medium' }, ladder: undefined })],
+  })
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: bad,
+    agentStub: () => { throw new Error('no agent may be called') },
+  })
+  assert.equal(result.status, 'invalid-args')
+  assert.match(result.errors.join('; '), /supervisor model also appears as executor or ladder rung/)
+  assert.equal(calls.length, 0)
+})
+
+test('S9g the same task with an explicit empty ladder opts out of the default and runs', async () => {
+  const args = waveArgs({
+    supervisor: { model: 'claude-opus-5-5', effort: 'high' },
+    tasks: [task({ executor: { model: 'claude-sonnet-5', effort: 'medium' }, ladder: [] })],
+  })
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args,
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  assert.equal(result.status, 'done')
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.ok(calls.some((c) => c.opts.model === 'claude-opus-5-5'))
+})
+
+test('S9h a non-iterable ladder (not an array) fails closed with the ladder-type error, not a crash', async () => {
+  {
+    const { result, calls } = await runWorkflow(SCRIPT, {
+      args: waveArgs({ tasks: [task({ ladder: 5 })] }),
+      agentStub: () => { throw new Error('no agent may be called') },
+    })
+    assert.equal(result.status, 'invalid-args')
+    assert.match(result.errors.join('; '), /ladder/)
+    assert.equal(calls.length, 0)
+  }
+  {
+    const { result, calls } = await runWorkflow(SCRIPT, {
+      args: waveArgs({ tasks: [task({ ladder: {} })] }),
+      agentStub: () => { throw new Error('no agent may be called') },
+    })
+    assert.equal(result.status, 'invalid-args')
+    assert.match(result.errors.join('; '), /ladder/)
+    assert.equal(calls.length, 0)
+  }
+})
+
 // ---------- S10: full IDs only, aliases rejected by name ----------
 
 const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
@@ -310,6 +360,7 @@ test('S1 clean pass: one executor call, one supervisor call, no escalation', asy
   assert.equal(execCalls(calls, 't-one')[0].opts.model, 'claude-sonnet-5')
   assert.deepEqual(verdictAttempts(result.tasks[0]).map((a) => a.escalation), [null])
   assert.equal(verifyCalls(calls, 't-one').length, 1)
+  assert.match(execCalls(calls, 't-one')[0].prompt, /Never open, print, copy or transmit credentials/)
 })
 
 test('S2 rework: same model, prior verdict travels in the prompt', async () => {

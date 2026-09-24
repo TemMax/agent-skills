@@ -30,8 +30,18 @@ efforts and ladders. These operational choices need no separate calibration
 permission; ordinary task and plan approvals apply. GPT-5.6-only workflow
 failures did not measure this Astra-led pairing. Disclose unmeasured reliability
 without turning it into a veto or turning a smoke pass into a reliability claim.
+Two Sol routes carry a dated local measurement rather than a card-derived
+score: the standard `gpt-6-sol` supervisor (fixture 9/9 twice, 2026-09-23,
+`tests/eval/gpt-6-results-2026-09-23.md`) and the `gpt-6-sol` final-review
+route (measured 2026-09-24: clean 10/10, planted 10/10, PR support 3/4);
+every other Sol-led pairing in this profile remains unmeasured
+(`gpt-6-sol-dossier.md`).
 
-Every wave uses a separate `gpt-6-astra` supervisor at explicit `high` effort.
+Every wave uses a fresh, separate supervisor at explicit `high` effort,
+chosen at Gate 1 per shared Codex routing: the premium `gpt-6-astra` (plan
+records `approvals.premium`), or — only for a wave whose executors and rungs
+are all `gpt-6-luna` — the standard `gpt-6-sol`. A wave with a Sol executor
+needs Astra. Sol never supervises its own or another Sol executor's work.
 Write full exact IDs in the plan; escalated rungs use `high`. Pick the initial
 tier from the task, not an obligation to try Luna first. The same fixed
 supervisor can supervise all three executors because it is absent from their

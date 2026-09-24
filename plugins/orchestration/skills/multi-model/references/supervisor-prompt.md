@@ -167,6 +167,7 @@ and decides. Your job is to say what is true and show why.
   a red `must_run` is never correct work, however blameless the executor.
 - Do not comment on style, naming, or architecture. Not your job here.
 - `remarks` never affect `ok`.
+- Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example ~/.codex, ~/.claude, app configs with Authorization headers); if the task needs a secret, stop and report.
 
 ## Output
 

@@ -21,6 +21,7 @@ base: pending
       { "id": "docs-sync",
         "branch": "wave/docs-sync",
         "executor": { "model": "claude-haiku-4-5-20251001" },
+        "ladder": [],
         "contract": {
           "files_allowed": ["docs/**"],
           "files_forbidden": [],
@@ -28,7 +29,13 @@ base: pending
           "forbidden_moves": [],
           "report_must_answer": ["What changed?"] } }
     ] }
-] }
+],
+  "ci": "none: fixture repository without CI workflows",
+  "e2e": { "task": "http-retry" },
+  "approvals": { "premium": { "models": ["claude-fable-5-1"],
+    "reason": "Fable required for narrative QA judging on this wave.",
+    "approved_by": "fixture", "date": "2026-09-24" } }
+}
 ```
 
 ## Task http-retry

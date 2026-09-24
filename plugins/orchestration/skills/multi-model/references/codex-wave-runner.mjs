@@ -176,6 +176,18 @@ function deriveTaskPlan({ originalText, plan, waveIndex, taskId, outPath, planBa
   const task = wave.tasks.find((candidate) => candidate && candidate.id === taskId)
   const derivedPlan = clone(plan)
   derivedPlan.waves[waveIndex] = { ...clone(wave), tasks: [clone(task)] }
+  // The derived single-task plan otherwise keeps every other top-level key
+  // (ci, approvals, ...) exactly as cloned above. e2e is the one exception:
+  // when the original plan names a wave-level e2e task that this wave's
+  // derived plan dropped (because it isn't taskId, but it was one of this
+  // wave's sibling tasks), the derived plan can no longer claim that e2e
+  // coverage, so it is marked not-applicable instead. An e2e task that
+  // belongs to another wave entirely is untouched by this derivation and is
+  // passed through unchanged.
+  if (plan.e2e && typeof plan.e2e === 'object' && plan.e2e.task !== taskId
+    && wave.tasks.some((t) => t && t.id === plan.e2e.task)) {
+    derivedPlan.e2e = 'not-applicable: derived single-task plan; the wave-level e2e task is ' + plan.e2e.task
+  }
   let text = replaceWavePlanBlock(originalText, derivedPlan)
   const idsToRemove = wave.tasks.map((candidate) => candidate.id).filter((id) => id !== taskId)
   text = removeTaskSections(text, idsToRemove)
@@ -324,10 +336,46 @@ async function runCodexChild({ semaphore, codexBin, args, prompt, eventsPath, st
 }
 
 // ---------------------------------------------------------------------------
+// Start-up sandbox-nesting probe. macOS seatbelt (sandbox-exec) cannot nest:
+// if this runner is itself already running inside a sandbox, every `codex
+// exec` child it spawns with `--sandbox workspace-write` will be unable to
+// run commands. Detect that up front, before any helper call or child
+// launch, rather than let every task fail one by one.
+//
+// CODEX_WAVE_RUNNER_SANDBOX_PROBE overrides the real probe for tests:
+// "skip" runs no probe at all, "fail" behaves as if the probe failed
+// (without needing an actually-nested sandbox to test against), and unset
+// runs the real probe.
+// ---------------------------------------------------------------------------
+
+function sandboxNestingBlocked() {
+  const override = process.env.CODEX_WAVE_RUNNER_SANDBOX_PROBE
+  if (override === 'skip') return false
+  if (override === 'fail') return true
+  if (process.platform !== 'darwin') return false
+  const probe = spawnSync('/usr/bin/sandbox-exec', ['-p', '(version 1)(allow default)', '/usr/bin/true'])
+  return probe.status !== 0 && String(probe.stderr).includes('Operation not permitted')
+}
+
+function reportNestedSandboxAndExit() {
+  process.stdout.write(JSON.stringify({
+    status: 'error',
+    error: 'nested-sandbox',
+    message: 'codex-wave-runner.mjs is running inside a sandbox that forbids nested sandboxing '
+      + '(macOS seatbelt cannot nest), so its codex exec children cannot run commands. Run this '
+      + 'command outside the Codex sandbox (escalated permissions); the children keep their own '
+      + 'sandboxes.',
+  }) + '\n')
+  process.exit(2)
+}
+
+// ---------------------------------------------------------------------------
 // Main orchestration
 // ---------------------------------------------------------------------------
 
 async function main() {
+  if (sandboxNestingBlocked()) reportNestedSandboxAndExit()
+
   const config = parseArgv(process.argv.slice(2))
 
   if (existsSync(config.outPath)) {

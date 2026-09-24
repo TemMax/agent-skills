@@ -74,21 +74,21 @@ for f in \
   plugins/orchestration/.claude-plugin/plugin.json \
   plugins/orchestration/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "orchestration release version: $f" "3.1.0" "$v"
+  expect "orchestration release version: $f" "4.0.0" "$v"
 done
 for f in plugins/orchestration/skills/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "orchestration skill release version: $f" "3.1.0" "$v"
+  expect "orchestration skill release version: $f" "4.0.0" "$v"
 done
 for f in \
   plugins/code-review/.claude-plugin/plugin.json \
   plugins/code-review/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "code-review release version: $f" "1.8.0" "$v"
+  expect "code-review release version: $f" "1.9.0" "$v"
 done
 for f in plugins/code-review/skills/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "code-review skill release version: $f" "1.8.0" "$v"
+  expect "code-review skill release version: $f" "1.9.0" "$v"
 done
 for marker in \
   "Claude Code installation" \

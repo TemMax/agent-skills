@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 3.1.0
+  version: 4.0.0
 ---
 
 # Shipping a Feature (ship)
@@ -58,12 +58,18 @@ effort is unknown and receives no effort-specific claim. Always reply to the
 user in the language the user writes in.
 
 For Codex, load [shared route selection](../multi-model/references/codex-routing.md).
-Available GPT-5.6 executors with a fresh Astra/high supervisor form an operational
-route through super-plan and multi-model without a separate calibration gate.
-Check actual capabilities before launch; preserve the approvals below. Invoke
-Stage 3 critical-review in a fresh Astra/high child for independent final review,
-including when the main seat uses a GPT-5.6 profile. Missing required review
-capability stops the route; it never authorizes self-review or publication.
+Available GPT-6 executors under the supervisor chosen at Gate 1 — premium
+`gpt-6-astra`/high with `approvals.premium`, or the standard `gpt-6-sol`/high
+for Luna-only waves — form an operational route through super-plan and
+multi-model without a separate calibration gate. Check actual capabilities
+before launch; preserve the approvals below. Stage 3 critical-review runs in
+a fresh child of the model the plan's `review` key names (chosen at Gate 1;
+`gpt-6-astra` recorded in `approvals.premium`, or `gpt-6-sol`, measured
+2026-09-24: clean 10/10, planted 10/10, PR support 3/4);
+if the plan has no `review` key, stop and ask the user before invoking the
+review; never pick. Missing required review capability stops the route; it
+never authorizes self-review or publication. Claude sessions: unchanged
+(review in the session).
 
 ## What ship owns — and what it does not
 
@@ -124,6 +130,7 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
 4. After each wave: merge every `ok` task branch into the feature branch
    (with single-task invocations, merge as they land), run the repository's
    offline test suite once when all of the wave's invocations have settled,
+   push. After the final wave, also run the plan's `ci.commands` before that
    push. The next wave's base is the new pushed tip.
 5. Failures follow multi-model's rules unchanged: `failed`/`error` → stop and
    hand the user the verdicts and branch names; `contract-unsatisfiable` →
@@ -141,6 +148,8 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    contract or runtime check verified, an explicit **"Not verified — manual
    QA needed"** section listing each one. An unverified reference that
    vanishes from the PR resurfaces as a production defect found by hand.
+   When the review child is `gpt-6-sol`, the body also carries the line
+   `Review route: gpt-6-sol final review (measured 2026-09-24: clean 10/10, planted 10/10, PR support 3/4)`.
 3. If the plan carries Acceptance References and this session has a tool or
    skill whose **described capability** is running the product and
    observing it — launching the app, driving its UI, capturing screenshots —
@@ -173,6 +182,7 @@ and reworks, routed fix evidence, and anything left open.
 | The user declines a super-plan gate | Stop; nothing was created yet |
 | A wave returns `failed` / `error` | Stop with verdicts and branch names (multi-model's rule) |
 | The suite is red after a merge | Stop before the push; hand the output over |
+| A plan `ci.commands` command is red after the final wave | Stop before the push; hand the output over |
 | `gh` loses write capability mid-flow | critical-review degrades per its own protocol; prepared texts go to the user |
 | The user declines critical-review's fix gate | Soft reset per that skill; the PR stays open |
 | The runtime QA capability is missing or fails mid-pass | Not a ship failure: the affected references go to the PR's "Not verified — manual QA needed" section |

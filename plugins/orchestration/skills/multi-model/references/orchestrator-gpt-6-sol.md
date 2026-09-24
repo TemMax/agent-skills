@@ -35,9 +35,14 @@ session always reasons about decomposition, ambiguity, and delegation.
 - Use [shared Codex routing](codex-routing.md) for available executors,
   efforts, and bounded escalation. It governs routing across profiles
   without a separate calibration gate.
-- Every wave uses a fixed, separate `gpt-6-astra` supervisor at explicit
-  `high` effort, in a fresh context, per shared Codex routing. Sol does not
-  supervise its own or another Sol executor's work.
+- Every wave uses a fresh, separate supervisor at explicit `high` effort,
+  chosen at Gate 1 per shared Codex routing: the premium `gpt-6-astra` (plan
+  records `approvals.premium`), or — only for a wave whose executors and
+  rungs are all `gpt-6-luna` — the standard `gpt-6-sol`. A wave with a Sol
+  executor needs Astra. Sol never supervises its own or another Sol
+  executor's work. Local measurement, 2026-09-23: the supervisor fixture
+  recorded Sol 9/9 twice (`tests/eval/gpt-6-results-2026-09-23.md`), a
+  repeated fixture pass, not production calibration across live waves.
 - Preserve isolated worktrees, task contracts, mechanical checks, and fresh
   independent verdicts. Never mix providers or silently reroute an approved
   plan.

@@ -19,7 +19,13 @@ base: pending
           "forbidden_moves": ["weakening, deleting or skipping an existing test"],
           "report_must_answer": ["How is division by zero handled?"] } }
     ] }
-] }
+],
+  "ci": "none: fixture repository without CI workflows",
+  "e2e": { "task": "divide-guard" },
+  "approvals": { "premium": { "models": ["gpt-6-astra"],
+    "reason": "Astra required for cross-file divide-by-zero reasoning depth.",
+    "approved_by": "fixture", "date": "2026-09-24" } }
+}
 ```
 
 ## Task divide-guard

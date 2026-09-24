@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 3.1.0
+  version: 4.0.0
 ---
 
 # Orchestrating Multi-Model Development
@@ -96,8 +96,18 @@ supervision. Read the packaged [evidence and limitations](references/gpt-calibra
 before making claims about what those counts establish. The 2026-09-23 GPT-6
 Sol/Luna calibration recorded the supervisor fixture at Sol 9/9, Luna 7/9,
 clean planning and skill-navigation tiers for both, and neither model passing
-the critical-review guards, so no GPT-6 Sol or Luna review or supervisor
-route is supported yet — see
+the critical-review guards at that date. GPT-6 Luna review stays unsupported
+(clean 0/3). The two Sol routes are now measured, replacing the earlier
+policy-decision status: the standard `gpt-6-sol` supervisor of
+all-`gpt-6-luna` waves recorded the supervisor fixture 9/9 on 2026-09-23
+(twice) and 9/9 on 2026-09-24 (×3), plus three ship-smoke runner-mode waves
+merge-ready first try at wall 2.44/2.27/2.14 min and cost
+$0.238/$0.252/$0.200 — ≈3.2× cheaper than a `gpt-6-astra` supervisor at the
+same wall time (limits: two-task toy waves with correct work only; defect
+detection comes from the fixture, not these waves). The `gpt-6-sol` review
+route recorded the critical-review strict gate clean 5/5 and planted 5/5 in
+each of two 2026-09-24 runs (10/10 and 10/10) and PR support 3/4 (one
+`pr-gate-withheld` miss) — see
 [`tests/eval/gpt-6-results-2026-09-23.md`](../../../../tests/eval/gpt-6-results-2026-09-23.md).
 
 ## Overview
@@ -135,6 +145,11 @@ English does not mean English replies.
    like) — otherwise it silently goes stale: if you froze a file for everyone,
    assign it to someone explicitly.
 4. **Table.** Before launching, show the user: task | model | effort | rationale.
+   The table also shows, per wave, the supervisor and whether it is premium,
+   with an estimated cost. A premium model (Fable 5.1 / GPT-6 Astra, any
+   role) is used only when the user picks it here and the plan records
+   `approvals.premium` with that choice — never filled in by the orchestrator
+   for a choice the user did not make.
 5. **Write the wave plan file** (see Wave Plan Artifact) with `status: active`,
    and record the base SHA. You do this, not the user — the plan's lifecycle is
    yours to open and close, and nobody should have to hand-edit a field to make
@@ -150,7 +165,11 @@ English does not mean English replies.
 8. **The final end-to-end review is the orchestrator's own.** Before it you may
    launch an Opus verifier, but the verdict is the orchestrator's.
 9. **Completion.** Claude: at most 3 iterations per task, then escalation. Codex
-   uses the native helper's bounded attempts from shared Codex routing. At the end a
+   uses the native helper's bounded attempts from shared Codex routing. Run the
+   plan's `ci.commands` exactly (in addition to the offline suite) before the
+   final wave's push, not after — with `ci: "none: <reason>"` there is nothing
+   extra to run. A red `ci.commands` entry stops completion exactly like a red
+   offline suite: fix it, don't push through it. At the end a
    summary: done / verified / remaining. **Set the wave plan's `status: done`**
    in the same breath — an open plan keeps the drift hook paying for a wave that
    ended.
@@ -177,13 +196,14 @@ the work it is waiting for.
 | A long unsliceable session | Opus 5.5 executor (`claude-opus-5-5`) | ProgramBench 91.2 with episodes up to the full 1M window (pp. 183–184), at $4 / $20 vs Opus 5's $5 / $25 (p. 180) |
 | Sonnet hit its ceiling after a fix iteration | Opus 5.5 executor (`claude-opus-5-5`) | The heavy-executor upgrade over Sonnet: higher than Opus 5 on every summary-table evaluation (p. 4) at a lower price |
 | Reading untrusted external content (web, fetched pages, hostile files) | Opus 5.5 executor (`claude-opus-5-5`) | Matches Fable 5.1 on tool-result injection — IPI 0.1% at k=1 / 1.0% at k=15 (p. 85) — and handles the content through tools, never pasted into its prompt (pp. 123–126); still pair with platform safeguards |
-| Untrusted content whose compromise would reach secrets or irreversible actions (content known hostile, an agent that can act) | Fable 5.1 executor (`claude-fable-5-1`) | Most injection-robust model to date: IPI 0.1% at k=1 / 1.0% at k=15 vs Opus 5's 0.4 / 4.8; none of 2,826 directly-answered coding requests broke (pp. 83, 86). Opus 5.5 stays the cost default |
+| Untrusted content whose compromise would reach secrets or irreversible actions (content known hostile, an agent that can act) | Fable 5.1 executor (`claude-fable-5-1`) | Most injection-robust model to date: IPI 0.1% at k=1 / 1.0% at k=15 vs Opus 5's 0.4 / 4.8; none of 2,826 directly-answered coding requests broke (pp. 83, 86). Opus 5.5 stays the cost default; only with `approvals.premium` recorded at Gate 1 |
 | Reverse-engineering / vulnerability discovery in compiled binaries | Opus 4.8 executor (`claude-opus-4-8`) | Opus 5.5's, Opus 5's and Fable 5.1's cyber classifiers block binaries (Opus 5.5 card pp. 48, 55; Fable 5.1 card p. 52); Opus 4.8 is where the fallback lands anyway (Opus 5.5 card pp. 12–13) — choose it, don't fall into it |
 
 Torn between Haiku and Sonnet → Sonnet. Torn between Sonnet and Opus → improve the
 task spec first, then upgrade the model. Opus 5.5 (`claude-opus-5-5`) is the
 default heavy executor and verifier. Opus 5 remains addressable as
-`claude-opus-5` — the supervisor fallback, or an explicit choice. Opus 4.8
+`claude-opus-5` — the standard supervisor for Opus 5.5 executors and for
+tasks whose rungs reach Opus 5.5; retired as an executor. Opus 4.8
 (`claude-opus-4-8`) is retained only for compiled-binary work and as the
 cyber-refusal fallback.
 
@@ -208,7 +228,8 @@ expensive rate available. Never spawn a research agent without naming its model.
 | Mechanical pattern search: occurrences of a known string or shape | Haiku 4.5 (`claude-haiku-4-5-20251001`) | Zero decisions; simple file searches are its documented lane |
 | Closed enumeration: files, call sites, conventions, test commands that actually run | Sonnet 5 (`claude-sonnet-5`), low/medium | Strong at digging through large code volumes (ProgramBench 76–86%, 1M context) and cheap; a closed question neutralizes its documented fabricate-when-information-is-missing failure (Sonnet 5 card, p. 71) |
 | Open research sub-question: how a subsystem works, what depends on what, why it is shaped this way | Opus 5.5 (`claude-opus-5-5`), medium/high | Cheaper than Opus 5 ($4 / $20 vs $5 / $25 per million tokens, p. 180) at DRACO parity (87.4 vs 88.3, p. 187) |
-| A report the orchestrator will trust without re-verification, or reasoning over a near-1M-token surface | Opus 4.8 (`claude-opus-4-8`) | Honesty ceiling (0.00 misreported rate) and the best long-context reasoning in the comparison set (GraphWalks 1M 68.1); DRACO rises monotonically through max |
+| A report the orchestrator will trust without re-verification | Opus 5.5 (`claude-opus-5-5`), medium/high | Strongest tested model or tied on most honesty metrics of the dossier's automated-behavioral-audit comparison (Opus 5.5 card pp. 106–114, p. 110); its MASK honesty-under-pressure rate is below Opus 5's and Sonnet 5's (p. 130), so a report it produces under user pressure still gets spot-checked |
+| Reasoning over a near-1M-token surface | Opus 4.8 (`claude-opus-4-8`) | The only measured long-context reasoning result in the comparison set (GraphWalks 1M 68.1) |
 
 Torn between Haiku and Sonnet → Sonnet, as always. The route comes from this
 table, never from inheritance: on an Opus 5.5 seat the open-research route
@@ -223,7 +244,10 @@ of the executor task template):
 - `not found` is a valid and expected answer — never fill a gap with a guess
   (Sonnet 5 fabricates precisely when information is missing, p. 71);
 - read the sources: answering from memory about library or system behavior is
-  forbidden (Opus 5's documented recall-as-truth failure, p. 87).
+  forbidden (Opus 5's documented recall-as-truth failure, p. 87);
+- never open, print, copy or transmit credentials, tokens or configuration
+  files that hold them (for example `~/.codex`, `~/.claude`, app configs with
+  Authorization headers); if the research needs a secret, stop and report.
 
 ## Choosing Executor Effort — Quick Reference
 
@@ -235,8 +259,8 @@ is your profile's business, not this table's.
 | Haiku 4.5 (`claude-haiku-4-5-20251001`) | — does not support effort — | | | |
 | Sonnet 5 (`claude-sonnet-5`) | obvious solution, but the code must be read | routine implementation per spec | default for non-trivial work | hardest execution tasks; plateau! |
 | Opus 5.5 executor (`claude-opus-5-5`) | simple, fully specified edits | **peak on scoped coding** (FrontierCode, p. 176) | default for non-trivial work (CursorBench high = xhigh, p. 179) | long-horizon knowledge work (≈ max at 41–51% fewer tokens, pp. 209–210); avoid max — pasted-text compliance 7.4% (p. 125) |
-| Opus 5 executor (`claude-opus-5`) | unusually strong on simple/scoped tasks | well-specified work | default for non-trivial work | avoid — overthinking/self-verification risk |
-| Opus 4.8 executor (`claude-opus-4-8`) | — | most well-specified tasks (min effort ≈ Opus 4.7 max) | debugging, verification, long horizon | research-grade only |
+| Opus 5 executor (`claude-opus-5`; retired route, kept for approved older plans) | unusually strong on simple/scoped tasks | well-specified work | default for non-trivial work | avoid — overthinking/self-verification risk |
+| Opus 4.8 executor (`claude-opus-4-8`) | — | compiled-binary work only: most well-specified tasks (min effort ≈ Opus 4.7 max) | compiled-binary work only: debugging, verification, long horizon | compiled-binary work only: research-grade only |
 | Fable 5.1 executor (`claude-fable-5-1`; explicit specialized choice or approved rung) | scoped, closed tasks | **peak on scoped coding** (FrontierCode, p. 169) — always with a scope/brevity line | long-horizon work | xhigh ≈ max at 19–25% fewer tokens (pp. 193–194); out-of-scope edits rise with effort — the scope line is mandatory |
 
 Signal rule: wanting to give Sonnet xhigh because the task is open-ended → that
@@ -293,17 +317,34 @@ For an unsupervised wave, tasks still must not overlap in the files they touch.
 
 Before launching a supervised wave, write the plan to a file — one entry per
 task, carrying the prose, the contract, the assigned model, the branch and the
-base SHA:
+base SHA. The file opens with the unfenced `status:`/`base:` header, then one
+fenced `json wave-plan` block:
 
-```yaml
+status: active
 base: 7c05ff5
-status: active          # active | done — the hook reads this, never the file's existence
-tasks:
-  - task: http-retry
-    model: claude-sonnet-5
-    branch: wave/http-retry
-    contract: {...}
+
+```json wave-plan
+{ "waves": [
+  { "wave": 1,
+    "supervisor": { "model": "claude-opus-5-5", "effort": "high" },
+    "tasks": [
+      { "id": "http-retry",
+        "branch": "wave/http-retry",
+        "executor": { "model": "claude-sonnet-5", "effort": "medium" },
+        "ladder": [],
+        "contract": {
+          "files_allowed": ["src/http/**"],
+          "files_forbidden": [],
+          "must_run": [{ "cmd": "pytest tests/http -q", "evidence": "required" }],
+          "forbidden_moves": ["weakening, deleting or skipping an existing test"],
+          "report_must_answer": ["Which call sites now retry?"] } } ] }
+],
+"ci": { "commands": ["pytest -q"], "workflows": [".github/workflows/ci.yml"] },
+"e2e": "not-applicable: http-retry touches one call path, not a data-transforming pipeline" }
 ```
+
+This is the real plan format; see super-plan's Plan Format for the full schema,
+including `approvals.premium`.
 
 **You own both transitions.** Write the file with `status: active` at step 5 and
 set `status: done` at step 9. The user never edits it: a supervision layer that
@@ -339,6 +380,9 @@ reduce the documented failure modes:
    behalf."
 4. **Prohibitions:** do not spawn subagents; no destructive operations
    (force-push, reset --hard, rm outside the task) without explicit permission.
+   Never open, print, copy or transmit credentials, tokens or configuration
+   files that hold them (for example `~/.codex`, `~/.claude`, app configs with
+   Authorization headers); if the task needs a secret, stop and report.
    Phrase prohibitions without qualifiers — executors rules-lawyer around wording
    when it conflicts with "the overriding goal".
 5. **Definition of done and response format:** list of changed files, the
@@ -419,17 +463,26 @@ weaker tier than Opus 5.5 even where Opus 5.5 benchmarks higher.
 
 | Executor | Supervisor | Effort |
 |---|---|---|
-| Haiku 4.5 (`claude-haiku-4-5-20251001`) | Opus 5.5 (`claude-opus-5-5`) | high |
-| Sonnet 5 (`claude-sonnet-5`) | Opus 5.5 (`claude-opus-5-5`) | high |
+| Haiku 4.5 (`claude-haiku-4-5-20251001`) | Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
+| Sonnet 5 (`claude-sonnet-5`) | Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
 | Opus 5.5 (`claude-opus-5-5`) | Fable 5.1 (`claude-fable-5-1`), fallback Opus 5 (`claude-opus-5`) | high |
 | Opus 5 (`claude-opus-5`) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) | high |
-| Opus 4.8 (`claude-opus-4-8`) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) | high |
+| Opus 4.8 (`claude-opus-4-8`) | Opus 5.5 (`claude-opus-5-5`, standard) or Fable 5.1 (`claude-fable-5-1`, premium — `approvals.premium`) | high |
 | Fable 5.1 (`claude-fable-5-1`, explicit specialized choice or approved rung) | Opus 5.5 (`claude-opus-5-5`), fallback Opus 5 (`claude-opus-5`) | high |
 
 A wave has one supervisor, so pick its row by the strongest model any task
 in the wave can run, ladder rungs included — a `claude-sonnet-5` task whose
 ladder reaches `claude-opus-5-5` is supervised by `claude-fable-5-1`, not by
 Opus 5.5 (the runner and the linter reject a supervisor that is also a rung).
+The rung rule counts the default ladder: an omitted `ladder` field is not an
+empty one — it inherits the runner's default ladder, which reaches
+`claude-opus-5-5`, so only an explicit `"ladder": []` opts a task out of it.
+
+**Premium models.** Fable 5.1 and GPT-6 Astra are premium; they are used — as
+supervisor, executor or ladder rung — only when the user chose them at Gate 1
+and the plan records `approvals.premium`; the linter enforces it. Standard
+alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors),
+Codex `gpt-6-sol` for Luna-only waves.
 
 Plans name every supervisor by its full ID (see Model identifiers above): Fable
 5.1 is `claude-fable-5-1`. Fable 5 is no longer addressable and keeps its
@@ -486,10 +539,16 @@ supervised wave, stop before publication rather than push around the gate.
 - Claude-only wave: read and follow `references/claude-wave-adapter.md` (it
   generates the launch script and invokes the shipped runner).
 - Codex-only wave (GPT-6 Sol/Luna or GPT-5.6 executors, or separately approved
-  Astra initial/final rung; Astra supervisor): read and follow
-  `references/codex-wave-protocol.md`; do not invoke Claude Workflow. Its
-  default adapter is `references/codex-wave-runner.mjs`, as described there,
-  with the native action loop as fallback.
+  Astra initial/final rung; supervisor per shared Codex routing (premium Astra
+  with `approvals.premium`, or standard `gpt-6-sol` for all-Luna waves)): read
+  and follow `references/codex-wave-protocol.md`; do not invoke Claude
+  Workflow. Its default adapter is `references/codex-wave-runner.mjs`, as
+  described there, with the native action loop as fallback. Launch
+  `codex-wave-runner.mjs` as an escalated command outside the Codex sandbox,
+  never inside a sandboxed Codex session — see the protocol for the
+  nested-sandbox reason. An Astra executor needs both `astra_executor_reason`
+  and `approvals.premium` — one records the reason, the other is the
+  approval.
 - Mixed or unknown-provider wave: stop before spawning and return the linter or
   identity error.
 
@@ -550,7 +609,7 @@ Each of these comes from a measured failure, not from general caution.
 |---|---|
 | State the prohibitions to the executor loudly and explicitly | Explicit "don't work around — report" lowers fabrication: Fable 17.4% → 9.1% (pp. 161–163), Opus 4.8 9.4% → 2.8% (pp. 109–110) |
 | Do NOT disclose the supervisor's specific checks to the executor | Grader awareness reaches 24–30% and changes behavior at the surface level (Fable pp. 171–181) |
-| Fresh separate supervision; same-model only for approved Astra exception | Astra exception evidence is uncalibrated; Opus 4.8 (pp. 122–124) ≈0 and Fable 5 (pp. 202–203) measured zero; Fable 5.1 0.1/10 (Fable 5.1 card p. 124); Opus 5 now measured ≈0, +0.05 / −0.03 (Opus 5.5 card p. 128); Opus 5.5 +0.07/10 with a Claude-identity prompt (Opus 5.5 card p. 128) |
+| Fresh separate supervision; same-model only for approved Astra exception | Astra exception evidence has no dedicated self-preference measurement; Opus 4.8 (pp. 122–124) ≈0 and Fable 5 (pp. 202–203) measured zero; Fable 5.1 0.1/10 (Fable 5.1 card p. 124); Opus 5 now measured ≈0, +0.05 / −0.03 (Opus 5.5 card p. 128); Opus 5.5 +0.07/10 with a Claude-identity prompt (Opus 5.5 card p. 128) |
 | A claim without command output is a violation | Caveat laundering: "I verified this myself" while spot-checking only ancillary facts (pp. 37–39) |
 | Attach verdicts; never paraphrase an executor report in their place | Opus 5 relays subagent claims unverified (p. 81) |
 | Stopping early with open plan items is a violation | Fable stops on spurious token-budget concerns, 2.43M tokens unspent (pp. 170–171) |

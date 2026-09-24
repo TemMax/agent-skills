@@ -4,6 +4,7 @@ cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
 MM=plugins/orchestration/skills/multi-model/SKILL.md
+CP_ROUTING=plugins/orchestration/skills/multi-model/references/codex-routing.md
 CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
 CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
 SP=plugins/orchestration/skills/super-plan/SKILL.md
@@ -229,5 +230,109 @@ check "orchestration hook registration preserves both starts and Stop" \
 expect "Stop hook timeout accommodates the bounded Codex judge" "360" \
   "$(python3 -c 'import json; print(json.load(open("'$HJ'"))["hooks"]["Stop"][0]["hooks"][0]["timeout"])')"
 check "drift hook remains executable" "[ -x '$DH' ]"
+
+section "premium models gate Fable 5.1 and GPT-6 Astra behind approvals.premium"
+
+check "multi-model states the premium-approval paragraph" \
+  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna-only waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.1 and GPT-6 Astra are premium; they are used — as supervisor, executor or ladder rung — only when the user chose them at Gate 1 and the plan records \`approvals.premium\`; the linter enforces it. Standard alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors), Codex \`gpt-6-sol\` for Luna-only waves.'"
+check "the supervisor table default-ladder sentence counts an omitted ladder" \
+  "grep -qF 'The rung rule counts the default ladder' '$MM' && grep -qF 'inherits the runner'\''s default ladder' '$MM'"
+check "Haiku and Sonnet supervisor rows route to Opus 5.5 or Opus 5 by rung, with Fable 5.1 as premium" \
+  "[ \$(grep -cF 'Opus 5.5 (\`claude-opus-5-5\`) when no rung reaches Opus 5.5 (\`\"ladder\": []\`; an omitted ladder uses the runner'\''s default ladder, which does) — otherwise Opus 5 (\`claude-opus-5\`); Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative' '$MM') -eq 2 ]"
+check "Opus 4.8 supervisor row offers standard Opus 5.5 or premium Fable 5.1" \
+  "grep -qF '| Opus 4.8 (\`claude-opus-4-8\`) | Opus 5.5 (\`claude-opus-5-5\`, standard) or Fable 5.1 (\`claude-fable-5-1\`, premium — \`approvals.premium\`) | high |' '$MM'"
+check "Fable 5.1 executor row requires approvals.premium at Gate 1" \
+  "grep -qF 'Fable 5.1 executor (\`claude-fable-5-1\`)' '$MM' && grep -qF 'only with \`approvals.premium\` recorded at Gate 1' '$MM'"
+check "Opus 4.8 compiled-binary executor row stays" \
+  "grep -qF '| Reverse-engineering / vulnerability discovery in compiled binaries | Opus 4.8 executor (\`claude-opus-4-8\`) |' '$MM'"
+check "Opus 5 executor row is marked a retired route" \
+  "grep -qF '| Opus 5 executor (\`claude-opus-5\`; retired route, kept for approved older plans) |' '$MM'"
+
+section "trusted-report research routing moved from Opus 4.8 to Opus 5.5"
+
+check "trusted-report research routes to Opus 5.5 medium/high" \
+  "grep -qF '| A report the orchestrator will trust without re-verification | Opus 5.5 (\`claude-opus-5-5\`), medium/high |' '$MM'"
+check "near-1M-token reasoning research routes to Opus 4.8" \
+  "grep -qF '| Reasoning over a near-1M-token surface | Opus 4.8 (\`claude-opus-4-8\`) | The only measured long-context reasoning result in the comparison set (GraphWalks 1M 68.1) |' '$MM'"
+check "Opus 4.8 orchestrator profile is still kept" \
+  "grep -qF 'references/orchestrator-opus-4-8.md' '$MM'"
+
+section "executor prompts prohibit touching credential files"
+
+check "Task Prompt Template forbids opening, printing, copying or transmitting credentials" \
+  "sed -n '/^4\. \*\*Prohibitions:\*\*/,/overriding goal.*\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example \`~/.codex\`, \`~/.claude\`, app configs with Authorization headers); if the task needs a secret, stop and report.'"
+
+section "Codex routing offers a standard gpt-6-sol supervisor for all-Luna waves"
+
+check "codex-routing names gpt-6-astra as the premium supervisor needing approvals.premium" \
+  "grep -qF '\`gpt-6-astra\` remains the premium supervisor and needs \`approvals.premium\`' '$CP_ROUTING'"
+check "codex-routing states the standard supervisor option" \
+  "sed -n '/The \*\*standard supervisor\*\* option covers/,/premium and the standard supervisor\.\$/p' '$CP_ROUTING' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The **standard supervisor** option covers a narrower case: a wave whose executors and ladder rungs are all \`gpt-6-luna\` may use a fresh \`gpt-6-sol\` supervisor at \`high\` instead of Astra — there is no Luna→Sol ladder in such a wave, since Sol already holds the supervisor seat. The supervisor fixture recorded Sol 9/9 twice on 2026-09-23; that is a repeated fixture pass, not production calibration, so Sol remains uncalibrated as a production supervisor outside this narrow all-Luna case. Every stop rule below still applies unchanged to both the premium and the standard supervisor.'"
+check "codex-routing keeps the mandatory-stop rule for missing capabilities" \
+  "grep -qF 'stop before launching and name the missing capability' '$CP_ROUTING'"
+
+section "codex-routing and ship choose the wave supervisor at Gate 1, premium or standard"
+
+check "codex-routing no longer names an available Astra supervisor as the default authoring choice" \
+  "! grep -qF 'with an available independent \`gpt-6-astra\` supervisor' '$CP_ROUTING'"
+check "codex-routing's Authoring decision paragraph names the Gate 1 choice" \
+  "grep -qF 'chosen at Gate 1' '$CP_ROUTING'"
+check "codex-routing states the Luna->Sol rung is Astra-only" \
+  "grep -qF 'The Luna→Sol rung is available only under an Astra supervisor; a wave with' '$CP_ROUTING' && grep -qF 'the standard \`gpt-6-sol\` supervisor has no ladder.' '$CP_ROUTING'"
+check "ship no longer names a fresh Astra/high supervisor as the default GPT-5.6 route" \
+  "! grep -qF 'Available GPT-5.6 executors with a fresh Astra/high supervisor' '$SH'"
+check "ship names the Gate 1 supervisor choice, premium or standard, for GPT-6 executors" \
+  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'Available GPT-6 executors under the supervisor chosen at Gate 1 — premium \`gpt-6-astra\`/high with \`approvals.premium\`, or the standard \`gpt-6-sol\`/high for Luna-only waves — form an operational route through super-plan and multi-model without a separate calibration gate.'"
+
+section "ship runs the plan's ci.commands after the final wave"
+
+check "ship Stage 2 step 4 runs ci.commands after the final wave, before push" \
+  "grep -qF 'push. After the final wave, also run the plan'\''s \`ci.commands\` before that' '$SH'"
+check "multi-model Completion step runs ci.commands before the final wave's push" \
+  "sed -n '/^9\. \*\*Completion\.\*\*/,/^   ended\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Run the plan'\''s \`ci.commands\` exactly (in addition to the offline suite) before the final wave'\''s push, not after'"
+check "multi-model Completion step exempts a none-CI plan and reds like the offline suite" \
+  "grep -qF 'with \`ci: \"none: <reason>\"\` there is nothing' '$MM' && grep -qF 'stops completion exactly like a red' '$MM'"
+
+section "GPT-6 Sol/Luna calibration states the measured Sol routes, Luna review still unsupported"
+
+check "multi-model no longer carries the blanket no-review-or-supervisor sentence" \
+  "! grep -qF 'no GPT-6 Sol or Luna review or supervisor' '$MM'"
+check "multi-model states GPT-6 Luna review stays unsupported" \
+  "grep -qF 'GPT-6 Luna review stays unsupported' '$MM' && grep -qF '(clean 0/3)' '$MM'"
+check "multi-model names the two Sol routes as measured with numbers and limits" \
+  "grep -qF 'The two Sol routes are now measured, replacing the earlier' '$MM' && grep -qF 'standard \`gpt-6-sol\` supervisor of' '$MM' && grep -qF '9/9 on 2026-09-23' '$MM' && grep -qF '9/9 on 2026-09-24 (×3)' '$MM' && grep -qF '≈3.2× cheaper than a \`gpt-6-astra\` supervisor' '$MM' && grep -qF 'two-task toy waves with correct work only' '$MM'"
+check "multi-model names the measured gpt-6-sol review route" \
+  "sed -n '/^### GPT calibration evidence/,/^## Overview/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The \`gpt-6-sol\` review route recorded the critical-review strict gate clean 5/5 and planted 5/5 in each of two 2026-09-24 runs (10/10 and 10/10) and PR support 3/4 (one \`pr-gate-withheld\` miss)'"
+check "multi-model no longer calls any Sol route uncalibrated" \
+  "! grep -qi 'uncalibrated' '$MM'"
+
+section "the Codex wave runner requires an escalated launch outside the sandbox (nested-sandbox)"
+
+check "codex-wave-protocol quotes both measured nested-sandbox failure strings" \
+  "sed -n '/^The runner shells out to/,/^## Commands and action loop/p' '$CP' | tr '\n' ' ' | tr -s ' ' | grep -qF 'failed to initialize in-process app-server client: Operation not permitted' && sed -n '/^The runner shells out to/,/^## Commands and action loop/p' '$CP' | tr '\n' ' ' | tr -s ' ' | grep -qF 'sandbox-exec: sandbox_apply: Operation not permitted'"
+check "codex-wave-protocol names the nested-sandbox stop and its exit code" \
+  "grep -qF 'nested-sandbox' '$CP' && grep -qF 'exit code 2' '$CP'"
+check "codex-wave-protocol states the escalated-command requirement" \
+  "grep -qF 'Run the runner command as an escalated command outside' '$CP' && grep -qF 'seatbelt sandboxes' '$CP' && grep -qF 'cannot nest' '$CP'"
+check "multi-model Codex adapter selection launches the runner as an escalated command" \
+  "sed -n '/^- Codex-only wave/,/^- Mixed or unknown-provider/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Launch \`codex-wave-runner.mjs\` as an escalated command outside the Codex sandbox, never inside a sandboxed Codex session'"
+
+section "the Table step shows the supervisor, premium status, and cost, with premium only on explicit user choice"
+
+check "process step 4 table adds supervisor, premium status and estimated cost per wave" \
+  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The table also shows, per wave, the supervisor and whether it is premium, with an estimated cost.'"
+check "process step 4 table gates premium on the user's Gate 1 choice and approvals.premium" \
+  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'A premium model (Fable 5.1 / GPT-6 Astra, any role) is used only when the user picks it here and the plan records \`approvals.premium\` with that choice — never filled in by the orchestrator for a choice the user did not make.'"
+
+section "the Wave Plan Artifact example matches the real status/base header plus json wave-plan format"
+
+check "wave plan artifact opens with the unfenced status/base header" \
+  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF 'status: active' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF 'base: 7c05ff5'"
+check "wave plan artifact uses one fenced json wave-plan block with ci, e2e and waves" \
+  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\`\`\`json wave-plan' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"waves\":' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"ci\":' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"e2e\":'"
+check "wave plan artifact example nests a Sonnet task with an empty ladder under a claude-opus-5-5 supervisor" \
+  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"model\": \"claude-opus-5-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"executor\": { \"model\": \"claude-sonnet-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"ladder\": []'"
+check "wave plan artifact points to super-plan's Plan Format for the full schema" \
+  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF 'super-plan'\''s Plan Format'"
 
 summary

@@ -54,9 +54,11 @@ const json = blocks[0][1].replace(/^   /gm, '').trimEnd()
 const plan = JSON.parse(json)
 const prose = plan.waves.flatMap((wave) => wave.tasks)
   .map((task) => '## Task ' + task.id + '\n\nExample task context.\n').join('\n')
+// The skill's fenced example documents ci, e2e and its premium approval
+// directly inside the JSON block, so this harness lints them as written.
 // The skill describes its header and task prose separately from the JSON.
 writeFileSync(target, 'status: draft\nbase: pending\n\n```json wave-plan\n'
-  + json + '\n```\n\n' + prose)
+  + JSON.stringify(plan, null, 2) + '\n```\n\n' + prose)
 JS
 then
   out="$(node "$LINT" "$W/documented.md" 2>&1)"; rc=$?
@@ -321,6 +323,10 @@ s = s.replace('"model": "gpt-5.6-luna", "effort": "medium"',
               '"model": "gpt-6-astra", "effort": "medium"')
 s = s.replace('"ladder": ["gpt-5.6-sol"],',
               '"ladder": [],\n        "astra_executor_reason": "Required executor capability.",')
+s = s.replace('{ "waves": [',
+              '{ "approvals": { "premium": { "models": ["gpt-6-astra"], '
+              '"reason": "Astra required for this executor.", "approved_by": "fixture", '
+              '"date": "2026-09-24" } },\n  "waves": [')
 open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -345,6 +351,10 @@ s = s.replace('"model": "gpt-5.6-terra", "effort": "high"',
               '"model": "gpt-6-astra", "effort": "high"')
 s = s.replace('"ladder": ["gpt-5.6-sol"],',
               '"ladder": ["gpt-6-astra"],\n        "astra_executor_reason": "Required final escalation.",')
+s = s.replace('{ "waves": [',
+              '{ "approvals": { "premium": { "models": ["gpt-6-astra"], '
+              '"reason": "Astra required for this final rung.", "approved_by": "fixture", '
+              '"date": "2026-09-24" } },\n  "waves": [')
 open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -426,5 +436,523 @@ PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-6-sol mixed-provider wave exits 1" "1" "$rc"
 contains "gpt-6-sol mixed-provider wave is named" "mixes providers" "$out"
+
+section "Codex standard supervisor: gpt-6-sol"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol over gpt-6-luna exits 0" "0" "$rc"
+check "gpt-6-sol over gpt-6-luna has no standard-supervisor error" \
+  '! grep -qF "supervises only waves whose executors and rungs are all gpt-6-luna" <<<"$out"'
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
+s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-6-sol", "effort": "medium"')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol over gpt-6-sol executor exits 1" "1" "$rc"
+contains "gpt-6-sol over gpt-6-sol executor named" \
+  'waves[0].supervisor.model: gpt-6-sol supervises only waves whose executors and rungs are all gpt-6-luna' "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
+s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-5.6-terra", "effort": "medium"')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol over gpt-5.6-terra executor exits 1" "1" "$rc"
+contains "gpt-6-sol over gpt-5.6-terra executor named" \
+  'waves[0].supervisor.model: gpt-6-sol supervises only waves whose executors and rungs are all gpt-6-luna' "$out"
+
+section "Claude default ladder"
+
+mk_default_ladder_plan() {  # $1 = ladder JSON fragment ("" = no ladder key) → writes $W/m.md
+  python3 - "$W/m.md" "$1" <<'PY'
+import json, sys
+dst, ladder_line = sys.argv[1:]
+task = {
+  "id": "sonnet-task",
+  "branch": "wave/sonnet-task",
+  "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+  "contract": {
+    "files_allowed": ["src/**"],
+    "files_forbidden": [],
+    "must_run": [{"cmd": "true", "evidence": "required"}],
+    "forbidden_moves": [],
+    "report_must_answer": ["What changed?"]
+  }
+}
+if ladder_line:
+  task["ladder"] = json.loads(ladder_line)
+plan = {
+  "waves": [{
+    "wave": 1,
+    "supervisor": {"model": "claude-opus-5-5", "effort": "high"},
+    "tasks": [task]
+  }],
+  "ci": "none: fixture plan with no CI workflows",
+  "e2e": {"task": "sonnet-task"}
+}
+out = ('status: draft\nbase: pending\n\n```json wave-plan\n'
+       + json.dumps(plan, indent=2) + '\n```\n\n## Task sonnet-task\n\nExample task context.\n')
+open(dst, 'w').write(out)
+PY
+}
+
+mk_default_ladder_plan ""
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Sonnet task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
+contains "Sonnet task without ladder under Opus 5.5 supervisor named" \
+  'supervisor model also appears as executor or ladder rung' "$out"
+
+mk_default_ladder_plan "[]"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Sonnet task with explicit empty ladder under Opus 5.5 supervisor exits 0" "0" "$rc"
+check "Sonnet task with explicit empty ladder has no supervisor-collision error" \
+  '! grep -qF "supervisor model also appears as executor or ladder rung" <<<"$out"'
+
+section "ci: required CI entrypoint"
+
+mutate '  "ci": "none: fixture repository without CI workflows",
+' ''
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "missing ci exits 1" "1" "$rc"
+contains "missing ci named" 'ci: required — the exact CI entrypoint commands, or "none: <reason>"' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' '"ci": "none: short"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci none reason too short exits 1" "1" "$rc"
+contains "ci none reason too short named" \
+  'ci: "none: <reason>" requires a reason of at least 10 characters' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["true"], "workflows": [] }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci object form with a command exits 0" "0" "$rc"
+contains "ci object form with a command is clean" "OK: 0 error(s)" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' '"ci": { "commands": [] }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci object form with no commands exits 1" "1" "$rc"
+contains "ci object form with no commands named" 'ci.commands: at least one non-empty command required' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["true"], "workflows": "oops" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci.workflows not an array exits 1" "1" "$rc"
+contains "ci.workflows not an array named" 'ci.workflows: array required' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' '"ci": ["oops"]'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci wrong shape exits 1" "1" "$rc"
+contains "ci wrong shape named" \
+  'ci: must be an object {commands, workflows} or a "none: <reason>" string' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["true", ""], "workflows": [] }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci commands junk entry exits 1" "1" "$rc"
+contains "ci commands junk entry named" \
+  'ci.commands: at least one non-empty command required' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["true"] }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci.workflows missing exits 1" "1" "$rc"
+contains "ci.workflows missing named" 'ci.workflows: array required' "$out"
+
+section "ci: repo-checked commands"
+
+mkdir -p "$W/ci_repo/.github/workflows"
+cat > "$W/ci_repo/.github/workflows/ci.yml" <<'YAML'
+name: CI
+on: push
+jobs:
+  test:
+    steps:
+      - run: npm test
+YAML
+
+out="$(node "$LINT" "$CLEAN" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "none ci form rejected when repo has workflows exits 1" "1" "$rc"
+contains "none ci form rejected when repo has workflows named" \
+  "the repository has CI workflows; list their commands in ci.commands" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/missing.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "ci workflow path missing under repo exits 1" "1" "$rc"
+contains "ci workflow path missing under repo named" \
+  'ci.workflows: ".github/workflows/missing.yml" does not exist under' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/ci.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "ci command listed in workflow text exits 0" "0" "$rc"
+check "ci command listed in workflow text has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["make lint"], "workflows": [".github/workflows/ci.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "ci command missing from workflow text exits 1" "1" "$rc"
+contains "ci command missing from workflow text named" \
+  'ci.commands: "make lint" does not appear in any listed ci.workflows file' "$out"
+
+section "ci.workflows: path safety"
+
+mkdir -p "$W/ci_repo/docs"
+echo '# notes' > "$W/ci_repo/docs/notes.md"
+mkdir -p "$W/ci_repo/.github/workflows/folder.yml"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/plan.md"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "plan path as workflow exits 1" "1" "$rc"
+contains "plan path as workflow named" \
+  'ci.workflows: ".github/workflows/plan.md" must be a .yml/.yaml file under .github/workflows' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": ["../outside.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "../ workflow path exits 1" "1" "$rc"
+contains "../ workflow path named" \
+  'ci.workflows: "../outside.yml" must be a .yml/.yaml file under .github/workflows' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": ["/etc/ci.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "absolute workflow path exits 1" "1" "$rc"
+contains "absolute workflow path named" \
+  'ci.workflows: "/etc/ci.yml" must be a .yml/.yaml file under .github/workflows' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": ["docs/notes.md"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "docs/notes.md workflow path exits 1" "1" "$rc"
+contains "docs/notes.md workflow path named" \
+  'ci.workflows: "docs/notes.md" must be a .yml/.yaml file under .github/workflows' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/folder.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "directory workflow path exits 1" "1" "$rc"
+contains "directory workflow path named" \
+  'ci.workflows: ".github/workflows/folder.yml" is not a file' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "empty workflows when repo has workflows exits 1" "1" "$rc"
+contains "empty workflows when repo has workflows named" \
+  'ci.workflows: required — the repository has CI workflows and none are listed' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/ci.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "safe workflow path under the dir exits 0" "0" "$rc"
+check "safe workflow path under the dir has no path-safety error" \
+  '! grep -qF "must be a .yml/.yaml file" <<<"$out"'
+
+printf 'name: CI\non: push\njobs:\n  test:\n    steps:\n      - run: npm test\n' \
+  > "$W/ci_repo/.github/workflows/..foo.yml"
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/..foo.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "dotdot-prefixed filename inside workflows dir exits 0" "0" "$rc"
+check "dotdot-prefixed filename inside workflows dir has no path-safety error" \
+  '! grep -qF "must be a .yml/.yaml file" <<<"$out"'
+
+section "ci: command matching"
+
+cat > "$W/ci_repo/.github/workflows/matching.yml" <<'YAML'
+name: Matching
+on: push
+jobs:
+  test:
+    steps:
+      - run: npm ci && npm test
+      - run: |
+          npm run build
+          npm run e2e
+YAML
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm"], "workflows": [".github/workflows/ci.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "truncated command fragment exits 1" "1" "$rc"
+contains "truncated command fragment named" \
+  'ci.commands: "npm" does not appear in any listed ci.workflows file' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/matching.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "compound command line match exits 0" "0" "$rc"
+check "compound command line match has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm run e2e"], "workflows": [".github/workflows/matching.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "run block command line match exits 0" "0" "$rc"
+check "run block command line match has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+section "e2e: required end-to-end task"
+
+mutate '  "e2e": { "task": "http-retry" },
+' ''
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "missing e2e exits 1" "1" "$rc"
+contains "missing e2e named" \
+  'e2e: required — the task that runs the shipped fixtures end to end, or "not-applicable: <reason>"' "$out"
+
+mutate '"e2e": { "task": "http-retry" }' '"e2e": "not-applicable: fixture has no end-to-end task"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e not-applicable form exits 0" "0" "$rc"
+contains "e2e not-applicable form is clean" "OK: 0 error(s)" "$out"
+
+mutate '"e2e": { "task": "http-retry" }' '"e2e": "not-applicable: short"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e not-applicable reason too short exits 1" "1" "$rc"
+contains "e2e not-applicable reason too short named" \
+  'e2e: "not-applicable: <reason>" requires a reason of at least 10 characters' "$out"
+
+mutate '"e2e": { "task": "http-retry" }' '"e2e": { "task": "no-such-task" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e unknown task id exits 1" "1" "$rc"
+contains "e2e unknown task id named" 'e2e.task: must name a task id that exists in the plan' "$out"
+
+mutate '"e2e": { "task": "http-retry" }' '"e2e": 123'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e wrong shape exits 1" "1" "$rc"
+contains "e2e wrong shape named" \
+  'e2e: must be {"task": "<id>"} or a "not-applicable: <reason>" string' "$out"
+
+python3 - "$CLEAN" "$W/m.md" <<'PY'
+import json, re, sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+plan['waves'].append({
+  "wave": 2,
+  "supervisor": {"model": "claude-fable-5-1", "effort": "high"},
+  "tasks": [{
+    "id": "docs-followup",
+    "branch": "wave/docs-followup",
+    "executor": {"model": "claude-haiku-4-5-20251001"},
+    "ladder": [],
+    "contract": {
+      "files_allowed": ["docs2/**"],
+      "files_forbidden": [],
+      "must_run": [{"cmd": "true", "evidence": "required"}],
+      "forbidden_moves": [],
+      "report_must_answer": ["What changed?"]
+    }
+  }]
+})
+new_json = json.dumps(plan, indent=2)
+out = s[:m.start(1)] + new_json + s[m.end(1):]
+out += '\n## Task docs-followup\n\nFollow-up doc work.\n'
+open(dst, 'w').write(out)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "e2e task not in last wave exits 0" "0" "$rc"
+contains "e2e task not in last wave warned" 'e2e.task: "http-retry" is not in the last wave' "$out"
+
+section "premium approval"
+
+mutate '"e2e": { "task": "http-retry" },
+  "approvals": { "premium": { "models": ["claude-fable-5-1"],
+    "reason": "Fable required for narrative QA judging on this wave.",
+    "approved_by": "fixture", "date": "2026-09-24" } }' \
+  '"e2e": { "task": "http-retry" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium model without approval exits 1" "1" "$rc"
+contains "premium model without approval named" \
+  'premium model claude-fable-5-1 requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1' "$out"
+
+mutate '"reason": "Fable required for narrative QA judging on this wave.",' '"reason": "too short",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium reason too short exits 1" "1" "$rc"
+contains "premium reason too short named" \
+  'approvals.premium.reason: at least 10 non-space characters required' "$out"
+
+mutate '"approved_by": "fixture",' '"approved_by": "",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium approved_by empty exits 1" "1" "$rc"
+contains "premium approved_by empty named" \
+  'approvals.premium.approved_by: non-empty string required' "$out"
+
+mutate '"date": "2026-09-24" } }' '"date": "2026-02-30" } }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium impossible date exits 1" "1" "$rc"
+contains "premium impossible date named" \
+  'approvals.premium.date: must be a real calendar date (YYYY-MM-DD)' "$out"
+
+mutate '"date": "2026-09-24" } }' '"date": "2026-13-45" } }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium regex-matching but impossible date exits 1" "1" "$rc"
+contains "premium regex-matching but impossible date named" \
+  'approvals.premium.date: must be a real calendar date (YYYY-MM-DD)' "$out"
+check "premium regex-matching but impossible date prints no stack trace" \
+  '! grep -qiE "RangeError|Invalid time value|at Object" <<<"$out"'
+
+mutate '"models": ["claude-fable-5-1"],' '"models": ["gpt-6-astra"],'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium mismatched model exits 1" "1" "$rc"
+contains "premium mismatched model named" \
+  'premium model claude-fable-5-1 requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1' "$out"
+
+python3 - "$CODEX_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-5.6-terra", "effort": "high"',
+              '"model": "gpt-6-astra", "effort": "high"')
+s = s.replace('"ladder": ["gpt-5.6-sol"],',
+              '"ladder": ["gpt-6-astra"],\n        "astra_executor_reason": "Required final escalation.",')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Astra ladder rung without premium approval exits 1" "1" "$rc"
+contains "Astra ladder rung without premium approval named" \
+  'premium model gpt-6-astra requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1' "$out"
+
+mutate '"models": ["claude-fable-5-1"],' '"models": ["claude-fable-5-1", "gpt-6-astra"],'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "unused premium model still exits 0" "0" "$rc"
+contains "unused premium model warned" \
+  'approvals.premium.models: "gpt-6-astra" is listed but never used in the plan' "$out"
+
+section "retired-route warnings"
+
+out="$(node "$LINT" "$CODEX_CLEAN" 2>&1)"; rc=$?
+expect "codex-clean plan with retired routes still exits 0" "0" "$rc"
+contains "gpt-5.6-terra retired route warned" \
+  'retired route: gpt-5.6-terra is not chosen for new plans (GPT-6 Sol/Luna replace it)' "$out"
+contains "gpt-5.6-luna retired route warned" \
+  'retired route: gpt-5.6-luna is not chosen for new plans (GPT-6 Sol/Luna replace it)' "$out"
+contains "gpt-5.6-sol retired route warned" \
+  'retired route: gpt-5.6-sol is not chosen for new plans (GPT-6 Sol/Luna replace it)' "$out"
+
+out="$(node "$LINT" "$GPT6_CLEAN" 2>&1)"
+check "GPT-6 ids are not flagged as retired routes" '! grep -qF "retired route:" <<<"$out"'
+
+mutate '"model": "claude-sonnet-5"' '"model": "claude-opus-5"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "opus-5 executor still exits 0" "0" "$rc"
+contains "opus-5 executor retired route warned" \
+  'retired route: Opus 5 is no longer an executor route (use claude-opus-5-5)' "$out"
+
+mutate '"model": "claude-sonnet-5"' '"model": "claude-opus-4-8"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "opus-4-8 executor still exits 0" "0" "$rc"
+contains "opus-4-8 executor warned" "Opus 4.8 is routed only for compiled-binary work" "$out"
+
+mutate '"ladder": ["claude-opus-5-5"]' '"ladder": ["claude-opus-4-8"]'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "opus-4-8 ladder rung still exits 0" "0" "$rc"
+contains "opus-4-8 ladder rung warned" "Opus 4.8 is routed only for compiled-binary work" "$out"
+
+section "review: Codex final-review child"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-astra", "effort": "high" },
+  "approvals": { "premium": { "models": ["gpt-6-astra"],
+    "reason": "Astra reviews the final diff before merge.",
+    "approved_by": "fixture", "date": "2026-09-24" } }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review Astra with approval exits 0" "0" "$rc"
+contains "review Astra with approval is clean" "OK: 0 error(s)" "$out"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-astra", "effort": "high" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review Astra without approval exits 1" "1" "$rc"
+contains "review Astra without approval named" \
+  'review.model: premium model gpt-6-astra requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1' "$out"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-sol", "effort": "medium" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review valid Sol exits 0" "0" "$rc"
+contains "review valid Sol is clean" "OK: 0 error(s)" "$out"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-luna", "effort": "medium" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review bad model exits 1" "1" "$rc"
+contains "review bad model named" \
+  'review.model: one of gpt-6-astra/gpt-6-sol — the Codex final-review child chosen at Gate 1' "$out"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-sol", "effort": "bogus" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review bad effort exits 1" "1" "$rc"
+contains "review bad effort named" "review.effort: one of low/medium/high/xhigh/max" "$out"
+
+mutate '"e2e": { "task": "http-retry" },' \
+  '"e2e": { "task": "http-retry" },
+  "review": { "model": "gpt-6-sol", "effort": "medium" },'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Claude plan with review exits 1" "1" "$rc"
+contains "Claude plan with review named" \
+  'review: only Codex plans name a final-review child; Claude reviews run in the session' "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"supervisor": { "model": "gpt-6-astra", "effort": "high" },',
+              '"supervisor": { "model": "gpt-6-sol", "effort": "high" },')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '')
+s = s.replace('"e2e": { "task": "divide-guard" },',
+              '"e2e": { "task": "divide-guard" },\n  "review": { "model": "gpt-6-astra", "effort": "high" },')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Astra only as review model exits 0" "0" "$rc"
+check "Astra only as review model prints no never-used warning" \
+  '! grep -qF "is listed but never used in the plan" <<<"$out"'
+
+python3 - "$GPT6_CLEAN" "$W/m2.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"supervisor": { "model": "gpt-6-astra", "effort": "high" },',
+              '"supervisor": { "model": "gpt-6-sol", "effort": "high" },')
+s = s.replace('        "ladder": ["gpt-6-sol"],\n', '')
+s = s.replace('"e2e": { "task": "divide-guard" },',
+              '"e2e": { "task": "divide-guard" },\n  "review": { "model": "gpt-6-astra", "effort": "high" },')
+s = s.replace('"date": "2026-09-24"', '"date": "2026-02-30"')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m2.md" 2>&1)"; rc=$?
+expect "Astra only as review model with impossible approval date exits 1" "1" "$rc"
+contains "Astra only as review model with impossible approval date named" \
+  'approvals.premium.date: must be a real calendar date (YYYY-MM-DD)' "$out"
 
 summary
