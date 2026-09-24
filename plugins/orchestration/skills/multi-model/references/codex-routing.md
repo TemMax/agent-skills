@@ -26,6 +26,12 @@ plan approvals still apply; existing authorization remains valid.
 The Luna→Sol rung is available only under an Astra supervisor; a wave with
 the standard `gpt-6-sol` supervisor has no ladder.
 
+`ordinary` and `difficult` tasks route their initial executor to `gpt-6-sol`,
+so a wave containing either task class has no standard supervisor: the
+standard-supervisor option is available only when every executor and rung is
+`gpt-6-luna`, and a Sol executor already breaks that condition. Such a wave
+needs the premium `gpt-6-astra` supervisor.
+
 Mechanical means a narrow edit with complete instructions and checkable output;
 ordinary means a closed implementation across call sites; difficult means a
 bounded bug or implementation requiring substantial reasoning. Resolve product
@@ -85,7 +91,8 @@ Use the native state helper unchanged: at most two attempts per rung and six
 executor attempts per task; terminal failure stops with verdicts. Unsatisfiable
 contracts use the existing amendment flow. Never reset counters to obtain more
 attempts. Astra execution still needs its separately approved reason and fresh
-Astra supervisor; it is not an automatic fallback.
+Astra supervisor; it is not an automatic fallback. Astra execution needs its
+`astra_executor_reason` and `approvals.premium`.
 
 This route grants no additional authority for out-of-task edits, discovered
 credentials, destructive actions, publication, merge or deploy. Keep ship's
@@ -94,5 +101,8 @@ and critical-review's fix/publication gates. A failed integration suite stops
 publication. Ship never merges the PR or deploys. For ship's independent final
 critical-review, invoke that skill in a fresh Astra/high child so a GPT-5.6 main
 seat does not accidentally select a GPT-5.6 consequential-reviewer profile.
+This Astra/high review child is an explicit reviewer exemption from
+`approvals.premium` — it is not a plan role and has no calibrated GPT
+alternative — disclosed with its cost at Gate 1.
 Its findings and fix gates remain owned by critical-review; the coordinator
 retains its own integrated review and handoff responsibilities.
