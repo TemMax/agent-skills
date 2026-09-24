@@ -1,9 +1,9 @@
-# Estimates — measured priors for Gate 1 and Gate 2
+# Wave time and cost measurements (history)
 
-Read for the Decisions/Gate 1 supervisor-choice estimate and the Gate 2
-wall-time and cost range. Every number here is a measured prior from a named
-run, not a spec; a plan built from it still says so at Gate 2 — the estimate
-is a prior, not a promise.
+Measured wall time and cost of past waves, kept as history for maintainers.
+No skill reads this file, and no agent turns it into an estimate: since
+orchestration 4.1.0 the planning and execution skills never predict time or
+cost (super-plan, "No time or cost estimates").
 
 ## Contents
 
@@ -11,7 +11,6 @@ is a prior, not a promise.
 - [Codex native protocol](#codex-native-protocol-2026-09-22-gpt-56-executors-astrahigh-supervisor-astraxhigh-orchestrator)
 - [Codex runner vs native](#codex-runner-vs-native-ship-smoke-2026-09-23-two-small-tasks-gpt-6-lunasol-executors-astrahigh-supervisor-gpt-6-sol-orchestrator)
 - [Mid-size Codex pilot](#mid-size-codex-pilot-2026-09-24-gpt-6-sol-orchestrator-runner)
-- [How to estimate](#how-to-estimate)
 - [Prices](#prices)
 - [Sources](#sources)
 
@@ -62,32 +61,6 @@ too pessimistic for GPT-6 with the runner.
 The standard run's cost parts are rounded: $0.70 + $0.41 + $0.02 = $1.13 of
 the reported $1.14 total, and $0.70/$1.14 ≈ 61% (displayed as 62% above from
 unrounded inputs).
-
-## How to estimate
-
-- **Wall time** ≈ Σ over waves of (slowest task's attempts × attempt time +
-  supervisor time + verifier time) + orchestrator overhead. Add one rework
-  attempt for ~30% of tasks — first-try failure is common enough that a
-  plan without rework margin under-estimates.
-- **Cost** ≈ Σ tasks × (attempts × per-attempt cost + attempts × supervisor
-  cost per attempt + attempts × verifier cost per attempt) + orchestrator
-  cost. Apply the same ~30% rework-attempt margin as the wall-time formula —
-  the supervisor and the verifier are paid per attempt, not once per task.
-- **Codex runner waves with GPT-6 executors**: planning (≈ 4 min) happens
-  before Gate 2 and is not part of the Gate 2 execution estimate; use
-  ≈ 3 min per wave (2.7–3.2 in the pilot) for execution after Gate 2 as the
-  central wall estimate (the Mid-size Codex pilot above), and keep the ~30%
-  rework margin of the general wall-time formula on top of it. Both pilot runs
-  finished below the lower bound of their own Gate 2 range — priors derived
-  from GPT-5.6 native runs were too pessimistic for GPT-6 with the runner;
-  the older Codex native-protocol and runner-vs-native sections above stay
-  as history. Supervision dominates cost with the Astra supervisor (72%);
-  with the standard Sol supervisor, the orchestrator dominates cost instead
-  (62%).
-
-The critical path for Gate 2 is the sum over waves of each wave's slowest
-task — waves run sequentially, tasks within a wave run in parallel, so only
-the slowest task in each wave sets that wave's wall time.
 
 ## Prices
 
