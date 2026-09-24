@@ -191,9 +191,9 @@ figure measures Opus 5 at +0.05 / −0.03 (intervals cross zero), Sonnet 5
 −0.04 / +0.15, Opus 4.8 −0.04 / −0.05, Mythos 5.1 +0.17 / +0.10. A rare reviewer
 failure: its reasoning concluded a chat met the flagging criterion but its final
 answer did not flag it — recurring in 2 of 1,000 resamples (pp. 135–136).
-Takeaway: it never judges its own output; judges for Opus 5.5 work are Fable 5.1,
-Sonnet 5 or Haiku 4.5, and a verdict is read from its final answer checked
-against the contract, not from its reasoning.
+Takeaway: it never judges its own output; judges for Opus 5.5 work are Opus 5
+(standard) or Fable 5.1 (premium, `approvals.premium`), and a verdict is read
+from its final answer checked against the contract, not from its reasoning.
 
 **Documented orchestrator / agentic failure modes:**
 - *Qualitative shortcomings from internal use* (p. 36): the top flagged category
@@ -259,8 +259,8 @@ tokens; keep waves well under 10 agents; forbid executors from spawning.
   (p. 125); raise to xhigh only for a single deep question. State the
   question's ambition explicitly — it prefers incremental hypotheses
   (p. 36) and dislikes highly open-ended tasks (p. 167).
-- Supervised by Fable 5.1, with Opus 5 as the fallback supervisor — never by
-  Opus 5.5 itself.
+- Supervised by Opus 5 (standard) or Fable 5.1 (premium, `approvals.premium`)
+  — never by Opus 5.5 itself.
 - As a judge it supervises Fable 5.1, Sonnet 5 and Haiku 4.5 executors
   (and may supervise Opus 5 and Opus 4.8), with a measured +0.07/10
   self-preference (p. 128) — never its own output.
@@ -427,9 +427,9 @@ use (Cowork) 2.64% raw vs Sonnet 5's 0.28% — Sonnet 5 is the strongest browser
 model without safeguards — and 0% with auto mode; 20 of 21 fallback breaks
 landed on Opus 4.8 (p. 89). Auto mode pairs prompt injection probes with an
 action classifier (p. 81). Takeaway: Fable 5.1 is the executor for untrusted
-content whose compromise would reach secrets or irreversible actions; Opus 5
-remains the cost default; security-flavored prompts are the ones most likely to
-be silently answered by the fallback.
+content whose compromise would reach secrets or irreversible actions, only
+with `approvals.premium`; Opus 5.5 remains the cost default; security-flavored
+prompts are the ones most likely to be silently answered by the fallback.
 
 **Multi-agent (§8.13, ProgramBench, relative only, pp. 179–183).** A five-agent
 peer team reached score 0.6 with a 2× latency improvement over a single agent;
@@ -726,12 +726,13 @@ choosing deliberately:
   the user's instruction (pp. 123–126), and its multi-agent data is
   Opus-5.5-only with thin alignment coverage of multi-agent settings (pp. 93,
   122).
-- Fable 5.1 is the strongest long-horizon coder in the lineup (FrontierSWE v2
-  0.57 vs Opus 5's 0.52, Terminal-Bench 4.0 55.8 vs 52.3, SWE-bench Pro 81.2 vs
-  79.2) at roughly half Fable 5's cost per task, but the card measures no
-  orchestrator-seat effort curve, gives it a small measured self-recognition
-  bias as a judge (0.1/10, p. 124), and keeps the same cyber fallback to
-  Opus 4.8.
+- Fable 5.1 is a strong long-horizon coder, ahead of Opus 5 but behind Opus 5.5
+  on FrontierSWE v2 (0.57 vs Opus 5's 0.52, pp. 170–171; Opus 5.5's 62.3 vs
+  Fable 5.1's 56.3, p. 179), and it leads on Terminal-Bench 4.0 (55.8 vs 52.3)
+  and SWE-bench Pro (81.2 vs 79.2) at roughly half Fable 5's cost per task, but
+  the card measures no orchestrator-seat effort curve, gives it a small
+  measured self-recognition bias as a judge (0.1/10, p. 124), and keeps the
+  same cyber fallback to Opus 4.8.
 - Fable 5 holds the higher reasoning ceiling on the hardest open-ended decisions
   (SWE-bench Verified 95 / Pro 80, FrontierCode Diamond 29.3 vs Opus 4.8's 13.4),
   with steeper effort curves — but pays ~20.9% safety-classifier fallbacks on
@@ -743,6 +744,8 @@ choosing deliberately:
   behavior otherwise unmeasured — the honesty numbers are single-agent.
 - Opus 4.8 holds the honesty ceiling (0.00 misreported rate, 3.7% omission rate),
   a documented xhigh orchestration setting, and the only unblocked path for
-  compiled-binary work, at a lower raw reasoning ceiling.
+  compiled-binary work, at a lower raw reasoning ceiling. The trusted-report
+  research route has since moved to Opus 5.5 (Opus 5.5 card p. 110); near-1M-
+  token reasoning stays on Opus 4.8.
 - If a decomposition repeatedly fails to converge, that is a signal to escalate
   the orchestrator, not the executors.
