@@ -31,7 +31,11 @@ permission; ordinary task and plan approvals apply. GPT-5.6-only workflow
 failures did not measure this Astra-led pairing. Disclose unmeasured reliability
 without turning it into a veto or turning a smoke pass into a reliability claim.
 
-Every wave uses a separate `gpt-6-astra` supervisor at explicit `high` effort.
+Every wave uses a fresh, separate supervisor at explicit `high` effort,
+chosen at Gate 1 per shared Codex routing: the premium `gpt-6-astra` (plan
+records `approvals.premium`), or — only for a wave whose executors and rungs
+are all `gpt-6-luna` — the standard `gpt-6-sol`. A wave with a Sol executor
+needs Astra. Sol never supervises its own or another Sol executor's work.
 Write full exact IDs in the plan; escalated rungs use `high`. Pick the initial
 tier from the task, not an obligation to try Luna first. The same fixed
 supervisor can supervise all three executors because it is absent from their

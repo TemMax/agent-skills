@@ -39,8 +39,14 @@ packaged [evidence limits](gpt-calibration-evidence.md).
 ## Delegation and supervision
 
 - Use [shared Codex routing](codex-routing.md) for available executors,
-  independent Astra/high supervision, explicit efforts and bounded escalation.
-  It governs routing across profiles without a separate calibration gate.
+  explicit efforts and bounded escalation. It governs routing across profiles
+  without a separate calibration gate.
+- Every wave uses a fresh, separate supervisor at explicit `high` effort,
+  chosen at Gate 1 per shared Codex routing: the premium `gpt-6-astra` (plan
+  records `approvals.premium`), or — only for a wave whose executors and
+  rungs are all `gpt-6-luna` — the standard `gpt-6-sol`. A wave with a Sol
+  executor needs Astra. Sol never supervises its own or another Sol
+  executor's work.
 - Preserve isolated worktrees, task contracts, mechanical checks and fresh
   independent verdicts. Never mix providers or silently reroute an approved plan.
 
