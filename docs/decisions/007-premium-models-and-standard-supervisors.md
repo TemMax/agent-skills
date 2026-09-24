@@ -46,6 +46,9 @@ Gate 1 presents the supervisor choice, premium or standard, with its
 estimated cost from `references/estimates.md`, before the user approves the
 design.
 
+Superseded in part by ADR 008: Gate 1 names this choice without a price, and
+no skill estimates time or cost.
+
 **Ship's final-review child.** The `approvals.premium` rule governs what a
 plan launches — supervisor, executor, or ladder rung — not the session's own
 model running `ship` itself. Codex `ship`'s independent final-review
