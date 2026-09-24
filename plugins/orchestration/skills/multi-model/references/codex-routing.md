@@ -8,9 +8,12 @@ effort stays unknown; available exact child IDs can still establish a route.
 ## Authoring decision
 
 Choose from the host's actually available children and supported efforts.
-For a new Codex wave with an available independent `gpt-6-astra` supervisor at
-`high`, use the task table below. Availability is a capability check, not a
-reliability claim. Missing historical reports or uncalibrated pairings do not
+The wave's supervisor is chosen at Gate 1 — the premium `gpt-6-astra` at
+`high` (requires `approvals.premium`) or, for a wave whose executors and
+rungs are all `gpt-6-luna`, the standard `gpt-6-sol` at `high` (see
+Verification and stops); then use the task table below. Availability is a
+capability check, not a reliability claim. Missing historical reports or
+uncalibrated pairings do not
 require separate calibration permission. Normal scope, design and lint-clean
 plan approvals still apply; existing authorization remains valid.
 
@@ -19,6 +22,9 @@ plan approvals still apply; existing authorization remains valid.
 | mechanical | `gpt-6-luna` | `medium` | `gpt-6-sol` |
 | ordinary | `gpt-6-sol` | `medium` | none |
 | difficult | `gpt-6-sol` | `high` | none |
+
+The Luna→Sol rung is available only under an Astra supervisor; a wave with
+the standard `gpt-6-sol` supervisor has no ladder.
 
 Mechanical means a narrow edit with complete instructions and checkable output;
 ordinary means a closed implementation across call sites; difficult means a
