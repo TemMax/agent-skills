@@ -105,7 +105,7 @@ different effort.
 |---|---|---|
 | Reverse-engineering / vulnerability discovery in compiled binaries | Opus 4.8 executor (`claude-opus-4-8`), not yourself | Binary vulnerability discovery is blocked for you, and the cyber fallback is Opus 4.8 anyway (pp. 12–13, 48, 55) — route it openly |
 | Untrusted content that must be processed | yourself, or an Opus 5.5 executor reading it through tools — never pasted into a prompt | 0/105 compliance via tool results against 2.1% default / 7.4% max when pasted (pp. 123–126); Gray Swan IPI 0.1% / 1.0% at k = 1 / 15 (p. 85) |
-| High-risk untrusted content with a path to secrets or irreversible actions | Fable 5.1 executor (`claude-fable-5-1`) | Shade coding with probes: 8.70% for Fable 5.1 against your 11.13% (p. 88) |
+| High-risk untrusted content with a path to secrets or irreversible actions | Fable 5.1 executor (`claude-fable-5-1`), only with `approvals.premium` | Shade coding with probes: 8.70% for Fable 5.1 against your 11.13% (p. 88) |
 
 ## Your Own Documented Quirks (Opus 5.5)
 
