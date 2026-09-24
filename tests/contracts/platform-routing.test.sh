@@ -234,7 +234,13 @@ check "drift hook remains executable" "[ -x '$DH' ]"
 section "premium models gate Fable 5.1 and GPT-6 Astra behind approvals.premium"
 
 check "multi-model states the premium-approval paragraph" \
-  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna-only waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.1 and GPT-6 Astra are premium; they are used — as supervisor or executor — only when the user chose them at Gate 1 and the plan records \`approvals.premium\`; the linter enforces it. Standard alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors), Codex \`gpt-6-sol\` for Luna-only waves.'"
+  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna-only waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.1 and GPT-6 Astra are premium; they are used — as supervisor, executor or ladder rung — only when the user chose them at Gate 1 and the plan records \`approvals.premium\`; the linter enforces it. Standard alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors), Codex \`gpt-6-sol\` for Luna-only waves.'"
+check "the supervisor table default-ladder sentence counts an omitted ladder" \
+  "grep -qF 'The rung rule counts the default ladder' '$MM' && grep -qF 'inherits the runner'\''s default ladder' '$MM'"
+check "Haiku and Sonnet supervisor rows route to Opus 5.5 or Opus 5 by rung, with Fable 5.1 as premium" \
+  "[ \$(grep -cF 'Opus 5.5 (\`claude-opus-5-5\`) when no rung reaches Opus 5.5 (\`\"ladder\": []\`; an omitted ladder uses the runner'\''s default ladder, which does) — otherwise Opus 5 (\`claude-opus-5\`); Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative' '$MM') -eq 2 ]"
+check "Opus 4.8 supervisor row offers standard Opus 5.5 or premium Fable 5.1" \
+  "grep -qF '| Opus 4.8 (\`claude-opus-4-8\`) | Opus 5.5 (\`claude-opus-5-5\`, standard) or Fable 5.1 (\`claude-fable-5-1\`, premium — \`approvals.premium\`) | high |' '$MM'"
 check "Fable 5.1 executor row requires approvals.premium at Gate 1" \
   "grep -qF 'Fable 5.1 executor (\`claude-fable-5-1\`)' '$MM' && grep -qF 'only with \`approvals.premium\` recorded at Gate 1' '$MM'"
 check "Opus 4.8 compiled-binary executor row stays" \
@@ -244,8 +250,10 @@ check "Opus 5 executor row is marked a retired route" \
 
 section "trusted-report research routing moved from Opus 4.8 to Opus 5.5"
 
-check "near-1M-token trusted-report research now routes to Opus 5.5 medium/high" \
-  "grep -qF '| A report the orchestrator will trust without re-verification, or reasoning over a near-1M-token surface | Opus 5.5 (\`claude-opus-5-5\`), medium/high |' '$MM'"
+check "trusted-report research routes to Opus 5.5 medium/high" \
+  "grep -qF '| A report the orchestrator will trust without re-verification | Opus 5.5 (\`claude-opus-5-5\`), medium/high |' '$MM'"
+check "near-1M-token reasoning research routes to Opus 4.8" \
+  "grep -qF '| Reasoning over a near-1M-token surface | Opus 4.8 (\`claude-opus-4-8\`) | The only measured long-context reasoning result in the comparison set (GraphWalks 1M 68.1) |' '$MM'"
 check "Opus 4.8 orchestrator profile is still kept" \
   "grep -qF 'references/orchestrator-opus-4-8.md' '$MM'"
 
@@ -280,7 +288,36 @@ section "ship runs the plan's ci.commands after the final wave"
 
 check "ship Stage 2 step 4 runs ci.commands after the final wave, before push" \
   "grep -qF 'push. After the final wave, also run the plan'\''s \`ci.commands\` before that' '$SH'"
-check "multi-model Completion step runs ci.commands after the final wave" \
-  "grep -qF 'final wave, run the plan'\''s \`ci.commands\` exactly (in addition to the offline' '$MM'"
+check "multi-model Completion step runs ci.commands before the final wave's push" \
+  "sed -n '/^9\. \*\*Completion\.\*\*/,/^   ended\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Run the plan'\''s \`ci.commands\` exactly (in addition to the offline suite) before the final wave'\''s push, not after'"
+check "multi-model Completion step exempts a none-CI plan and reds like the offline suite" \
+  "grep -qF 'with \`ci: \"none: <reason>\"\` there is nothing' '$MM' && grep -qF 'stops completion exactly like a red' '$MM'"
+
+section "GPT-6 Sol/Luna calibration names the one supervisor route, not a blanket review route"
+
+check "multi-model no longer carries the blanket no-review-or-supervisor sentence" \
+  "! grep -qF 'no GPT-6 Sol or Luna review or supervisor' '$MM'"
+check "multi-model states no GPT-6 Sol/Luna review route is supported" \
+  "grep -qF 'so no GPT-6 Sol/Luna review route is supported.' '$MM'"
+check "multi-model names the one supervisor route as an uncalibrated policy decision" \
+  "grep -qF 'The one supervisor route is the standard \`gpt-6-sol\` supervisor of' '$MM' && grep -qF 'all-\`gpt-6-luna\` waves — a policy decision, uncalibrated in production' '$MM' && grep -qF '(supervisor fixture 9/9 twice on 2026-09-23)' '$MM'"
+
+section "the Table step shows the supervisor, premium status, and cost, with premium only on explicit user choice"
+
+check "process step 4 table adds supervisor, premium status and estimated cost per wave" \
+  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The table also shows, per wave, the supervisor and whether it is premium, with an estimated cost.'"
+check "process step 4 table gates premium on the user's Gate 1 choice and approvals.premium" \
+  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'A premium model (Fable 5.1 / GPT-6 Astra, any role) is used only when the user picks it here and the plan records \`approvals.premium\` with that choice — never filled in by the orchestrator for a choice the user did not make.'"
+
+section "the Wave Plan Artifact example matches the real status/base header plus json wave-plan format"
+
+check "wave plan artifact opens with the unfenced status/base header" \
+  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF 'status: active' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF 'base: 7c05ff5'"
+check "wave plan artifact uses one fenced json wave-plan block with ci, e2e and waves" \
+  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\`\`\`json wave-plan' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"waves\":' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"ci\":' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"e2e\":'"
+check "wave plan artifact example nests a Sonnet task with an empty ladder under a claude-opus-5-5 supervisor" \
+  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"model\": \"claude-opus-5-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"executor\": { \"model\": \"claude-sonnet-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"ladder\": []'"
+check "wave plan artifact points to super-plan's Plan Format for the full schema" \
+  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF 'super-plan'\''s Plan Format'"
 
 summary
