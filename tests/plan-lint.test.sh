@@ -1091,4 +1091,83 @@ expect "Astra only as review model with impossible approval date exits 1" "1" "$
 contains "Astra only as review model with impossible approval date named" \
   'approvals.premium.date: must be a real calendar date (YYYY-MM-DD)' "$out"
 
+section "parallelism: single-task-wave width warning"
+
+# Builds a plan with one wave per entry in $1 (a Python list literal of task
+# counts, e.g. "[1, 1, 1]"), each task a distinct, valid single-file task, and
+# the last wave's last task named as e2e.task. $2 = target path. $3 = "section"
+# to also add a "## Parallelism" heading, exercising the escape hatch.
+build_width_plan() {  # $1 = counts, $2 = dst, $3 = "section" (optional)
+  python3 - "$CLEAN" "$2" "$1" "${3:-}" <<'PY'
+import json, re, sys
+src, dst, counts_src, add_section = sys.argv[1:5]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+counts = json.loads(counts_src)
+waves = []
+tasks_flat = []
+tid = 0
+for wi, n in enumerate(counts, start=1):
+    tasks = []
+    for _ in range(n):
+        tid += 1
+        name = 'w%d-t%d' % (wi, tid)
+        tasks.append({
+            "id": name,
+            "branch": "wave/" + name,
+            "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+            "ladder": ["claude-opus-5-5"],
+            "contract": {
+                "files_allowed": ["src/" + name + "/**"],
+                "files_forbidden": [],
+                "must_run": [{"cmd": "true", "evidence": "required"}],
+                "forbidden_moves": [],
+                "report_must_answer": ["What changed?"]
+            }
+        })
+        tasks_flat.append(name)
+    waves.append({"wave": wi, "supervisor": {"model": "claude-fable-5-1", "effort": "high"}, "tasks": tasks})
+plan['waves'] = waves
+plan['e2e'] = {"task": tasks_flat[-1]}
+prose = '\n'.join('## Task %s\n\nWork for %s.\n' % (t, t) for t in tasks_flat)
+heading = '# Plan — width test\n\n'
+if add_section == 'section':
+  heading += '## Parallelism\n\nEach single-task wave depends on the prior wave completing.\n\n'
+out = 'status: draft\nbase: pending\n\n' + heading + '```json wave-plan\n' \
+  + json.dumps(plan, indent=2) + '\n```\n\n' + prose
+open(dst, 'w').write(out)
+PY
+}
+
+build_width_plan '[1, 1, 1]' "$W/m.md"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "3 of 3 single-task waves exits 0" "0" "$rc"
+contains "3 of 3 single-task waves warned" \
+  'parallelism: 3 of 3 waves hold a single task' "$out"
+
+build_width_plan '[1, 1, 1]' "$W/m.md" section
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "3 of 3 single-task waves with Parallelism section exits 0" "0" "$rc"
+check "3 of 3 single-task waves with Parallelism section has no parallelism warning" \
+  '! grep -qF "parallelism:" <<<"$out"'
+
+build_width_plan '[1, 1, 2]' "$W/m.md"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "2 of 3 single-task waves exits 0" "0" "$rc"
+contains "2 of 3 single-task waves warned" \
+  'parallelism: 2 of 3 waves hold a single task' "$out"
+
+build_width_plan '[1, 1, 2, 2]' "$W/m.md"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "2 of 4 single-task waves exits 0" "0" "$rc"
+check "2 of 4 single-task waves has no parallelism warning" \
+  '! grep -qF "parallelism:" <<<"$out"'
+
+build_width_plan '[1, 1]' "$W/m.md"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "2 of 2 single-task waves exits 0" "0" "$rc"
+check "2 of 2 single-task waves has no parallelism warning" \
+  '! grep -qF "parallelism:" <<<"$out"'
+
 summary
