@@ -16,9 +16,9 @@ number appears here that was not measured in one of the runs listed under
   `EVAL_PROVIDER=codex EVAL_MODEL=gpt-6-luna`, `EVAL_REPEAT=3`.
 - The same Claude tiers (`supervisor.sh`, `drift.sh`, `super-plan.sh`,
   `skill-navigation.sh`, `wave.sh`) at each tier's own default `EVAL_MODEL`
-  (`claude-opus-5-5` for `supervisor.sh`/`skill-navigation.sh`,
-  `claude-sonnet-5` for `super-plan.sh`/`seam-audit.sh`,
-  `claude-haiku-4-5-20251001` for `drift.sh`), `EVAL_REPEAT=3`.
+  (`claude-haiku-4-5-20251001` for `supervisor.sh`/`drift.sh`/`wave.sh`,
+  `claude-opus-5-5` for `skill-navigation.sh`,
+  `claude-sonnet-5` for `super-plan.sh`/`seam-audit.sh`), `EVAL_REPEAT=3`.
 - `tests/eval/critical-review.sh` with `EVAL_MODEL=gpt-6-sol`, strict review
   gate, run twice.
 - `tests/eval/seam-audit.sh`, `EVAL_REPEAT=3`, once with
