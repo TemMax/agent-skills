@@ -670,6 +670,15 @@ expect "safe workflow path under the dir exits 0" "0" "$rc"
 check "safe workflow path under the dir has no path-safety error" \
   '! grep -qF "must be a .yml/.yaml file" <<<"$out"'
 
+printf 'name: CI\non: push\njobs:\n  test:\n    steps:\n      - run: npm test\n' \
+  > "$W/ci_repo/.github/workflows/..foo.yml"
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/..foo.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "dotdot-prefixed filename inside workflows dir exits 0" "0" "$rc"
+check "dotdot-prefixed filename inside workflows dir has no path-safety error" \
+  '! grep -qF "must be a .yml/.yaml file" <<<"$out"'
+
 section "ci: command matching"
 
 cat > "$W/ci_repo/.github/workflows/matching.yml" <<'YAML'
@@ -798,6 +807,14 @@ expect "premium impossible date exits 1" "1" "$rc"
 contains "premium impossible date named" \
   'approvals.premium.date: must be a real calendar date (YYYY-MM-DD)' "$out"
 
+mutate '"date": "2026-09-24" } }' '"date": "2026-13-45" } }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "premium regex-matching but impossible date exits 1" "1" "$rc"
+contains "premium regex-matching but impossible date named" \
+  'approvals.premium.date: must be a real calendar date (YYYY-MM-DD)' "$out"
+check "premium regex-matching but impossible date prints no stack trace" \
+  '! grep -qiE "RangeError|Invalid time value|at Object" <<<"$out"'
+
 mutate '"models": ["claude-fable-5-1"],' '"models": ["gpt-6-astra"],'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "premium mismatched model exits 1" "1" "$rc"
@@ -854,5 +871,55 @@ mutate '"ladder": ["claude-opus-5-5"]' '"ladder": ["claude-opus-4-8"]'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "opus-4-8 ladder rung still exits 0" "0" "$rc"
 contains "opus-4-8 ladder rung warned" "Opus 4.8 is routed only for compiled-binary work" "$out"
+
+section "review: Codex final-review child"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-astra", "effort": "high" },
+  "approvals": { "premium": { "models": ["gpt-6-astra"],
+    "reason": "Astra reviews the final diff before merge.",
+    "approved_by": "fixture", "date": "2026-09-24" } }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review Astra with approval exits 0" "0" "$rc"
+contains "review Astra with approval is clean" "OK: 0 error(s)" "$out"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-astra", "effort": "high" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review Astra without approval exits 1" "1" "$rc"
+contains "review Astra without approval named" \
+  'review.model: premium model gpt-6-astra requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1' "$out"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-sol", "effort": "medium" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review valid Sol exits 0" "0" "$rc"
+contains "review valid Sol is clean" "OK: 0 error(s)" "$out"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-luna", "effort": "medium" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review bad model exits 1" "1" "$rc"
+contains "review bad model named" \
+  'review.model: one of gpt-6-astra/gpt-6-sol — the Codex final-review child chosen at Gate 1' "$out"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-sol", "effort": "bogus" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review bad effort exits 1" "1" "$rc"
+contains "review bad effort named" "review.effort: one of low/medium/high/xhigh/max" "$out"
+
+mutate '"e2e": { "task": "http-retry" },' \
+  '"e2e": { "task": "http-retry" },
+  "review": { "model": "gpt-6-sol", "effort": "medium" },'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Claude plan with review exits 1" "1" "$rc"
+contains "Claude plan with review named" \
+  'review: only Codex plans name a final-review child; Claude reviews run in the session' "$out"
 
 summary
