@@ -26,6 +26,8 @@ outright, so this tier must never be red.
 changes what an agent *does* or reopens a defect that has already cost us. Be
 clear-eyed about this tier: in the 2026-08-11 review it was fully green while
 three serious defects were live. It catches deletion, not wrongness.
+`tests/contracts/critical-review-rules.test.sh` covers the one-findings-gate
+wait rule and the secrets prohibition in `critical-review`'s SKILL.md.
 
 **behaviour** — `plugins/*/hooks/*.test.sh`, co-located with the code they
 cover. The drift hook's gates run offline through `CLAUDE_DRIFT_CHECK_DRYRUN=1`,
