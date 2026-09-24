@@ -11,7 +11,7 @@ helper, a plan linter, and the offline release suite (see `tests/README.md`).
   (`super-plan`) and execution (`multi-model`) into a reviewed PR. The
   orchestrator model researches, plans into contract-carrying waves, and
   launches executor subagents through the selected host adapter. Claude and
-  exact GPT-5.6 and GPT-6 Astra profiles plus a conservative generic fallback guide routing;
+  exact GPT-5.6 and GPT-6 Astra/Sol/Luna profiles plus a conservative generic fallback guide routing;
   each executor is isolated in its own worktree and judged against its contract
   by a different model.
 - **`code-review`** — critical, evidence-based review of uncommitted changes or
@@ -64,19 +64,24 @@ profile doubles down on verifying subagent claims. Grounded in the Claude Opus 5
 system card (193 pp., July 2026).
 
 Fable 5.1 (`claude-fable-5-1`) has its own profiles, grounded in the Claude
-Fable 5.1 & Mythos 5.1 system card (212 pp., September 2026). It is the
-strongest long-horizon coder in the lineup (FrontierSWE v2 0.57 vs Opus 5's
-0.52, pp. 170–171) at roughly half Fable 5's cost per task (p. 5), and three
-of its measurements change the rules: as a judge it is the first model since
-Opus 4.7 with a measured self-recognition bias (0.1 points out of 10, lenient
-when told the author is Claude, p. 124) — the runner's judge prompt never
-names the executor and the bias is bounded by the contract's mechanical
-half, so Fable 5.1 (`claude-fable-5-1`) still judges Opus 5, and the prompt rule is now a contract
-test; on scoped coding its score peaks at `medium` because higher
-effort adds unrequested out-of-scope edits (p. 169), so every Fable 5.1
-executor prompt carries a scope line; and it is the most injection-robust
-model to date (IPI 0.1% at k=1, p. 83), the executor for untrusted content
-whose compromise would reach secrets or actions. Its card also documents an
+Fable 5.1 & Mythos 5.1 system card (212 pp., September 2026). It beat Opus 5
+on long-horizon coding (FrontierSWE v2 0.57 vs Opus 5's 0.52, pp. 170–171) at
+roughly half Fable 5's cost per task (p. 5), but Opus 5.5 now leads the
+lineup on that same metric (FrontierSWE v2 62.3 vs Fable 5.1's 56.3, p. 179),
+so Fable 5.1 is no longer the strongest long-horizon coder overall — it is a
+premium route, used only with the user's Gate 1 approval recorded in
+`approvals.premium`. Three of its measurements still change the rules: as a
+judge it is the first model since Opus 4.7 with a measured self-recognition
+bias (0.1 points out of 10, lenient when told the author is Claude, p. 124) —
+the runner's judge prompt never names the executor and the bias is bounded by
+the contract's mechanical half, so Fable 5.1 (`claude-fable-5-1`) still
+judges Opus 5, and the prompt rule is now a contract test; on scoped coding
+its score peaks at `medium` because higher effort adds unrequested
+out-of-scope edits (p. 169), so every Fable 5.1 executor prompt carries a
+scope line; and it is the most injection-robust model to date (IPI 0.1% at
+k=1, p. 83), the executor for untrusted content whose compromise would reach
+secrets or actions — and, like every Fable 5.1 executor route, only used
+with `approvals.premium` recorded at Gate 1. Its card also documents an
 orchestrator failure the profile guards against: distorting user intent to
 subagents, including a fabricated user authorization and a
 `bypassPermissions` launch (pp. 95–96). Plans address it as `claude-fable-5-1`
@@ -154,7 +159,7 @@ is deliberately narrower than a claim that every profile is a production route:
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. A separately approved Astra initial executor or final rung is uncalibrated and requires a fresh Astra supervisor. |
-| Codex | `gpt-6-sol` | Exact profiles and dossiers; default Codex executors per shared routing; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review and supervisor routes unsupported. |
+| Codex | `gpt-6-sol` | Exact profiles and dossiers; default Codex executors per shared routing; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review unsupported; supervisor only as the standard all-Luna supervisor (policy, uncalibrated). |
 | Codex | `gpt-6-luna` | Exact profiles and dossiers; default Codex executors per shared routing; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review and supervisor routes unsupported. |
 | Either | any other model ID | The generic profile applies; missing identity/effort stay unknown, and no model-specific reliability claim follows. |
 
@@ -305,9 +310,11 @@ Type `/orch` or `/code` and let autocomplete fill in the namespaced name.
 
 **What to expect from planning.** `super-plan` researches the codebase, asks
 you ONE batched round of questions for what code cannot answer, and gates
-twice: once on the design summary, once on the finished plan — which must pass
-the shipped linter (same-wave file overlap, contract completeness) before you
-ever see it.
+twice: Gate 1 on the design summary — which names the supervisor choice with
+its estimated cost, premium or standard — and Gate 2 on the finished plan,
+shown with its critical path and an estimated wall-time and cost range, which
+must pass the shipped linter (same-wave file overlap, contract completeness)
+before you ever see it.
 
 **What to expect from orchestration.** The orchestrator loads its profile,
 shows you a table (task | model | effort | rationale), then launches the waves
@@ -348,27 +355,47 @@ end to end, or `"not-applicable: <reason>"` for a non-pipeline feature), and,
 wherever a premium model is used, `"approvals": {"premium": {"models":
 [...], "reason": "...", "approved_by": "...", "date": "YYYY-MM-DD"}}`.
 
-The plan format still gains the three required top-level keys above the
-shipped linter now enforces: `ci`, `e2e`, and `approvals.premium` — required
-whenever `claude-fable-5-1` or `gpt-6-astra` appears in any role (supervisor,
+The shipped linter now enforces the plan format's three new required
+top-level keys, `ci`, `e2e`, and `approvals.premium` — required whenever
+`claude-fable-5-1` or `gpt-6-astra` appears in any role (supervisor,
 executor, or ladder rung), recording an explicit Gate 1 choice rather than a
-silent default. Codex plans gain a standard supervisor option for Luna-only
-waves: `gpt-6-sol` supervises a wave whose executors and ladder rungs are all
-`gpt-6-luna`. `plan-lint.mjs` now flags retired routes as warnings, not
-silently: GPT-5.6 (Sol/Terra/Luna) in any role, Opus 5 as an executor, and
-Opus 4.8 outside compiled-binary work. Planning adds a seam audit between
-Tasks and Lint — a cheap read-only agent checks every contract against the
-code before lint runs — and Gate 2 now shows an estimated wall-time and cost
-range alongside the lint-clean plan. `critical-review` adds one findings
-gate: when several reviews run for one request, it waits for all of them and
-presents every finding once, in one table per scope, before any fix is asked
-for. It also states a hard secrets prohibition: never open, print, copy, or
-transmit credentials, tokens, or configuration files that hold them while
-reviewing; report their presence by name only. The executor and supervisor
-prompts (the Claude and Codex runners, and multi-model's task template) carry
-that same secrets prohibition. The trusted-report research route — a report
-the orchestrator will trust without re-verification — moved from Opus 4.8 to
-Opus 5.5. `code-review` stays at 1.9.0 (non-breaking).
+silent default. Planning names the supervisor choice, with its estimated
+cost, at Gate 1: the premium `claude-fable-5-1` or `gpt-6-astra` (needs
+`approvals.premium`), or a standard alternative — Claude: `claude-opus-5-5`
+for a wave whose executors and ladder rungs never reach `claude-opus-5-5`
+itself (the default ladder included — a `claude-sonnet-5` task whose ladder
+reaches `claude-opus-5-5` is supervised by `claude-fable-5-1` instead), else
+`claude-opus-5`; Codex: `gpt-6-sol` only for a wave whose executors and
+ladder rungs are all `gpt-6-luna` (uncalibrated as a production supervisor,
+9/9 on the supervisor fixture twice on 2026-09-23) — any Sol executor in the
+wave loses that standard option and needs the premium `gpt-6-astra`
+supervisor instead. `ship`'s own fresh Astra/high final-review child is an
+explicit, disclosed reviewer exemption from `approvals.premium`: it is not a
+plan role and has no calibrated GPT alternative, so its cost is disclosed at
+Gate 1 rather than gated there. `plan-lint.mjs` now flags retired routes as
+warnings, not silently: GPT-5.6 (Sol/Terra/Luna) in any role, Opus 5 as an
+executor, and every Opus 4.8 executor or rung (the linter cannot tell
+compiled-binary work apart from any other task, so it warns on all of
+them). Planning adds a seam audit between Tasks and Lint — a cheap read-only
+agent checks every contract against the code before lint runs — and Gate 2
+now shows an estimated wall-time and cost range alongside the lint-clean
+plan. When the repository has real `.github/workflows/*.yml` files,
+`plan-lint.mjs --repo <repo>` also checks the plan's own CI keys against
+them: every `ci.workflows` path must exist under the repo's
+`.github/workflows`, and every `ci.commands` entry must appear verbatim
+(whole-command matching, not a partial token) inside a listed workflow file;
+`wave-launch.mjs` now runs that `--repo` check at launch too, so these
+repo-dependent CI checks are no longer silently skipped when a Claude wave
+starts. `critical-review` adds one findings gate: when several reviews run
+for one request, it waits for all of them and presents every finding once,
+in one table per scope, before any fix is asked for. It also states a hard
+secrets prohibition: never open, print, copy, or transmit credentials,
+tokens, or configuration files that hold them while reviewing; report their
+presence by name only. The executor and supervisor prompts (the Claude and
+Codex runners, and multi-model's task template) carry that same secrets
+prohibition. The trusted-report research route — a report the orchestrator
+will trust without re-verification — moved from Opus 4.8 to Opus 5.5.
+`code-review` 1.8.0 → 1.9.0 (non-breaking).
 
 ## 3.1.0
 
@@ -397,7 +424,7 @@ resolving it, because an alias can re-point to a different model silently.
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 2.7.1, code-review 1.6.1):
+orchestration 4.0.0, code-review 1.9.0):
 
 | Before | After |
 |---|---|

@@ -1,7 +1,12 @@
 # 006 — GPT-6 Sol and Luna, and the withdrawal of the bare GPT-6 rule
 
 Date: 2026-09-23
-Status: accepted role boundary; candidate routes await qualification
+Status: accepted role boundary; candidate routes await qualification. The
+"fixed Astra/high supervisor" rule below (also at the "none of it authorizes
+skipping the fixed Astra/high supervisor" line) is superseded, as of
+2026-09-24, by [007](007-premium-models-and-standard-supervisors.md): a wave
+whose executors and ladder rungs are all `gpt-6-luna` may use the standard
+`gpt-6-sol` supervisor instead of the premium, fixed `gpt-6-astra` one.
 
 ## Decision
 
