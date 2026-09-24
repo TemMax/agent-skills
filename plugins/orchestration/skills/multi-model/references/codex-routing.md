@@ -45,7 +45,8 @@ execute unchanged.
 ## Verification and stops
 
 Every wave's fixed supervisor is a fresh separate `gpt-6-astra` child at explicit
-`high`, absent from the executor ladder. Give it the contract and actual artifacts
+`high`, absent from the executor ladder, except the standard-supervisor option
+below. Give it the contract and actual artifacts
 in a fresh context, without the executor's model identity or the coordinator's
 preferred conclusion. An Astra main seat is not a substitute for that child.
 Use isolated executor worktrees from the recorded base, mechanical verification,
@@ -53,6 +54,17 @@ fresh command evidence, scoped diffs and committed-work proof, then the supervis
 verdict and integrated review. Do not skip the supervisor for a mechanical Codex
 task. Historical [calibration evidence](gpt-calibration-evidence.md) motivates
 these checks; it does not certify this pairing or disqualify a whole model family.
+
+`gpt-6-astra` remains the premium supervisor and needs `approvals.premium`
+recorded at Gate 1, the same gate multi-model applies to Fable 5.1, enforced by
+the linter. The **standard supervisor** option covers a narrower case: a wave
+whose executors and ladder rungs are all `gpt-6-luna` may use a fresh
+`gpt-6-sol` supervisor at `high` instead of Astra — there is no Luna→Sol ladder
+in such a wave, since Sol already holds the supervisor seat. The supervisor
+fixture recorded Sol 9/9 twice on 2026-09-23; that is a repeated fixture pass,
+not production calibration, so Sol remains uncalibrated as a production
+supervisor outside this narrow all-Luna case. Every stop rule below still
+applies unchanged to both the premium and the standard supervisor.
 
 If the required independent supervisor, native dispatch, isolation, or required
 check cannot be provided, stop before launching and name the missing capability.

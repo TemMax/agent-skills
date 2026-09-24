@@ -4,6 +4,7 @@ cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
 MM=plugins/orchestration/skills/multi-model/SKILL.md
+CP_ROUTING=plugins/orchestration/skills/multi-model/references/codex-routing.md
 CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
 CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
 SP=plugins/orchestration/skills/super-plan/SKILL.md
@@ -229,5 +230,44 @@ check "orchestration hook registration preserves both starts and Stop" \
 expect "Stop hook timeout accommodates the bounded Codex judge" "360" \
   "$(python3 -c 'import json; print(json.load(open("'$HJ'"))["hooks"]["Stop"][0]["hooks"][0]["timeout"])')"
 check "drift hook remains executable" "[ -x '$DH' ]"
+
+section "premium models gate Fable 5.1 and GPT-6 Astra behind approvals.premium"
+
+check "multi-model states the premium-approval paragraph" \
+  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna-only waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.1 and GPT-6 Astra are premium; they are used — as supervisor or executor — only when the user chose them at Gate 1 and the plan records \`approvals.premium\`; the linter enforces it. Standard alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors), Codex \`gpt-6-sol\` for Luna-only waves.'"
+check "Fable 5.1 executor row requires approvals.premium at Gate 1" \
+  "grep -qF 'Fable 5.1 executor (\`claude-fable-5-1\`)' '$MM' && grep -qF 'only with \`approvals.premium\` recorded at Gate 1' '$MM'"
+check "Opus 4.8 compiled-binary executor row stays" \
+  "grep -qF '| Reverse-engineering / vulnerability discovery in compiled binaries | Opus 4.8 executor (\`claude-opus-4-8\`) |' '$MM'"
+check "Opus 5 executor row is marked a retired route" \
+  "grep -qF '| Opus 5 executor (\`claude-opus-5\`; retired route, kept for approved older plans) |' '$MM'"
+
+section "trusted-report research routing moved from Opus 4.8 to Opus 5.5"
+
+check "near-1M-token trusted-report research now routes to Opus 5.5 medium/high" \
+  "grep -qF '| A report the orchestrator will trust without re-verification, or reasoning over a near-1M-token surface | Opus 5.5 (\`claude-opus-5-5\`), medium/high |' '$MM'"
+check "Opus 4.8 orchestrator profile is still kept" \
+  "grep -qF 'references/orchestrator-opus-4-8.md' '$MM'"
+
+section "executor prompts prohibit touching credential files"
+
+check "Task Prompt Template forbids opening, printing, copying or transmitting credentials" \
+  "sed -n '/^4\. \*\*Prohibitions:\*\*/,/overriding goal.*\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example \`~/.codex\`, \`~/.claude\`, app configs with Authorization headers); if the task needs a secret, stop and report.'"
+
+section "Codex routing offers a standard gpt-6-sol supervisor for all-Luna waves"
+
+check "codex-routing names gpt-6-astra as the premium supervisor needing approvals.premium" \
+  "grep -qF '\`gpt-6-astra\` remains the premium supervisor and needs \`approvals.premium\`' '$CP_ROUTING'"
+check "codex-routing states the standard supervisor option" \
+  "sed -n '/The \*\*standard supervisor\*\* option covers/,/premium and the standard supervisor\.\$/p' '$CP_ROUTING' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The **standard supervisor** option covers a narrower case: a wave whose executors and ladder rungs are all \`gpt-6-luna\` may use a fresh \`gpt-6-sol\` supervisor at \`high\` instead of Astra — there is no Luna→Sol ladder in such a wave, since Sol already holds the supervisor seat. The supervisor fixture recorded Sol 9/9 twice on 2026-09-23; that is a repeated fixture pass, not production calibration, so Sol remains uncalibrated as a production supervisor outside this narrow all-Luna case. Every stop rule below still applies unchanged to both the premium and the standard supervisor.'"
+check "codex-routing keeps the mandatory-stop rule for missing capabilities" \
+  "grep -qF 'stop before launching and name the missing capability' '$CP_ROUTING'"
+
+section "ship runs the plan's ci.commands after the final wave"
+
+check "ship Stage 2 step 4 runs ci.commands after the final wave, before push" \
+  "grep -qF 'push. After the final wave, also run the plan'\''s \`ci.commands\` before that' '$SH'"
+check "multi-model Completion step runs ci.commands after the final wave" \
+  "grep -qF 'final wave, run the plan'\''s \`ci.commands\` exactly (in addition to the offline' '$MM'"
 
 summary
