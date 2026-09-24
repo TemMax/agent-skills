@@ -124,6 +124,7 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
 4. After each wave: merge every `ok` task branch into the feature branch
    (with single-task invocations, merge as they land), run the repository's
    offline test suite once when all of the wave's invocations have settled,
+   push. After the final wave, also run the plan's `ci.commands` before that
    push. The next wave's base is the new pushed tip.
 5. Failures follow multi-model's rules unchanged: `failed`/`error` → stop and
    hand the user the verdicts and branch names; `contract-unsatisfiable` →
