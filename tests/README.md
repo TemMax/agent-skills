@@ -56,6 +56,22 @@ tempts same-wave file overlap must still produce a lint-clean plan, and a
 request hiding a product fork must surface it under "Assumptions (would
 ask)" rather than resolve it silently.
 
+The seam-audit tier (`tests/eval/seam-audit.sh`) measures two stage C
+planning rules directly: the Seam audit step catches a cross-task seam
+before execution, and the Gate 2 message actually states the critical path,
+a wall-time and cost estimate, and that the estimate is a prior rather than
+a promise. Its fixture is a two-part feature request over a small report
+module where changing `format_row`'s separator in `src/report.py` quietly
+breaks `tests/helpers.py`'s `parse_rows` round trip unless the same task
+owns both files. `SEAM_SKILL_ROOT` (default: this repository's root) points
+the whole tier — the prompt's `SKILL.md` and the Lint step's linter — at a
+skill checkout, so pointing it at an older copy compares that skill's seam
+and Gate 2 behavior against this one, each linted by its own linter. Honors
+`EVAL_REPEAT` (each repetition is an independent run against its own
+fixture copy) and `EVAL_KEEP_DIR` (keeps every model answer and plan as
+evidence). Its scoring rules are tested offline, without a model, by
+`tests/eval/seam-audit.test.sh`.
+
 The skill-navigation tier (`tests/eval/skill-navigation.sh`) asks whether an
 agent applying the multi-model skill takes the right action at five decision
 points — launching a Claude-only wave, a contract amendment that widens
