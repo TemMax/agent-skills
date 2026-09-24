@@ -47,6 +47,59 @@ with open(output, "w", encoding="utf-8") as stream:
 PY
 }
 
+# Adds the plan-lint required top-level keys (ci, e2e and, when a premium
+# model — claude-fable-5-1 or gpt-6-astra — appears as any wave's
+# supervisor/executor/ladder model, approvals.premium) into the fenced
+# ```json wave-plan``` block of a plan.md this harness generates. These
+# fixture repos carry no .github/workflows and exercise the harness itself,
+# not a separate e2e suite, so ci/e2e are always the "none"/"not-applicable"
+# forms; approvals.premium is added only when it applies.
+inject_plan_lint_fields() { # plan-file
+  python3 - "$1" <<'PY'
+import json
+import re
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as stream:
+    text = stream.read()
+match = re.search(r"```json wave-plan\r?\n([\s\S]*?)\r?\n```", text)
+assert match, "no fenced wave-plan JSON block found"
+plan = json.loads(match.group(1))
+
+premium_ids = {"claude-fable-5-1", "gpt-6-astra"}
+found = set()
+for wave in plan.get("waves", []):
+    supervisor = wave.get("supervisor") or {}
+    if supervisor.get("model") in premium_ids:
+        found.add(supervisor["model"])
+    for task in wave.get("tasks", []):
+        executor = task.get("executor") or {}
+        if executor.get("model") in premium_ids:
+            found.add(executor["model"])
+        for ladder_model in task.get("ladder") or []:
+            if ladder_model in premium_ids:
+                found.add(ladder_model)
+
+plan["ci"] = "none: disposable fixture repository without CI"
+plan["e2e"] = "not-applicable: fixture plan exercises the harness"
+if found:
+    plan["approvals"] = {
+        "premium": {
+            "models": sorted(found),
+            "reason": "premium model used in this fixture wave",
+            "approved_by": "harness",
+            "date": "2026-09-24",
+        }
+    }
+
+new_block = json.dumps(plan, indent=2)
+new_text = text[:match.start(1)] + new_block + text[match.end(1):]
+with open(path, "w", encoding="utf-8") as stream:
+    stream.write(new_text)
+PY
+}
+
 file_sha256() {
   python3 - "$1" <<'PY'
 import hashlib, sys
@@ -1023,6 +1076,7 @@ PY
     sed 's/"model": "gpt-5.6-terra"/"model": "gpt-6-astra"/' "$R/plan.md" > "$root/astra-plan.md"
     command mv "$root/astra-plan.md" "$R/plan.md"
   fi
+  inject_plan_lint_fields "$R/plan.md"
   git -C "$R" init -q
   git -C "$R" add -A
   git -C "$R" commit -q -m base

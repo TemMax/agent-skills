@@ -157,7 +157,15 @@ base: pending
           "forbidden_moves": [],
           "report_must_answer": ["What does the note explain?"] } }
     ] }
-] }
+],
+  "ci": "none: disposable fixture repository without CI",
+  "e2e": "not-applicable: fixture plan exercises the harness",
+  "approvals": { "premium": {
+    "models": ["gpt-6-astra"],
+    "reason": "premium model used as this fixture wave's supervisor",
+    "approved_by": "harness",
+    "date": "2026-09-24" } }
+}
 ```
 
 ## Task add-guard
