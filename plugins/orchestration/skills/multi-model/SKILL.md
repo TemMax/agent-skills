@@ -96,10 +96,18 @@ supervision. Read the packaged [evidence and limitations](references/gpt-calibra
 before making claims about what those counts establish. The 2026-09-23 GPT-6
 Sol/Luna calibration recorded the supervisor fixture at Sol 9/9, Luna 7/9,
 clean planning and skill-navigation tiers for both, and neither model passing
-the critical-review guards, so no GPT-6 Sol/Luna review route is supported.
-The one supervisor route is the standard `gpt-6-sol` supervisor of
-all-`gpt-6-luna` waves — a policy decision, uncalibrated in production
-(supervisor fixture 9/9 twice on 2026-09-23) — see
+the critical-review guards at that date. GPT-6 Luna review stays unsupported
+(clean 0/3). The two Sol routes are now measured, replacing the earlier
+policy-decision status: the standard `gpt-6-sol` supervisor of
+all-`gpt-6-luna` waves recorded the supervisor fixture 9/9 on 2026-09-23
+(twice) and 9/9 on 2026-09-24 (×3), plus three ship-smoke runner-mode waves
+merge-ready first try at wall 2.44/2.27/2.14 min and cost
+$0.238/$0.252/$0.200 — ≈3.2× cheaper than a `gpt-6-astra` supervisor at the
+same wall time (limits: two-task toy waves with correct work only; defect
+detection comes from the fixture, not these waves). The `gpt-6-sol` review
+route recorded the critical-review strict gate clean 5/5 and planted 5/5 in
+each of two 2026-09-24 runs (10/10 and 10/10) and PR support 3/4 (one
+`pr-gate-withheld` miss) — see
 [`tests/eval/gpt-6-results-2026-09-23.md`](../../../../tests/eval/gpt-6-results-2026-09-23.md).
 
 ## Overview
@@ -535,9 +543,12 @@ supervised wave, stop before publication rather than push around the gate.
   with `approvals.premium`, or standard `gpt-6-sol` for all-Luna waves)): read
   and follow `references/codex-wave-protocol.md`; do not invoke Claude
   Workflow. Its default adapter is `references/codex-wave-runner.mjs`, as
-  described there, with the native action loop as fallback. An Astra executor
-  needs both `astra_executor_reason` and `approvals.premium` — one records the
-  reason, the other is the approval.
+  described there, with the native action loop as fallback. Launch
+  `codex-wave-runner.mjs` as an escalated command outside the Codex sandbox,
+  never inside a sandboxed Codex session — see the protocol for the
+  nested-sandbox reason. An Astra executor needs both `astra_executor_reason`
+  and `approvals.premium` — one records the reason, the other is the
+  approval.
 - Mixed or unknown-provider wave: stop before spawning and return the linter or
   identity error.
 
@@ -598,7 +609,7 @@ Each of these comes from a measured failure, not from general caution.
 |---|---|
 | State the prohibitions to the executor loudly and explicitly | Explicit "don't work around — report" lowers fabrication: Fable 17.4% → 9.1% (pp. 161–163), Opus 4.8 9.4% → 2.8% (pp. 109–110) |
 | Do NOT disclose the supervisor's specific checks to the executor | Grader awareness reaches 24–30% and changes behavior at the surface level (Fable pp. 171–181) |
-| Fresh separate supervision; same-model only for approved Astra exception | Astra exception evidence is uncalibrated; Opus 4.8 (pp. 122–124) ≈0 and Fable 5 (pp. 202–203) measured zero; Fable 5.1 0.1/10 (Fable 5.1 card p. 124); Opus 5 now measured ≈0, +0.05 / −0.03 (Opus 5.5 card p. 128); Opus 5.5 +0.07/10 with a Claude-identity prompt (Opus 5.5 card p. 128) |
+| Fresh separate supervision; same-model only for approved Astra exception | Astra exception evidence has no dedicated self-preference measurement; Opus 4.8 (pp. 122–124) ≈0 and Fable 5 (pp. 202–203) measured zero; Fable 5.1 0.1/10 (Fable 5.1 card p. 124); Opus 5 now measured ≈0, +0.05 / −0.03 (Opus 5.5 card p. 128); Opus 5.5 +0.07/10 with a Claude-identity prompt (Opus 5.5 card p. 128) |
 | A claim without command output is a violation | Caveat laundering: "I verified this myself" while spot-checking only ancillary facts (pp. 37–39) |
 | Attach verdicts; never paraphrase an executor report in their place | Opus 5 relays subagent claims unverified (p. 81) |
 | Stopping early with open plan items is a violation | Fable stops on spurious token-budget concerns, 2.43M tokens unspent (pp. 170–171) |

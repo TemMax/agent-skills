@@ -62,14 +62,28 @@ run's wall time and 63% of its cost, spent on the orchestrator's own
 round trips rather than on the Codex children it was coordinating. The
 runner performs the same helper-governed loop with no model in that loop.
 
-The runner shells out to `codex exec`, which must run where it can write the
-repository's `.git` and reach the model API — in a sandboxed Codex session,
-grant `.git` as a writable root (`--add-dir <repo>/.git`, or
-`sandbox_workspace_write.writable_roots`) and network access
-(`sandbox_workspace_write.network_access=true`), or use full access. If
-`codex exec` is unavailable, or that access cannot be granted, fall back to
-the native loop below, which is unchanged and remains the protocol of record
-(it needs the same `.git` write access for its helper `init`).
+The runner shells out to `codex exec` for every executor and supervisor
+child, and each child sets up its own sandbox — so the runner process itself
+must run with no sandbox wrapped around it. On macOS, seatbelt sandboxes
+cannot nest: launched from inside a Codex `workspace-write` sandbox, the
+runner's `codex exec` children fail to start with `failed to initialize
+in-process app-server client: Operation not permitted`, and once `~/.codex`
+is granted as a writable root their shell commands instead fail with
+`sandbox-exec: sandbox_apply: Operation not permitted` (measured 2026-09-24,
+Codex CLI 0.155.1). Granting the outer sandbox more writable roots or
+network access does not fix this — the failure is the nesting itself, not a
+missing permission. Run the runner command as an escalated command outside
+the Codex sandbox — one the user approves, with the host's normal filesystem
+and network access — so the runner's `codex exec` children can set up their
+own sandboxes uncontested. The runner checks this at start and, when it
+cannot confirm it is running outside a sandbox, stops before spawning
+anything with error `nested-sandbox` and exit code 2. If `codex exec` is
+unavailable, or an escalated launch cannot be obtained, fall back to the
+native loop below, which is unchanged and remains the protocol of record (it
+needs the same `.git` write access for its helper `init` — grant `.git` as a
+writable root with `--add-dir <repo>/.git`, or
+`sandbox_workspace_write.writable_roots`, in the orchestrator's own sandboxed
+session).
 
 ## Commands and action loop
 
