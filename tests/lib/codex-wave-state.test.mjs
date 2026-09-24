@@ -1077,11 +1077,13 @@ test('C20 multi-task next skips ready-to-merge tasks until the wave is ready', (
   assert.equal(ok(['summary', '--state', env.statePath]).status, 'done')
 })
 
-// Inserts the top-level "approvals" object a future linter change requires
-// whenever gpt-6-astra is a supervisor, executor or ladder model. A no-op
+// Inserts the top-level "approvals" object the linter requires whenever
+// gpt-6-astra is used as a supervisor, executor or ladder model. A no-op
 // when the plan text already carries one, so composing these helpers never
-// inserts it twice. The current linter ignores unknown top-level keys, so
-// this is harmless to every existing case, before and after that change.
+// inserts it twice. The insertion anchors on the opening brace of the
+// ```json wave-plan block (rather than, say, a specific existing key) so it
+// works regardless of which other top-level keys a given fixture's plan
+// text does or doesn't already have.
 function withAstraApprovals(text) {
   if (text.includes('"approvals"')) return text
   const approvals = '"approvals": {"premium": {"models": ["gpt-6-astra"], ' +
