@@ -22,7 +22,12 @@ lint and user approval.
 The state helper is the only state machine. Never hand-edit its state, bypass a
 helper action, write a fresh runner, force-remove a worktree, or substitute a
 missing model with a default or alias. It accepts only the exact GPT model IDs
-and effort values already linted in the plan.
+and effort values already linted in the plan. The one sanctioned exception is
+the runner's own printed `cleanup` lines (see "`summary.json` diagnostics"
+below): the runner itself never force-removes a worktree or deletes a state
+file when it stops — it preserves every state file, worktree and branch for
+inspection — and those lines exist only for the orchestrator to run
+deliberately, after fixing the machine, to re-run the wave with a fresh `--out`.
 
 At `init`, the helper stores an initialized plan digest over the canonical
 selected wave and each matching task's approved prose. A later status transition
@@ -34,6 +39,7 @@ Mechanical verification is authoritative. A clean supervisor verdict cannot over
 ## Contents
 
 - Default: the deterministic runner
+- Toolchain caches, `.git` and linked files
 - Commands and action loop
 
 ## Default: the deterministic runner
@@ -61,7 +67,7 @@ fall back to the native loop just because a task stopped.
 (`<repo>/.worktrees/wave-<task-id>`, `codex-wave-state.mjs:251`) and `init`
 excludes `.worktrees/` (plus any linked paths) from that repo's `git status`
 for you, via `excludeFromGit` writing the common dir's `info/exclude`
-(`worktree-env.mjs:144-154`, called from `codex-wave-state.mjs:1257`) — do not
+(called from `codex-wave-state.mjs:1257`) — do not
 hand-add `.worktrees/` to `.gitignore` yourself.
 
 The plan linter runs against `--base`, not the working tree: with `--base`
@@ -101,20 +107,20 @@ session).
 
 ## Toolchain caches, `.git` and linked files
 
-The runner resolves the wave plan's `worktree` key (see "Shared definitions"
-in the friction plan) once, via `resolveWorktreeEnv`, and reuses the result
-for every child it spawns (`codex-wave-runner.mjs:551-552`). Every executor
-and supervisor `codex exec` gets `--add-dir` for:
+The runner resolves the wave plan's `worktree` key (see the Plan Format
+section in `super-plan/SKILL.md`) once, via `resolveWorktreeEnv`, and reuses
+the result for every child it spawns (`codex-wave-runner.mjs:551-552`). Every
+executor and supervisor `codex exec` gets `--add-dir` for:
 
-- the repository's git common dir (`git rev-parse --git-common-dir`,
-  `worktree-env.mjs:80-85`), so a child can commit from a linked worktree —
-  `codex-wave-runner.mjs:689` (executor), `:777` (supervisor);
+- the repository's git common dir (`gitCommonDir`, wrapping
+  `git rev-parse --git-common-dir`), so a child can commit from a linked
+  worktree — `codex-wave-runner.mjs:689` (executor), `:777` (supervisor);
 - every directory in `worktree.writable` plus the auto-detected ones
   (`$GRADLE_USER_HOME`/`~/.gradle` and `~/.android` when `gradlew` exists at
   the repo root, `$CARGO_HOME`/`~/.cargo` when `Cargo.toml` does;
-  `worktree-env.mjs:99-122`) — `codex-wave-runner.mjs:690` (executor), `:778`
+  `resolveWorktreeEnv`) — `codex-wave-runner.mjs:690` (executor), `:778`
   (supervisor). A writable directory that does not exist is dropped, not
-  passed (`worktree-env.mjs:118-119`), and the runner warns to stderr about
+  passed (`resolveWorktreeEnv`), and the runner warns to stderr about
   every one it skipped (`codex-wave-runner.mjs:554-557`).
 
 **Supervisor network parity.** The supervisor gets
@@ -125,7 +131,7 @@ supervisor-network option.
 
 **Links into four different checkouts.** `worktree.links` (untracked files
 symlinked in, never opened) reaches every checkout a Codex child or the
-verifier ever runs in, via the shared `applyLinks` (`worktree-env.mjs:124-139`):
+verifier ever runs in, via the shared `applyLinks`:
 the executor worktree, at `init` (`codex-wave-state.mjs:1255`); the
 supervisor's own detached checkout (`codex-wave-runner.mjs:772`); the
 mechanical verifier's disposable verification checkout
@@ -140,15 +146,15 @@ with no model and no prompt: it runs `codex sandbox ... -- bash -c <cmd>`,
 never `codex exec` (`preflightSandboxArgs`, `codex-wave-runner.mjs:448-456`,
 called from `runPreflight`, `:462-497`). A command whose output matches a
 known machine-failure signature (`detectEnvironmentBlock`,
-`worktree-env.mjs:24-42`, e.g. a git lock, a read-only filesystem, a missing
+e.g. a git lock, a read-only filesystem, a missing
 Android SDK) stops the whole run right there, before any executor or
 supervisor is spawned (`codex-wave-runner.mjs:658-671`). A red command with
 no matching signature is only recorded, in case it is expected-red
 (`codex-wave-runner.mjs:406-407,482-487`).
 
 **`environment-blocked` status.** This is the terminal stop the machine, not
-the work, produced — see "Status `environment-blocked`" in the friction
-plan's shared definitions. It is set when: the preflight above matches a
+the work, produced — see ADR 009 (`docs/decisions/009-environment-blocked-and-worktree-env.md`).
+It is set when: the preflight above matches a
 signature (`codex-wave-runner.mjs:658-671`); an executor's report itself
 has, as its first non-empty line (optionally backtick-wrapped, text after
 the colon non-empty and not a `<placeholder>`), `environment-blocked:`
@@ -161,17 +167,36 @@ captured stderr or event tail matches a signature
 `appendAgentFailure`'s `kind === 'environment'` branch,
 `codex-wave-state.mjs:703-711`); or a supervisor verdict itself carries a
 violation of `class: 'environment'` (`codex-wave-state.mjs:1084-1086`). In
-every case the task stops immediately: it is never charged as an executor
-attempt, never sent to a supervisor for a verdict it hasn't already reached,
-and never routed to the contract-amendment flow. The orchestrator's job is to
+every case the task ends there: no retry, escalation or amendment follows.
+Only the first of those paths — an executor or supervisor child that itself
+errored (timeout, non-zero exit, empty result), classified `environment` by
+`appendAgentFailure` — is never charged as an attempt at all; the
+report-marker, must_run-signature and supervisor-verdict paths reach
+`environment-blocked` after that attempt was already counted, but none of
+the three ever retries, escalates, or reaches a supervisor for a verdict it
+hasn't already reached. The orchestrator's job is to
 fix the machine — the `worktree` key, `--add-dir`, symlinks — and re-run the
 wave; it never amends the contract in response.
 
+Where to read the blocked line: in `summary.json`, a task's own record under
+`tasks[].environment` (written by the state helper's `summarize`,
+`codex-wave-state.mjs:1143-1201`) names the signature id and, when known, the
+`must_run` command; `stopped[].environment` (written by the runner itself,
+`codex-wave-runner.mjs:685-689,860-863`) carries the same for a child-error
+classification the state helper only ever receives as
+`{error:{kind:'environment'}}`. For the two pre-init stops below
+(`depends-on-unmet`, and a `--preflight` match before any task worktree
+exists), the runner writes no `--out` directory and no `summary.json` at
+all — that run's summary JSON (with a `preflight.blocked` object naming the
+command, signature id and line for the preflight case) goes to stdout only,
+so read it there, not from a file.
+
 **`depends-on-unmet` stop.** Before any worktree exists, the runner checks
 the plan's `depends_on` entries for the selected wave against the live repo
-(`checkDependsOn`, `worktree-env.mjs:156-165`, called from
-`codex-wave-runner.mjs:561`). If any are unmet, the runner writes
-`summary.json` with `stopped: [{"task": "*", "reason": "depends-on-unmet"}]`
+(`checkDependsOn`, called from
+`codex-wave-runner.mjs:561`). If any are unmet, the runner prints to stdout
+(no `--out`, no `summary.json` file) the same shape,
+`stopped: [{"task": "*", "reason": "depends-on-unmet"}]`,
 and exits 1 without creating a single task worktree or state file
 (`codex-wave-runner.mjs:562-574`).
 
@@ -180,11 +205,19 @@ supervisor) carries `stderrFile`, the path to its captured stderr
 (`codex-wave-runner.mjs:703`, `:792`); `timedOut: true` plus `eventsTail`,
 the last 10 truncated lines of its events file, when the per-child timeout
 killed it (`codex-wave-runner.mjs:704`, `:793`, via `tailLines`,
-`:418-420`); and, on any `stop`, a `cleanup` array of the exact
-`git worktree remove --force ... && git branch -D wave/<task-id>` commands to
-tear down every stopped task's worktree and branch
-(`buildCleanup`/`cleanupLine`, `codex-wave-runner.mjs:390-398`, surfaced at
-`:664` and `:850`).
+`:418-420`); and, on a post-init `stop` (a task loop that reached `stop`
+after `init` had already created its worktree, branch and state file), a
+`cleanup` array of the exact
+`git worktree remove --force ... && git branch -D wave/<task-id> && rm -f
+<state-path>` commands to tear down every stopped task's worktree, branch
+and state file (`buildCleanup`/`cleanupLine`, `codex-wave-runner.mjs:390-398`,
+surfaced at `:664` and `:850`). The runner itself never runs these lines —
+it preserves every state file, worktree and branch when it stops, exactly as
+step 8 below says. Run the printed cleanup only to re-run after fixing the
+machine: once every line has been run, the next invocation needs a fresh
+`--out` (the old one is now stale). The two pre-init stops above
+(`depends-on-unmet`, and a `--preflight` match) print no cleanup — nothing
+was created yet, so fixing the machine and re-running is enough.
 
 ## Commands and action loop
 

@@ -80,9 +80,10 @@ for paths the tasks themselves create.
 `contract-unsatisfiable` and `failed`: a command could not start or run
 because of the machine, not the work — permission denied on a cache
 directory or `.git`, a missing SDK, a lock file that cannot be created, or
-commit signing that needs a prompt. It is never charged as an executor
-attempt, never sent to a supervisor for a verdict, and never routed to the
-contract-amendment flow. An executor that hits one stops and makes the
+commit signing that needs a prompt. It ends the task; no retry, escalation
+or amendment follows (only the typed child-error path — a spawned agent or
+tool call that itself failed, with no report or verdict to charge an attempt
+against — is never charged as an attempt at all). An executor that hits one stops and makes the
 *first line* of its report `environment-blocked: <verbatim error line>`;
 the marker counts only when it is that first line — a quoted example, a
 mid-report mention, or any occurrence after line one never trips it, so a
