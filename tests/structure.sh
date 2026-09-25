@@ -179,12 +179,10 @@ else:
     else:
         ok("first line after release heading is '### Highlights'")
 
-        def next_nonblank(seq, start, limit):
-            j = start
-            while j < limit and seq[j].strip() == "":
-                j += 1
-            return j
-
+        # The block ends at whichever comes first: the next '### '/'## '
+        # heading, the first non-blank line that is neither a group line
+        # nor a bullet, or EOF. Blank lines never end the block by
+        # themselves.
         block_scan_limit = len(section_body)
         i = first_nonblank_idx + 1
         groups = []
@@ -194,17 +192,6 @@ else:
         while i < block_scan_limit:
             line = section_body[i]
             if line.strip() == "":
-                j = next_nonblank(section_body, i, block_scan_limit)
-                if j >= block_scan_limit:
-                    break
-                nxt = section_body[j]
-                if heading_re.match(nxt):
-                    break
-                # Still "in the block" if the next content line at least
-                # attempts to look like a group or a bullet; genuine prose
-                # (neither) ends the block.
-                if not (nxt.lstrip().startswith("**") or bullet_re.match(nxt)):
-                    break
                 i += 1
                 continue
             if heading_re.match(line):
@@ -221,8 +208,7 @@ else:
                     bad_lines.append(line)
                 i += 1
                 continue
-            bad_lines.append(line)
-            i += 1
+            break
 
         if not bad_lines:
             ok("Highlights block contains only blank, group, and bullet lines")

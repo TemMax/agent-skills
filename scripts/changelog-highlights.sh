@@ -5,11 +5,12 @@
 #   changelog-highlights.sh <version> [file]
 #
 # Inside the "## <version>" section, finds the "### Highlights" block — everything after
-# that heading up to (not including) the next line starting with "### " or "## " — and
-# prints its body with leading and trailing blank lines trimmed. Defaults to reading
-# CHANGELOG.md in the current directory. Exits 1 with a message on stderr if the version
-# section is missing, or its Highlights block is missing or empty (including when [file]
-# itself cannot be read).
+# that heading, ending at whichever of these comes first: the first non-blank line that
+# is neither a group line ("**name**") nor a bullet ("- ..."); the next "### " or "## "
+# heading; or EOF — and prints its body with leading and trailing blank lines trimmed.
+# Defaults to reading CHANGELOG.md in the current directory. Exits 1 with a message on
+# stderr if the version section is missing, or its Highlights block is missing or empty
+# (including when [file] itself cannot be read).
 set -euo pipefail
 
 USAGE="usage: changelog-highlights.sh <version> [file]"
@@ -22,14 +23,20 @@ if ! output="$(awk -v version="$VERSION" '
     highlights_heading = "### Highlights"
     in_section = 0; in_highlights = 0; found_highlights = 0; n = 0
   }
-  {
-    if ($0 == section_heading) { in_section = 1; in_highlights = 0; next }
-    if (in_section && index($0, "## ") == 1) { in_section = 0; in_highlights = 0 }
-    if (in_section && in_highlights && (index($0, "### ") == 1 || index($0, "## ") == 1)) {
+  in_highlights {
+    if (index($0, "### ") == 1 || index($0, "## ") == 1) {
       in_highlights = 0
+      if (index($0, "## ") == 1) { in_section = 0 }
+      next
     }
-    if (in_section && $0 == highlights_heading) { in_highlights = 1; found_highlights = 1; next }
-    if (in_highlights) { lines[n++] = $0 }
+    if ($0 == "" || $0 ~ /^\*\*[a-z0-9-]+\*\*$/ || $0 ~ /^- /) { lines[n++] = $0; next }
+    in_highlights = 0
+    next
+  }
+  {
+    if ($0 == section_heading) { in_section = 1; next }
+    if (in_section && index($0, "## ") == 1) { in_section = 0; next }
+    if (in_section && $0 == highlights_heading) { in_highlights = 1; found_highlights = 1 }
   }
   END {
     if (!found_highlights) { exit 1 }

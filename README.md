@@ -369,7 +369,9 @@ Every release section starts with a `### Highlights` block written for the
 channel's readers, not for the changelog's own readers: bullets are very
 short and grouped per skill (`**<skill>**`), 1–3 bullets per skill, each
 bullet at most 70 characters, in plain language with no internal details.
-For example:
+The block is the group and bullet lines right after `### Highlights`; any
+other text — including a blank line followed by prose — ends it, as does
+the next heading or the end of the file. For example:
 
 ```
 ### Highlights
