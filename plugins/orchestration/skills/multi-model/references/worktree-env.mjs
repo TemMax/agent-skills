@@ -43,9 +43,20 @@ export function detectEnvironmentBlock(text) {
 
 export const ENVIRONMENT_BLOCKED_MARKER = 'environment-blocked:'
 
+// The marker counts only when it is the first non-empty line of the
+// report, optionally wrapped in backticks, and its text after the colon is
+// non-empty and not a `<placeholder>` in angle brackets. This avoids
+// matching pasted-in prose (e.g. README text) that mentions the marker
+// mid-report without the executor actually hitting an environment block.
 export function reportEnvironmentBlock(report) {
-  const m = /^[ \t]*`?environment-blocked:[ \t]*(.*)$/m.exec(String(report ?? ''))
-  return m ? { id: 'reported', line: m[1].replace(/`$/, '').trim().slice(0, 300) } : null
+  const lines = String(report ?? '').split(/\r?\n/)
+  const firstNonEmpty = lines.find((l) => l.trim() !== '')
+  if (firstNonEmpty === undefined) return null
+  const m = /^`?environment-blocked:[ \t]*(.*?)`?$/.exec(firstNonEmpty.trim())
+  if (!m) return null
+  const line = m[1].trim()
+  if (line === '' || line.startsWith('<')) return null
+  return { id: 'reported', line: line.slice(0, 300) }
 }
 
 export function readPlanJson(planPath) {

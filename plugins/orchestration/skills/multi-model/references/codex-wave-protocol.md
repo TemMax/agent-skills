@@ -150,8 +150,10 @@ no matching signature is only recorded, in case it is expected-red
 the work, produced — see "Status `environment-blocked`" in the friction
 plan's shared definitions. It is set when: the preflight above matches a
 signature (`codex-wave-runner.mjs:658-671`); an executor's report itself
-starts a line with `environment-blocked:` (`reportEnvironmentBlock`,
-`codex-wave-state.mjs:832-856`); a `must_run` command's own final verification
+has, as its first non-empty line (optionally backtick-wrapped, text after
+the colon non-empty and not a `<placeholder>`), `environment-blocked:`
+(`reportEnvironmentBlock`, `codex-wave-state.mjs:832-856`) — a marker
+quoted anywhere else in the report does not count; a `must_run` command's own final verification
 attempt matches a signature (`codex-wave-state.mjs:944-969`); an executor or
 supervisor child times out, exits non-zero, or returns nothing, and its
 captured stderr or event tail matches a signature

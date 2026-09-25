@@ -134,8 +134,23 @@ test('ENVIRONMENT_BLOCKED_MARKER is the literal marker text', () => {
   assert.equal(ENVIRONMENT_BLOCKED_MARKER, 'environment-blocked:')
 })
 
-test('reportEnvironmentBlock: finds a marker line at the start of a line', () => {
-  const report = ['Did the work.', '`environment-blocked: git-lock — could not write .git/index.lock`', ''].join('\n')
+test('reportEnvironmentBlock: matches when the marker is the first line', () => {
+  const report = ['`environment-blocked: git-lock — could not write .git/index.lock`', ''].join('\n')
+  assert.deepEqual(reportEnvironmentBlock(report), { id: 'reported', line: 'git-lock — could not write .git/index.lock' })
+})
+
+test('reportEnvironmentBlock: marker on line 5 after prose returns null', () => {
+  const report = ['Did the work.', 'Ran the tests.', 'Everything looked fine.', 'Committed.', '`environment-blocked: git-lock — could not write .git/index.lock`', ''].join('\n')
+  assert.equal(reportEnvironmentBlock(report), null)
+})
+
+test('reportEnvironmentBlock: first line is verbatim README placeholder text, not a real block', () => {
+  const report = ['`environment-blocked: <verbatim error line>`', 'rest of report'].join('\n')
+  assert.equal(reportEnvironmentBlock(report), null)
+})
+
+test('reportEnvironmentBlock: leading blank lines then marker still matches', () => {
+  const report = ['', '  ', '`environment-blocked: git-lock — could not write .git/index.lock`', ''].join('\n')
   assert.deepEqual(reportEnvironmentBlock(report), { id: 'reported', line: 'git-lock — could not write .git/index.lock' })
 })
 
