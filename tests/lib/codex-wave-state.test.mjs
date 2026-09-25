@@ -1606,6 +1606,40 @@ test('E9 a linked wave names its linked build files in the executor prompt', () 
     /Untracked build files linked into this worktree \(never open, print or copy them\): local\.properties/)
 })
 
+test('E10 summary carries the marker-path environment block', () => {
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'printf executed > must-run-executed', evidence: 'required' },
+  ]) })
+  recordExecutor(env.statePath, {
+    report: 'environment-blocked: gpg failed to sign the data\n\nCould not proceed.\n',
+  })
+  verify(env.statePath)
+  const summary = ok(['summary', '--state', env.statePath])
+  assert.equal(summary.tasks[0].status, 'environment-blocked')
+  assert.deepEqual(summary.tasks[0].environment, { id: 'reported', line: 'gpg failed to sign the data' })
+})
+
+test('E11 summary carries the must_run-signature environment block, including the command', () => {
+  const cmd = 'printf "SDK location not found. Define a valid SDK location in local.properties." >&2; exit 1'
+  const env = init({ planText: (text) => withMustRun(text, [{ cmd, evidence: 'required' }]) })
+  prepareAttempt(env, 'must_run output:\nSDK location not found. Define a valid SDK location in local.properties.')
+  const summary = ok(['summary', '--state', env.statePath])
+  assert.equal(summary.tasks[0].status, 'environment-blocked')
+  assert.deepEqual(summary.tasks[0].environment, {
+    id: 'android-sdk-missing',
+    line: 'SDK location not found. Define a valid SDK location in local.properties.',
+    cmd,
+  })
+})
+
+test('E12 summary carries a typed-error environment block as child-error', () => {
+  const env = init()
+  recordExecutor(env.statePath, { error: { kind: 'environment' } })
+  const summary = ok(['summary', '--state', env.statePath])
+  assert.equal(summary.tasks[0].status, 'environment-blocked')
+  assert.deepEqual(summary.tasks[0].environment, { id: 'child-error' })
+})
+
 let failedCount = 0
 for (const { name, fn } of tests) {
   try {

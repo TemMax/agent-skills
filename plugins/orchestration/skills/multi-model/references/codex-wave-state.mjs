@@ -1140,6 +1140,31 @@ export function recordVerdict(state, id, result) {
   return updated
 }
 
+// For an environment-blocked task, recover the blocked command/line from the
+// last verifier-facts entry's most recent class:"environment" violation.
+// Its rule is either "environment: <signature id>" (the must_run-signature
+// path, where we also name the offending command) or the marker path's fixed
+// "executor reported environment-blocked" text (signature id "reported").
+// When no such violation exists — the task was blocked by a typed executor
+// or supervisor error instead of a verifier fact — report "child-error".
+function environmentSummary(task) {
+  if (task.status !== 'environment-blocked') return null
+  const facts = task.verifierFacts.at(-1)
+  const violation = facts
+    ? [...facts.violations].reverse().find((entry) => entry.class === 'environment')
+    : null
+  if (!violation) return { id: 'child-error' }
+  const signature = /^environment: (.+)$/.exec(violation.rule)
+  if (!signature) return { id: 'reported', line: violation.evidence }
+  const result = { id: signature[1], line: violation.evidence }
+  const command = facts.mustRun.find((entry) => {
+    const final = entry.attempts.at(-1)
+    return final && final.exit !== 0 && detectEnvironmentBlock(final.stdout + '\n' + final.stderr)
+  })
+  if (command) result.cmd = command.cmd
+  return result
+}
+
 export function summarize(state) {
   const stateTasks = Object.entries(state.tasks ?? {})
   const tasks = stateTasks.map(([id, task]) => {
@@ -1147,11 +1172,13 @@ export function summarize(state) {
     const spec = usesAstra ? taskSpec(state, id) : null
     const astraDispatched = usesAstra && (task.rungs[task.rung] === ASTRA
       && task.attemptOnRung > 0 || task.verdicts.some((entry) => entry.model === ASTRA))
+    const environment = environmentSummary(task)
     return {
       id,
       status: task.status === 'merge-ready' ? 'ok' : task.status,
       branch: task.branch,
       attempts: clone(task.verdicts),
+      ...(environment ? { environment } : {}),
       ...(usesAstra ? {
         astraExecutor: {
           reason: spec.astra_executor_reason,
