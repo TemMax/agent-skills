@@ -9,6 +9,10 @@ import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import {
+  applyLinks, detectEnvironmentBlock, effectivePlan, excludeFromGit, reportEnvironmentBlock,
+  resolveWorktreeEnv, TASK_HEADING_SOURCE,
+} from './worktree-env.mjs'
 
 export const CODEX_MODELS = ['gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const ASTRA = 'gpt-6-astra'
@@ -23,7 +27,7 @@ const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const isClaudeModel = (model) => CLAUDE_MODELS.includes(model) || CLAUDE_ALIASES.includes(model)
 const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
   'forbidden_moves', 'report_must_answer']
-const AGENT_ERRORS = ['null-result', 'transport', 'tool-unavailable']
+const AGENT_ERRORS = ['null-result', 'transport', 'tool-unavailable', 'environment']
 const COMMANDS = {
   init: ['plan', 'wave', 'repo', 'base'],
   next: ['state'],
@@ -37,7 +41,7 @@ const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const SHA = /^[0-9a-f]{40}$/
 const MAX_EXECUTOR_ATTEMPTS = 6
 const TASK_STATUSES = ['ready', 'reported', 'verified', 'merge-ready',
-  'contract-unsatisfiable', 'failed', 'error']
+  'contract-unsatisfiable', 'failed', 'error', 'environment-blocked']
 const ESCALATIONS = [null, 'same-rule-repeat', 'rung-exhausted',
   'paste-two-strikes', 'raised-effort']
 const STATE_KEYS = ['schema', 'planPath', 'planDigest', 'wave', 'repoPath', 'base',
@@ -103,7 +107,7 @@ export function extractWavePlan(markdown) {
 }
 
 function taskProse(markdown, id) {
-  const headings = [...markdown.matchAll(/^## Task ([a-z0-9-]+)[ \t]*\r?$/gm)]
+  const headings = [...markdown.matchAll(new RegExp(TASK_HEADING_SOURCE, 'gm'))]
   const matches = headings.filter((match) => match[1] === id)
   if (matches.length !== 1) {
     throw new NamedError('plan-prose', 'expected exactly one "## Task ' + id
@@ -384,8 +388,17 @@ function mergeReadyHasCleanHistories(task, spec) {
 function validateStoredState(state, statePath) {
   const errors = []
   const err = (field, message) => errors.push(field + ': ' + message)
-  if (!ownKeysAre(state, STATE_KEYS)) {
+  // worktreeLinks is optional for backward compatibility: a state file saved
+  // before this field existed has none, and is read as an empty link list.
+  const hasWorktreeLinks = state && typeof state === 'object' && !Array.isArray(state)
+    && Object.hasOwn(state, 'worktreeLinks')
+  const expectedStateKeys = hasWorktreeLinks ? [...STATE_KEYS, 'worktreeLinks'] : STATE_KEYS
+  if (!ownKeysAre(state, expectedStateKeys)) {
     return ['state: expected exact schema-1 top-level fields']
+  }
+  if (hasWorktreeLinks && (!Array.isArray(state.worktreeLinks)
+    || state.worktreeLinks.some((link) => typeof link !== 'string' || link === ''))) {
+    err('worktreeLinks', 'array of non-empty strings required')
   }
   if (state.schema !== 1) err('schema', 'expected 1')
   if (!nonemptyString(state.planPath)) err('planPath', 'non-empty string required')
@@ -591,6 +604,9 @@ function executorPrompt(state, id, task, spec) {
     'BASE: ' + state.base,
     'BRANCH: ' + task.branch,
     'WORKTREE: ' + task.worktree,
+    Array.isArray(state.worktreeLinks) && state.worktreeLinks.length > 0
+      ? 'Untracked build files linked into this worktree (never open, print or copy them): '
+        + state.worktreeLinks.join(', ') : null,
     'Work and commit only inside the existing worktree above.',
     '',
     '## Boundaries',
@@ -604,11 +620,14 @@ function executorPrompt(state, id, task, spec) {
     'stop and report what is blocking you. Do not invent values, do not work',
     'around the restriction, and do not pick an interpretation on the user\'s behalf.',
     'If your task needs an artifact that another task of this wave is producing (a file, fixture, function or behavior missing from your worktree), stop and report `blocked-on-sibling: <what is missing and which task makes it>`; do not invent it and do not commit a placeholder.',
+    'If a build or tool cannot start because of the machine — permission denied on a cache directory or `.git`, SDK not found, a lock file, commit signing — stop and report a line `environment-blocked: <the verbatim error line>`; do not work around it.',
     '',
     '## Prohibitions',
     'Do not spawn subagents. No force-push, no reset --hard, and no rm outside',
     'the task\'s files. Do not work around a failing check — report it.',
     'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example ~/.codex, ~/.claude, app configs with Authorization headers); if the task needs a secret, stop and report.',
+    'That includes untracked build configuration a worktree links — `local.properties`, `.env`, `*.keystore`, `gradle.properties` under `~/.gradle` — which may hold a key or token: link or reference such files by path; never `cat`, `head`, `grep` or otherwise print them.',
+    'Never end your turn while a command you started is still running — no Monitor, no ScheduleWakeup; keep polling its log until it exits.',
     '',
     '## Definition of done and report format',
     'Report the changed files, the gist of the change, the verbatim output of',
@@ -665,7 +684,7 @@ export function nextAction(state) {
       mergeReadyIds.push(id)
       continue
     }
-    if (['contract-unsatisfiable', 'failed', 'error'].includes(task.status)) {
+    if (['contract-unsatisfiable', 'failed', 'error', 'environment-blocked'].includes(task.status)) {
       return { ...common, action: 'stop', reason: task.status }
     }
     throw new NamedError('state-schema', 'unknown task status "' + task.status + '"')
@@ -683,6 +702,13 @@ function isAgentError(result) {
 
 function appendAgentFailure(task, point, kind, attempt) {
   task.agentFailures.push({ point, kind, attempt })
+  // An environment-typed error is a machine problem, not an agent or task
+  // failure: it stops the task immediately and is never charged as an
+  // attempt, so the usual two-strikes escalation to "error" does not apply.
+  if (kind === 'environment') {
+    task.status = 'environment-blocked'
+    return
+  }
   let consecutive = 0
   for (let i = task.agentFailures.length - 1; i >= 0; i--) {
     const failure = task.agentFailures[i]
@@ -748,7 +774,7 @@ function runContractCommand(cmd, cwd) {
   }
 }
 
-function runContractSequence(repo, head, entries) {
+function runContractSequence(repo, head, entries, links) {
   const root = mkdtempSync(join(tmpdir(), 'codex-wave-verify-'))
   const checkout = join(root, 'checkout')
   let created = false
@@ -758,6 +784,7 @@ function runContractSequence(repo, head, entries) {
       throw new NamedError('verification-worktree', added.stderr || added.error || 'checkout failed')
     }
     created = true
+    applyLinks(repo, checkout, links)
     return entries.map((entry) => runContractCommand(entry.cmd, checkout))
   } finally {
     // This disposable checkout belongs only to this sequence attempt. Its
@@ -780,6 +807,7 @@ export function verifyTask(state, id) {
   const task = requireTask(updated, id)
   if (task.status !== 'reported') throw new NamedError('state-transition', id + ': verify not expected')
   const spec = taskSpec(updated, id)
+  const links = Array.isArray(updated.worktreeLinks) ? updated.worktreeLinks : []
   const branch = runGit(task.worktree, ['branch', '--show-current'])
   const ancestor = runGit(task.worktree,
     ['merge-base', '--is-ancestor', updated.base, 'HEAD'])
@@ -787,6 +815,45 @@ export function verifyTask(state, id) {
   const currentBranch = branch.exit === 0 ? branch.stdout.trim() : null
   const baseIsAncestor = ancestor.exit === 0
   const worktreeStatus = status.stdout
+  const names = runGit(task.worktree, ['diff', '--name-only', updated.base + '..HEAD'])
+  const binaryDiff = runGit(task.worktree,
+    ['diff', '--no-ext-diff', '--binary', updated.base + '..HEAD'])
+  const count = runGit(task.worktree, ['rev-list', '--count', updated.base + '..HEAD'])
+  const changedPaths = names.exit === 0
+    ? names.stdout.split(/\r?\n/).filter(Boolean)
+    : []
+  const commitCount = count.exit === 0 && /^\d+\s*$/.test(count.stdout)
+    ? Number(count.stdout.trim())
+    : null
+  const gitFacts = { branch, ancestor, status, names, diff: binaryDiff, count }
+  // Checked before the safety preflight below: an executor that already
+  // named the exact machine failure never gets a mechanical retry — the
+  // preflight and must_run would only reproduce the same block.
+  const reportedBlock = reportEnvironmentBlock(task.reports.at(-1))
+  if (reportedBlock) {
+    task.verifierFacts.push({
+      base: updated.base,
+      branch: task.branch,
+      currentBranch,
+      baseIsAncestor,
+      worktreeStatus,
+      preflightPassed: false,
+      changedPaths,
+      commitCount,
+      diff: binaryDiff.stdout,
+      git: gitFacts,
+      mustRun: spec.contract.must_run.map((entry) => ({
+        cmd: entry.cmd, evidence: entry.evidence, attempts: [], skipped: 'safety-preflight',
+      })),
+      violations: [{
+        class: 'environment',
+        rule: 'executor reported environment-blocked',
+        evidence: reportedBlock.line,
+      }],
+    })
+    task.status = 'environment-blocked'
+    return updated
+  }
   const preflightViolations = []
   if (branch.exit !== 0 || currentBranch !== task.branch) preflightViolations.push({
     class: 'git',
@@ -810,16 +877,6 @@ export function verifyTask(state, id) {
     evidence: worktreeStatus,
   })
   const preflightPassed = preflightViolations.length === 0
-  const names = runGit(task.worktree, ['diff', '--name-only', updated.base + '..HEAD'])
-  const binaryDiff = runGit(task.worktree,
-    ['diff', '--no-ext-diff', '--binary', updated.base + '..HEAD'])
-  const count = runGit(task.worktree, ['rev-list', '--count', updated.base + '..HEAD'])
-  const changedPaths = names.exit === 0
-    ? names.stdout.split(/\r?\n/).filter(Boolean)
-    : []
-  const commitCount = count.exit === 0 && /^\d+\s*$/.test(count.stdout)
-    ? Number(count.stdout.trim())
-    : null
   const violations = [...preflightViolations]
   if (names.exit !== 0) violations.push({
     class: 'git', rule: 'git diff --name-only must succeed', evidence: names.stderr || names.error || '',
@@ -855,11 +912,14 @@ export function verifyTask(state, id) {
     // Pin both complete attempts to the committed task head. Preceding
     // commands may generate prerequisites or poison their successors.
     for (let attempt = 0; attempt < 2; attempt++) {
-      const results = runContractSequence(updated.repoPath, headSha, mustRun)
+      const results = runContractSequence(updated.repoPath, headSha, mustRun, links)
       results.forEach((result, index) => mustRun[index].attempts.push(result))
       if (results.every((result) => result.exit === 0)) break
     }
   }
+  // A failing attempt whose output matches a known machine-failure signature
+  // means the command never ran the real work; the first such match wins.
+  let environmentBlock = null
   for (const recorded of mustRun) {
     if (!preflightPassed) continue
     const { cmd, attempts } = recorded
@@ -877,7 +937,19 @@ export function verifyTask(state, id) {
       rule: 'must_run: ' + cmd + ' requires pasted evidence',
       evidence: 'the executor report contains none of the verifier command output',
     })
+    if (!environmentBlock) {
+      for (const attemptResult of attempts) {
+        if (attemptResult.exit === 0) continue
+        const detected = detectEnvironmentBlock(attemptResult.stdout + '\n' + attemptResult.stderr)
+        if (detected) { environmentBlock = detected; break }
+      }
+    }
   }
+  if (environmentBlock) violations.push({
+    class: 'environment',
+    rule: 'environment: ' + environmentBlock.id,
+    evidence: environmentBlock.line,
+  })
   const facts = {
     base: updated.base,
     branch: task.branch,
@@ -888,12 +960,12 @@ export function verifyTask(state, id) {
     changedPaths,
     commitCount,
     diff: binaryDiff.stdout,
-    git: { branch, ancestor, status, names, diff: binaryDiff, count },
+    git: gitFacts,
     mustRun,
     violations,
   }
   task.verifierFacts.push(facts)
-  task.status = 'verified'
+  task.status = environmentBlock ? 'environment-blocked' : 'verified'
   return updated
 }
 
@@ -1006,6 +1078,10 @@ export function recordVerdict(state, id, result) {
   task.verdicts.push(entry)
   if (effectiveResult.ok === true) {
     task.status = 'merge-ready'
+    return updated
+  }
+  if (effectiveResult.violations.some((violation) => violation.class === 'environment')) {
+    task.status = 'environment-blocked'
     return updated
   }
   if (effectiveResult.violations.some((violation) => violation.satisfiable === false)) {
@@ -1146,6 +1222,8 @@ function initCommand(options) {
   if (resolved.status !== 0 || resolved.stdout.trim() !== options.base) {
     throw new NamedError('base-sha', 'commit is not present in repository')
   }
+  const effPlan = effectivePlan(options.plan, options.repo)
+  const env = resolveWorktreeEnv(options.repo, effPlan)
   const state = makeState({
     planPath: options.plan,
     planDigest: selectedPlanDigest(markdown, wave),
@@ -1154,6 +1232,7 @@ function initCommand(options) {
     base: options.base,
     wave,
   })
+  state.worktreeLinks = env.links
   const stateDir = join(options.repo, '.worktrees', 'codex-wave')
   const planName = basename(options.plan).replace(/\.[^.]+$/, '')
   const statePath = join(stateDir, planName + '-w' + waveNumber + '-' + options.base.slice(0, 12) + '.json')
@@ -1172,7 +1251,9 @@ function initCommand(options) {
     if (created.status !== 0) {
       throw new NamedError('worktree-conflict', created.stderr || created.error?.message || task.worktree)
     }
+    applyLinks(options.repo, task.worktree, env.links)
   }
+  excludeFromGit(options.repo, ['.worktrees/', ...env.links.map((l) => '/' + l)])
   mkdirSync(stateDir, { recursive: true })
   atomicWrite(statePath, state)
   return { status: 'ok', state: statePath, wave: waveNumber, tasks: Object.keys(state.tasks) }
