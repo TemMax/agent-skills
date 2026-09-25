@@ -39,6 +39,9 @@ import {
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  applyLinks, effectivePlan, gitCommonDir, resolveWorktreeEnv, TASK_HEADING_SOURCE,
+} from './worktree-env.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const HELPER = join(here, 'codex-wave-state.mjs')
@@ -64,7 +67,8 @@ const USAGE = [
   '  --timeout-min <n>         per-child timeout in minutes (default 45)',
   '  --out <dir>               run directory; must not already exist',
   '                            (default <repo>/.worktrees/codex-runner/<wave>-<base12>)',
-  '  --executor-network on|off executor sandbox network access (default on)',
+  '  --executor-network on|off sandbox network access for executor and supervisor',
+  '                            children (default on)',
   '  --help                    print this text and exit 0',
   '',
   'Exit status: 0 merge-ready, 1 stop (including a lint failure on the plan),',
@@ -160,7 +164,7 @@ function removeTaskSections(text, idsToRemove) {
   const spans = headings
     .map((heading, index) => {
       const end = index + 1 < headings.length ? headings[index + 1].index : text.length
-      const taskHeading = /^## Task ([a-z0-9-]+)\s*$/.exec(heading[0])
+      const taskHeading = new RegExp(TASK_HEADING_SOURCE).exec(heading[0])
       return taskHeading ? { id: taskHeading[1], start: heading.index, end } : null
     })
     .filter((span) => span && drop.has(span.id))
@@ -416,6 +420,18 @@ async function main() {
   const taskIds = wave.tasks.map((task) => task.id)
   const planBasename = basename(config.planPath).replace(/\.[^.]+$/, '')
 
+  // Worktree environment (writable cache dirs, linked untracked files) and
+  // the repository's git common dir, so every sandboxed Codex child (executor
+  // and supervisor) can write caches and, for the executor, commit from a
+  // linked worktree. See "Shared definitions" in the friction plan.
+  const planForEnv = effectivePlan(config.planPath, config.repoPath)
+  const env = resolveWorktreeEnv(config.repoPath, planForEnv)
+  const commonDir = gitCommonDir(config.repoPath)
+  if (env.missingWritable.length > 0) {
+    process.stderr.write('codex-wave-runner: missing writable dirs (skipped): '
+      + env.missingWritable.join(', ') + '\n')
+  }
+
   // Everything from here on is real work; create the run directory and the
   // one artifact shared by every supervisor spawn.
   mkdirSync(config.outPath, { recursive: true })
@@ -498,6 +514,8 @@ async function main() {
     const args = [
       'exec', '--ephemeral', '--skip-git-repo-check', '-C', action.worktree,
       '--sandbox', 'workspace-write',
+      '--add-dir', commonDir,
+      ...env.writable.flatMap((d) => ['--add-dir', d]),
       ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
       '--model', action.model,
       '-c', 'model_reasoning_effort=' + action.effort,
@@ -572,10 +590,14 @@ async function main() {
       throw new Error('supervisor worktree checkout failed for task "' + taskId + '": '
         + (added.stderr || added.stdout))
     }
+    applyLinks(config.repoPath, checkoutPath, env.links)
     try {
       const args = [
         'exec', '--ephemeral', '--skip-git-repo-check', '-C', checkoutPath,
         '--sandbox', 'workspace-write',
+        '--add-dir', commonDir,
+        ...env.writable.flatMap((d) => ['--add-dir', d]),
+        ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
         '--model', action.model,
         '-c', 'model_reasoning_effort=' + action.effort,
         '--output-schema', verdictSchemaPath,

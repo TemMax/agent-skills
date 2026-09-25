@@ -15,7 +15,11 @@
 #                              records sorted by timestamp. The start record
 #                              carries the exact prompt received on stdin, so
 #                              a caller can assert a prompt file equals what
-#                              was actually sent.
+#                              was actually sent. The start record also
+#                              carries "symlinks": the names of top-level
+#                              symlinks in its cwd (never their content), so a
+#                              caller can assert a worktree link landed before
+#                              the child ran.
 #   CODEX_STUB_SLEEP          seconds to sleep between start and end (default 0).
 #   CODEX_STUB_EXECUTOR_MODE  good|empty|fail — only consulted for an executor
 #                              invocation (prompt starts with "# Task:").
@@ -91,8 +95,21 @@ prompt="$(cat "$promptfile")" # fine for a prefix check; never used for logging
 
 start_ts="$(now_ms)"
 prompt_json="$(node -e 'process.stdout.write(JSON.stringify(require("fs").readFileSync(process.argv[1], "utf8")))' -- "$promptfile")"
-start_record="$(printf '{"event":"start","ts":%s,"cwd":%s,"argv":%s,"prompt":%s}' \
-  "$start_ts" "$(json_string "$worktree")" "$argv_json" "$prompt_json")"
+# Top-level symlink names in cwd, never their content (see the secrets
+# sentence in the friction plan's shared definitions).
+symlinks_json="["
+first_symlink=1
+if [ -n "$worktree" ] && [ -d "$worktree" ]; then
+  while IFS= read -r link; do
+    [ -n "$link" ] || continue
+    [ "$first_symlink" -eq 1 ] || symlinks_json+=","
+    first_symlink=0
+    symlinks_json+="$(json_string "$(basename "$link")")"
+  done < <(find "$worktree" -maxdepth 1 -type l 2>/dev/null)
+fi
+symlinks_json+="]"
+start_record="$(printf '{"event":"start","ts":%s,"cwd":%s,"argv":%s,"prompt":%s,"symlinks":%s}' \
+  "$start_ts" "$(json_string "$worktree")" "$argv_json" "$prompt_json" "$symlinks_json")"
 write_record start "$start_record"
 
 sleep "${CODEX_STUB_SLEEP:-0}"

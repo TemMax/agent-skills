@@ -103,6 +103,41 @@ function writePlan(root, taskIds) {
   return path
 }
 
+// Same as makeRepo, plus a tracked gradlew and a gitignored, untracked
+// local.properties — the resolveWorktreeEnv auto-detection fixture from
+// worktree-env.mjs (see tests/lib/worktree-env.test.mjs for the equivalent
+// direct-unit coverage of that helper).
+function makeGradleRepo() {
+  const root = mkdtempSync(join(tmpdir(), 'codex-wave-runner-'))
+  roots.push(root)
+  const repo = join(root, 'repo')
+  mkdirSync(repo, { recursive: true })
+  git(repo, 'init')
+  git(repo, 'config', 'user.name', 'Codex Runner Test')
+  git(repo, 'config', 'user.email', 'codex-runner-test@example.invalid')
+  git(repo, 'config', 'commit.gpgsign', 'false')
+  writeFileSync(join(repo, 'README.md'), 'base\n')
+  writeFileSync(join(repo, 'gradlew'), '#!/bin/sh\necho stub\n')
+  writeFileSync(join(repo, '.gitignore'), 'local.properties\n')
+  git(repo, 'add', '.')
+  git(repo, 'commit', '-m', 'base')
+  // Added after the commit so it stays untracked (isUntracked checks
+  // git ls-files) while still matching .gitignore. Never opened again once
+  // written: this test only ever asserts on the stub's logged *name*.
+  writeFileSync(join(repo, 'local.properties'), 'sdk.dir=/nonexistent\n')
+  const base = git(repo, 'rev-parse', 'HEAD')
+  return { root, repo, base }
+}
+
+// The exact argv index-pairing every --add-dir assertion below relies on.
+function addDirValues(argv) {
+  const out = []
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--add-dir') out.push(argv[i + 1])
+  }
+  return out
+}
+
 function runRunner(args, env = {}) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], {
     encoding: 'utf8',
@@ -652,4 +687,86 @@ test('(k) an inconsistent verdict (ok:true with a violation) is a supervisor nul
   const failures = state.tasks['task-a'].agentFailures
   assert.ok(failures.some((f) => f.point === 'supervisor' && f.kind === 'null-result'),
     'expected the inconsistent verdict recorded as a supervisor null-result failure: ' + JSON.stringify(failures))
+})
+
+test('(m) executor and supervisor argv both carry --add-dir <git common dir>', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  const commonDir = git(repo, 'rev-parse', '--path-format=absolute', '--git-common-dir')
+
+  const starts = readLog(logPath).filter((entry) => entry.event === 'start')
+  const executorStart = starts.find((entry) => entry.prompt.startsWith('# Task: '))
+  const supervisorStart = starts.find((entry) => entry.prompt.startsWith('# Supervisor Prompt'))
+  assert.ok(executorStart, 'expected a logged executor invocation')
+  assert.ok(supervisorStart, 'expected a logged supervisor invocation')
+  assert.ok(addDirValues(executorStart.argv).includes(commonDir),
+    'executor argv must add-dir the git common dir: ' + JSON.stringify(executorStart.argv))
+  assert.ok(addDirValues(supervisorStart.argv).includes(commonDir),
+    'supervisor argv must add-dir the git common dir: ' + JSON.stringify(supervisorStart.argv))
+})
+
+test('(n) supervisor argv gets the network flag by default and drops it with --executor-network off', () => {
+  const on = makeRepo()
+  const onPlan = writePlan(on.root, ['task-a'])
+  const onLog = join(on.root, 'codex.log')
+  const onResult = runRunner(
+    ['--plan', onPlan, '--wave', '1', '--repo', on.repo, '--base', on.base, '--codex', STUB,
+      '--out', join(on.root, 'out')],
+    { CODEX_STUB_LOG: onLog, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(onResult.status, 0, onResult.stdout + onResult.stderr)
+  const onSupervisorStart = readLog(onLog).find((entry) => entry.event === 'start'
+    && entry.prompt.startsWith('# Supervisor Prompt'))
+  assert.ok(onSupervisorStart, 'expected a logged supervisor invocation')
+  assert.ok(onSupervisorStart.argv.includes('sandbox_workspace_write.network_access=true'),
+    'supervisor argv must carry the network flag by default: ' + JSON.stringify(onSupervisorStart.argv))
+
+  const off = makeRepo()
+  const offPlan = writePlan(off.root, ['task-a'])
+  const offLog = join(off.root, 'codex.log')
+  const offResult = runRunner(
+    ['--plan', offPlan, '--wave', '1', '--repo', off.repo, '--base', off.base, '--codex', STUB,
+      '--executor-network', 'off', '--out', join(off.root, 'out')],
+    { CODEX_STUB_LOG: offLog, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(offResult.status, 0, offResult.stdout + offResult.stderr)
+  const offSupervisorStart = readLog(offLog).find((entry) => entry.event === 'start'
+    && entry.prompt.startsWith('# Supervisor Prompt'))
+  assert.ok(offSupervisorStart, 'expected a logged supervisor invocation')
+  assert.equal(offSupervisorStart.argv.includes('sandbox_workspace_write.network_access=true'), false,
+    '--executor-network off must drop the supervisor network flag too: '
+    + JSON.stringify(offSupervisorStart.argv))
+})
+
+test('(o) a gitignored local.properties is linked into the supervisor checkout, and '
+  + 'GRADLE_USER_HOME is add-dir\'d when it exists', () => {
+  const { root, repo, base } = makeGradleRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const gradleHome = mkdtempSync(join(tmpdir(), 'codex-wave-runner-gradle-'))
+  roots.push(gradleHome)
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', GRADLE_USER_HOME: gradleHome },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+
+  const supervisorStart = readLog(logPath).find((entry) => entry.event === 'start'
+    && entry.prompt.startsWith('# Supervisor Prompt'))
+  assert.ok(supervisorStart, 'expected a logged supervisor invocation')
+  assert.ok(Array.isArray(supervisorStart.symlinks), 'the stub must log a symlinks array')
+  assert.ok(supervisorStart.symlinks.includes('local.properties'),
+    'the supervisor checkout must have local.properties linked: ' + JSON.stringify(supervisorStart.symlinks))
+  assert.ok(addDirValues(supervisorStart.argv).includes(gradleHome),
+    'supervisor argv must add-dir an existing GRADLE_USER_HOME: ' + JSON.stringify(supervisorStart.argv))
 })
