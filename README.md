@@ -340,6 +340,152 @@ short summary plus one findings table tiered Blocker / Important / Medium / Low
 To verify the plugins are installed, run `/plugin` and look for
 `orchestration` and `code-review` with their skills listed.
 
+## 4.2.0
+
+Non-breaking. A read-through of four 2026-09-24/25 session transcripts
+(Android/KMP, a four-repository Go/Rust/Python feature, docs + Android
+attachments) found the failures were mostly environmental: waves could not
+build in the environment they were given, and the skills blamed the
+contract or the executor for it, while plan-lint's own limits stayed silent
+and produced false-positive and warning noise instead.
+
+**Worktree environment.** A new shared module,
+`worktree-env.mjs`, gives the runners and the linter one definition of a
+fresh worktree's environment: the plan's optional `worktree` key —
+`{"links": [...], "writable": [...], "auto": true}` — lists repository-relative
+untracked files (for example `local.properties`) every fresh worktree and
+checkout gets as a symlink to the real path, and cache directories (for
+example `~/.gradle`, `~/.android`, `~/.cargo`) a sandboxed Codex child may
+write; `auto` (default `true`) adds `gradlew` → Gradle/Android caches and an
+untracked `local.properties` link, and `Cargo.toml` → the Cargo cache,
+automatically. Linked files are symlinked, never opened, printed or copied.
+Measured: fresh worktrees and checkouts lacked the gitignored
+`local.properties` and an empty `ANDROID_HOME`; agents improvised the same
+`ln -s` symlink 93 times across one session, and at least 4 agents ran `cat
+local.properties`, printing a GitHub token twice even after the orchestrator
+warned. The existing secrets prohibitions across the prompt and skills gain
+one appended sentence: that includes untracked build configuration a
+worktree links — `local.properties`, `.env`, `*.keystore`, `gradle.properties`
+under `~/.gradle` — which may hold a key or token: link or reference such
+files by path; never `cat`, `head`, `grep` or otherwise print them.
+
+**Codex sandbox parity.** Codex children ran `codex exec --sandbox
+workspace-write -C <worktree>` with no `--add-dir` and no network flag for
+the supervisor. The runner now adds `--add-dir` for the repository's git
+common dir (`git rev-parse --git-common-dir`, so a linked worktree can
+commit) plus every `worktree.writable` cache directory, and gives the
+supervisor the same network parity as the executor. Reproduced without a
+model on 2026-09-25 (codex-cli 0.155.1): `codex sandbox -c
+'sandbox_mode="workspace-write"' -- touch ~/.gradle/x` fails with `Operation
+not permitted` and passes once `writable_roots=["<home>/.gradle"]` is set;
+`git add`/`commit` from a linked worktree outside `$TMPDIR` fails with
+`Unable to create '<repo>/.git/worktrees/w/index.lock': Operation not
+permitted` and passes once `writable_roots=["<repo>/.git"]` is set. Disabling
+child MCP servers stays out of scope: `-c
+mcp_servers.<name>.enabled=false` made `codex mcp list` fail with `Error:
+bootstrap`. Branch names stay `wave/<id>` and task worktrees stay under
+`--repo` (`.worktrees/` goes into `info/exclude` automatically) — a
+namespace or location change would break the plan format.
+
+**Model-free `--preflight`.** The Codex runner's `--preflight` probes every
+distinct `must_run` command in a wave's tasks under the same sandboxed
+`codex sandbox` seatbelt used for execution, in a throwaway worktree at the
+wave's base, without spawning any model child. A red command the plan does
+not expect is fixed in the plan; a blocked command is fixed on the machine.
+
+**`environment-blocked`.** A new terminal stop status, distinct from
+`contract-unsatisfiable` and `failed`: a command could not start or run
+because of the machine, not the work — permission denied on a cache
+directory or `.git` (`Operation not permitted`), `SDK location not found`, a
+lock file that cannot be created, or commit signing that needs a prompt. It
+is never charged as an executor attempt, never sent to a supervisor for a
+verdict, and never routed to the contract-amendment flow; an executor that
+hits one stops and makes the *first line* of its report
+`environment-blocked: <verbatim error line>` — the marker counts only when
+it opens the report, so a quoted or mid-report mention of the same text
+never trips it. Measured: two 2026-09-25 Codex waves stopped as
+`contract-unsatisfiable` over a Gradle lock denied in `~/.gradle` and a
+missing Android SDK, and the user approved bypassing supervised execution
+both times, even though the contract preflight had run clean in the main
+checkout ("13 commands green") two minutes earlier — a main-checkout
+preflight cannot see a fresh sandboxed worktree's Gradle lock or missing
+SDK.
+
+**`wave-launch` refusals.** The launcher now refuses to start a wave against
+a base that is not an ancestor of `origin/<default>` (`git merge-base
+--is-ancestor <base> origin/<default>`) — a wave base nobody else can see
+yet. It also honors the plan's optional `depends_on` key —
+`[{"wave": <n>, "repo": "<path or \".\">", "ref": "<git ref>", "path":
+"<repo-relative path>"}]` — refusing to start wave `<n>` until `git -C
+<repo> cat-file -e <ref>:<path>` succeeds (`"."` means the plan's own
+repository). Measured: an eval wave in a four-repository plan launched
+before the other repository's artifact existed. A new `inherits` plan key
+(a repository-relative path to a parent plan) lets a child plan omit `ci`,
+`e2e`, `worktree`, `approvals` or `review` and take them from the parent,
+one level only — for recovery and amendment plans.
+
+**Plan-lint fixes.** `## Task <id>` prose headings are now matched by
+`/^## Task ([a-z0-9-]+)[ \t]*\r?$/gm`, with an error for any `## Task` line
+that doesn't match exactly — the title goes on the next line. Measured: a
+`## Task rename-web — Title` heading passed the old lint and then crashed
+the runner's init. `ci.commands` matching now tolerates a workflow line's
+trailing `$VAR`/`${VAR}` arguments (`./gradlew spotlessCheck` now matches
+`run: ./gradlew spotlessCheck $GRADLE_FLAGS`) and a step's
+`working-directory:` (`cd gateway && go test ./...` now matches a step with
+`working-directory: gateway` and `run: go test ./...`); both previously
+gave "does not appear in any listed ci.workflows file". Legal carve-outs —
+`files_allowed ["app/AGENTS.md"]` with `files_forbidden
+["app/**/src/**"]`, and `files_allowed ["app/feed/impl/**"]` with
+`files_forbidden ["app/feed/impl/src/Dock.kt"]` — no longer trip the
+self-overlap check, while `src/**` with `src/**` still does. Missing
+`files_allowed` prefixes that a task itself will create are folded into one
+warning instead of one line each (a session had printed 33); a prefix whose
+top-level directory doesn't exist anywhere in the repo still gets its own
+warning. The linter also gained a `--base <sha>` flag reading
+`.github/workflows` and file existence from that commit instead of the
+working tree, for checking a plan against its pushed base.
+
+**Prompt and skill rules.** super-plan now requires a scoped `must_run` gate
+for every `ci.commands` entry that touches a task's files (formatter,
+linter/static analysis, tests — every target's test sources for a
+multiplatform module), not just the offline suite; a missing CI gate had let
+a wave merge green while the repository's own CI failed. Its seam audit now
+lists, for every task, the implementers and fakes of any changed public
+interface or signature, and any prose instruction that contradicts
+`forbidden_moves` — measured: a changed `AppRouter` interface broke fakes in
+9 modules for 2 fix waves, and a prose instruction to rewrite an existing
+test contradicted a `forbidden_moves` ban on weakening one, costing a
+recovery plan. For a UI or dependency-injection feature, `e2e:
+"not-applicable: <reason>"` must now name how production wiring is proven —
+an integration task, or a `must_run` grep or test proving the DI binding and
+the call site on the real screen or client; measured: an attachments feature
+passed every contract and was never wired into the production client or
+screen. multi-model states plainly that **the coordinator never authors
+code**, however small the defect its own review or a final review finds —
+it goes to a one-task supervised wave instead, never a coordinator edit;
+measured: orchestrators wrote wiring and review fixes themselves and pushed
+them unreviewed. An "implement directly" bypass approval is now scoped and
+recorded in the plan (which waves) and the PR body; it never extends to
+review fixes, and critical-review's findings gate still applies regardless.
+Every stop across ship and multi-model — including `environment-blocked` —
+now ends with one recommended next action, phrased as a yes/no question,
+instead of a bare list of options. ship's Stage 0 gate can also grant a
+standing recovery allowance ("up to N one-task recovery or fix waves within
+the approved files and contracts, same supervisor tier"), so a within-scope
+fix doesn't need its own gate every time; measured: one four-repository run
+needed 8 extra recovery gates for exactly this. ship's preflight step now
+states plainly that it runs each distinct `must_run` in a fresh sandboxed
+worktree at the pushed tip, never in the main checkout.
+
+code-review 1.10.0 → 1.11.0 for critical-review's fix-wave base and findings
+gate after a bypass: a fix wave's base is now always the pushed PR head,
+copied from `git rev-parse origin/<pr-branch>`, never local `HEAD` — a fix
+wave launched on an unpushed local HEAD once spent 15 agent calls before
+every executor refused on the merge-base check — and an earlier "implement
+directly" approval given during execution does not extend to review
+findings: the user sees the findings table every time before fixes go
+through the Post-Review Fix Protocol.
+
 ## 4.1.0
 
 Non-breaking. `super-plan` names a sibling-dependency planning rule: a
@@ -582,6 +728,7 @@ plugins/
       multi-model/
         SKILL.md
         references/
+          worktree-env.mjs           # shared worktree links, writable caches, environment-block detection
           wave-runner.workflow.mjs   # the escalation ladder as code
           wave-launch.mjs            # generates the Claude wave launch script
           claude-wave-adapter.md     # Claude host adapter: invoke the shipped runner
