@@ -822,14 +822,13 @@ test('E6 an invalid worktree link ("../x") fails closed, zero agent calls', asyn
   assert.equal(calls.length, 0)
 })
 
-test('E8 a report that only quotes the marker mid-report (not as its first line) ' +
+test('E8 a report with a real (non-placeholder) marker starting a non-first line ' +
   'proceeds to the verifier and judge instead of stopping', async () => {
   const { result, calls } = await runWorkflow(SCRIPT, {
     args: waveArgs(),
     agentStub: (prompt, opts) => {
       if ((opts.label ?? '').startsWith('exec:')) {
-        return 'report for t-one\nSee the README: `environment-blocked: <verbatim error line>` ' +
-          'is the dead-end marker.\n$ true\n(exit 0)'
+        return 'report for t-one\nenvironment-blocked: Operation not permitted\n$ true\n(exit 0)'
       }
       if ((opts.label ?? '').startsWith('verify:')) return FACTS_GREEN()
       if (prompt.startsWith(SUP)) return V.ok()
