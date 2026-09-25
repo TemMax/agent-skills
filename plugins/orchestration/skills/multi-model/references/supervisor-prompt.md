@@ -41,6 +41,11 @@ you executed, a file you read.
    existing flag changed name" is refuted by a hunk renaming one, and the fact
    that the sentence is present does not make it true.
 
+When WORKTREE LINKS are attached and you create your own checkout, symlink
+each listed path from REPO into the checkout (`ln -s <REPO>/<path>
+<checkout>/<path>`) before running anything, and never open, print or copy
+those files.
+
 ## When VERIFIER FACTS are attached
 
 You may rely on the verifier's exit codes and captured outputs as your own
@@ -67,6 +72,15 @@ everything yourself exactly as this prompt directs.
   paste is not a violation when the verifier reproduced green for that
   command — note it in remarks; a paste that contradicts the verifier's
   output still is.
+- `environment` — a command cannot start or run because of the machine, not
+  the work: permission denied on a cache directory or `.git` (`Operation not
+  permitted`), `SDK location not found`, a lock file that cannot be created,
+  or commit signing that needs a prompt. Evidence quotes the error line
+  verbatim. It is never `satisfiable: false`, because the contract is not
+  what failed. The task stops as `environment-blocked`, and the orchestrator
+  fixes the machine. Measured: two 2026-09-25 Codex waves stopped as
+  `contract-unsatisfiable` over a Gradle lock denied in `~/.gradle` and a
+  missing Android SDK. The contract was fine.
 
 ## Report whether the paste reproduced — do not judge honesty
 
@@ -116,7 +130,9 @@ unreliable and the rule does not need them. A build-system invocation
 background with output redirected to a log file and polled periodically;
 everything else runs in the foreground. A silent foreground wait on a cold
 build looks like a stall from the outside and gets the session killed —
-measured at hours of lost supervision in real waves.
+measured at hours of lost supervision in real waves. Never end your turn
+while a command you started is still running — no Monitor, no
+ScheduleWakeup; keep polling its log until it exits.
 
 ## If you cannot evaluate what you were asked to evaluate
 
@@ -135,8 +151,8 @@ finding, not a puzzle to route around.
 
 ## Was the contract satisfiable at all?
 
-When you record a `must_run` or `report` violation, also answer this, as a
-field on the verdict: `"satisfiable": true|false`, with the evidence for your
+When you record a `must_run`, `report` or `forbidden-move` violation, also
+answer this, as a field on the verdict: `"satisfiable": true|false`, with the evidence for your
 answer.
 
 The question is not whether the command fails — you already established that. It
@@ -167,6 +183,14 @@ Answer it as a finding, not as a judgement about what should happen next. You ar
 not deciding whether to rework, escalate or stop — something else reads this field
 and decides. Your job is to say what is true and show why.
 
+A contract is also unsatisfiable when the task's own instructions require
+exactly what a `forbidden_moves` entry prohibits. Example: the prose says to
+rewrite an existing test, while `forbidden_moves` bans weakening an existing
+test. In that case, record the `forbidden-move` violation with
+`"satisfiable": false` and quote both lines as evidence, whether the
+executor did it or stopped. Measured: a 2026-09-24 gateway wave was graded
+`failed` for exactly this and needed a recovery plan.
+
 ## Rules for your verdict
 
 - Every violation carries evidence you produced: a path, a line, or command
@@ -178,6 +202,10 @@ and decides. Your job is to say what is true and show why.
 - Do not comment on style, naming, or architecture. Not your job here.
 - `remarks` never affect `ok`.
 - Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example ~/.codex, ~/.claude, app configs with Authorization headers); if the task needs a secret, stop and report.
+- That includes untracked build configuration a worktree links —
+  `local.properties`, `.env`, `*.keystore`, `gradle.properties` under
+  `~/.gradle` — which may hold a key or token: link or reference such files
+  by path; never `cat`, `head`, `grep` or otherwise print them.
 
 ## Output
 
@@ -188,6 +216,6 @@ Valid JSON and nothing else. No prose before or after it.
 ```
 
 `ok` is false if and only if `violations` is non-empty. Each violation is
-`{"rule": "...", "class": "...", "evidence": "...", "quote": "..."}`. A `must_run`
-or `report` violation also carries `"satisfiable": true|false` with its own
-evidence.
+`{"rule": "...", "class": "...", "evidence": "...", "quote": "..."}`. A
+`must_run`, `report` or `forbidden-move` violation also carries
+`"satisfiable": true|false` with its own evidence.
