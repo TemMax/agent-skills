@@ -166,6 +166,52 @@ highlights_100="$("$REPO_ROOT/scripts/changelog-highlights.sh" 1.0.0 "$C_CHANGEL
 eq "$highlights_100" "$(printf '%s\n%s' '**core**' '- Initial release')" \
   "1.0.0 Highlights block (last section, running to EOF)"
 
+# Prose right after the bullets, with no heading following it, ends the block there --
+# it does not run to EOF.
+prose_after_changelog="$(mktemp)"
+tmpfiles+=("$prose_after_changelog")
+cat > "$prose_after_changelog" <<'MD'
+# Changelog
+
+## 9.0.0
+
+### Highlights
+
+**core**
+- Initial release
+
+A closing paragraph of prose with no heading after it, running to EOF.
+MD
+highlights_prose_after="$("$REPO_ROOT/scripts/changelog-highlights.sh" 9.0.0 "$prose_after_changelog")"
+eq "$highlights_prose_after" "$(printf '%s\n%s' '**core**' '- Initial release')" \
+  "prose right after the bullets (no trailing heading) ends the block there"
+reject "$highlights_prose_after" "closing paragraph"
+
+# Prose between two groups ends the block at that point -- the second group is dropped.
+prose_between_changelog="$(mktemp)"
+tmpfiles+=("$prose_between_changelog")
+cat > "$prose_between_changelog" <<'MD'
+# Changelog
+
+## 9.1.0
+
+### Highlights
+
+**core**
+- Initial release
+
+A stray paragraph of prose between two groups.
+
+**telegram**
+- Should not appear
+MD
+highlights_prose_between="$("$REPO_ROOT/scripts/changelog-highlights.sh" 9.1.0 "$prose_between_changelog")"
+eq "$highlights_prose_between" "$(printf '%s\n%s' '**core**' '- Initial release')" \
+  "prose between two groups ends the block there"
+reject "$highlights_prose_between" "stray paragraph"
+reject "$highlights_prose_between" "telegram"
+reject "$highlights_prose_between" "Should not appear"
+
 no_highlights_changelog="$(mktemp)"
 tmpfiles+=("$no_highlights_changelog")
 cat > "$no_highlights_changelog" <<'MD'
