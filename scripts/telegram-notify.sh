@@ -29,7 +29,8 @@ REPO="${REPO:-TemMax/agent-skills}"
 ANCHOR="$(printf '%s' "$VERSION" | tr -d '.')"
 CHANGELOG_URL="https://github.com/${REPO}/blob/main/CHANGELOG.md#${ANCHOR}"
 REPO_URL="https://github.com/${REPO}"
-# Telegram caps a message at 4096 characters; the notes get what the frame leaves.
+# Telegram caps a message at 4096 characters; the notes get what the frame leaves. The
+# same budget caps both the plain-HTML notes and the rich-Markdown notes.
 NOTES_BUDGET=3500
 
 # Read the notes once: a notes argument given as process substitution is a pipe that can be
@@ -109,6 +110,23 @@ rich_notes="$(awk '
     print out
   }
 ' "$NOTES_COPY")"
+
+# Cut at a line boundary, same as the HTML notes above; never leave a fenced code block
+# (```…```) open — if the cut falls inside one, drop the fence's opening line and
+# everything after it.
+if [ "${#rich_notes}" -gt "$NOTES_BUDGET" ]; then
+    rich_notes="$(printf '%s\n' "$rich_notes" | awk -v budget="$NOTES_BUDGET" '
+        { if (used + length($0) + 1 > budget) exit; print; used += length($0) + 1 }')"
+    rich_notes="$(printf '%s\n' "$rich_notes" | awk '
+        /^```/ { if (!fence) { fence = 1; open_line = NR } else { fence = 0 } }
+        { lines[NR] = $0 }
+        END {
+            last = NR
+            if (fence) last = open_line - 1
+            for (i = 1; i <= last; i++) print lines[i]
+        }')"
+    rich_notes="${rich_notes}"$'\n'"…"
+fi
 
 rich="# agent-skills ${VERSION}
 
