@@ -739,6 +739,8 @@ test('E1 (a) an executor report with an environment-blocked line stops at once: 
   assert.equal(verifyCalls(calls, 't-one').length, 0)
   assert.equal(supCalls(calls, 't-one').length, 0)
   assert.deepEqual(result.tasks[0].attempts.map((a) => a.kind), ['environment'])
+  assert.deepEqual(result.tasks[0].environment, { source: 'executor', line: 'Operation not permitted' })
+  assert.equal(result.tasks[0].attempts[0].line, 'Operation not permitted')
 })
 
 test('E2 (b) verifier facts.environmentBlocked stops at once: no judge call', async () => {
@@ -758,6 +760,27 @@ test('E2 (b) verifier facts.environmentBlocked stops at once: no judge call', as
   assert.equal(verifyCalls(calls, 't-one').length, 1)
   assert.equal(supCalls(calls, 't-one').length, 0)
   assert.deepEqual(result.tasks[0].attempts.map((a) => a.kind), ['environment'])
+  assert.deepEqual(result.tasks[0].environment,
+    { source: 'verifier', line: 'SDK location not found. Define a valid SDK location.' })
+})
+
+test('E2b (b) verifier facts.environmentBlocked also names the failed must_run cmd, ' +
+  'when the verifier itself saw one fail', async () => {
+  const { result } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: (prompt, opts) => {
+      if ((opts.label ?? '').startsWith('exec:')) return 'report for t-one\n$ true\n(exit 0)'
+      if ((opts.label ?? '').startsWith('verify:')) {
+        return { ...FACTS_GREEN(),
+          mustRun: [{ cmd: 'true', exit: 128, output: 'unable to create directory', pasteFoundInReport: true }],
+          environmentBlocked: 'unable to create directory' }
+      }
+      throw new Error('no judge call is expected for a verifier-reported block')
+    },
+  })
+  assert.equal(result.tasks[0].status, 'environment-blocked')
+  assert.deepEqual(result.tasks[0].environment,
+    { source: 'verifier', line: 'unable to create directory', cmd: 'true' })
 })
 
 test('E3 (c) a judge verdict with a violation classed "environment" stops the task, ' +
@@ -773,6 +796,8 @@ test('E3 (c) a judge verdict with a violation classed "environment" stops the ta
   assert.equal(result.tasks[0].status, 'environment-blocked')
   assert.equal(supCalls(calls, 't-one').length, 1)
   assert.equal(verdictAttempts(result.tasks[0]).length, 1)
+  assert.deepEqual(result.tasks[0].environment,
+    { source: 'supervisor', line: 'Operation not permitted', cmd: 'true' })
 })
 
 test('E4 worktree.links renders "ln -s" lines in the executor and verifier prompts, ' +
@@ -873,6 +898,23 @@ test('E7 the Secrets and Long-command sentences appear in the executor and verif
   assert.ok(execPrompt.includes(longCmd), 'executor prompt has the Long-command sentence')
   assert.ok(verifyPrompt.includes(secrets), 'verifier prompt has the Secrets sentence')
   assert.ok(verifyPrompt.includes(longCmd), 'verifier prompt has the Long-command sentence')
+})
+
+test('E10 the verifier prompt\'s environment-signature list names the git-object-write and ' +
+  'commit-signing strings, matching worktree-env.mjs ENVIRONMENT_SIGNATURES', async () => {
+  const { calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  const verifyPrompt = verifyCalls(calls, 't-one')[0].prompt
+  for (const needle of [
+    'unable to create directory',
+    'insufficient permission for adding an object',
+    'failed to write commit object',
+    'gpg failed to sign the data',
+  ]) {
+    assert.ok(verifyPrompt.includes(needle), 'verifier prompt names: ' + needle)
+  }
 })
 
 let failed = 0

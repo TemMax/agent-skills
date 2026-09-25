@@ -322,7 +322,7 @@ function verifierPrompt(t, report) {
     '   the like) must be started in the background with output to a log file',
     '   and polled — never a silent foreground wait.',
     '   Never end your turn while a command you started is still running — no Monitor, no ScheduleWakeup; keep polling its log until it exits.',
-    '4. If a must_run command failed because the machine, not the work, blocked it — its output matches `SDK location not found`, `Could not create service of type`, `Unable to create \'…lock\'`, `cannot lock ref`, `Operation not permitted`, `Read-only file system`, or commit signing needing a prompt — set environmentBlocked to that error line, verbatim.',
+    '4. If a must_run command failed because the machine, not the work, blocked it — its output matches `SDK location not found`, `Could not create service of type`, `Unable to create \'…lock\'`, `cannot lock ref`, `unable to create directory`, `insufficient permission for adding an object`, `failed to write commit object`, `gpg failed to sign the data`, `Operation not permitted`, or `Read-only file system` — set environmentBlocked to that error line, verbatim.',
     '5. For each must_run command whose evidence is "required", record whether',
     '   the REPORT below contains pasted output for that command.',
     '6. Clean up: git -C ' + wave.repoPath + ' worktree remove --force ' + wt,
@@ -479,25 +479,53 @@ function sameRuleRepeat(prevVerdict, verdict) {
 // The marker counts only on the report's first non-empty line, optionally
 // wrapped in backticks, and only when the text after the colon is not a
 // <placeholder> — this keeps a quoted example mid-report from tripping it.
-function reportHasEnvironmentBlockedMarker(report) {
-  if (typeof report !== 'string') return false
+// Returns the verbatim line text, or null when the first non-empty line
+// isn't a real marker.
+function reportEnvironmentBlockLine(report) {
+  if (typeof report !== 'string') return null
   const firstLine = report.split('\n').find((line) => line.trim() !== '')
-  if (firstLine === undefined) return false
+  if (firstLine === undefined) return null
   let trimmed = firstLine.trim()
   if (trimmed.startsWith('`') && trimmed.endsWith('`') && trimmed.length >= 2) {
     trimmed = trimmed.slice(1, -1)
   }
   const prefix = 'environment-blocked:'
-  if (!trimmed.startsWith(prefix)) return false
+  if (!trimmed.startsWith(prefix)) return null
   const remainder = trimmed.slice(prefix.length).trim()
-  return remainder !== '' && !remainder.startsWith('<')
+  if (remainder === '' || remainder.startsWith('<')) return null
+  return remainder
+}
+
+// The must_run cmd a violation's rule names, when its rule is of the shape
+// 'must_run: <cmd>' (both the mechanical-violation and judge-verdict shapes
+// use this rule text) — undefined when the rule doesn't name one.
+function cmdFromRule(rule) {
+  const prefix = 'must_run: '
+  return typeof rule === 'string' && rule.startsWith(prefix) ? rule.slice(prefix.length) : undefined
+}
+
+// The first must_run command the verifier itself saw fail, if any — used to
+// annotate a verifier-reported environment block with which command it was.
+function cmdFromFacts(facts) {
+  const failed = (facts.mustRun ?? []).find((m) => m.exit !== 0)
+  return failed ? failed.cmd : undefined
+}
+
+function environmentInfo(source, line, cmd) {
+  const env = { source, line }
+  if (cmd !== undefined) env.cmd = cmd
+  return env
 }
 
 async function runTask(t) {
   const rungs = [t.executor.model, ...(t.ladder ?? defaultLadder(t.executor.model))]
   const branch = 'wave/' + t.id
   const attempts = []
-  const finish = (status) => ({ id: t.id, status, branch, attempts })
+  const finish = (status, environment) => {
+    const result = { id: t.id, status, branch, attempts }
+    if (environment !== undefined) result.environment = environment
+    return result
+  }
   let pasteStrikes = 0
   let verdictCount = 0
   let prevVerdict = null
@@ -533,10 +561,12 @@ async function runTask(t) {
 
       // (a) The executor itself hit the machine, not the work: stop at once,
       // never spend a verifier or a judge call on it.
-      if (reportHasEnvironmentBlockedMarker(report)) {
-        attempts.push({ rung, model, effort, kind: 'environment', verdict: null, escalation: null })
+      const executorEnvLine = reportEnvironmentBlockLine(report)
+      if (executorEnvLine !== null) {
+        attempts.push({ rung, model, effort, kind: 'environment', verdict: null, escalation: null,
+                        line: executorEnvLine })
         log(t.id + ': environment-blocked (reported by the executor)')
-        return finish('environment-blocked')
+        return finish('environment-blocked', environmentInfo('executor', executorEnvLine))
       }
 
       // Mechanical verify: cheap facts before an expensive judge. Fail-open —
@@ -552,7 +582,8 @@ async function runTask(t) {
       if (facts !== null && typeof facts.environmentBlocked === 'string' && facts.environmentBlocked !== '') {
         attempts.push({ rung, model, effort, kind: 'environment', verdict: null, escalation: null })
         log(t.id + ': environment-blocked (reported by the verifier)')
-        return finish('environment-blocked')
+        return finish('environment-blocked',
+          environmentInfo('verifier', facts.environmentBlocked, cmdFromFacts(facts)))
       }
 
       let verdict = null
@@ -600,7 +631,11 @@ async function runTask(t) {
       // (c) The judge itself classed a violation as 'environment': the
       // machine, not the work, blocked it — this outranks satisfiable:false,
       // because the contract is not what failed.
-      if (viols.some((v) => v.class === 'environment')) return finish('environment-blocked')
+      if (viols.some((v) => v.class === 'environment')) {
+        const envViol = viols.find((v) => v.class === 'environment')
+        return finish('environment-blocked',
+          environmentInfo('supervisor', envViol.evidence, cmdFromRule(envViol.rule)))
+      }
       if (viols.some((v) => v.satisfiable === false)) return finish('contract-unsatisfiable')
       if (verdict.ok === true) return finish('ok')
       if (viols.some((v) => v.pasteReproduced === false)) pasteStrikes++
