@@ -1483,6 +1483,28 @@ test('E2 a must_run failure matching an environment signature blocks the task in
   assert.equal(action.reason, 'environment-blocked')
 })
 
+test('E2b a must_run command that fails with an environment signature on attempt 1 and passes on attempt 2 does not block', () => {
+  const repoEnv = makeRepo()
+  const marker = join(repoEnv.root, 'retry-marker')
+  const env = init({ repoEnv, planText: (text) => withMustRun(text, [
+    {
+      cmd: 'test -f ' + marker
+        + ' || { echo "Operation not permitted" >&2; touch ' + marker + '; exit 1; }; echo ok',
+      evidence: 'required',
+    },
+  ]) })
+  prepareAttempt(env, 'must_run output:\nok')
+  const task = state(env.statePath).tasks['divide-guard']
+  assert.equal(task.status, 'verified')
+  const facts = task.verifierFacts.at(-1)
+  assert.equal(facts.violations.some((v) => v.class === 'environment'), false)
+  assert.equal(facts.mustRun[0].attempts.length, 2)
+  assert.equal(facts.mustRun[0].attempts[0].exit, 1)
+  assert.equal(facts.mustRun[0].attempts.at(-1).exit, 0)
+  const action = next(env.statePath)
+  assert.equal(action.action, 'spawn-supervisor')
+})
+
 test('E3 an environment-typed executor error blocks immediately without charging an attempt', () => {
   const env = init()
   recordExecutor(env.statePath, { error: { kind: 'environment' } })

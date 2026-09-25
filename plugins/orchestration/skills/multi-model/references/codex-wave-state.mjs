@@ -917,18 +917,22 @@ export function verifyTask(state, id) {
       if (results.every((result) => result.exit === 0)) break
     }
   }
-  // A failing attempt whose output matches a known machine-failure signature
-  // means the command never ran the real work; the first such match wins.
+  // A command's own final attempt is what decides its outcome: a transient
+  // machine failure on an earlier attempt that a later attempt outran is not
+  // an environment block. Only a failing final attempt is scanned for a
+  // known machine-failure signature; the first command whose final attempt
+  // matches wins.
   let environmentBlock = null
   for (const recorded of mustRun) {
     if (!preflightPassed) continue
     const { cmd, attempts } = recorded
-    const finalAttemptFailed = attempts.at(-1).exit !== 0
+    const final = attempts.at(-1)
+    const finalAttemptFailed = final.exit !== 0
     if (finalAttemptFailed) violations.push({
       class: 'must_run',
       rule: cmd,
-      evidence: 'exit ' + String(attempts.at(-1).exit) + '\n'
-        + attempts.at(-1).stdout + attempts.at(-1).stderr,
+      evidence: 'exit ' + String(final.exit) + '\n'
+        + final.stdout + final.stderr,
     })
     // A green final attempt is itself the evidence for the command, so a
     // missing paste is only a violation when that final attempt was red.
@@ -937,12 +941,9 @@ export function verifyTask(state, id) {
       rule: 'must_run: ' + cmd + ' requires pasted evidence',
       evidence: 'the executor report contains none of the verifier command output',
     })
-    if (!environmentBlock) {
-      for (const attemptResult of attempts) {
-        if (attemptResult.exit === 0) continue
-        const detected = detectEnvironmentBlock(attemptResult.stdout + '\n' + attemptResult.stderr)
-        if (detected) { environmentBlock = detected; break }
-      }
+    if (!environmentBlock && finalAttemptFailed) {
+      const detected = detectEnvironmentBlock(final.stdout + '\n' + final.stderr)
+      if (detected) environmentBlock = detected
     }
   }
   if (environmentBlock) violations.push({
