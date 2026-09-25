@@ -103,6 +103,10 @@ for marker in \
   "merge stays with the user"; do
   check "README release marker: $marker" "grep -Fq '$marker' README.md"
 done
+check "CHANGELOG.md exists" "[ -f 'CHANGELOG.md' ]"
+orch_v="$(python3 -c "import json;print(json.load(open('plugins/orchestration/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)"
+changelog_head="$(grep -m1 '^## ' CHANGELOG.md 2>/dev/null)"
+expect "CHANGELOG.md first heading matches orchestration version" "## $orch_v" "$changelog_head"
 for marker in \
   "worktree-env.mjs" \
   "codex-wave-protocol.md" \
