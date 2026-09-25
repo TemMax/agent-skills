@@ -398,8 +398,10 @@ not expect is fixed in the plan; a blocked command is fixed on the machine.
 because of the machine, not the work — permission denied on a cache
 directory or `.git` (`Operation not permitted`), `SDK location not found`, a
 lock file that cannot be created, or commit signing that needs a prompt. It
-is never charged as an executor attempt, never sent to a supervisor for a
-verdict, and never routed to the contract-amendment flow; an executor that
+ends the task; no retry, escalation or amendment follows (only the typed
+child-error path — a spawned agent or tool call that itself failed, with
+no report or verdict to charge an attempt against — is never charged as an
+attempt at all); an executor that
 hits one stops and makes the *first line* of its report
 `environment-blocked: <verbatim error line>` — the marker counts only when
 it opens the report, so a quoted or mid-report mention of the same text
@@ -667,7 +669,7 @@ resolving it, because an alias can re-point to a different model silently.
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.1.0, code-review 1.10.0):
+orchestration 4.2.0, code-review 1.11.0):
 
 | Before | After |
 |---|---|
