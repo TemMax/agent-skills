@@ -365,9 +365,28 @@ skills' `version:` frontmatter, and the literals in `tests/structure.sh`. It
 also adds a `## X.Y.Z` section at the top of [CHANGELOG.md](CHANGELOG.md);
 `tests/structure.sh` checks that heading against the orchestration version.
 
+Every release section starts with a `### Highlights` block written for the
+channel's readers, not for the changelog's own readers: bullets are very
+short and grouped per skill (`**<skill>**`), 1–3 bullets per skill, each
+bullet at most 70 characters, in plain language with no internal details.
+For example:
+
+```
+### Highlights
+
+**multi-model**
+- Stops on a broken environment, not on the task
+- Codex workers can build and commit in the sandbox
+```
+
+`scripts/changelog-highlights.sh <version>` extracts that block; a section
+without one fails it — and the announcement below — with `changelog-highlights:
+no "### Highlights" in "## <version>" of CHANGELOG.md` on stderr, exit 1.
+
 When that section reaches `main`, [`.github/workflows/announce.yml`](.github/workflows/announce.yml)
-posts it to the Telegram channel through `scripts/announce-changelog.sh`. The
-first `CHANGELOG.md` announces only its newest release.
+posts its Highlights block — and only that block — to the Telegram channel
+through `scripts/announce-changelog.sh`. The first `CHANGELOG.md` announces
+only its newest release.
 
 To re-announce a release, run the workflow by hand (`workflow_dispatch`,
 input `version`).
@@ -428,6 +447,7 @@ scripts/
   announce-changelog.sh     # finds and announces newly released CHANGELOG.md sections
   changelog-new-versions.sh # lists versions added to a changelog between two commits
   changelog-section.sh      # prints one version's section body from a changelog
+  changelog-highlights.sh   # prints one version's "### Highlights" block from a changelog
   telegram-notify.sh        # sends one release's announcement to Telegram
 plugins/
   orchestration/
