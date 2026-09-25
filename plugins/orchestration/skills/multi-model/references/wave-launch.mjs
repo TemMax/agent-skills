@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { TASK_HEADING_SOURCE, effectivePlan, checkDependsOn, resolveWorktreeEnv } from './worktree-env.mjs'
+import { TASK_HEADING_SOURCE, effectivePlan, checkDependsOn, resolveWorktreeEnv, excludeFromGit } from './worktree-env.mjs'
 
 const USAGE = 'usage: node wave-launch.mjs <plan-file> --wave <n> --base <40-hex sha>'
   + ' --repo <absolute repo path> --default-branch <branch>'
@@ -147,7 +147,15 @@ const metaEnd = lines.indexOf('}', metaStart + 1)
 if (metaEnd === -1) die('runner meta literal has no closing "}" line')
 lines.splice(metaEnd + 1, 0, 'const WAVE_ARGS = ' + JSON.stringify(input))
 
-// ---- 8. write and print ----
+// ---- 8. keep runner directories and linked files out of `git status` ----
+// wave-launch.mjs is the only place that writes into .worktrees/ or links
+// files like local.properties, so it is the only place that can exclude
+// them; auto-detection above links an untracked local.properties whether or
+// not it happens to already be gitignored.
+try { excludeFromGit(repoPath, ['.worktrees/', ...env.links.map((l) => '/' + l)]) }
+catch (e) { die('cannot update info/exclude: ' + e.message) }
+
+// ---- 9. write and print ----
 const out = '--out' in opts
   ? resolve(opts['--out'])
   : join(repoPath, '.worktrees', 'launch', 'wave-' + waveNo + '.workflow.mjs')
