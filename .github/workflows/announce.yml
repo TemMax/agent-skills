@@ -1,0 +1,43 @@
+name: Announce release
+
+# Announces a new CHANGELOG.md release section on Telegram — automatically whenever
+# CHANGELOG.md changes on main, or by hand to (re)announce a specific version.
+
+on:
+  push:
+    branches: [main]
+    paths: [CHANGELOG.md]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to (re)announce, e.g. 4.2.0"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  announce:
+    name: Announce on Telegram
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Post the release to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            scripts/announce-changelog.sh --version "$VERSION"
+          else
+            scripts/announce-changelog.sh "$BEFORE" "$AFTER"
+          fi
