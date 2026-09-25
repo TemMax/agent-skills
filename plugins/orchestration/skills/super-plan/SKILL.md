@@ -94,7 +94,15 @@ approvals.
    and give each agent the table's
    mandatory research-prompt lines. Synthesis and every decision stay with
    you — do not delegate decisions, executors silently fill gaps under
-   ambiguity.
+   ambiguity. Research also records the untracked files the build needs in
+   a fresh worktree, for example `local.properties`, `.env` or keystores,
+   and the cache directories the build writes, for example `~/.gradle`,
+   `~/.android` or `~/.cargo`. These go into the plan's `worktree` key: the
+   runners auto-detect Gradle/Cargo and an untracked `local.properties`, so
+   the key lists only what auto-detection misses, or sets `"auto": false`.
+   Measured: in 2026-09-24/25 sessions, every fresh worktree lacked
+   `local.properties`. Agents improvised the symlink 93 times, and at
+   least 4 printed the file, including a GitHub token.
 2. **Decisions.** Everything derivable from the codebase you decide and
    record. Collect genuine product forks in one batch. Use the host-native structured input tool
    when it is available; otherwise ask one concise direct
@@ -192,7 +200,12 @@ approvals.
    is not a pipeline gets `"not-applicable: <reason>"` instead — never a
    silent omission. The e2e task sits in a wave after every task whose entrypoints or fixtures it runs.
    Documentation of its fixtures or output goes into the e2e task or a
-   later documentation-only wave.
+   later documentation-only wave. For a UI or dependency-injection
+   feature, `not-applicable` must name how production wiring is proven:
+   either an integration task, or a `must_run` grep or test proving the
+   DI binding and the call site on the real screen or client. Measured: an
+   attachments feature passed every contract and was not wired into the
+   production client or the screen.
 
    **Right-size every task.** The measured lever for wave success is task
    breadth, not model choice: two broad tasks failed for 717 and 139
@@ -210,6 +223,19 @@ approvals.
    wave at merge. Full-repo commands in per-task contracts multiply
    wall-clock by the task count for no added safety (measured: one session
    re-ran the identical full-monorepo gate 12 times).
+
+   Scoped does not mean fewer gates. Each task's `must_run` carries the
+   module-scoped form of every gate in `ci.commands` that touches its
+   files:
+   - the formatter;
+   - the linter or static analysis (e.g. `./gradlew detekt` →
+     `./gradlew :module:detekt`, `gofmt -l <dirs>`);
+   - the tests.
+
+   For a multiplatform module, it also compiles every target's test
+   sources. Measured: two fix waves (a `detekt` gate no task carried;
+   Kotlin/Native rejecting test names that JVM accepted) and one gofmt
+   recovery wave.
 
    **Record the expected base status of every `must_run`.** For each
    command, state in the task prose whether it is green at base or
@@ -349,6 +375,35 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    optional `review` key's value and its `approvals.premium` pairing when
    present.
 
+   Three more optional top-level keys also sit beside `waves`, defined in
+   full under the wave plan's shared definitions and read by the runners
+   directly rather than checked by the linter's required-key rule:
+
+   - `worktree`: `{"links": [...], "writable": [...], "auto": true}` —
+     `links` are repository-relative paths (never absolute, never
+     containing a `..` segment) of untracked files that every fresh
+     worktree and checkout gets as a symlink to `<repo>/<path>`; linked
+     files are never opened, printed or copied. `writable` lists cache
+     directories, absolute or `~/`-prefixed, a sandboxed Codex child may
+     write — this matters on Codex only. `auto` (default `true`) has the
+     runners add auto-detected entries: `gradlew` at the repo root adds
+     `$GRADLE_USER_HOME` or `~/.gradle` plus `~/.android` as writable, and
+     `local.properties` as a link when it exists and is untracked;
+     `Cargo.toml` adds `$CARGO_HOME` or `~/.cargo` as writable; writable
+     directories that do not exist are dropped. `worktree-env.mjs`'s
+     `resolveWorktreeEnv` and `applyLinks` act on this key when the
+     runners set up an executor's or the preflight's checkout.
+   - `depends_on`: a list of `{"wave": <n>, "repo": "<path or \".\">",
+     "ref": "<git ref>", "path": "<repo-relative path>"}`. The launcher
+     (`wave-launch.mjs`) refuses to start wave `<n>` until
+     `git -C <repo> cat-file -e <ref>:<path>` succeeds; `"."` means the
+     plan's own repository.
+   - `inherits`: a repository-relative path of a parent plan. When the
+     child plan omits `ci`, `e2e`, `worktree`, `approvals` or `review`,
+     `effectivePlan` (`worktree-env.mjs`) takes them from the parent for
+     the runners and the linter's `--base`. Only one level is followed;
+     this key is for recovery and amendment plans.
+
    The model fields use the active profile's plan host and this exact table:
 
    | Plan host | Allowed model fields |
@@ -387,7 +442,9 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 3. **The prose half** — one `## Task <id>` section per task: the
    substantive description and context, with full code where the solution
    is known. At launch, multi-model composes each runner task as the json
-   entry plus its prose section, verbatim.
+   entry plus its prose section, verbatim. The heading rule is exactly
+   `## Task <id>`, with the title on the next line, not on the heading
+   line itself; lint rejects anything after the id.
 
 ## Acceptance References
 
