@@ -110,7 +110,9 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "same-wave overlap exits 1" "1" "$rc"
 contains "overlap names both tasks" 'tasks "http-retry" and "docs-sync" overlap' "$out"
 
-mutate '"files_forbidden": ["src/auth/**"]' '"files_forbidden": ["src/http/impl/**"]'
+# Same literal prefix as its own files_allowed entry — still a genuine
+# overlap under the stricter carve-out rules (item 3).
+mutate '"files_forbidden": ["src/auth/**"]' '"files_forbidden": ["src/http/**"]'
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "self allowed/forbidden overlap named" "overlaps its own files_forbidden" "$out"
 
@@ -118,6 +120,82 @@ mutate "## Task docs-sync" "## Task docs-sync-two"
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "missing prose section named" 'no "## Task docs-sync" section' "$out"
 contains "orphan prose section named" '"## Task docs-sync-two" has no matching task' "$out"
+
+section "task headings must be exactly \"## Task <id>\""
+
+mutate "## Task docs-sync" "## Task docs-sync — Sync the docs"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "titled task heading exits 1" "1" "$rc"
+contains "titled task heading named" \
+  'prose: task heading "## Task docs-sync — Sync the docs" must be exactly "## Task <id>" — put the title on the next line' \
+  "$out"
+contains "titled task heading also reports the missing bare section" 'no "## Task docs-sync" section' "$out"
+
+mutate "## Task docs-sync" "## Task docs-sync	"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "trailing-tab task heading exits 0" "0" "$rc"
+contains "trailing-tab task heading is clean" "OK: 0 error(s)" "$out"
+
+mutate "## Task docs-sync" "## Task Docs-Sync"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "uppercase task heading exits 1" "1" "$rc"
+contains "uppercase task heading named" \
+  'prose: task heading "## Task Docs-Sync" must be exactly "## Task <id>" — put the title on the next line' "$out"
+
+section "carve-outs: forbidden narrowing allowed is legal"
+
+# app/AGENTS.md (no wildcard, allowed) is not matched by app/**/src/** (forbidden)
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"files_allowed": ["docs/**"]', '"files_allowed": ["app/AGENTS.md"]', 1)
+s = s.replace('"files_forbidden": []', '"files_forbidden": ["app/**/src/**"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "no-wildcard allowed not matched by forbidden glob exits 0" "0" "$rc"
+check "no-wildcard allowed not matched by forbidden glob has no self-overlap error" \
+  '! grep -qF "overlaps its own files_forbidden" <<<"$out"'
+
+# app/feed/impl/** (allowed, wildcard) carved out by the literal file
+# app/feed/impl/src/Dock.kt (forbidden)
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"files_allowed": ["docs/**"]', '"files_allowed": ["app/feed/impl/**"]', 1)
+s = s.replace('"files_forbidden": []', '"files_forbidden": ["app/feed/impl/src/Dock.kt"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "literal forbidden file narrowing wildcard allowed exits 0" "0" "$rc"
+check "literal forbidden file narrowing wildcard allowed has no self-overlap error" \
+  '! grep -qF "overlaps its own files_forbidden" <<<"$out"'
+
+# src/** with src/** stays an error
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"files_allowed": ["src/http/**"]', '"files_allowed": ["src/**"]', 1)
+s = s.replace('"files_forbidden": ["src/auth/**"]', '"files_forbidden": ["src/**"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "identical wildcard allowed/forbidden exits 1" "1" "$rc"
+contains "identical wildcard allowed/forbidden named" \
+  'files_allowed "src/**" overlaps its own files_forbidden "src/**"' "$out"
+
+# forbidden prefix is an ancestor of the allowed prefix — still a real overlap
+mutate '"files_forbidden": ["src/auth/**"]' '"files_forbidden": ["src/**"]'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ancestor forbidden prefix exits 1" "1" "$rc"
+contains "ancestor forbidden prefix named" \
+  'files_allowed "src/http/**" overlaps its own files_forbidden "src/**"' "$out"
 
 section "warnings stay non-fatal"
 
@@ -155,6 +233,62 @@ mutate '"cmd": "true"' '"cmd": "! definitely-not-a-real-binary-xyz"'
 out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"; rc=$?
 expect "negated missing command exits 0" "0" "$rc"
 contains "negated missing command warned" 'command "definitely-not-a-real-binary-xyz" found neither' "$out"
+
+section "repo: missing files_allowed prefixes — typo vs folded"
+
+# top-level segment ("src") is also missing under the repo ($W/repo has only
+# docs/) — an individual, exact-worded "typo?" warning.
+out="$(node "$LINT" "$CLEAN" --repo "$W/repo" 2>&1)"
+contains "missing prefix with missing top segment names typo" \
+  "repo: files_allowed prefix \"src/http\" does not exist under $W/repo and neither does its top-level directory \"src\" (task \"http-retry\") — typo?" \
+  "$out"
+
+# top-level segment ("src") exists, only the nested path is missing — folded
+# into one "do not exist yet" warning instead of the per-path/typo one.
+mkdir -p "$W/repo4/src" "$W/repo4/docs"
+out="$(node "$LINT" "$CLEAN" --repo "$W/repo4" 2>&1)"; rc=$?
+expect "folded missing prefix exits 0" "0" "$rc"
+contains "folded missing prefix named" \
+  'repo: 1 files_allowed path(s) do not exist yet (expected when their task creates them): src/http (task http-retry)' \
+  "$out"
+check "folded missing prefix has no typo warning" '! grep -qF "typo?" <<<"$out"'
+
+# more than 5 folded prefixes: list at most 5, then "and <K> more"
+for n in 1 2 3 4 5 6 7; do mkdir -p "$W/repo5/src$n"; done
+python3 - "$CLEAN" "$W/fold.md" <<'PY'
+import json, re, sys
+src, dst = sys.argv[1:3]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+tasks = []
+for n in range(1, 8):
+    tid = 'fold-task-%d' % n
+    tasks.append({
+        "id": tid,
+        "branch": "wave/" + tid,
+        "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+        "ladder": ["claude-opus-5-5"],
+        "contract": {
+            "files_allowed": ["src%d/nested/**" % n],
+            "files_forbidden": [],
+            "must_run": [{"cmd": "true", "evidence": "required"}],
+            "forbidden_moves": [],
+            "report_must_answer": ["What changed?"]
+        }
+    })
+plan['waves'] = [{"wave": 1, "supervisor": {"model": "claude-fable-5-1", "effort": "high"}, "tasks": tasks}]
+plan['e2e'] = {"task": "fold-task-7"}
+prose = '\n'.join('## Task %s\n\nWork.\n' % t['id'] for t in tasks)
+out = 'status: draft\nbase: pending\n\n# Plan — fold test\n\n```json wave-plan\n' \
+  + json.dumps(plan, indent=2) + '\n```\n\n' + prose
+open(dst, 'w').write(out)
+PY
+out="$(node "$LINT" "$W/fold.md" --repo "$W/repo5" 2>&1)"; rc=$?
+expect "seven folded missing prefixes exits 0" "0" "$rc"
+contains "seven folded missing prefixes lists five then a count" \
+  'repo: 7 files_allowed path(s) do not exist yet (expected when their task creates them): src1/nested (task fold-task-1), src2/nested (task fold-task-2), src3/nested (task fold-task-3), src4/nested (task fold-task-4), src5/nested (task fold-task-5), and 2 more' \
+  "$out"
 
 section "the pinned full id"
 
@@ -713,6 +847,72 @@ out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
 expect "run block command line match exits 0" "0" "$rc"
 check "run block command line match has no substring-mismatch error" \
   '! grep -qF "does not appear in any listed" <<<"$out"'
+
+section "ci: command matching — shell-variable args and working-directory"
+
+cat > "$W/ci_repo/.github/workflows/matching2.yml" <<'YAML'
+name: Matching2
+on: push
+jobs:
+  test:
+    steps:
+      - run: ./gradlew spotlessCheck $GRADLE_FLAGS
+      - run: ./gradlew spotlessCheck extraword
+      - working-directory: gateway
+        run: go test ./...
+      - run: go vet ./...
+        working-directory: services/api
+      # run: make deploy
+YAML
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["./gradlew spotlessCheck"], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "command with trailing shell-variable arg exits 0" "0" "$rc"
+check "command with trailing shell-variable arg has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["./gradlew spotlessCheck extraword2"], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "command with non-variable trailing word still exits 1" "1" "$rc"
+contains "command with non-variable trailing word still named" \
+  'ci.commands: "./gradlew spotlessCheck extraword2" does not appear in any listed ci.workflows file' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["go test ./..."], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "plain command still matches inside a working-directory step exits 0" "0" "$rc"
+check "plain command still matches inside a working-directory step has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["cd gateway && go test ./..."], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "cd-prefixed command matches working-directory-before-run step exits 0" "0" "$rc"
+check "cd-prefixed command matches working-directory-before-run step has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["cd services/api && go vet ./..."], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "cd-prefixed command matches working-directory-after-run step exits 0" "0" "$rc"
+check "cd-prefixed command matches working-directory-after-run step has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["cd services/api && go test ./..."], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "cd-prefixed command with wrong working-directory exits 1" "1" "$rc"
+contains "cd-prefixed command with wrong working-directory named" \
+  'ci.commands: "cd services/api && go test ./..." does not appear in any listed ci.workflows file' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["make deploy"], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "commented-out command still exits 1" "1" "$rc"
+contains "commented-out command still named" \
+  'ci.commands: "make deploy" does not appear in any listed ci.workflows file' "$out"
 
 section "e2e: required end-to-end task"
 
