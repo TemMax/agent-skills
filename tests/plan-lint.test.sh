@@ -1370,4 +1370,331 @@ expect "2 of 2 single-task waves exits 0" "0" "$rc"
 check "2 of 2 single-task waves has no parallelism warning" \
   '! grep -qF "parallelism:" <<<"$out"'
 
+section "worktree: shape"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": ["local.properties"], "writable": ["~/.gradle"], "auto": true },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "well-formed worktree exits 0" "0" "$rc"
+contains "well-formed worktree is clean" "OK: 0 error(s)" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": "nope",
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree wrong shape exits 1" "1" "$rc"
+contains "worktree wrong shape named" \
+  "worktree: must be an object with only \"links\", \"writable\" and \"auto\"" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": [], "bogus": true },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree extra key exits 1" "1" "$rc"
+contains "worktree extra key named" \
+  "worktree: must be an object with only \"links\", \"writable\" and \"auto\"" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": ["/abs/path"] },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree absolute link exits 1" "1" "$rc"
+contains "worktree absolute link named" \
+  'worktree.links: array of non-empty repository-relative strings required (no leading "/", no ".." segment)' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": ["a/../b"] },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree dotdot link exits 1" "1" "$rc"
+contains "worktree dotdot link named" \
+  'worktree.links: array of non-empty repository-relative strings required (no leading "/", no ".." segment)' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": [""] },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree empty-string link exits 1" "1" "$rc"
+contains "worktree empty-string link named" \
+  'worktree.links: array of non-empty repository-relative strings required (no leading "/", no ".." segment)' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "writable": ["relative/path"] },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree relative writable exits 1" "1" "$rc"
+contains "worktree relative writable named" \
+  'worktree.writable: array of absolute or "~/"-prefixed strings required' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "auto": "yes" },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree non-boolean auto exits 1" "1" "$rc"
+contains "worktree non-boolean auto named" "worktree.auto: boolean required" "$out"
+
+section "worktree: link existence warning (--repo)"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": ["local.properties"] },
+  "ci": "none: fixture repository without CI workflows",'
+mkdir -p "$W/wt_repo"
+out="$(node "$LINT" "$W/m.md" --repo "$W/wt_repo" 2>&1)"; rc=$?
+expect "missing worktree link with --repo exits 0" "0" "$rc"
+contains "missing worktree link warned" \
+  'worktree: link "local.properties" does not exist in the repo' "$out"
+
+touch "$W/wt_repo/local.properties"
+out="$(node "$LINT" "$W/m.md" --repo "$W/wt_repo" 2>&1)"; rc=$?
+expect "present worktree link with --repo exits 0" "0" "$rc"
+check "present worktree link has no missing-link warning" \
+  '! grep -qF "does not exist in the repo" <<<"$out"'
+
+section "depends_on: shape"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": ".", "ref": "origin/main", "path": "cmd/web" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "well-formed depends_on exits 0" "0" "$rc"
+contains "well-formed depends_on is clean" "OK: 0 error(s)" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": "nope",
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on not array exits 1" "1" "$rc"
+contains "depends_on not array named" "depends_on: array required" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 9, "repo": ".", "ref": "origin/main", "path": "cmd/web" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on nonexistent wave exits 1" "1" "$rc"
+contains "depends_on nonexistent wave named" \
+  "depends_on[0].wave: must be an integer naming an existing wave" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": "relative/path", "ref": "origin/main", "path": "cmd/web" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on relative repo exits 1" "1" "$rc"
+contains "depends_on relative repo named" \
+  'depends_on[0].repo: must be "." or an absolute path' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": ".", "ref": "", "path": "cmd/web" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on empty ref exits 1" "1" "$rc"
+contains "depends_on empty ref named" "depends_on[0].ref: non-empty string required" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": ".", "ref": "origin/main", "path": "/abs/cmd" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on absolute path exits 1" "1" "$rc"
+contains "depends_on absolute path named" \
+  "depends_on[0].path: non-empty relative string required" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": ".", "ref": "origin/main", "path": "cmd/web", "extra": true }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on extra key exits 1" "1" "$rc"
+contains "depends_on extra key named" \
+  'depends_on[0]: must be an object with exactly "wave", "repo", "ref" and "path"' "$out"
+
+section "inherits"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"inherits": 5,
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "inherits non-string exits 1" "1" "$rc"
+contains "inherits non-string named" "inherits: must be a string naming the parent plan" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"inherits": "missing-parent.md",
+  "ci": "none: fixture repository without CI workflows",'
+mkdir -p "$W/inherit_repo"
+out="$(node "$LINT" "$W/m.md" --repo "$W/inherit_repo" 2>&1)"; rc=$?
+expect "inherits unreadable parent with --repo exits 1" "1" "$rc"
+contains "inherits unreadable parent named" \
+  'inherits: "missing-parent.md" cannot be read as a plan' "$out"
+
+cat > "$W/inherit_repo/parent.md" <<'EOF'
+status: draft
+base: pending
+
+```json wave-plan
+{ "waves": [{ "wave": 1, "supervisor": { "model": "claude-fable-5-1", "effort": "high" }, "tasks": [] }],
+  "ci": { "commands": ["true"], "workflows": [] },
+  "e2e": { "task": "http-retry" } }
+```
+EOF
+
+python3 - "$CLEAN" "$W/inherit_child.md" <<'PY'
+import sys
+src, dst = sys.argv[1:3]
+s = open(src).read()
+old = '"ci": "none: fixture repository without CI workflows",\n  "e2e": { "task": "http-retry" },'
+assert old in s, 'mutation target missing: ' + old
+s = s.replace(old, '"inherits": "parent.md",', 1)
+open(dst, 'w').write(s)
+PY
+
+out="$(node "$LINT" "$W/inherit_child.md" --repo "$W/inherit_repo" 2>&1)"; rc=$?
+expect "inherits child omitting ci/e2e with --repo exits 0" "0" "$rc"
+contains "inherits child omitting ci/e2e with --repo is clean" "OK: 0 error(s)" "$out"
+
+out="$(node "$LINT" "$W/inherit_child.md" 2>&1)"; rc=$?
+expect "inherits child omitting ci/e2e without --repo exits 1" "1" "$rc"
+contains "inherits child omitting ci without --repo named" \
+  'ci: required — the exact CI entrypoint commands, or "none: <reason>"' "$out"
+contains "inherits child omitting e2e without --repo named" \
+  'e2e: required — the task that runs the shipped fixtures end to end, or "not-applicable: <reason>"' "$out"
+
+section "ci-gate: coverage warning"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"ci": { "commands": ["npm run lint"], "workflows": [] },'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci-gate uncovered command exits 0" "0" "$rc"
+contains "ci-gate uncovered command warned" \
+  "ci-gate: \"npm run lint\" — no task's must_run carries \"lint\"; scope that gate to each task's module" "$out"
+
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"ci": "none: fixture repository without CI workflows",',
+  '"ci": { "commands": ["npm run lint"], "workflows": [] },', 1)
+old = ('"cmd": "true", "evidence": "required" }],\n'
+  '          "forbidden_moves": ["weakening, deleting or skipping an existing test"]')
+assert old in s, 'mutation target missing: ' + old
+s = s.replace(old,
+  '"cmd": "npm run lint --fix", "evidence": "required" }],\n'
+  '          "forbidden_moves": ["weakening, deleting or skipping an existing test"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci-gate covered command exits 0" "0" "$rc"
+check "ci-gate covered command has no ci-gate warning" \
+  '! grep -qF "ci-gate:" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"ci": { "commands": ["./gradlew :app:test"], "workflows": [] },'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci-gate runner-module token exits 0" "0" "$rc"
+contains "ci-gate runner-module token named" \
+  "ci-gate: \"./gradlew :app:test\" — no task's must_run carries \":app:test\"; scope that gate to each task's module" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"ci": { "commands": ["npm run test -- --ci"], "workflows": [] },'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci-gate flag-stripped token exits 0" "0" "$rc"
+contains "ci-gate flag-stripped token named" \
+  "ci-gate: \"npm run test -- --ci\" — no task's must_run carries \"test\"; scope that gate to each task's module" "$out"
+
+section "must_run: absolute paths under \$HOME outside the repo"
+
+mutate '"cmd": "true"' "\"cmd\": \"cat $HOME/.ssh/config\""
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "must_run absolute home path, no --repo, exits 0" "0" "$rc"
+contains "must_run absolute home path, no --repo, warned" \
+  "must_run: \"cat $HOME/.ssh/config\" references $HOME/.ssh/config outside the repository — executors run in a sandboxed worktree" "$out"
+
+mutate '"cmd": "true"' '"cmd": "cat ~/.gradle/gradle.properties"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "must_run tilde home path exits 0" "0" "$rc"
+contains "must_run tilde home path warned" \
+  "must_run: \"cat ~/.gradle/gradle.properties\" references ~/.gradle/gradle.properties outside the repository — executors run in a sandboxed worktree" "$out"
+
+mkdir -p "$W/homepath_other_repo"
+mutate '"cmd": "true"' "\"cmd\": \"cat $HOME/.ssh/config\""
+out="$(node "$LINT" "$W/m.md" --repo "$W/homepath_other_repo" 2>&1)"; rc=$?
+expect "must_run home path outside a given --repo exits 0" "0" "$rc"
+contains "must_run home path outside a given --repo warned" \
+  "must_run: \"cat $HOME/.ssh/config\" references $HOME/.ssh/config outside the repository — executors run in a sandboxed worktree" "$out"
+
+HOME_REPO="$HOME/.plan-lint-test-repo-$$"
+mkdir -p "$HOME_REPO"
+mutate '"cmd": "true"' "\"cmd\": \"cat $HOME_REPO/local.properties\""
+out="$(node "$LINT" "$W/m.md" --repo "$HOME_REPO" 2>&1)"; rc=$?
+expect "must_run home path inside --repo exits 0" "0" "$rc"
+check "must_run home path inside --repo has no outside-repo warning" \
+  '! grep -qF "outside the repository" <<<"$out"'
+rm -rf "$HOME_REPO"
+
+section "--base <sha>: reads .github/workflows from the commit"
+
+BASE_REPO="$W/base_repo"
+mkdir -p "$BASE_REPO/.github/workflows"
+git -C "$BASE_REPO" init -q
+git -C "$BASE_REPO" config user.name "plan-lint test"
+git -C "$BASE_REPO" config user.email "plan-lint-test@example.invalid"
+git -C "$BASE_REPO" config commit.gpgsign false
+cat > "$BASE_REPO/.github/workflows/ci.yml" <<'YAML'
+name: CI
+on: push
+jobs:
+  test:
+    steps:
+      - run: npm test
+YAML
+git -C "$BASE_REPO" add -A
+git -C "$BASE_REPO" commit -q -m base
+BASE_SHA="$(git -C "$BASE_REPO" rev-parse HEAD)"
+
+# Working tree now diverges from what was committed.
+cat > "$BASE_REPO/.github/workflows/ci.yml" <<'YAML'
+name: CI
+on: push
+jobs:
+  test:
+    steps:
+      - run: npm run something-else
+YAML
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/ci.yml"] },'
+
+out="$(node "$LINT" "$W/m.md" --repo "$BASE_REPO" 2>&1)"; rc=$?
+expect "without --base, diverged working tree exits 1" "1" "$rc"
+contains "without --base names the mismatch" \
+  'ci.commands: "npm test" does not appear in any listed ci.workflows file' "$out"
+
+out="$(node "$LINT" "$W/m.md" --repo "$BASE_REPO" --base "$BASE_SHA" 2>&1)"; rc=$?
+expect "with --base, committed workflow still matches exits 0" "0" "$rc"
+check "with --base has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+node "$LINT" "$CLEAN" --base "$BASE_SHA" >/dev/null 2>&1
+expect "--base without --repo exits 2" "2" "$?"
+
+section "--base <sha>: files_allowed existence check"
+
+BASE_REPO2="$W/base_repo2"
+mkdir -p "$BASE_REPO2/src/http" "$BASE_REPO2/docs"
+git -C "$BASE_REPO2" init -q
+git -C "$BASE_REPO2" config user.name "plan-lint test"
+git -C "$BASE_REPO2" config user.email "plan-lint-test@example.invalid"
+git -C "$BASE_REPO2" config commit.gpgsign false
+touch "$BASE_REPO2/src/http/keep.txt" "$BASE_REPO2/docs/keep.txt"
+git -C "$BASE_REPO2" add -A
+git -C "$BASE_REPO2" commit -q -m "add src/http and docs"
+BASE_SHA2="$(git -C "$BASE_REPO2" rev-parse HEAD)"
+rm -rf "$BASE_REPO2/src"
+
+out="$(node "$LINT" "$CLEAN" --repo "$BASE_REPO2" 2>&1)"
+contains "without --base, working tree missing src/http warns typo" \
+  "files_allowed prefix \"src/http\" does not exist under $BASE_REPO2" "$out"
+
+out="$(node "$LINT" "$CLEAN" --repo "$BASE_REPO2" --base "$BASE_SHA2" 2>&1)"
+check "with --base, src/http existing at the commit has no typo warning" \
+  '! grep -qF "files_allowed prefix \"src/http\" does not exist" <<<"$out"'
+
 summary
