@@ -65,6 +65,17 @@ function makeRepo() {
   return { root, repo, plan, base }
 }
 
+// A repo with gradlew and an untracked, gitignored local.properties, so
+// resolveWorktreeEnv auto-detects one worktree link.
+function makeGradleRepo() {
+  const env = makeRepo()
+  writeFileSync(join(env.repo, 'gradlew'), '#!/bin/sh\necho gradlew\n')
+  writeFileSync(join(env.repo, '.gitignore'),
+    readFileSync(join(env.repo, '.gitignore'), 'utf8') + 'local.properties\n')
+  writeFileSync(join(env.repo, 'local.properties'), 'sdk.dir=/nonexistent\n')
+  return env
+}
+
 function invoke(args, input) {
   const result = spawnSync(process.execPath, [CLI, ...args], {
     cwd: ROOT,
@@ -86,7 +97,7 @@ function ok(args, input) {
 }
 
 function init(over = {}) {
-  const env = makeRepo()
+  const env = over.repoEnv ?? makeRepo()
   if (over.planText) writeFileSync(env.plan, over.planText(readFileSync(env.plan, 'utf8')))
   const result = invoke(['init', '--plan', env.plan, '--wave', '1', '--repo', env.repo,
     '--base', env.base])
@@ -1429,6 +1440,129 @@ test('C23 supervisor prompt caps a huge diff but the stored state keeps it in fu
   assert.equal(restored.diff.length, stored.diff.length)
   assert.ok(restored.diff.includes(big))
   assert.ok(restored.git.diff.stdout.includes(big))
+})
+
+test('E1 an executor-reported environment-blocked marker skips must_run and blocks before the safety preflight', () => {
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'printf executed > must-run-executed', evidence: 'required' },
+  ]) })
+  recordExecutor(env.statePath, {
+    report: 'Could not proceed.\n\nenvironment-blocked: gpg failed to sign the data\n',
+  })
+  verify(env.statePath)
+  const task = state(env.statePath).tasks['divide-guard']
+  assert.equal(task.status, 'environment-blocked')
+  const facts = task.verifierFacts.at(-1)
+  assert.deepEqual(facts.violations, [{
+    class: 'environment',
+    rule: 'executor reported environment-blocked',
+    evidence: 'gpg failed to sign the data',
+  }])
+  assert.equal(facts.mustRun[0].skipped, 'safety-preflight')
+  assert.deepEqual(facts.mustRun[0].attempts, [])
+  assert.equal(existsSync(join(env.worktree, 'must-run-executed')), false)
+  const action = next(env.statePath)
+  assert.equal(action.action, 'stop')
+  assert.equal(action.reason, 'environment-blocked')
+})
+
+test('E2 a must_run failure matching an environment signature blocks the task instead of failing it', () => {
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'printf "SDK location not found. Define a valid SDK location in local.properties." >&2; exit 1', evidence: 'required' },
+  ]) })
+  prepareAttempt(env, 'must_run output:\nSDK location not found. Define a valid SDK location in local.properties.')
+  const task = state(env.statePath).tasks['divide-guard']
+  assert.equal(task.status, 'environment-blocked')
+  const facts = task.verifierFacts.at(-1)
+  assert.ok(facts.violations.some((v) => v.class === 'environment'
+    && v.rule === 'environment: android-sdk-missing'
+    && v.evidence === 'SDK location not found. Define a valid SDK location in local.properties.'))
+  assert.equal(task.totalAttempts, 1, 'a mechanically detected environment block is still a charged attempt')
+  const action = next(env.statePath)
+  assert.equal(action.action, 'stop')
+  assert.equal(action.reason, 'environment-blocked')
+})
+
+test('E3 an environment-typed executor error blocks immediately without charging an attempt', () => {
+  const env = init()
+  recordExecutor(env.statePath, { error: { kind: 'environment' } })
+  const task = state(env.statePath).tasks['divide-guard']
+  assert.equal(task.status, 'environment-blocked')
+  assert.equal(task.totalAttempts, 0)
+  assert.deepEqual(task.reports, [])
+  assert.deepEqual(task.agentFailures, [{ point: 'executor', kind: 'environment', attempt: 1 }])
+  const action = next(env.statePath)
+  assert.equal(action.action, 'stop')
+  assert.equal(action.reason, 'environment-blocked')
+})
+
+test('E4 an environment-typed supervisor error blocks immediately without charging an attempt', () => {
+  const env = init()
+  prepareAttempt(env)
+  const before = state(env.statePath).tasks['divide-guard'].totalAttempts
+  recordVerdict(env.statePath, { error: { kind: 'environment' } })
+  const task = state(env.statePath).tasks['divide-guard']
+  assert.equal(task.status, 'environment-blocked')
+  assert.equal(task.totalAttempts, before)
+  assert.deepEqual(task.agentFailures, [{ point: 'supervisor', kind: 'environment', attempt: before }])
+  const action = next(env.statePath)
+  assert.equal(action.action, 'stop')
+  assert.equal(action.reason, 'environment-blocked')
+})
+
+test('E5 a verdict violation of class environment blocks the task, checked before satisfiable:false', () => {
+  const env = init()
+  prepareAttempt(env)
+  recordVerdict(env.statePath,
+    failed('machine cannot start the build', 'environment', { satisfiable: false }))
+  const task = state(env.statePath).tasks['divide-guard']
+  assert.equal(task.status, 'environment-blocked')
+  const action = next(env.statePath)
+  assert.equal(action.action, 'stop')
+  assert.equal(action.reason, 'environment-blocked')
+})
+
+test('E6 the untracked build link is symlinked into both the executor worktree and a fresh verification checkout', () => {
+  const repoEnv = makeGradleRepo()
+  const env = init({ repoEnv, planText: (text) => withMustRun(text, [
+    { cmd: 'test -L local.properties && printf checkout-linked', evidence: 'required' },
+  ]) })
+  assert.deepEqual(state(env.statePath).worktreeLinks, ['local.properties'])
+  const worktreeLink = join(env.worktree, 'local.properties')
+  assert.equal(lstatSync(worktreeLink).isSymbolicLink(), true)
+  assert.equal(realpathSync(worktreeLink), realpathSync(join(env.repo, 'local.properties')))
+  prepareAttempt(env, 'must_run output:\ncheckout-linked')
+  const facts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.equal(facts.mustRun[0].attempts.at(-1).exit, 0)
+  assert.equal(facts.mustRun[0].attempts.at(-1).stdout, 'checkout-linked')
+})
+
+test('E7 init excludes .worktrees/ and every worktree link from every linked worktree\'s git status', () => {
+  const repoEnv = makeGradleRepo()
+  const env = init({ repoEnv })
+  const exclude = readFileSync(join(env.repo, '.git', 'info', 'exclude'), 'utf8')
+  const lines = exclude.split(/\r?\n/)
+  assert.ok(lines.includes('.worktrees/'))
+  assert.ok(lines.includes('/local.properties'))
+})
+
+test('E8 an unlinked wave carries the new dead-end, secrets and long-command prompt lines but no link line', () => {
+  const env = init()
+  const action = next(env.statePath)
+  assert.match(action.prompt,
+    /stop and report a line `environment-blocked: <the verbatim error line>`; do not work around it\./)
+  assert.match(action.prompt, /That includes untracked build configuration a worktree links/)
+  assert.match(action.prompt,
+    /Never end your turn while a command you started is still running — no Monitor, no ScheduleWakeup/)
+  assert.doesNotMatch(action.prompt, /Untracked build files linked into this worktree/)
+})
+
+test('E9 a linked wave names its linked build files in the executor prompt', () => {
+  const repoEnv = makeGradleRepo()
+  const env = init({ repoEnv })
+  const action = next(env.statePath)
+  assert.match(action.prompt,
+    /Untracked build files linked into this worktree \(never open, print or copy them\): local\.properties/)
 })
 
 let failedCount = 0
