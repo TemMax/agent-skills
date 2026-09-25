@@ -152,6 +152,10 @@ directly" approval given during execution does not extend to review
 findings: the user sees the findings table every time before fixes go
 through the Post-Review Fix Protocol.
 
+Release notes moved from README to `CHANGELOG.md`, and a new release section
+reaching `main` is announced on Telegram (`.github/workflows/announce.yml`,
+`scripts/announce-changelog.sh`, `scripts/telegram-notify.sh`).
+
 ## 4.1.0
 
 Non-breaking. `super-plan` names a sibling-dependency planning rule: a
