@@ -32,6 +32,7 @@ run "behaviour — plan linter on fixture mutants"                   bash tests/
 run "behaviour — Codex native wave state" bash tests/codex-wave-state.test.sh
 run "behaviour — codex wave runner" node --test tests/lib/codex-wave-runner.test.mjs
 run "behaviour — worktree environment helper" node --test tests/lib/worktree-env.test.mjs
+run "behaviour — Telegram release announcement" bash tests/telegram-notify.test.sh
 run "behaviour — model CLI adapter" bash tests/eval/model-cli.test.sh
 run "behaviour — retained Codex rollout diagnostics" node --test tests/eval/codex-rollouts.test.mjs
 run "behaviour — deterministic supervisor fixture" bash tests/eval/supervisor-fixture.test.sh
