@@ -358,6 +358,38 @@ orchestration 4.2.0, code-review 1.11.0):
 
 The `-opus` slash commands no longer exist. Use the base name on any model.
 
+## Releasing
+
+A release PR raises the versions: both `plugin.json` files per plugin, the
+skills' `version:` frontmatter, and the literals in `tests/structure.sh`. It
+also adds a `## X.Y.Z` section at the top of [CHANGELOG.md](CHANGELOG.md);
+`tests/structure.sh` checks that heading against the orchestration version.
+
+When that section reaches `main`, [`.github/workflows/announce.yml`](.github/workflows/announce.yml)
+posts it to the Telegram channel through `scripts/announce-changelog.sh`. The
+first `CHANGELOG.md` announces only its newest release.
+
+To re-announce a release, run the workflow by hand (`workflow_dispatch`,
+input `version`).
+
+The workflow needs the `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` secrets.
+Without them it skips the announcement with a notice.
+
+Setting the secrets:
+
+```zsh
+repo=TemMax/agent-skills
+read -rs "token?Bot token: "; echo
+read -r "chat?Chat id (@channel or -100…): "
+print -rn -- "$token" | gh secret set TELEGRAM_BOT_TOKEN --repo "$repo"
+print -rn -- "$chat"  | gh secret set TELEGRAM_CHAT_ID  --repo "$repo"
+unset token chat
+```
+
+The bot must be an admin of the channel allowed to post.
+
+Previewing locally: `scripts/announce-changelog.sh --dry-run --version <version>`.
+
 ## Local development
 
 ```bash
@@ -389,6 +421,14 @@ The final merge and any real PR/push remain user-authorized boundaries.
   marketplace.json     # lets this repo act as its own marketplace
 .agents/plugins/
   marketplace.json     # repository/team Codex marketplace
+.github/workflows/
+  announce.yml          # posts a new CHANGELOG.md release section to Telegram
+CHANGELOG.md            # release notes, newest first
+scripts/
+  announce-changelog.sh     # finds and announces newly released CHANGELOG.md sections
+  changelog-new-versions.sh # lists versions added to a changelog between two commits
+  changelog-section.sh      # prints one version's section body from a changelog
+  telegram-notify.sh        # sends one release's announcement to Telegram
 plugins/
   orchestration/
     .claude-plugin/plugin.json

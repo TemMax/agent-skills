@@ -129,7 +129,9 @@ for marker in \
   "reviewer-gpt-6-luna.md" \
   "gpt-6-sol-reviewer-dossier.md" \
   "gpt-6-luna-reviewer-dossier.md" \
-  "code-review/hooks/"; do
+  "code-review/hooks/" \
+  "CHANGELOG.md" \
+  "announce.yml"; do
   check "README source/layout inventory: $marker" "grep -Fq '$marker' README.md"
 done
 
