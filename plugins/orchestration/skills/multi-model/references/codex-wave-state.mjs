@@ -620,7 +620,7 @@ function executorPrompt(state, id, task, spec) {
     'stop and report what is blocking you. Do not invent values, do not work',
     'around the restriction, and do not pick an interpretation on the user\'s behalf.',
     'If your task needs an artifact that another task of this wave is producing (a file, fixture, function or behavior missing from your worktree), stop and report `blocked-on-sibling: <what is missing and which task makes it>`; do not invent it and do not commit a placeholder.',
-    'If a build or tool cannot start because of the machine — permission denied on a cache directory or `.git`, SDK not found, a lock file, commit signing — stop and report a line `environment-blocked: <the verbatim error line>`; do not work around it.',
+    'If a build or tool cannot start because of the machine — permission denied on a cache directory or `.git`, SDK not found, a lock file, commit signing — stop and make the first line of your report `environment-blocked: <the verbatim error line>`; do not work around it.',
     '',
     '## Prohibitions',
     'Do not spawn subagents. No force-push, no reset --hard, and no rm outside',

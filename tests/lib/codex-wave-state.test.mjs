@@ -1447,7 +1447,7 @@ test('E1 an executor-reported environment-blocked marker skips must_run and bloc
     { cmd: 'printf executed > must-run-executed', evidence: 'required' },
   ]) })
   recordExecutor(env.statePath, {
-    report: 'Could not proceed.\n\nenvironment-blocked: gpg failed to sign the data\n',
+    report: 'environment-blocked: gpg failed to sign the data\n\nCould not proceed.\n',
   })
   verify(env.statePath)
   const task = state(env.statePath).tasks['divide-guard']
@@ -1464,6 +1464,25 @@ test('E1 an executor-reported environment-blocked marker skips must_run and bloc
   const action = next(env.statePath)
   assert.equal(action.action, 'stop')
   assert.equal(action.reason, 'environment-blocked')
+})
+
+test('E1b a report that quotes the environment-blocked marker mid-report after real work does not block', () => {
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'printf executed > must-run-executed', evidence: 'required' },
+  ]) })
+  recordExecutor(env.statePath, {
+    report: [
+      'Did the work, ran the must_run commands, all green.',
+      '',
+      'Note: the dead-end protocol says to stop and report',
+      '`environment-blocked: <the verbatim error line>` when the machine blocks a command; nothing did.',
+    ].join('\n'),
+  })
+  verify(env.statePath)
+  const task = state(env.statePath).tasks['divide-guard']
+  assert.notEqual(task.status, 'environment-blocked')
+  const facts = task.verifierFacts.at(-1)
+  assert.equal(facts.violations.some((v) => v.rule === 'executor reported environment-blocked'), false)
 })
 
 test('E2 a must_run failure matching an environment signature blocks the task instead of failing it', () => {
@@ -1572,7 +1591,7 @@ test('E8 an unlinked wave carries the new dead-end, secrets and long-command pro
   const env = init()
   const action = next(env.statePath)
   assert.match(action.prompt,
-    /stop and report a line `environment-blocked: <the verbatim error line>`; do not work around it\./)
+    /stop and make the first line of your report `environment-blocked: <the verbatim error line>`; do not work around it\./)
   assert.match(action.prompt, /That includes untracked build configuration a worktree links/)
   assert.match(action.prompt,
     /Never end your turn while a command you started is still running — no Monitor, no ScheduleWakeup/)
