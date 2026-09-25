@@ -192,6 +192,40 @@ expect "worktree links: stderr empty" "" "$(cat "$W/wt-err")"
 GEN_WT="$WT_REPO/.worktrees/launch/wave-1.workflow.mjs"
 contains "worktree links: links carries local.properties" '"worktree":{"links":["local.properties"]}' "$(grep '^const WAVE_ARGS = ' "$GEN_WT" 2>/dev/null)"
 
+section "excludeFromGit: local.properties merely untracked (not gitignored) still stays out of git status"
+UG_REPO="$W/ug-repo"
+mk_repo "$UG_REPO"
+: > "$UG_REPO/gradlew"
+git -C "$UG_REPO" add gradlew
+GIT_AUTHOR_NAME="wave-launch-test" GIT_AUTHOR_EMAIL="wave-launch-test@example.com" \
+GIT_AUTHOR_DATE="2020-01-01T00:00:03Z" GIT_COMMITTER_NAME="wave-launch-test" \
+GIT_COMMITTER_EMAIL="wave-launch-test@example.com" GIT_COMMITTER_DATE="2020-01-01T00:00:03Z" \
+  git -C "$UG_REPO" commit -q -m "add gradlew"
+git -C "$UG_REPO" push -q origin HEAD:main
+printf 'sdk.dir=/tmp/fake-sdk\n' > "$UG_REPO/local.properties"
+UG_BASE="$(git -C "$UG_REPO" rev-parse HEAD)"
+out="$(node "$GEN_TOOL" "$CLEAN" --wave 1 --base "$UG_BASE" --repo "$UG_REPO" --default-branch main 2>"$W/ug-err")"; rc=$?
+expect "ungitignored local.properties: exits 0" "0" "$rc"
+expect "ungitignored local.properties: stderr empty" "" "$(cat "$W/ug-err")"
+
+EXCLUDE="$(git -C "$UG_REPO" rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+check "info/exclude contains /local.properties" "grep -qx '/local.properties' '$EXCLUDE'"
+check "info/exclude contains .worktrees/" "grep -qx '.worktrees/' '$EXCLUDE'"
+
+before_lines="$(wc -l < "$EXCLUDE")"
+node "$GEN_TOOL" "$CLEAN" --wave 1 --base "$UG_BASE" --repo "$UG_REPO" --default-branch main \
+  --out "$W/ug-second/out.workflow.mjs" >/dev/null 2>"$W/ug-err2"
+after_lines="$(wc -l < "$EXCLUDE")"
+expect "second run: stderr empty" "" "$(cat "$W/ug-err2")"
+expect "second run adds nothing to info/exclude" "$before_lines" "$after_lines"
+
+FRESH_WT="$W/ug-fresh-worktree"
+git -C "$UG_REPO" worktree add -q "$FRESH_WT" -b ug-fresh-branch "$UG_BASE"
+ln -s "$UG_REPO/local.properties" "$FRESH_WT/local.properties"
+mkdir -p "$FRESH_WT/.worktrees"
+status="$(git -C "$FRESH_WT" status --porcelain)"
+expect "fresh worktree with the symlink: git status --porcelain is empty" "" "$status"
+
 section "the lint call is repo-aware: a repo's CI workflows are checked at launch"
 CI_REPO="$W/ci-repo"
 mkdir -p "$CI_REPO/.github/workflows"
