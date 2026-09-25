@@ -256,6 +256,29 @@ approvals.
    produces any of them. "No file-ownership conflicts" is not a pass on
    its own — measured: the pilot's audit reported exactly that and missed
    the dependency.
+
+   The audit also runs four further checks:
+   - **Implementers and fakes.** For every public interface, type or
+     function signature a task changes, list all implementers, fakes and
+     test doubles repo-wide (e.g. `grep -rn ': AppRouter'`). Require each
+     one in the same task's `files_allowed`, or require the dependents'
+     test compilation in `must_run`. Measured: an abstract member added to
+     `AppRouter` broke fakes in 9 modules, costing 2 fix waves.
+   - **Prose versus forbidden_moves.** Every instruction in a task's prose
+     that changes, renames or deletes an existing test is either
+     pre-authorized by name in that task's `forbidden_moves` exception, or
+     removed. No `forbidden_moves` entry may forbid what the prose
+     requires. Measured: one such contradiction cost a wave, a recovery
+     plan and a user gate.
+   - **Build-target claims.** A claim that a build task or target exists
+     cites the build tool's own listing (e.g. `./gradlew :m:tasks --all`).
+     Measured: a research agent asserted a nonexistent
+     `:core-mobile:jvmTest`.
+   - **depends_on producers.** Every `depends_on` entry names a real
+     producer (repo, ref, path), and every consumer of another plan's
+     artifact has one. Measured: an eval wave launched before the other
+     repository's broker existed.
+
    Give it the same secrets prohibition
    every executor gets: never open, print, copy or transmit credentials,
    tokens or configuration files that hold them (for example `~/.codex`,
@@ -375,9 +398,8 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    optional `review` key's value and its `approvals.premium` pairing when
    present.
 
-   Three more optional top-level keys also sit beside `waves`, defined in
-   full under the wave plan's shared definitions and read by the runners
-   directly rather than checked by the linter's required-key rule:
+   Three more optional top-level keys also sit beside `waves`, read by the
+   runners and validated by the linter (shape errors fail lint):
 
    - `worktree`: `{"links": [...], "writable": [...], "auto": true}` —
      `links` are repository-relative paths (never absolute, never
@@ -401,7 +423,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    - `inherits`: a repository-relative path of a parent plan. When the
      child plan omits `ci`, `e2e`, `worktree`, `approvals` or `review`,
      `effectivePlan` (`worktree-env.mjs`) takes them from the parent for
-     the runners and the linter's `--base`. Only one level is followed;
+     the runners and the linter. Only one level is followed;
      this key is for recovery and amendment plans.
 
    The model fields use the active profile's plan host and this exact table:
@@ -446,6 +468,15 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    `## Task <id>`, with the title on the next line, not on the heading
    line itself; lint rejects anything after the id.
 
+## Converting an existing plan
+
+When the plan starts from an existing draft (for example a superpowers
+writing-plans file), rewrite each task's prose for the contract: no `git
+commit` steps, no checkbox step lists copied as waves, and no instruction to
+edit existing tests unless the contract pre-authorizes it by name. Measured:
+string-patching a superpowers draft seeded a heading crash and a
+contradictory test instruction.
+
 ## Acceptance References
 
 When the request carries product or visual references — Figma links,
@@ -463,6 +494,15 @@ after-the-fact manual QA for defects (wrong gradients, duplicated toolbars,
 misplaced flows) that were all visible in references the plan never
 recorded. No references given → no section: there is nothing to check
 against.
+
+Visual assets imported from design (icons, rasters) get an owner checkpoint
+before their wave merges: a contact sheet shown to the user at the wave's
+end, not first seen in the PR diff. Measured: icons exported with
+baked-in backgrounds reached the PR.
+
+Interaction triggers — what starts or stops an animation, what collapses on
+scroll versus on keyboard — are product forks for Gate 1. Measured: a
+collapse-on-scroll the user did not want shipped silently.
 
 ## Headless evaluation mode
 
@@ -490,3 +530,8 @@ and the plan carries no `approvals.premium` invented by the model.
 | Visual references left out of the plan | Fidelity defects surface as post-ship manual QA | Record Acceptance References; pin what greps can pin |
 | Quoting a time or cost for the plan | The user plans around a number no model can predict — a real plan was quoted 7–16 hours and $60–250 | Show the plan's shape; never a duration or a price |
 | One task per wave by default | A serial script paying wave overhead — one measured plan had 14 waves of one task each | Cut `files_allowed` by file, contract-first waves, independent chains side by side; explain real single-task waves under `## Parallelism` |
+| A missing CI gate in `must_run` | The wave merges green while the repository's own CI fails | Derive `must_run` from `ci.commands`, scoped to the task's files |
+| An unlisted fake of a changed interface | Dependents fail to compile after merge — measured: 9 modules, 2 fix waves | Seam audit lists every implementer and fake; add it to `files_allowed` or its test compilation to `must_run` |
+| Prose contradicting `forbidden_moves` | The executor cannot satisfy both, so it picks on the user's behalf | Pre-authorize the exact edit by name in `forbidden_moves`, or drop the prose instruction |
+| A titled `## Task` heading | Lint rejects anything after the id | `## Task <id>` alone; the title goes on the next line |
+| A main-checkout-only preflight | The preflight passes on main but the task's own worktree lacks the same links or caches | Preflight the worktree each task actually runs in, not just the main checkout |
