@@ -211,6 +211,28 @@ opens="$(grep -o '<b>' <<<"$long" | wc -l)"
 closes="$(grep -o '</b>' <<<"$long" | wc -l)"
 eq "$opens" "$closes" "balanced <b> tags"
 
+# The rich notes get the same budget: cut at a line boundary, end with "…", and the full
+# rich message (heading + notes + buttons) stays under Telegram's limit.
+long_rich="$(scripts/telegram-notify.sh --dry-run 1.0.0 "$long_notes")"
+[ "${#long_rich}" -le 4096 ] && ok || fail "rich message is ${#long_rich} characters"
+expect "$long_rich" "…"
+expect "$long_rich" '<tg-button type="url" style="success"'
+expect "$long_rich" '<tg-button type="url" url='
+
+# A cut that would land inside a fenced code block drops the fence's opening line and
+# everything after it, instead of leaving an unbalanced ``` open.
+fence_notes="$(mktemp)"
+tmpfiles+=("$fence_notes")
+{
+    echo "- intro line before the fence"
+    echo '```'
+    for i in $(seq 1 200); do echo "code line number $i with filler text to grow the block"; done
+    echo '```'
+} > "$fence_notes"
+fence_rich="$(scripts/telegram-notify.sh --dry-run 1.0.0 "$fence_notes")"
+fences="$(grep -c '^```' <<<"$fence_rich" || true)"
+eq "$((fences % 2))" "0" "no unbalanced fence -- fence count: $fences"
+
 # Without credentials nothing is sent and the release is not failed.
 fakebin="$(mktemp -d)"
 tmpdirs+=("$fakebin")
