@@ -733,7 +733,7 @@ section "ci: repo-checked commands"
 mkdir -p "$W/ci_repo/.github/workflows"
 cat > "$W/ci_repo/.github/workflows/ci.yml" <<'YAML'
 name: CI
-on: push
+on: pull_request
 jobs:
   test:
     steps:
@@ -930,6 +930,59 @@ out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
 expect "commented-out command still exits 1" "1" "$rc"
 contains "commented-out command still named" \
   'ci.commands: "make deploy" does not appear in any listed ci.workflows file' "$out"
+
+section "ci: workflow classification — which files count as CI"
+
+# A repo whose only workflow runs on push + workflow_dispatch is not CI:
+# "none: ..." must still be accepted, both with --repo and with --base.
+NOCI_REPO="$W/noci_repo"
+mkdir -p "$NOCI_REPO/.github/workflows"
+cat > "$NOCI_REPO/.github/workflows/release.yml" <<'YAML'
+name: Release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  release:
+    steps:
+      - run: npm publish
+YAML
+
+out="$(node "$LINT" "$CLEAN" --repo "$NOCI_REPO" 2>&1)"; rc=$?
+expect "push+workflow_dispatch-only workflow: none accepted with --repo exits 0" "0" "$rc"
+check "push+workflow_dispatch-only workflow: no 'has CI workflows' error" \
+  '! grep -qF "the repository has CI workflows" <<<"$out"'
+
+git -C "$NOCI_REPO" init -q
+git -C "$NOCI_REPO" config user.name "plan-lint test"
+git -C "$NOCI_REPO" config user.email "plan-lint-test@example.invalid"
+git -C "$NOCI_REPO" config commit.gpgsign false
+git -C "$NOCI_REPO" add -A
+git -C "$NOCI_REPO" commit -q -m noci
+NOCI_SHA="$(git -C "$NOCI_REPO" rev-parse HEAD)"
+
+out="$(node "$LINT" "$CLEAN" --repo "$NOCI_REPO" --base "$NOCI_SHA" 2>&1)"; rc=$?
+expect "push+workflow_dispatch-only workflow: none accepted with --base exits 0" "0" "$rc"
+check "push+workflow_dispatch-only workflow with --base: no 'has CI workflows' error" \
+  '! grep -qF "the repository has CI workflows" <<<"$out"'
+
+# A repo with a pull_request-triggered workflow still requires ci — cover
+# each of the three trigger shapes plan-lint must recognize.
+scalar_ci_test() {  # $1 = label, $2 = on-block YAML lines
+  local label="$1" onblock="$2" repo="$W/pr_repo_$3"
+  mkdir -p "$repo/.github/workflows"
+  printf 'name: CI\n%s\njobs:\n  test:\n    steps:\n      - run: npm test\n' "$onblock" \
+    > "$repo/.github/workflows/ci.yml"
+  out="$(node "$LINT" "$CLEAN" --repo "$repo" 2>&1)"; rc=$?
+  expect "$label: none rejected with --repo exits 1" "1" "$rc"
+  contains "$label: names the cause" "the repository has CI workflows" "$out"
+}
+
+scalar_ci_test "scalar on: pull_request" "on: pull_request" scalar
+scalar_ci_test "list on: [push, pull_request]" "on: [push, pull_request]" list
+scalar_ci_test "mapping key pull_request: under on:" \
+  "$(printf 'on:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]')" mapping
 
 section "e2e: required end-to-end task"
 
@@ -1693,7 +1746,7 @@ git -C "$BASE_REPO" config user.email "plan-lint-test@example.invalid"
 git -C "$BASE_REPO" config commit.gpgsign false
 cat > "$BASE_REPO/.github/workflows/ci.yml" <<'YAML'
 name: CI
-on: push
+on: pull_request
 jobs:
   test:
     steps:
@@ -1706,7 +1759,7 @@ BASE_SHA="$(git -C "$BASE_REPO" rev-parse HEAD)"
 # Working tree now diverges from what was committed.
 cat > "$BASE_REPO/.github/workflows/ci.yml" <<'YAML'
 name: CI
-on: push
+on: pull_request
 jobs:
   test:
     steps:

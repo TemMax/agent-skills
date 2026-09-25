@@ -374,7 +374,10 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      repository's own CI config, or `"none: <reason>"` when the repository
      has no CI. When CI workflow files exist in the repo, `commands` must be
      their exact entrypoints, copied verbatim — never an approximation of
-     what CI runs.
+     what CI runs. A workflow counts as CI when it runs on `pull_request`,
+     `pull_request_target` or `merge_group`; release, deploy or
+     announcement workflows that run only on push, tags, schedules or by
+     hand do not.
    - `e2e`: `{"task": "<id>"}` naming the task that runs the shipped
      fixtures through the real entrypoints end to end, or
      `"not-applicable: <reason>"` when the feature is not a data-transforming
