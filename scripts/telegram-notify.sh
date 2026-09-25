@@ -39,6 +39,44 @@ NOTES_COPY="$(mktemp)"
 trap 'rm -f "$NOTES_COPY"' EXIT
 cat "$NOTES_FILE" > "$NOTES_COPY"
 
+# Unwrap soft-wrapped lines before either form is built below, so a code span (or any other
+# per-line construct) never gets split by a mid-paragraph line break. A non-blank line that
+# follows a paragraph line or a bullet line is joined onto it with one space; a bullet, a
+# heading, a bold-only group line ("**…**" alone) or a code fence always starts a new line;
+# lines inside a fenced code block are left exactly as they are.
+NOTES_COPY_UNWRAPPED="$(mktemp)"
+trap 'rm -f "$NOTES_COPY" "$NOTES_COPY_UNWRAPPED"' EXIT
+awk '
+  function flush() { if (have_open) { print open; have_open = 0 } }
+  {
+    line = $0
+    if (fence) {
+      print line
+      if (line ~ /^```/) fence = 0
+      next
+    }
+    if (line ~ /^```/) {
+      flush(); print line; fence = 1; next
+    }
+    if (line ~ /^[[:space:]]*$/) {
+      flush(); print ""; next
+    }
+    is_bullet = (line ~ /^[[:space:]]*[-*][[:space:]]/)
+    is_heading = (line ~ /^#/)
+    is_boldgroup = (line ~ /^[[:space:]]*\*\*[^*]+\*\*[[:space:]]*$/)
+    if (is_bullet || is_heading || is_boldgroup) {
+      flush()
+      open = line; have_open = 1
+      eligible = (is_bullet ? 1 : 0)
+      next
+    }
+    if (have_open && eligible) { open = open " " line; next }
+    flush()
+    open = line; have_open = 1; eligible = 1
+  }
+  END { flush() }
+' "$NOTES_COPY" > "$NOTES_COPY_UNWRAPPED"
+
 notes="$(awk '
   function esc(s) {
     gsub(/&/, "\\&amp;", s)
@@ -91,7 +129,7 @@ notes="$(awk '
     para = (para == "" ? inline($0) : para " " inline($0)); printed = 1
   }
   END { flush() }
-' "$NOTES_COPY")"
+' "$NOTES_COPY_UNWRAPPED")"
 
 # Cut at a line boundary so no tag is left open.
 if [ "${#notes}" -gt "$NOTES_BUDGET" ]; then
@@ -109,7 +147,7 @@ rich_notes="$(awk '
     for (i = 1; i <= n; i++) out = out (i % 2 ? esc(parts[i]) : parts[i]) (i < n ? "`" : "")
     print out
   }
-' "$NOTES_COPY")"
+' "$NOTES_COPY_UNWRAPPED")"
 
 # Cut at a line boundary, same as the HTML notes above; never leave a fenced code block
 # (```…```) open — if the cut falls inside one, drop the fence's opening line and
@@ -133,7 +171,7 @@ rich="# agent-skills ${VERSION}
 ${rich_notes}
 
 <tg-button-row align=\"left\">
-<tg-button type=\"url\" style=\"success\" url=\"${CHANGELOG_URL}\">Changelog</tg-button>
+<tg-button type=\"url\" style=\"success\" url=\"${CHANGELOG_URL}\">Full changelog</tg-button>
 <tg-button type=\"url\" url=\"${REPO_URL}\">Repository</tg-button>
 </tg-button-row>"
 
@@ -141,7 +179,7 @@ message="<b>agent-skills ${VERSION} released</b>
 
 ${notes}
 
-<a href=\"${CHANGELOG_URL}\">Changelog</a> · <a href=\"${REPO_URL}\">Repository</a>"
+<a href=\"${CHANGELOG_URL}\">Full changelog</a> · <a href=\"${REPO_URL}\">Repository</a>"
 
 case "$DRY_RUN" in
     rich) printf '%s\n' "$rich"; exit 0 ;;
