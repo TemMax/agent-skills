@@ -192,6 +192,85 @@ test('effectivePlan: inherits missing keys from the parent, keeps the child own 
   assert.deepEqual(INHERITED_KEYS, ['ci', 'e2e', 'worktree', 'approvals', 'review'])
 })
 
+test('effectivePlan: inherited e2e naming a task id outside the child\'s own waves becomes not-applicable', () => {
+  const { root, repo } = makeRepo()
+  const parentPath = join(root, 'parent.md')
+  writeFileSync(parentPath, [
+    '# Parent plan',
+    '```json wave-plan',
+    JSON.stringify({ waves: [], ci: 'required', e2e: { task: 'http-retry' } }),
+    '```',
+    '',
+  ].join('\n'))
+  const childPath = join(root, 'child.md')
+  writeFileSync(childPath, [
+    '# Child plan',
+    '```json wave-plan',
+    JSON.stringify({
+      inherits: parentPath,
+      ci: 'none: recovery',
+      waves: [{ wave: 1, tasks: [{ id: 'patch-fix' }] }],
+    }),
+    '```',
+    '',
+  ].join('\n'))
+  const plan = effectivePlan(childPath, repo)
+  assert.equal(plan.e2e, 'not-applicable: inherited e2e task http-retry is not part of this recovery plan')
+})
+
+test('effectivePlan: inherited e2e naming one of the child\'s own task ids keeps full checking', () => {
+  const { root, repo } = makeRepo()
+  const parentPath = join(root, 'parent.md')
+  writeFileSync(parentPath, [
+    '# Parent plan',
+    '```json wave-plan',
+    JSON.stringify({ waves: [], ci: 'required', e2e: { task: 'http-retry' } }),
+    '```',
+    '',
+  ].join('\n'))
+  const childPath = join(root, 'child.md')
+  writeFileSync(childPath, [
+    '# Child plan',
+    '```json wave-plan',
+    JSON.stringify({
+      inherits: parentPath,
+      ci: 'none: recovery',
+      waves: [{ wave: 1, tasks: [{ id: 'http-retry' }] }],
+    }),
+    '```',
+    '',
+  ].join('\n'))
+  const plan = effectivePlan(childPath, repo)
+  assert.deepEqual(plan.e2e, { task: 'http-retry' })
+})
+
+test('effectivePlan: a child that sets its own e2e is never rewritten, even when it names an id outside its waves', () => {
+  const { root, repo } = makeRepo()
+  const parentPath = join(root, 'parent.md')
+  writeFileSync(parentPath, [
+    '# Parent plan',
+    '```json wave-plan',
+    JSON.stringify({ waves: [], ci: 'required', e2e: { task: 'http-retry' } }),
+    '```',
+    '',
+  ].join('\n'))
+  const childPath = join(root, 'child.md')
+  writeFileSync(childPath, [
+    '# Child plan',
+    '```json wave-plan',
+    JSON.stringify({
+      inherits: parentPath,
+      ci: 'none: recovery',
+      e2e: { task: 'not-a-real-task' },
+      waves: [{ wave: 1, tasks: [{ id: 'patch-fix' }] }],
+    }),
+    '```',
+    '',
+  ].join('\n'))
+  const plan = effectivePlan(childPath, repo)
+  assert.deepEqual(plan.e2e, { task: 'not-a-real-task' })
+})
+
 test('readPlanJson: throws when the file has no wave-plan block', () => {
   const { root } = makeRepo()
   const p = join(root, 'no-plan.md')

@@ -288,9 +288,13 @@ if (plan) {
         if (Array.isArray(c.files_allowed) && Array.isArray(c.files_forbidden)) {
           // Report only when the forbidden glob covers the allowed one: a
           // literal (no-wildcard) allowed path that the forbidden glob
-          // matches, or a forbidden `**`-glob whose prefix sits at or above
-          // the allowed glob's prefix. A forbidden glob that narrows an
-          // allowed one (a deeper prefix, or a literal file under it) is a
+          // matches, or a forbidden glob that covers by prefix — `**`, or
+          // exactly `<literal prefix>/**` (wildcards only at the trailing
+          // `**`, none in the middle) whose prefix sits at or above the
+          // allowed glob's prefix. A forbidden glob with wildcards before
+          // its trailing `**` (e.g. `app/**/src/**`) narrows rather than
+          // covers, and so does a forbidden glob that narrows an allowed
+          // one (a deeper prefix, or a literal file under it) — both are a
           // legal carve-out and reported nowhere here.
           for (const a of c.files_allowed) for (const f of c.files_forbidden) {
             if (typeof a !== 'string' || typeof f !== 'string') continue
@@ -298,10 +302,12 @@ if (plan) {
             let overlaps = false
             if (!aHasWildcard) {
               overlaps = globRe(f).test(a)
-            } else if (f === '**' || f.endsWith('**')) {
+            } else {
               const fPrefix = literalPrefix(f)
-              const aPrefix = literalPrefix(a)
-              overlaps = fPrefix === '' || fPrefix === aPrefix || aPrefix.startsWith(fPrefix + '/')
+              if (f === '**' || f === fPrefix + '/**') {
+                const aPrefix = literalPrefix(a)
+                overlaps = fPrefix === '' || fPrefix === aPrefix || aPrefix.startsWith(fPrefix + '/')
+              }
             }
             if (overlaps) {
               err(tat + ' ("' + t.id + '"): files_allowed "' + a + '" overlaps its own files_forbidden "' + f + '"')
