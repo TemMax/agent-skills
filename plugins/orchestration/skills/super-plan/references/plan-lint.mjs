@@ -721,6 +721,30 @@ const gitShow = (repoDir, sha, p) => {
   return r.status === 0 ? r.stdout : null
 }
 
+// ---- CI-workflow classification: a workflow file counts as CI only when
+// its `on:` triggers include pull_request, pull_request_target or
+// merge_group. This is a plain-text check (no YAML dependency): it finds
+// the top-level `on:` key's block (from the `on:` line up to, but not
+// including, the next unindented line) and looks for the trigger name in
+// that block, which covers the scalar (`on: pull_request`), the list
+// (`on: [push, pull_request]`) and the mapping-key (`pull_request:` under
+// `on:`) shapes alike. ----
+const extractOnBlock = (text) => {
+  const lines = text.split(/\r?\n/)
+  let start = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (/^on\s*:/.test(lines[i])) { start = i; break }
+  }
+  if (start === -1) return ''
+  let end = lines.length
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^\S/.test(lines[i])) { end = i; break }
+  }
+  return lines.slice(start, end).join('\n')
+}
+const CI_TRIGGER_RE = /\b(?:pull_request_target|pull_request|merge_group)\b/
+const isCiWorkflowText = (text) => CI_TRIGGER_RE.test(extractOnBlock(text))
+
 // ---- repo-checked ci: a repo with real workflows must name real commands ----
 if (repo && plan) {
   let workflowDirEntries = []
@@ -729,7 +753,15 @@ if (repo && plan) {
   } else {
     try { workflowDirEntries = readdirSync(join(repo, '.github/workflows')) } catch (e) { workflowDirEntries = [] }
   }
-  const repoHasWorkflows = workflowDirEntries.some((f) => /\.ya?ml$/i.test(f))
+  const yamlWorkflowEntries = workflowDirEntries.filter((f) => /\.ya?ml$/i.test(f))
+  const workflowEntryText = (f) => {
+    if (base) return gitShow(repo, base, '.github/workflows/' + f)
+    try { return readFileSync(join(repo, '.github/workflows', f), 'utf8') } catch (e) { return null }
+  }
+  const repoHasWorkflows = yamlWorkflowEntries.some((f) => {
+    const text = workflowEntryText(f)
+    return text !== null && isCiWorkflowText(text)
+  })
   if (repoHasWorkflows) {
     const ci = effective.ci
     if (typeof ci === 'string') {

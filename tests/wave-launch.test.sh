@@ -231,7 +231,7 @@ CI_REPO="$W/ci-repo"
 mkdir -p "$CI_REPO/.github/workflows"
 cat > "$CI_REPO/.github/workflows/ci.yml" <<'YML'
 name: ci
-on: push
+on: pull_request
 jobs:
   build:
     runs-on: ubuntu-latest
