@@ -110,6 +110,16 @@ it, and that a PR into the default branch will be opened at the end. One
 yes/no. After yes, ship itself never stops the flow again — only the link
 skills' own gates do.
 
+At this same gate, the user may also grant a standing recovery allowance:
+"up to N one-task recovery or fix waves within the approved files and
+contracts, same supervisor tier". Record the grant (the number N) in the
+plan. Within that allowance, ship launches such recovery or fix waves
+without asking for a new gate, and reports each one it launches. Anything
+outside the allowance still needs an explicit yes: a test-weakening
+decision, premium spend, or a wave that touches files or contracts the
+grant did not approve. Measured: one four-repository run needed 8 extra
+recovery gates for exactly this kind of within-scope fix.
+
 ## Stage 1 — Plan
 
 Invoke **super-plan**. Its two gates (design, lint-clean plan) run inside it.
@@ -165,6 +175,11 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    reason to bypass supervised execution.
 6. multi-model owns the plan's status transitions (`active` at launch,
    `done` at completion), as always.
+7. **Bypass scope.** Mirror multi-model: when supervised execution fails and
+   the user approves "implement directly", that approval covers the named
+   waves only. Stage 3 review fixes still go through critical-review's own
+   gate — the bypass never extends to them. The PR body states which waves
+   ran supervised and which, if any, were implemented directly.
 
 ## Stage 3 — Review
 
@@ -178,6 +193,11 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    vanishes from the PR resurfaces as a production defect found by hand.
    When the review child is `gpt-6-sol`, the body also carries the line
    `Review route: gpt-6-sol final review (measured 2026-09-24: clean 10/10, planted 10/10, PR support 3/4)`.
+   The body also always carries one line: `Runtime pass: ran with <capability>`
+   when step 3's pass ran, naming the capability used, or
+   `Runtime pass: skipped — <reason>` when it did not — including when no
+   Acceptance References exist. Measured: a runtime pass was skipped
+   silently, with a device capability available.
 3. If the plan carries Acceptance References and this session has a tool or
    skill whose **described capability** is running the product and
    observing it — launching the app, driving its UI, capturing screenshots —
@@ -205,7 +225,8 @@ pipeline and needed no extra approval. Report: the branch, the PR link,
 waves run, verdicts and reworks, routed fix evidence, and anything left
 open — with one recommended next action, phrased as a yes/no question in
 plain language. Never a time or cost estimate — not for the run, not for
-what is left open.
+what is left open. The report also carries the same `Runtime pass: ran with
+<capability>` / `Runtime pass: skipped — <reason>` line the PR body carries.
 
 ## Failure map
 
