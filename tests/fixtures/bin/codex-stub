@@ -131,7 +131,7 @@ prompt="$(cat "$promptfile")" # fine for a prefix check; never used for logging
 start_ts="$(now_ms)"
 prompt_json="$(node -e 'process.stdout.write(JSON.stringify(require("fs").readFileSync(process.argv[1], "utf8")))' -- "$promptfile")"
 # Top-level symlink names in cwd, never their content (see the secrets
-# sentence in the friction plan's shared definitions).
+# sentence in the Plan Format section of super-plan/SKILL.md).
 symlinks_json="["
 first_symlink=1
 if [ -n "$worktree" ] && [ -d "$worktree" ]; then

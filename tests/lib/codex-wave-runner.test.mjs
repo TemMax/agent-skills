@@ -784,19 +784,19 @@ test('(o) a gitignored local.properties is linked into the supervisor checkout, 
 // sandboxed at the base commit, before any model child starts.
 // ---------------------------------------------------------------------------
 
-test('(p) a signature in the preflight output stops with environment-blocked and zero executor starts', () => {
+test('(p) a signature in the preflight output stops with environment-blocked, before init: no --out, no '
+  + 'state file, no task worktree/branch, and an immediate re-run proceeds', () => {
   const { root, repo, base } = makeRepo()
   const planPath = writePlan(root, ['task-a'])
   const logPath = join(root, 'codex.log')
+  const outPath = join(root, 'out')
+  const runArgs = ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--out', outPath]
 
-  const result = runRunner(
-    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
-      '--out', join(root, 'out')],
-    {
-      CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good',
-      CODEX_STUB_SANDBOX_OUTPUT: 'bash: Operation not permitted\n', CODEX_STUB_SANDBOX_EXIT: '1',
-    },
-  )
+  const result = runRunner(runArgs, {
+    CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good',
+    CODEX_STUB_SANDBOX_OUTPUT: 'bash: Operation not permitted\n', CODEX_STUB_SANDBOX_EXIT: '1',
+  })
   assert.equal(result.status, 1, result.stdout + result.stderr)
   assert.ok(result.json, result.stdout + result.stderr)
   assert.equal(result.json.status, 'stop')
@@ -808,13 +808,18 @@ test('(p) a signature in the preflight output stops with environment-blocked and
   assert.deepEqual(result.json.preflight.results.map((r) => r.cmd), ['true'])
   assert.equal(result.json.preflight.results[0].exit, 1)
 
-  // Cleanup hint: init already created task-a's worktree+branch before the
-  // preflight ran, so it still needs tearing down even though `stopped`
-  // only names the pseudo task '*'.
-  assert.deepEqual(result.json.cleanup, [
-    'git -C ' + repo + ' worktree remove --force ' + join(repo, '.worktrees', 'wave-task-a')
-      + ' && git -C ' + repo + ' branch -D wave/task-a',
-  ])
+  // The preflight now runs before `init`, so nothing was ever created:
+  // cleanup is empty, no --out directory, no state file and no task
+  // worktree/branch — a re-run with the same arguments must be able to
+  // proceed cleanly.
+  assert.deepEqual(result.json.cleanup, [], 'nothing was created yet, so there is nothing to clean up')
+  assert.equal(existsSync(outPath), false, 'no --out directory may be created on a preflight stop')
+  const stateFiles = spawnSync('sh',
+    ['-c', 'ls "' + repo + '/.worktrees/codex-wave" 2>/dev/null | grep "\\.json$" || true'],
+    { encoding: 'utf8' }).stdout.trim()
+  assert.equal(stateFiles, '', 'no state file may exist after a preflight stop: ' + stateFiles)
+  const branches = git(repo, 'branch', '--list', 'wave/task-a')
+  assert.equal(branches, '', 'no wave/* branch may exist after a preflight stop')
 
   const starts = readLog(logPath).filter((entry) => entry.event === 'start')
   assert.equal(starts.filter((entry) => entry.prompt?.startsWith('# Task: ')).length, 0,
@@ -826,6 +831,14 @@ test('(p) a signature in the preflight output stops with environment-blocked and
   // the stop.
   const worktrees = git(repo, 'worktree', 'list', '--porcelain')
   assert.equal(worktrees.includes('preflight'), false, 'no preflight worktree should remain: ' + worktrees)
+
+  // An immediate re-run with the same arguments proceeds once the machine
+  // problem is gone (here: turning the preflight off).
+  const rerun = runRunner([...runArgs, '--preflight', 'off'],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' })
+  assert.equal(rerun.status, 0, 'a re-run with the same --out must succeed once the block is gone: '
+    + rerun.stdout + rerun.stderr)
+  assert.equal(rerun.json.status, 'merge-ready')
 })
 
 test('(q) a plain red preflight command does not stop the run', () => {
@@ -934,6 +947,11 @@ test('(t) an executor stub that exits non-zero with "Operation not permitted" on
   assert.equal(result.json.stopped[0].task, 'task-a')
   assert.equal(result.json.stopped[0].reason, 'environment-blocked')
   assert.equal(result.json.tasks[0].status, 'environment-blocked')
+  // The blocked line reaches the orchestrator on the stopped[] entry itself
+  // (the state helper only ever sees {error:{kind:'environment'}}).
+  assert.deepEqual(result.json.stopped[0].environment, {
+    source: 'executor', id: 'permission-denied', line: 'chmod: /repo/.git/objects: Operation not permitted',
+  })
 
   const state = JSON.parse(readFileSync(result.json.states[0], 'utf8'))
   const failures = state.tasks['task-a'].agentFailures
@@ -984,17 +1002,19 @@ function planTextWithDependsOn(taskIds, dependsOn) {
     '"ci": "none: this fixture repo has no CI to run",\n  "depends_on": ' + JSON.stringify(dependsOn) + ',')
 }
 
-test('(v) an unmet depends_on stops before any worktree exists', () => {
+test('(v) an unmet depends_on stops before any worktree exists, leaves no --out or state file, and an '
+  + 'immediate re-run with the dependency now present proceeds', () => {
   const { root, repo, base } = makeRepo()
+  const outPath = join(root, 'out')
+  const missingPath = 'does-not-exist.txt'
   const planPath = join(root, 'plan.md')
   writeFileSync(planPath, planTextWithDependsOn(['task-a'], [
-    { wave: 1, repo: '.', ref: base, path: 'does-not-exist.txt' },
+    { wave: 1, repo: '.', ref: base, path: missingPath },
   ]))
   const logPath = join(root, 'codex.log')
 
   const result = runRunner(
-    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
-      '--out', join(root, 'out')],
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
     { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
   )
   assert.equal(result.status, 1, result.stdout + result.stderr)
@@ -1003,13 +1023,38 @@ test('(v) an unmet depends_on stops before any worktree exists', () => {
   assert.deepEqual(result.json.stopped, [{ task: '*', reason: 'depends-on-unmet' }])
   assert.ok(Array.isArray(result.json.dependsOn) && result.json.dependsOn.length === 1,
     'expected the unmet dependency listed: ' + JSON.stringify(result.json.dependsOn))
-  assert.equal(result.json.dependsOn[0].path, 'does-not-exist.txt')
+  assert.equal(result.json.dependsOn[0].path, missingPath)
   assert.deepEqual(result.json.cleanup, [], 'nothing was created yet, so there is nothing to clean up')
 
   const worktrees = spawnSync('sh', ['-c', 'ls "' + repo + '/.worktrees" 2>/dev/null | grep "^wave-" || true'],
     { encoding: 'utf8' }).stdout.trim()
   assert.equal(worktrees, '', 'no wave-* worktree may exist before init has ever run: ' + worktrees)
   assert.equal(existsSync(logPath + '.d'), false, 'no codex child may ever have been launched')
+  assert.equal(existsSync(outPath), false, 'no --out directory may be created on a depends-on stop')
+  const stateFiles = spawnSync('sh',
+    ['-c', 'ls "' + repo + '/.worktrees/codex-wave" 2>/dev/null | grep "\\.json$" || true'],
+    { encoding: 'utf8' }).stdout.trim()
+  assert.equal(stateFiles, '', 'no state file may exist after a depends-on stop: ' + stateFiles)
+  const branches = git(repo, 'branch', '--list', 'wave/task-a')
+  assert.equal(branches, '', 'no wave/* branch may exist after a depends-on stop')
+
+  // Satisfy the dependency (a new commit carrying the file the plan
+  // depends on) and re-run with the same --out: it must now proceed.
+  writeFileSync(join(repo, missingPath), 'present\n')
+  git(repo, 'add', missingPath)
+  git(repo, 'commit', '-m', 'add dependency file')
+  const depRef = git(repo, 'rev-parse', 'HEAD')
+  const rerunPlanPath = join(root, 'plan-rerun.md')
+  writeFileSync(rerunPlanPath, planTextWithDependsOn(['task-a'], [
+    { wave: 1, repo: '.', ref: depRef, path: missingPath },
+  ]))
+  const rerun = runRunner(
+    ['--plan', rerunPlanPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(rerun.status, 0, 'a re-run with the same --out must succeed once the dependency is met: '
+    + rerun.stdout + rerun.stderr)
+  assert.equal(rerun.json.status, 'merge-ready')
 })
 
 // ---------------------------------------------------------------------------
@@ -1017,7 +1062,7 @@ test('(v) an unmet depends_on stops before any worktree exists', () => {
 // stopped (real) task, and prints them to stderr.
 // ---------------------------------------------------------------------------
 
-test('(w) the cleanup strings are present on stop', () => {
+test('(w) the cleanup strings (including the state file) are present on stop, with a re-run hint', () => {
   const { root, repo, base } = makeRepo()
   const planPath = writePlan(root, ['task-a'])
   const logPath = join(root, 'codex.log')
@@ -1030,8 +1075,43 @@ test('(w) the cleanup strings are present on stop', () => {
   assert.equal(result.status, 1, result.stdout + result.stderr)
   assert.ok(result.json, result.stdout + result.stderr)
   assert.equal(result.json.status, 'stop')
+  assert.equal(result.json.states.length, 1)
   const expected = 'git -C ' + repo + ' worktree remove --force ' + join(repo, '.worktrees', 'wave-task-a')
     + ' && git -C ' + repo + ' branch -D wave/task-a'
+    + ' && rm -f ' + result.json.states[0]
   assert.deepEqual(result.json.cleanup, [expected])
   assert.ok(result.stderr.includes(expected), 'the cleanup line must also be printed to stderr: ' + result.stderr)
+  assert.ok(result.stderr.includes('re-run with a fresh --out after cleanup'),
+    'expected the re-run hint after the cleanup lines: ' + result.stderr)
+})
+
+test('(w2) running the printed cleanup line and re-running with a fresh --out lets init succeed', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'fail' },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.equal(result.json.cleanup.length, 1)
+
+  for (const line of result.json.cleanup) {
+    const cleanup = spawnSync('sh', ['-c', line], { encoding: 'utf8' })
+    assert.equal(cleanup.status, 0, 'cleanup line must succeed: ' + line + '\n' + cleanup.stdout + cleanup.stderr)
+  }
+  assert.equal(existsSync(result.json.states[0]), false, 'the state file must be gone after cleanup')
+  const branches = git(repo, 'branch', '--list', 'wave/task-a')
+  assert.equal(branches, '', 'the branch must be gone after cleanup')
+
+  const rerun = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out2')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(rerun.status, 0, 'a re-run with a fresh --out after cleanup must succeed: '
+    + rerun.stdout + rerun.stderr)
+  assert.equal(rerun.json.status, 'merge-ready')
 })
