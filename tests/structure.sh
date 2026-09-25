@@ -208,6 +208,11 @@ else:
                     bad_lines.append(line)
                 i += 1
                 continue
+            # This line ends the block. If it still looks like a failed
+            # attempt at a group or a bullet, flag it rather than letting
+            # it silently pass as the closing line of the block.
+            if line.lstrip().startswith("**") or line.lstrip().startswith("-"):
+                bad_lines.append(line)
             break
 
         if not bad_lines:
