@@ -3,7 +3,7 @@ name: critical-review
 description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.10.0
+  version: 1.11.0
 ---
 
 # Reviewing Changes Critically
@@ -340,6 +340,13 @@ Everything in this section applies **only after the user, having seen the
 findings table, asked for the findings to be fixed.** Until then the review
 is read-only, as Review Method item 6 requires.
 
+An earlier approval to "implement directly", given for execution work
+elsewhere in the session, does not extend to review findings. Review
+findings are a separate gate every time: the user sees the findings table
+produced by this review, and only then do fixes go through this protocol.
+Measured cause: an orchestrator fixed final-review findings inline and
+pushed twice without showing findings.
+
 ### Order of operations
 
 1. **Record the starting point**: `git rev-parse HEAD`. Note whether the
@@ -359,6 +366,14 @@ is read-only, as Review Method item 6 requires.
    non-behavior prose, comments, or docs use one bounded explicitly routed
    subagent instead of a supervised wave.
    The returned evidence is not authority to publish.
+   The fix wave's base is the pushed PR head, copied from
+   `git rev-parse origin/<pr-branch>` — never local `HEAD`, even when the
+   local branch looks identical. Measured cause: a fix wave launched on an
+   unpushed local `HEAD` spent 15 agent calls before every executor refused.
+   The fix-wave plan file itself may stay uncommitted; the launcher reads it
+   from disk. Its fix tasks are appended as a new plan, or as a plan with
+   `inherits` pointing at the shipped plan — never by flipping the shipped
+   plan's `done` status back to `active`.
 3. **Integrate, commit, and verify** returned approved fixes — one logical fix
    per commit, staging only paths the fix touched, so pre-existing uncommitted
    work is never swept into a fix commit. Do not silently push an uncommitted

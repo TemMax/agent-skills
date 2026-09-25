@@ -86,6 +86,21 @@ if (wave.verifier !== undefined) {
     errors.push('verifier.effort: one of ' + EFFORTS.join('/'))
   }
 }
+if (wave.worktree !== undefined
+  && (typeof wave.worktree !== 'object' || wave.worktree === null || Array.isArray(wave.worktree))) {
+  errors.push('worktree: must be an object')
+}
+if (wave.worktree && wave.worktree.links !== undefined) {
+  if (!Array.isArray(wave.worktree.links)) {
+    errors.push('worktree.links: array required')
+  } else {
+    wave.worktree.links.forEach((l, i) => {
+      if (typeof l !== 'string' || l === '' || l.startsWith('/') || l.split(/[\\/]/).includes('..')) {
+        errors.push('worktree.links[' + i + ']: must be a non-empty repository-relative path without ".."')
+      }
+    })
+  }
+}
 if (!Array.isArray(wave.tasks) || wave.tasks.length === 0) {
   errors.push('tasks: a non-empty array is required')
 } else {
@@ -153,6 +168,11 @@ const verifier = {
   effort: (wave.verifier && wave.verifier.effort) || VERIFIER_DEFAULT.effort,
 }
 
+// Repository-relative paths of untracked build config every fresh worktree
+// or checkout gets as a symlink to <repoPath>/<link> — never opened, printed
+// or copied. Validated above; absent means no links.
+const worktreeLinks = (wave.worktree && Array.isArray(wave.worktree.links)) ? wave.worktree.links : []
+
 // ---------- prompt assembly ----------
 // The executor's contract block and the supervisor's contract are rendered
 // from the same object; they cannot diverge.
@@ -219,12 +239,15 @@ function executorPrompt(t) {
     'Repository: ' + wave.repoPath,
     '- cd ' + wave.repoPath,
     '- git worktree add ' + worktree + ' -b wave/' + t.id + ' ' + wave.base,
+    ...worktreeLinks.map((l) => '- ln -s ' + wave.repoPath + '/' + l + ' ' + worktree + '/' + l
+      + '   (untracked build config — skip if it exists; never open, print or copy it)'),
     '  (if the worktree and branch already exist from a prior attempt, reuse them as they are)',
     '- git -C ' + worktree + ' merge-base --is-ancestor ' + wave.base + ' origin/' + wave.defaultBranch,
     '  (must exit 0; if it does not, STOP and report — do not pick another base)',
     'Build-system commands (gradle, cargo, npm, pnpm, yarn, make, mvn and the',
     'like) — start them in the background with output to a log file and poll',
     'the log; a silent foreground wait looks like a stall and gets killed.',
+    'Never end your turn while a command you started is still running — no Monitor, no ScheduleWakeup; keep polling its log until it exits.',
     'Work and commit ONLY inside ' + worktree + '.',
     '',
     '## Boundaries',
@@ -238,11 +261,13 @@ function executorPrompt(t) {
     'stop and report what is blocking you. Do not invent values, do not work',
     'around the restriction, do not pick an interpretation on the user\'s behalf.',
     'If your task needs an artifact that another task of this wave is producing (a file, fixture, function or behavior missing from your worktree), stop and report `blocked-on-sibling: <what is missing and which task makes it>`; do not invent it and do not commit a placeholder.',
+    'Stop and make the first line of your report `environment-blocked: <verbatim error line>` when a build or tool cannot start because of the machine (permission denied on a cache directory or `.git`, SDK not found, a lock file, commit signing).',
     '',
     '## Prohibitions',
     'Do not spawn subagents. No force-push, no reset --hard, no rm outside the',
     'task\'s files. Do not work around a failing check — report it.',
     'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example ~/.codex, ~/.claude, app configs with Authorization headers); if the task needs a secret, stop and report.',
+    'That includes untracked build configuration a worktree links — `local.properties`, `.env`, `*.keystore`, `gradle.properties` under `~/.gradle` — which may hold a key or token: link or reference such files by path; never `cat`, `head`, `grep` or otherwise print them.',
     '',
     '## Definition of done and report format',
     'Your report must contain: the list of changed files; the gist of the',
@@ -283,6 +308,9 @@ function verifierPrompt(t, report) {
     '3. If ' + wt + ' already exists, remove it first:',
     '   git -C ' + wave.repoPath + ' worktree remove --force ' + wt,
     '   Then: git -C ' + wave.repoPath + ' worktree add --detach ' + wt + ' wave/' + t.id,
+    ...worktreeLinks.map((l) => '   ln -s ' + wave.repoPath + '/' + l + ' ' + wt + '/' + l
+      + '   (untracked build config — skip if it exists; never open, print or copy it)'),
+    '   That includes untracked build configuration a worktree links — `local.properties`, `.env`, `*.keystore`, `gradle.properties` under `~/.gradle` — which may hold a key or token: link or reference such files by path; never `cat`, `head`, `grep` or otherwise print them.',
     '   Run the must_run commands below IN ORDER inside that worktree, as one',
     '   pipeline in one workspace. Run each command exactly as written, as one',
     '   shell command line — bash -c \'<cmd>\' — and record the exit status of',
@@ -293,14 +321,16 @@ function verifierPrompt(t, report) {
     '   Build-system commands (gradle, cargo, npm, pnpm, yarn, make, mvn and',
     '   the like) must be started in the background with output to a log file',
     '   and polled — never a silent foreground wait.',
-    '4. For each must_run command whose evidence is "required", record whether',
+    '   Never end your turn while a command you started is still running — no Monitor, no ScheduleWakeup; keep polling its log until it exits.',
+    '4. If a must_run command failed because the machine, not the work, blocked it — its output matches `SDK location not found`, `Could not create service of type`, `Unable to create \'…lock\'`, `cannot lock ref`, `unable to create directory`, `insufficient permission for adding an object`, `failed to write commit object`, `gpg failed to sign the data`, `Operation not permitted`, or `Read-only file system` — set environmentBlocked to that error line, verbatim.',
+    '5. For each must_run command whose evidence is "required", record whether',
     '   the REPORT below contains pasted output for that command.',
-    '5. Clean up: git -C ' + wave.repoPath + ' worktree remove --force ' + wt,
+    '6. Clean up: git -C ' + wave.repoPath + ' worktree remove --force ' + wt,
     '',
     'must_run:',
     ...t.contract.must_run.map((m) => '- ' + m.cmd + '  (evidence: ' + m.evidence + ')'),
     '',
-    'REPORT (the executor\'s report — scan it only for step 4):',
+    'REPORT (the executor\'s report — scan it only for step 5):',
     String(report),
   ].join('\n')
 }
@@ -324,6 +354,7 @@ const VERIFY_SCHEMA = {
       },
     },
     notes: { type: 'array', items: { type: 'string' } },
+    environmentBlocked: { type: 'string' },
   },
   required: ['branchHasCommits', 'filesChanged', 'mustRun'],
 }
@@ -389,6 +420,10 @@ function supervisorPrompt(t, report, facts) {
     'REPO: ' + wave.repoPath,
     'BASE: ' + wave.base,
     'BRANCH: wave/' + t.id,
+    worktreeLinks.length > 0 ? '' : null,
+    worktreeLinks.length > 0
+      ? 'WORKTREE LINKS (symlink into your own checkout; never open, print or copy):' : null,
+    ...(worktreeLinks.length > 0 ? worktreeLinks.map((l) => '- ' + l) : []),
     facts ? '' : null,
     facts ? 'VERIFIER FACTS (a separate fact-collecting agent ran the commands itself;'
       + ' you may rely on its exit codes and outputs, and re-run anything you doubt):' : null,
@@ -437,11 +472,60 @@ function sameRuleRepeat(prevVerdict, verdict) {
     prev.some((p) => p.class === v.class && p.rule === v.rule))
 }
 
+// Terminal task statuses: 'ok', 'failed', 'error', 'contract-unsatisfiable',
+// 'environment-blocked' (the machine, not the work, blocked a command — no
+// verifier, no judge for an executor-reported block; no judge for a
+// verifier-reported one; the wave's own status stays 'partial' for it).
+// The marker counts only on the report's first non-empty line, optionally
+// wrapped in backticks, and only when the text after the colon is not a
+// <placeholder> — this keeps a quoted example mid-report from tripping it.
+// Returns the verbatim line text, or null when the first non-empty line
+// isn't a real marker.
+function reportEnvironmentBlockLine(report) {
+  if (typeof report !== 'string') return null
+  const firstLine = report.split('\n').find((line) => line.trim() !== '')
+  if (firstLine === undefined) return null
+  let trimmed = firstLine.trim()
+  if (trimmed.startsWith('`') && trimmed.endsWith('`') && trimmed.length >= 2) {
+    trimmed = trimmed.slice(1, -1)
+  }
+  const prefix = 'environment-blocked:'
+  if (!trimmed.startsWith(prefix)) return null
+  const remainder = trimmed.slice(prefix.length).trim()
+  if (remainder === '' || remainder.startsWith('<')) return null
+  return remainder
+}
+
+// The must_run cmd a violation's rule names, when its rule is of the shape
+// 'must_run: <cmd>' (both the mechanical-violation and judge-verdict shapes
+// use this rule text) — undefined when the rule doesn't name one.
+function cmdFromRule(rule) {
+  const prefix = 'must_run: '
+  return typeof rule === 'string' && rule.startsWith(prefix) ? rule.slice(prefix.length) : undefined
+}
+
+// The first must_run command the verifier itself saw fail, if any — used to
+// annotate a verifier-reported environment block with which command it was.
+function cmdFromFacts(facts) {
+  const failed = (facts.mustRun ?? []).find((m) => m.exit !== 0)
+  return failed ? failed.cmd : undefined
+}
+
+function environmentInfo(source, line, cmd) {
+  const env = { source, line }
+  if (cmd !== undefined) env.cmd = cmd
+  return env
+}
+
 async function runTask(t) {
   const rungs = [t.executor.model, ...(t.ladder ?? defaultLadder(t.executor.model))]
   const branch = 'wave/' + t.id
   const attempts = []
-  const finish = (status) => ({ id: t.id, status, branch, attempts })
+  const finish = (status, environment) => {
+    const result = { id: t.id, status, branch, attempts }
+    if (environment !== undefined) result.environment = environment
+    return result
+  }
   let pasteStrikes = 0
   let verdictCount = 0
   let prevVerdict = null
@@ -475,6 +559,16 @@ async function runTask(t) {
         { model, effort, label: 'exec:' + t.id, phase: 'Wave' }, rung)
       if (report === null) return finish('error')
 
+      // (a) The executor itself hit the machine, not the work: stop at once,
+      // never spend a verifier or a judge call on it.
+      const executorEnvLine = reportEnvironmentBlockLine(report)
+      if (executorEnvLine !== null) {
+        attempts.push({ rung, model, effort, kind: 'environment', verdict: null, escalation: null,
+                        line: executorEnvLine })
+        log(t.id + ': environment-blocked (reported by the executor)')
+        return finish('environment-blocked', environmentInfo('executor', executorEnvLine))
+      }
+
       // Mechanical verify: cheap facts before an expensive judge. Fail-open —
       // a dead verifier skips the stage and the judge runs everything itself;
       // this stage can only save a judge call, never remove supervision.
@@ -482,6 +576,15 @@ async function runTask(t) {
       const facts = await call(verifierPrompt(t, report),
         { model: verifier.model, effort: verifier.effort,
           label: 'verify:' + t.id, phase: 'Wave', schema: VERIFY_SCHEMA }, rung)
+
+      // (b) The verifier found the machine, not the work, blocked a must_run
+      // command: stop at once, never spend a judge call on it.
+      if (facts !== null && typeof facts.environmentBlocked === 'string' && facts.environmentBlocked !== '') {
+        attempts.push({ rung, model, effort, kind: 'environment', verdict: null, escalation: null })
+        log(t.id + ': environment-blocked (reported by the verifier)')
+        return finish('environment-blocked',
+          environmentInfo('verifier', facts.environmentBlocked, cmdFromFacts(facts)))
+      }
 
       let verdict = null
       let kind = 'verdict'
@@ -525,6 +628,14 @@ async function runTask(t) {
         : 'rejected [' + viols.map((v) => v.class).join(', ') + ']'))
 
       // Priority order is load-bearing; see the spec.
+      // (c) The judge itself classed a violation as 'environment': the
+      // machine, not the work, blocked it — this outranks satisfiable:false,
+      // because the contract is not what failed.
+      if (viols.some((v) => v.class === 'environment')) {
+        const envViol = viols.find((v) => v.class === 'environment')
+        return finish('environment-blocked',
+          environmentInfo('supervisor', envViol.evidence, cmdFromRule(envViol.rule)))
+      }
       if (viols.some((v) => v.satisfiable === false)) return finish('contract-unsatisfiable')
       if (verdict.ok === true) return finish('ok')
       if (viols.some((v) => v.pasteReproduced === false)) pasteStrikes++

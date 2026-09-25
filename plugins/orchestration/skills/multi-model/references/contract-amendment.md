@@ -1,5 +1,12 @@
 # When the contract is what is broken — the amendment flow
 
+`environment-blocked` is never an amendment. It means the machine, not the
+contract, failed — see ADR 009
+(`docs/decisions/009-environment-blocked-and-worktree-env.md`) and
+`codex-wave-protocol.md`'s "Toolchain caches, `.git`
+and linked files". Fix the machine and re-run the wave; do not touch the
+contract in response to it.
+
 Read from multi-model SKILL.md when a task returns
 `contract-unsatisfiable` (`ok:false` with `satisfiable:false`), before
 acting on it.
@@ -7,6 +14,7 @@ acting on it.
 ## Contents
 
 - When the contract is what is broken
+- The Codex path
 
 ## When the contract is what is broken
 
@@ -62,3 +70,30 @@ regression was fixed by a later wave at full price.
 One amendment per task. A second `satisfiable:false` on the same task goes to the
 user whatever kind it is: each loosening looks reasonable alone, and the loop
 that ends in a contract checking nothing is built out of reasonable steps.
+
+## The Codex path
+
+For a Codex-native wave (`codex-wave-protocol.md`) there is no
+`resumeFromRunId`: write a single-task recovery plan instead. It:
+
+- sets top-level `"inherits": "<parent plan path>"` (a repository-relative
+  path of the parent plan; see the Plan Format section in
+  `super-plan/SKILL.md` and `worktree-env.mjs`'s
+  `effectivePlan`/`INHERITED_KEYS`), so `ci`, `e2e`,
+  `worktree`, `approvals` and `review` carry over without being retyped;
+- gives the recovery task a new id `<id>-r<N>` (`<N>` starting at 1, bumped
+  on every further recovery of the same task) rather than reusing the
+  original task id;
+- carries the amended contract — the one edit this flow exists to make;
+- sets the wave's base to the pushed feature tip the failed task's branch
+  was rejected against, i.e. the current `origin/<default-branch>`, not the
+  original wave's `--base`;
+- when the inherited `e2e` names a task id from the parent plan (the
+  recovery plan's own single task rarely is it), `effectivePlan` marks it
+  `"not-applicable: inherited e2e task <id> is not part of this recovery
+  plan"` automatically — the recovery plan does not need to override `e2e`
+  itself to avoid a dangling reference.
+
+Lint the recovery plan, then run `codex-wave-runner.mjs` on it exactly as for
+any other wave — its own `init`, `--preflight`, and verification apply
+unchanged; nothing here bypasses them.

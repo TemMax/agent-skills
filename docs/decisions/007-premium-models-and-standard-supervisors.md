@@ -76,7 +76,7 @@ ladder, or the mechanical verifier.
 Breaking: `plan-lint.mjs` now fails a plan that uses `claude-fable-5-1` or
 `gpt-6-astra` in any role without a recorded, valid `approvals.premium`; a
 previously approved plan that used a premium model without recording it
-stops launching until migrated (see the README's `## 4.0.0` entry). The
+stops launching until migrated (see `CHANGELOG.md`'s `## 4.0.0` entry). The
 standard `gpt-6-sol` supervisor route is measured, not just a policy
 decision: supervisor fixture 9/9 on 2026-09-23 (twice) and 9/9 on
 2026-09-24 (×3), plus three ship-smoke runner-mode waves merge-ready first

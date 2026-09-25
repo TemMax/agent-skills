@@ -74,21 +74,21 @@ for f in \
   plugins/orchestration/.claude-plugin/plugin.json \
   plugins/orchestration/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "orchestration release version: $f" "4.1.0" "$v"
+  expect "orchestration release version: $f" "4.2.0" "$v"
 done
 for f in plugins/orchestration/skills/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "orchestration skill release version: $f" "4.1.0" "$v"
+  expect "orchestration skill release version: $f" "4.2.0" "$v"
 done
 for f in \
   plugins/code-review/.claude-plugin/plugin.json \
   plugins/code-review/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "code-review release version: $f" "1.10.0" "$v"
+  expect "code-review release version: $f" "1.11.0" "$v"
 done
 for f in plugins/code-review/skills/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "code-review skill release version: $f" "1.10.0" "$v"
+  expect "code-review skill release version: $f" "1.11.0" "$v"
 done
 for marker in \
   "Claude Code installation" \
@@ -103,7 +103,12 @@ for marker in \
   "merge stays with the user"; do
   check "README release marker: $marker" "grep -Fq '$marker' README.md"
 done
+check "CHANGELOG.md exists" "[ -f 'CHANGELOG.md' ]"
+orch_v="$(python3 -c "import json;print(json.load(open('plugins/orchestration/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)"
+changelog_head="$(grep -m1 '^## ' CHANGELOG.md 2>/dev/null)"
+expect "CHANGELOG.md first heading matches orchestration version" "## $orch_v" "$changelog_head"
 for marker in \
+  "worktree-env.mjs" \
   "codex-wave-protocol.md" \
   "codex-wave-state.mjs" \
   "orchestrator-gpt-5-6-{sol,terra,luna}.md" \
@@ -124,7 +129,9 @@ for marker in \
   "reviewer-gpt-6-luna.md" \
   "gpt-6-sol-reviewer-dossier.md" \
   "gpt-6-luna-reviewer-dossier.md" \
-  "code-review/hooks/"; do
+  "code-review/hooks/" \
+  "CHANGELOG.md" \
+  "announce.yml"; do
   check "README source/layout inventory: $marker" "grep -Fq '$marker' README.md"
 done
 

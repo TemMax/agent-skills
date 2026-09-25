@@ -3,10 +3,13 @@
 // writes anything. The rules here are load-bearing for execution: a plan
 // this script passes feeds the wave-runner without translation.
 //
-// Usage: node plan-lint.mjs <plan-file> [--repo <path>]
+// Usage: node plan-lint.mjs <plan-file> [--repo <path>] [--base <sha>]
 // Exit 0 = clean (warnings allowed), 1 = errors, 2 = usage.
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, isAbsolute, resolve, relative, sep } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { homedir } from 'node:os'
+import { TASK_HEADING_SOURCE, malformedTaskHeadings, effectivePlan } from '../../multi-model/references/worktree-env.mjs'
 
 // Claude plans name models by full ID only; aliases re-point silently when
 // a model ships (probe wf_e635018e-8f3, 2026-09-22: `opus` moved to Opus
@@ -53,8 +56,10 @@ const argv = process.argv.slice(2)
 const planFile = argv.find((a) => !a.startsWith('--'))
 const repoIdx = argv.indexOf('--repo')
 const repo = repoIdx === -1 ? null : argv[repoIdx + 1]
-if (!planFile || (repoIdx !== -1 && !repo)) {
-  console.error('usage: node plan-lint.mjs <plan-file> [--repo <path>]')
+const baseIdx = argv.indexOf('--base')
+const base = baseIdx === -1 ? null : argv[baseIdx + 1]
+if (!planFile || (repoIdx !== -1 && !repo) || (baseIdx !== -1 && (!base || !repo))) {
+  console.error('usage: node plan-lint.mjs <plan-file> [--repo <path>] [--base <sha>]')
   process.exit(2)
 }
 
@@ -105,10 +110,42 @@ const prefixesCollide = (a, b) => {
     || pa.startsWith(pb + '/') || pb.startsWith(pa + '/')
 }
 
+// Copied from wave-runner.workflow.mjs's globRe. Deliberately tiny: **
+// crosses slashes, * and ? do not; everything else is literal.
+function globRe(glob) {
+  let re = ''
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i]
+    if (ch === '*') {
+      if (glob[i + 1] === '*') { re += '.*'; i++ } else { re += '[^/]*' }
+    } else if (ch === '?') { re += '[^/]' }
+    else re += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  }
+  return new RegExp('^' + re + '$')
+}
+
 const ids = []
+// `effective`: plan with `inherits` applied (effectivePlan semantics, shared
+// with the wave-runner) — used wherever ci/e2e/approvals may fall back to a
+// parent plan the child omits them from. Stays the plan itself otherwise.
+let effective = plan
 if (plan) {
-  const premiumApproval = plan.approvals && typeof plan.approvals === 'object'
-    && !Array.isArray(plan.approvals) ? plan.approvals.premium : undefined
+  // `inherits`: a repository-relative path (or absolute) to a parent plan.
+  // With --repo, ci/e2e/approvals fall back to the parent's when the child
+  // omits them.
+  if (plan.inherits !== undefined) {
+    if (typeof plan.inherits !== 'string') {
+      err('inherits: must be a string naming the parent plan')
+    } else if (repo) {
+      try {
+        effective = effectivePlan(planFile, repo)
+      } catch (e) {
+        err('inherits: "' + plan.inherits + '" cannot be read as a plan: ' + e.message)
+      }
+    }
+  }
+  const premiumApproval = effective.approvals && typeof effective.approvals === 'object'
+    && !Array.isArray(effective.approvals) ? effective.approvals.premium : undefined
   const premiumModelsValid = !!(premiumApproval && typeof premiumApproval === 'object'
     && !Array.isArray(premiumApproval) && Array.isArray(premiumApproval.models))
   const usedPremiumModels = new Set()
@@ -249,8 +286,30 @@ if (plan) {
           })
         }
         if (Array.isArray(c.files_allowed) && Array.isArray(c.files_forbidden)) {
+          // Report only when the forbidden glob covers the allowed one: a
+          // literal (no-wildcard) allowed path that the forbidden glob
+          // matches, or a forbidden glob that covers by prefix — `**`, or
+          // exactly `<literal prefix>/**` (wildcards only at the trailing
+          // `**`, none in the middle) whose prefix sits at or above the
+          // allowed glob's prefix. A forbidden glob with wildcards before
+          // its trailing `**` (e.g. `app/**/src/**`) narrows rather than
+          // covers, and so does a forbidden glob that narrows an allowed
+          // one (a deeper prefix, or a literal file under it) — both are a
+          // legal carve-out and reported nowhere here.
           for (const a of c.files_allowed) for (const f of c.files_forbidden) {
-            if (typeof a === 'string' && typeof f === 'string' && prefixesCollide(a, f)) {
+            if (typeof a !== 'string' || typeof f !== 'string') continue
+            const aHasWildcard = /[*?]/.test(a)
+            let overlaps = false
+            if (!aHasWildcard) {
+              overlaps = globRe(f).test(a)
+            } else {
+              const fPrefix = literalPrefix(f)
+              if (f === '**' || f === fPrefix + '/**') {
+                const aPrefix = literalPrefix(a)
+                overlaps = fPrefix === '' || fPrefix === aPrefix || aPrefix.startsWith(fPrefix + '/')
+              }
+            }
+            if (overlaps) {
               err(tat + ' ("' + t.id + '"): files_allowed "' + a + '" overlaps its own files_forbidden "' + f + '"')
             }
           }
@@ -292,6 +351,74 @@ if (plan) {
   }
   const dup = [...new Set(ids.filter((x, i) => ids.indexOf(x) !== i))]
   for (const d of dup) err('ids: duplicate task id "' + d + '"')
+
+  // ---- worktree (optional): only links/writable/auto, shapes checked here;
+  // with --repo, a link that doesn't exist in the repo is a warning ----
+  if (plan.worktree !== undefined) {
+    const w = plan.worktree
+    const WORKTREE_KEYS = ['links', 'writable', 'auto']
+    if (!w || typeof w !== 'object' || Array.isArray(w)
+      || Object.keys(w).some((k) => !WORKTREE_KEYS.includes(k))) {
+      err('worktree: must be an object with only "links", "writable" and "auto"')
+    } else {
+      const isRelLink = (l) => typeof l === 'string' && l !== '' && !l.startsWith('/')
+        && !l.split(/[\\/]/).includes('..')
+      if (w.links !== undefined) {
+        if (!Array.isArray(w.links) || !w.links.every(isRelLink)) {
+          err('worktree.links: array of non-empty repository-relative strings required (no leading "/", no ".." segment)')
+        } else if (repo) {
+          for (const link of w.links) {
+            if (!existsSync(join(repo, link))) {
+              warn('worktree: link "' + link + '" does not exist in the repo')
+            }
+          }
+        }
+      }
+      if (w.writable !== undefined) {
+        const isWritablePath = (p) => typeof p === 'string' && (isAbsolute(p) || p.startsWith('~/'))
+        if (!Array.isArray(w.writable) || !w.writable.every(isWritablePath)) {
+          err('worktree.writable: array of absolute or "~/"-prefixed strings required')
+        }
+      }
+      if (w.auto !== undefined && typeof w.auto !== 'boolean') {
+        err('worktree.auto: boolean required')
+      }
+    }
+  }
+
+  // ---- depends_on (optional): a launcher gate on another repo/wave/ref/path ----
+  if (plan.depends_on !== undefined) {
+    if (!Array.isArray(plan.depends_on)) {
+      err('depends_on: array required')
+    } else {
+      const waveNumbers = (Array.isArray(plan.waves) ? plan.waves : [])
+        .filter((w) => w && typeof w === 'object').map((w) => w.wave)
+      plan.depends_on.forEach((d, di) => {
+        const dat = 'depends_on[' + di + ']'
+        if (!d || typeof d !== 'object' || Array.isArray(d)) {
+          err(dat + ': must be an object with exactly "wave", "repo", "ref" and "path"')
+          return
+        }
+        const DEPENDS_ON_KEYS = ['wave', 'repo', 'ref', 'path']
+        const keys = Object.keys(d)
+        if (keys.length !== DEPENDS_ON_KEYS.length || !DEPENDS_ON_KEYS.every((k) => keys.includes(k))) {
+          err(dat + ': must be an object with exactly "wave", "repo", "ref" and "path"')
+        }
+        if (!(Number.isInteger(d.wave) && waveNumbers.includes(d.wave))) {
+          err(dat + '.wave: must be an integer naming an existing wave')
+        }
+        if (!(d.repo === '.' || (typeof d.repo === 'string' && isAbsolute(d.repo)))) {
+          err(dat + '.repo: must be "." or an absolute path')
+        }
+        if (typeof d.ref !== 'string' || d.ref === '') {
+          err(dat + '.ref: non-empty string required')
+        }
+        if (typeof d.path !== 'string' || d.path === '' || isAbsolute(d.path)) {
+          err(dat + '.path: non-empty relative string required')
+        }
+      })
+    }
+  }
 
   // ---- review (optional): the Codex final-review child chosen at Gate 1;
   // Claude plans review in-session and must not name one ----
@@ -347,7 +474,7 @@ if (plan) {
   }
 
   // ---- ci (required): CI entrypoint commands, or an explicit opt-out ----
-  const ci = plan.ci
+  const ci = effective.ci
   if (ci === undefined) {
     err('ci: required — the exact CI entrypoint commands, or "none: <reason>"')
   } else if (typeof ci === 'string') {
@@ -366,8 +493,41 @@ if (plan) {
     err('ci: must be an object {commands, workflows} or a "none: <reason>" string')
   }
 
+  // ---- ci-gate coverage (warning): each ci.commands entry should be
+  // exercised by some task's must_run, or it isn't actually gating the
+  // change that broke it ----
+  if (ci && typeof ci === 'object' && !Array.isArray(ci) && Array.isArray(ci.commands)) {
+    const CI_GATE_RUNNERS = ['./gradlew', 'gradle', 'npm', 'pnpm', 'yarn', 'npx', 'make',
+      'cargo', 'go', 'python', 'python3', 'uv', 'bash', 'sh']
+    const gateToken = (cmd) => {
+      const tokens = cmd.trim().split(/\s+/).filter((t) => t !== '' && !t.startsWith('$') && !t.startsWith('-'))
+      if (tokens.length === 0) return null
+      if (CI_GATE_RUNNERS.includes(tokens[0])) {
+        let rest = tokens.slice(1)
+        if (rest[0] === 'run') rest = rest.slice(1)
+        return rest[0] || null
+      }
+      return tokens[0]
+    }
+    const allMustRunCmds = (Array.isArray(plan.waves) ? plan.waves : [])
+      .flatMap((w) => (w && typeof w === 'object' && Array.isArray(w.tasks) ? w.tasks : []))
+      .flatMap((t) => (t && typeof t === 'object' && t.contract && Array.isArray(t.contract.must_run)
+        ? t.contract.must_run : []))
+      .map((m) => m && typeof m.cmd === 'string' ? m.cmd : null)
+      .filter((c) => c !== null)
+    for (const cmd of ci.commands) {
+      if (typeof cmd !== 'string' || cmd.trim() === '') continue
+      const token = gateToken(cmd)
+      if (!token) continue
+      if (!allMustRunCmds.some((c) => c.includes(token))) {
+        warn('ci-gate: "' + cmd.trim() + '" — no task\'s must_run carries "' + token
+          + '"; scope that gate to each task\'s module')
+      }
+    }
+  }
+
   // ---- e2e (required): the task that runs the shipped fixtures end to end ----
-  const e2e = plan.e2e
+  const e2e = effective.e2e
   if (e2e === undefined) {
     err('e2e: required — the task that runs the shipped fixtures end to end, or "not-applicable: <reason>"')
   } else if (typeof e2e === 'string') {
@@ -401,6 +561,33 @@ if (plan) {
     err('e2e: must be {"task": "<id>"} or a "not-applicable: <reason>" string')
   }
 
+  // ---- absolute paths under $HOME (warning): a must_run command that
+  // references a path under the user's home directory and outside the
+  // checked repo — executors run in a different, sandboxed worktree ----
+  {
+    const HOME = homedir()
+    const repoAbs = repo ? resolve(repo) : null
+    const isUnderRepo = (p) => repoAbs !== null && (p === repoAbs || p.startsWith(repoAbs + sep))
+    for (const w of (Array.isArray(plan.waves) ? plan.waves : [])) {
+      for (const t of (w && typeof w === 'object' && Array.isArray(w.tasks) ? w.tasks : [])) {
+        if (!t || !t.contract || !Array.isArray(t.contract.must_run)) continue
+        for (const m of t.contract.must_run) {
+          if (!m || typeof m.cmd !== 'string' || m.cmd === '') continue
+          for (const raw of m.cmd.split(/\s+/).filter(Boolean)) {
+            const tok = raw.replace(/^['"]|['"]$/g, '')
+            let resolvedPath = null
+            if (tok === '~') resolvedPath = HOME
+            else if (tok.startsWith('~/')) resolvedPath = join(HOME, tok.slice(2))
+            else if (isAbsolute(tok) && (tok === HOME || tok.startsWith(HOME + sep))) resolvedPath = tok
+            if (resolvedPath === null || isUnderRepo(resolvedPath)) continue
+            warn('must_run: "' + m.cmd + '" references ' + tok
+              + ' outside the repository — executors run in a sandboxed worktree')
+          }
+        }
+      }
+    }
+  }
+
   // ---- parallelism: too many single-task waves signals the plan wasn't
   // cut for width, unless the author explains it under "## Parallelism" ----
   const waves = plan.waves
@@ -416,7 +603,14 @@ if (plan) {
 }
 
 // ---- prose half ↔ machine half ----
-const proseIds = [...text.matchAll(/^## Task ([a-z0-9-]+)/gm)].map((m) => m[1])
+// Shared with worktree-env.mjs (and the runner) via TASK_HEADING_SOURCE: a
+// heading that trails a title on the same line (e.g. "## Task foo — Title")
+// looked fine here but crashed the runner's init, so it must be exactly
+// "## Task <id>" with the title on the next line instead.
+const proseIds = [...text.matchAll(new RegExp(TASK_HEADING_SOURCE, 'gm'))].map((m) => m[1])
+for (const bare of malformedTaskHeadings(text)) {
+  err('prose: task heading "' + bare + '" must be exactly "## Task <id>" — put the title on the next line')
+}
 for (const id of ids) {
   if (!proseIds.includes(id)) err('prose: no "## Task ' + id + '" section for task "' + id + '"')
 }
@@ -424,20 +618,58 @@ for (const id of proseIds) {
   if (!ids.includes(id)) err('prose: section "## Task ' + id + '" has no matching task in the json block')
 }
 
+// A step's `working-directory:` can appear before or after its `run:`
+// within the same `- ` list item; every raw line inside that item gets the
+// item's working-directory (if any) recorded against it, so command lines
+// can also be matched as `cd <dir> && <line>`. Block boundaries are found
+// purely by indentation: a `- ` marker's item runs through the following
+// more-indented (or blank) lines, ending at the next line indented at or
+// past the marker's own column.
+const workingDirsByLine = (rawLines) => {
+  const byLine = new Array(rawLines.length).fill(null)
+  for (let start = 0; start < rawLines.length; start++) {
+    const marker = rawLines[start].match(/^(\s*)-\s/)
+    if (!marker) continue
+    const indent = marker[1].length
+    let end = rawLines.length - 1
+    for (let i = start + 1; i < rawLines.length; i++) {
+      if (rawLines[i].trim() === '') continue
+      const lineIndent = (rawLines[i].match(/^[ \t]*/) || [''])[0].length
+      if (lineIndent <= indent) { end = i - 1; break }
+    }
+    let wd = null
+    for (let i = start; i <= end; i++) {
+      const stripped = rawLines[i].replace(/^[ \t]+/, '').replace(/^-\s+/, '')
+      const m = stripped.match(/^working-directory:\s*(.+?)\s*$/)
+      if (m) { wd = m[1].replace(/^['"]|['"]$/g, ''); break }
+    }
+    if (wd) for (let i = start; i <= end; i++) byLine[i] = wd
+  }
+  return byLine
+}
 // Split a workflow file's text into the lines a command may be matched
 // against: normal lines have leading whitespace, an optional `- ` and an
 // optional `run:`/`run: |` prefix stripped; a `run: |` block scalar's
-// following more-indented lines are each their own raw line.
+// following more-indented lines are each their own raw line. Every actual
+// command line also gets a `cd <dir> && <line>` sibling entry when its step
+// carries a working-directory.
 const deriveWorkflowLines = (workflowText) => {
   const rawLines = workflowText.split(/\r?\n/)
+  const wdByLine = workingDirsByLine(rawLines)
   const out = []
   let blockIndent = null
-  for (const raw of rawLines) {
+  for (let idx = 0; idx < rawLines.length; idx++) {
+    const raw = rawLines[idx]
     const indent = (raw.match(/^[ \t]*/) || [''])[0].length
     const isBlank = raw.trim() === ''
     if (blockIndent !== null) {
       if (isBlank) { out.push(''); continue }
-      if (indent > blockIndent) { out.push(raw.trim()); continue }
+      if (indent > blockIndent) {
+        const line = raw.trim()
+        out.push(line)
+        if (line !== '' && wdByLine[idx]) out.push('cd ' + wdByLine[idx] + ' && ' + line)
+        continue
+      }
       blockIndent = null // dedented past the block; fall through
     }
     let stripped = raw.replace(/^[ \t]+/, '')
@@ -447,29 +679,91 @@ const deriveWorkflowLines = (workflowText) => {
       out.push('')
       continue
     }
-    out.push(stripped.replace(/^run:\s*/, '').trim())
+    const wasRun = /^run:\s*/.test(stripped) && stripped.trim() !== 'run:'
+    const line = stripped.replace(/^run:\s*/, '').trim()
+    out.push(line)
+    if (wasRun && line !== '' && wdByLine[idx]) out.push('cd ' + wdByLine[idx] + ' && ' + line)
   }
   return out
 }
 // A command matches a line when it IS the line, or occurs in it bounded on
 // the left by line start/`&&`/`;`/`|` and on the right by line end/`&&`/
 // `;`/`|`/`\` (whitespace around the boundary ignored) — never as a bare
-// substring fragment of a longer token.
+// substring fragment of a longer token. Trailing shell-variable arguments
+// ($NAME, ${NAME}, "$NAME" or "${NAME}") between the command and that right
+// boundary are also allowed, so a command still matches a workflow line that
+// forwards flags through an env var.
+const VAR_TOKEN = '(?:"\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}"|"\\$[A-Za-z_][A-Za-z0-9_]*"'
+  + '|\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}|\\$[A-Za-z_][A-Za-z0-9_]*)'
 const cmdMatchesLine = (cmd, line) => {
   const esc = cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const re = new RegExp('(?:^|&&|;|\\|)\\s*' + esc + '\\s*(?:&&|;|\\||\\\\|$)')
+  const re = new RegExp('(?:^|&&|;|\\|)\\s*' + esc + '(?:\\s+' + VAR_TOKEN + ')*\\s*(?:&&|;|\\||\\\\|$)')
   return re.test(line)
 }
 const commandInWorkflows = (cmd, workflowTexts) =>
   workflowTexts.some((t) => deriveWorkflowLines(t).some((l) => cmdMatchesLine(cmd, l)))
 
+// ---- --base <sha>: read .github/workflows from a commit instead of the
+// working tree. gitShow returns null (never throws) when the blob is
+// missing so callers treat that the same as a missing file. ----
+const gitLsTreeNames = (repoDir, sha, dirPrefix) => {
+  const r = spawnSync('git', ['-C', repoDir, 'ls-tree', '--name-only', sha, dirPrefix], { encoding: 'utf8' })
+  if (r.status !== 0) return []
+  return r.stdout.split('\n').map((l) => l.trim()).filter(Boolean)
+    .map((p) => p.startsWith(dirPrefix) ? p.slice(dirPrefix.length) : p)
+}
+const gitPathExists = (repoDir, sha, p) =>
+  spawnSync('git', ['-C', repoDir, 'cat-file', '-e', sha + ':' + p], { encoding: 'utf8' }).status === 0
+const gitPathIsFile = (repoDir, sha, p) =>
+  spawnSync('git', ['-C', repoDir, 'cat-file', '-t', sha + ':' + p], { encoding: 'utf8' }).stdout.trim() === 'blob'
+const gitShow = (repoDir, sha, p) => {
+  const r = spawnSync('git', ['-C', repoDir, 'show', sha + ':' + p], { encoding: 'utf8' })
+  return r.status === 0 ? r.stdout : null
+}
+
+// ---- CI-workflow classification: a workflow file counts as CI only when
+// its `on:` triggers include pull_request, pull_request_target or
+// merge_group. This is a plain-text check (no YAML dependency): it finds
+// the top-level `on:` key's block (from the `on:` line up to, but not
+// including, the next unindented line) and looks for the trigger name in
+// that block, which covers the scalar (`on: pull_request`), the list
+// (`on: [push, pull_request]`) and the mapping-key (`pull_request:` under
+// `on:`) shapes alike. ----
+const extractOnBlock = (text) => {
+  const lines = text.split(/\r?\n/)
+  let start = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (/^on\s*:/.test(lines[i])) { start = i; break }
+  }
+  if (start === -1) return ''
+  let end = lines.length
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^\S/.test(lines[i])) { end = i; break }
+  }
+  return lines.slice(start, end).join('\n')
+}
+const CI_TRIGGER_RE = /\b(?:pull_request_target|pull_request|merge_group)\b/
+const isCiWorkflowText = (text) => CI_TRIGGER_RE.test(extractOnBlock(text))
+
 // ---- repo-checked ci: a repo with real workflows must name real commands ----
 if (repo && plan) {
   let workflowDirEntries = []
-  try { workflowDirEntries = readdirSync(join(repo, '.github/workflows')) } catch (e) { workflowDirEntries = [] }
-  const repoHasWorkflows = workflowDirEntries.some((f) => /\.ya?ml$/i.test(f))
+  if (base) {
+    workflowDirEntries = gitLsTreeNames(repo, base, '.github/workflows/')
+  } else {
+    try { workflowDirEntries = readdirSync(join(repo, '.github/workflows')) } catch (e) { workflowDirEntries = [] }
+  }
+  const yamlWorkflowEntries = workflowDirEntries.filter((f) => /\.ya?ml$/i.test(f))
+  const workflowEntryText = (f) => {
+    if (base) return gitShow(repo, base, '.github/workflows/' + f)
+    try { return readFileSync(join(repo, '.github/workflows', f), 'utf8') } catch (e) { return null }
+  }
+  const repoHasWorkflows = yamlWorkflowEntries.some((f) => {
+    const text = workflowEntryText(f)
+    return text !== null && isCiWorkflowText(text)
+  })
   if (repoHasWorkflows) {
-    const ci = plan.ci
+    const ci = effective.ci
     if (typeof ci === 'string') {
       err('ci: the repository has CI workflows; list their commands in ci.commands')
     } else if (ci && typeof ci === 'object' && !Array.isArray(ci)) {
@@ -488,13 +782,24 @@ if (repo && plan) {
           err('ci.workflows: "' + wfPath + '" must be a .yml/.yaml file under .github/workflows')
           continue
         }
-        const full = resolve(repo, wfPath)
-        if (!existsSync(full)) {
-          err('ci.workflows: "' + wfPath + '" does not exist under ' + repo)
-        } else if (!statSync(full).isFile()) {
-          err('ci.workflows: "' + wfPath + '" is not a file')
+        if (base) {
+          if (!gitPathExists(repo, base, wfPath)) {
+            err('ci.workflows: "' + wfPath + '" does not exist under ' + repo)
+          } else if (!gitPathIsFile(repo, base, wfPath)) {
+            err('ci.workflows: "' + wfPath + '" is not a file')
+          } else {
+            const shown = gitShow(repo, base, wfPath)
+            if (shown !== null) workflowTexts.push(shown)
+          }
         } else {
-          try { workflowTexts.push(readFileSync(full, 'utf8')) } catch (e) { /* unreadable; skip */ }
+          const full = resolve(repo, wfPath)
+          if (!existsSync(full)) {
+            err('ci.workflows: "' + wfPath + '" does not exist under ' + repo)
+          } else if (!statSync(full).isFile()) {
+            err('ci.workflows: "' + wfPath + '" is not a file')
+          } else {
+            try { workflowTexts.push(readFileSync(full, 'utf8')) } catch (e) { /* unreadable; skip */ }
+          }
         }
       }
       const commands = Array.isArray(ci.commands)
@@ -512,14 +817,28 @@ if (repo && plan) {
 // ---- optional repo checks (warnings only) ----
 if (repo && plan && Array.isArray(plan.waves)) {
   const pathDirs = (process.env.PATH || '').split(':').filter(Boolean)
+  // With --base, existence is checked against that commit, not the working
+  // tree — a task's files_allowed path may exist in the working tree only
+  // because a prior wave already created it there.
+  const pathExists = (p) => base ? gitPathExists(repo, base, p) : existsSync(join(repo, p))
+  // Missing files_allowed prefixes: when the prefix's own top-level segment
+  // is also missing, that's a likely typo and gets its own warning; when
+  // the top-level segment exists (only a deeper path is missing — expected
+  // when a task creates it), fold all such prefixes into one warning below.
+  const foldedMissing = []
   for (const w of plan.waves) {
     for (const t of (Array.isArray(w.tasks) ? w.tasks : [])) {
       if (!t || !t.contract) continue
       for (const g of (t.contract.files_allowed || [])) {
         if (typeof g !== 'string') continue
         const p = literalPrefix(g)
-        if (p && !existsSync(join(repo, p))) {
-          warn('repo: files_allowed prefix "' + p + '" does not exist under ' + repo + ' (task "' + t.id + '")')
+        if (!p || pathExists(p)) continue
+        const seg = p.split('/')[0]
+        if (seg && !pathExists(seg)) {
+          warn('repo: files_allowed prefix "' + p + '" does not exist under ' + repo
+            + ' and neither does its top-level directory "' + seg + '" (task "' + t.id + '") — typo?')
+        } else {
+          foldedMissing.push({ p, id: t.id })
         }
       }
       for (const m of (t.contract.must_run || [])) {
@@ -547,6 +866,13 @@ if (repo && plan && Array.isArray(plan.waves)) {
         if (!found) warn('repo: must_run command "' + bin + '" found neither on PATH nor in the repo (task "' + t.id + '")')
       }
     }
+  }
+  if (foldedMissing.length > 0) {
+    const shown = foldedMissing.slice(0, 5).map((m) => m.p + ' (task ' + m.id + ')')
+    let msg = 'repo: ' + foldedMissing.length + ' files_allowed path(s) do not exist yet (expected when their task creates them): '
+      + shown.join(', ')
+    if (foldedMissing.length > 5) msg += ', and ' + (foldedMissing.length - 5) + ' more'
+    warn(msg)
   }
 }
 

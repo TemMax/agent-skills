@@ -35,10 +35,14 @@
 
 import { spawn, spawnSync } from 'node:child_process'
 import {
-  existsSync, mkdirSync, readFileSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync,
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  applyLinks, checkDependsOn, detectEnvironmentBlock, effectivePlan, gitCommonDir,
+  resolveWorktreeEnv, TASK_HEADING_SOURCE,
+} from './worktree-env.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const HELPER = join(here, 'codex-wave-state.mjs')
@@ -47,7 +51,7 @@ const LINT = join(here, '..', '..', 'super-plan', 'references', 'plan-lint.mjs')
 const USAGE = [
   'usage: node codex-wave-runner.mjs --plan <file> --wave <n> --repo <abs> --base <40-hex sha>',
   '         [--jobs 3] [--codex codex] [--timeout-min 45] [--out <dir>]',
-  '         [--executor-network on|off]',
+  '         [--executor-network on|off] [--preflight on|off]',
   '',
   'Runs the Codex-native wave protocol (codex-wave-protocol.md) for one',
   'wave, one state machine per task, executing tasks concurrently under a',
@@ -64,7 +68,11 @@ const USAGE = [
   '  --timeout-min <n>         per-child timeout in minutes (default 45)',
   '  --out <dir>               run directory; must not already exist',
   '                            (default <repo>/.worktrees/codex-runner/<wave>-<base12>)',
-  '  --executor-network on|off executor sandbox network access (default on)',
+  '  --executor-network on|off sandbox network access for executor and supervisor',
+  '                            children (default on)',
+  '  --preflight on|off        probe every distinct must_run command in the wave\'s',
+  '                            tasks, sandboxed at the base commit, before any',
+  '                            model child starts (default on)',
   '  --help                    print this text and exit 0',
   '',
   'Exit status: 0 merge-ready, 1 stop (including a lint failure on the plan),',
@@ -86,7 +94,7 @@ function parseArgv(argv) {
     process.exit(0)
   }
   const FLAGS = ['--plan', '--wave', '--repo', '--base', '--jobs', '--codex',
-    '--timeout-min', '--out', '--executor-network']
+    '--timeout-min', '--out', '--executor-network', '--preflight']
   const raw = {}
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]
@@ -115,6 +123,9 @@ function parseArgv(argv) {
   const executorNetwork = raw['--executor-network'] ?? 'on'
   if (!['on', 'off'].includes(executorNetwork)) usageError('--executor-network must be "on" or "off"')
 
+  const preflight = raw['--preflight'] ?? 'on'
+  if (!['on', 'off'].includes(preflight)) usageError('--preflight must be "on" or "off"')
+
   const planPath = resolve(raw['--plan'])
   const repoPath = raw['--repo']
   const base = raw['--base']
@@ -132,6 +143,7 @@ function parseArgv(argv) {
     timeoutMs: Math.round(timeoutMin * 60000),
     outPath,
     executorNetworkOn: executorNetwork === 'on',
+    preflightOn: preflight === 'on',
   }
 }
 
@@ -160,7 +172,7 @@ function removeTaskSections(text, idsToRemove) {
   const spans = headings
     .map((heading, index) => {
       const end = index + 1 < headings.length ? headings[index + 1].index : text.length
-      const taskHeading = /^## Task ([a-z0-9-]+)\s*$/.exec(heading[0])
+      const taskHeading = new RegExp(TASK_HEADING_SOURCE).exec(heading[0])
       return taskHeading ? { id: taskHeading[1], start: heading.index, end } : null
     })
     .filter((span) => span && drop.has(span.id))
@@ -370,6 +382,130 @@ function reportNestedSandboxAndExit() {
 }
 
 // ---------------------------------------------------------------------------
+// Cleanup hints: printed to stderr and carried on summary.json whenever the
+// run stops, so the human (or orchestrator) knows exactly how to tear down
+// whatever worktrees/branches init already created.
+// ---------------------------------------------------------------------------
+
+// Also removes the task's state file: cleanup plus a fresh --out is then
+// everything a re-run needs (no leftover state-conflict, no leftover
+// worktree or branch).
+function cleanupLine(repoPath, taskId, statePath) {
+  return 'git -C ' + repoPath + ' worktree remove --force '
+    + join(repoPath, '.worktrees', 'wave-' + taskId)
+    + ' && git -C ' + repoPath + ' branch -D wave/' + taskId
+    + ' && rm -f ' + statePath
+}
+
+function buildCleanup(repoPath, taskIds, statePaths) {
+  return taskIds.map((taskId) => cleanupLine(repoPath, taskId, statePaths[taskId]))
+}
+
+// ---------------------------------------------------------------------------
+// Preflight: before any model child starts, probe the checked-out base
+// commit with every distinct must_run command from the wave's tasks, in the
+// same sandbox an executor gets. A command whose output matches a known
+// machine-failure signature (detectEnvironmentBlock) means the run cannot
+// possibly succeed here, so it is caught once instead of letting every task
+// discover it independently. A plain red command with no signature is only
+// recorded, never treated as a stop, since it may be expected-red.
+// ---------------------------------------------------------------------------
+
+function tailLinesRaw(path, n) {
+  let text = ''
+  try { text = readFileSync(path, 'utf8') } catch { return [] }
+  const lines = text.split(/\r?\n/)
+  if (lines.length > 0 && lines.at(-1) === '') lines.pop()
+  return lines.slice(-n)
+}
+
+function tailLines(path, n, maxLen) {
+  return tailLinesRaw(path, n).map((line) => line.slice(0, maxLen))
+}
+
+// A child that timed out, exited non-zero, or produced an empty/unparsable
+// result may have failed because the machine — not the work — is broken.
+// Its stderr file plus the last 200 lines of its events file are checked
+// for a known signature before the caller falls back to a generic
+// transport/null-result agent failure.
+function checkEnvironmentBlock(stderrPath, eventsPath) {
+  let stderrText = ''
+  try { stderrText = readFileSync(stderrPath, 'utf8') } catch { /* none captured */ }
+  const eventsTail = tailLinesRaw(eventsPath, 200).join('\n')
+  return detectEnvironmentBlock(stderrText + '\n' + eventsTail)
+}
+
+function distinctMustRunCmds(wave) {
+  const cmds = []
+  for (const task of wave.tasks) {
+    for (const entry of task.contract.must_run) {
+      if (!cmds.includes(entry.cmd)) cmds.push(entry.cmd)
+    }
+  }
+  return cmds
+}
+
+// The exact argv every preflight command runs under: the same
+// workspace-write sandbox and writable roots an executor gets, wrapping the
+// command in `bash -c` so it runs exactly as the contract's must_run cmd
+// reads, with codex itself never invoked as a model (no prompt, no -o).
+function preflightSandboxArgs({ writableRoots, networkOn, cmd }) {
+  return [
+    'sandbox',
+    '-c', 'sandbox_mode="workspace-write"',
+    '-c', 'sandbox_workspace_write.writable_roots=' + JSON.stringify(writableRoots),
+    ...(networkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
+    '--', 'bash', '-c', cmd,
+  ]
+}
+
+// Runs every distinct must_run command against a detached worktree at the
+// base commit. The scratch worktree lives under a fresh mkdtemp directory of
+// its own, under <repo>/.worktrees/ — never under --out, since the preflight
+// now runs before --out exists at all (a stop here must leave nothing
+// behind). Always removes that worktree before returning (even when a
+// blocking signature was found), so the caller can report the stop with
+// nothing left to clean up.
+function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, networkOn, wave }) {
+  const worktreesDir = join(repoPath, '.worktrees')
+  mkdirSync(worktreesDir, { recursive: true })
+  const preflightPath = mkdtempSync(join(worktreesDir, 'codex-preflight-'))
+  const added = spawnSync('git', ['-C', repoPath, 'worktree', 'add', '--detach', preflightPath, base],
+    { encoding: 'utf8' })
+  if (added.status !== 0) {
+    throw new Error('preflight worktree checkout failed: ' + (added.stderr || added.stdout))
+  }
+  const results = []
+  let blocked = null
+  try {
+    applyLinks(repoPath, preflightPath, env.links)
+    const writableRoots = [commonDir, ...env.writable]
+    for (const cmd of distinctMustRunCmds(wave)) {
+      const args = preflightSandboxArgs({ writableRoots, networkOn, cmd })
+      const start = Date.now()
+      const run = spawnSync(codexBin, args, {
+        cwd: preflightPath, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024,
+      })
+      const seconds = (Date.now() - start) / 1000
+      const exit = run.status === null ? -1 : run.status
+      results.push({ cmd, exit, seconds })
+      if (!blocked) {
+        const detected = detectEnvironmentBlock((run.stdout || '') + '\n' + (run.stderr || ''))
+        if (detected) blocked = { cmd, id: detected.id, line: detected.line }
+      }
+    }
+  } finally {
+    const removed = spawnSync('git', ['-C', repoPath, 'worktree', 'remove', '--force', preflightPath],
+      { encoding: 'utf8' })
+    if (removed.status !== 0) {
+      process.stderr.write('codex-wave-runner: warning: failed to remove preflight worktree '
+        + preflightPath + ': ' + (removed.stderr || removed.stdout) + '\n')
+    }
+  }
+  return { blocked, results }
+}
+
+// ---------------------------------------------------------------------------
 // Main orchestration
 // ---------------------------------------------------------------------------
 
@@ -384,7 +520,8 @@ async function main() {
   }
 
   // Step 2: the plan must be lint-clean before anything is touched.
-  const lint = spawnSync(process.execPath, [LINT, config.planPath, '--repo', config.repoPath],
+  const lint = spawnSync(process.execPath,
+    [LINT, config.planPath, '--repo', config.repoPath, '--base', config.base],
     { encoding: 'utf8' })
   if (lint.status !== 0) {
     process.stdout.write(lint.stdout || '')
@@ -415,6 +552,65 @@ async function main() {
   }
   const taskIds = wave.tasks.map((task) => task.id)
   const planBasename = basename(config.planPath).replace(/\.[^.]+$/, '')
+
+  // Worktree environment (writable cache dirs, linked untracked files) and
+  // the repository's git common dir, so every sandboxed Codex child (executor
+  // and supervisor) can write caches and, for the executor, commit from a
+  // linked worktree. See the Plan Format section in super-plan/SKILL.md.
+  const planForEnv = effectivePlan(config.planPath, config.repoPath)
+  const env = resolveWorktreeEnv(config.repoPath, planForEnv)
+  const commonDir = gitCommonDir(config.repoPath)
+  if (env.missingWritable.length > 0) {
+    process.stderr.write('codex-wave-runner: missing writable dirs (skipped): '
+      + env.missingWritable.join(', ') + '\n')
+  }
+
+  // depends_on: refuse to start this wave until whatever it depends on is
+  // present, before any worktree exists. See the Plan Format section in
+  // super-plan/SKILL.md. Checked before --out is created, before verify, and
+  // before `init`: a stop here must leave nothing behind to clean up.
+  const unmetDependsOn = checkDependsOn(planForEnv, config.waveNumber, config.repoPath)
+  if (unmetDependsOn.length > 0) {
+    const summary = {
+      status: 'stop',
+      wave: config.waveNumber,
+      stopped: [{ task: '*', reason: 'depends-on-unmet' }],
+      dependsOn: unmetDependsOn,
+      cleanup: [],
+    }
+    process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
+    process.exit(1)
+  }
+
+  // Preflight: probe every distinct must_run command, sandboxed at the base
+  // commit, before any model child starts and before --out or any task
+  // worktree/state exists — a matched signature stops the whole run here,
+  // cheaply, with nothing left to clean up, instead of every task
+  // discovering the same machine problem on its own after `init` has already
+  // created its worktree, branch and state file. A red command with no
+  // matching signature is only ever recorded (it may be expected-red), which
+  // is why its result still rides along on the final summary.json below even
+  // when nothing is blocked.
+  let preflightResults = null
+  if (config.preflightOn) {
+    const { blocked, results } = runPreflight({
+      codexBin: config.codexBin, repoPath: config.repoPath, base: config.base, timeoutMs: config.timeoutMs,
+      env, commonDir, networkOn: config.executorNetworkOn, wave,
+    })
+    preflightResults = results
+    if (blocked) {
+      const summary = {
+        status: 'stop',
+        wave: config.waveNumber,
+        stopped: [{ task: '*', reason: 'environment-blocked' }],
+        preflight: { results, blocked },
+        cleanup: [],
+      }
+      process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
+      process.stderr.write(blocked.line + '\n')
+      process.exit(1)
+    }
+  }
 
   // Everything from here on is real work; create the run directory and the
   // one artifact shared by every supervisor spawn.
@@ -453,7 +649,8 @@ async function main() {
     const derivedPlanPath = deriveTaskPlan({
       originalText, plan, waveIndex, taskId, outPath: config.outPath, planBasename,
     })
-    const derivedLint = spawnSync(process.execPath, [LINT, derivedPlanPath, '--repo', config.repoPath],
+    const derivedLint = spawnSync(process.execPath,
+      [LINT, derivedPlanPath, '--repo', config.repoPath, '--base', config.base],
       { encoding: 'utf8' })
     if (derivedLint.status !== 0) {
       process.stdout.write(derivedLint.stdout || '')
@@ -485,6 +682,11 @@ async function main() {
 
   const semaphore = createSemaphore(config.jobs)
   const children = []
+  // taskId -> { source: 'executor'|'supervisor', id, line } the first time a
+  // child's failure is classified environment for that task, so the blocked
+  // line reaches the orchestrator on the final stopped[] entry (the state
+  // helper itself only ever receives {error:{kind:'environment'}}).
+  const environmentBlocks = {}
 
   async function handleExecutor(taskId, statePath, action) {
     const taskDir = join(config.outPath, taskId)
@@ -498,6 +700,8 @@ async function main() {
     const args = [
       'exec', '--ephemeral', '--skip-git-repo-check', '-C', action.worktree,
       '--sandbox', 'workspace-write',
+      '--add-dir', commonDir,
+      ...env.writable.flatMap((d) => ['--add-dir', d]),
       ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
       '--model', action.model,
       '-c', 'model_reasoning_effort=' + action.effort,
@@ -510,15 +714,24 @@ async function main() {
     children.push({
       task: taskId, role: 'executor', attempt, model: action.model, effort: action.effort,
       exit: result.exitCode, seconds: result.wallSeconds, usage: result.usage,
-      promptFile: promptPath, eventsFile: eventsPath,
+      promptFile: promptPath, eventsFile: eventsPath, stderrFile: stderrPath,
+      ...(result.timedOut ? { timedOut: true, eventsTail: tailLines(eventsPath, 10, 500) } : {}),
     })
     let payload
     if (result.timedOut || result.exitCode !== 0) {
-      payload = { error: { kind: 'transport' } }
+      const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
+      if (envBlock) environmentBlocks[taskId] = { source: 'executor', id: envBlock.id, line: envBlock.line }
+      payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'transport' } }
     } else {
       let report = ''
       try { report = readFileSync(reportPath, 'utf8') } catch { report = '' }
-      payload = report === '' ? { error: { kind: 'null-result' } } : { report }
+      if (report === '') {
+        const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
+        if (envBlock) environmentBlocks[taskId] = { source: 'executor', id: envBlock.id, line: envBlock.line }
+        payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'null-result' } }
+      } else {
+        payload = { report }
+      }
     }
     helperRecordExecutor(statePath, taskId, payload)
   }
@@ -572,10 +785,14 @@ async function main() {
       throw new Error('supervisor worktree checkout failed for task "' + taskId + '": '
         + (added.stderr || added.stdout))
     }
+    applyLinks(config.repoPath, checkoutPath, env.links)
     try {
       const args = [
         'exec', '--ephemeral', '--skip-git-repo-check', '-C', checkoutPath,
         '--sandbox', 'workspace-write',
+        '--add-dir', commonDir,
+        ...env.writable.flatMap((d) => ['--add-dir', d]),
+        ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
         '--model', action.model,
         '-c', 'model_reasoning_effort=' + action.effort,
         '--output-schema', verdictSchemaPath,
@@ -588,16 +805,21 @@ async function main() {
       children.push({
         task: taskId, role: 'supervisor', attempt, model: action.model, effort: action.effort,
         exit: result.exitCode, seconds: result.wallSeconds, usage: result.usage,
-        promptFile: promptPath, eventsFile: eventsPath,
+        promptFile: promptPath, eventsFile: eventsPath, stderrFile: stderrPath,
+        ...(result.timedOut ? { timedOut: true, eventsTail: tailLines(eventsPath, 10, 500) } : {}),
       })
       let payload
       if (result.timedOut || result.exitCode !== 0) {
-        payload = { error: { kind: 'transport' } }
+        const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
+        if (envBlock) environmentBlocks[taskId] = { source: 'supervisor', id: envBlock.id, line: envBlock.line }
+        payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'transport' } }
       } else {
         let parsed = null
         try { parsed = JSON.parse(readFileSync(reportPath, 'utf8')) } catch { parsed = null }
         if (parsed === null) {
-          payload = { error: { kind: 'null-result' } }
+          const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
+          if (envBlock) environmentBlocks[taskId] = { source: 'supervisor', id: envBlock.id, line: envBlock.line }
+          payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'null-result' } }
         } else {
           const stripped = stripNullViolationKeys(parsed)
           payload = isConsistentVerdict(stripped) ? stripped : { error: { kind: 'null-result' } }
@@ -635,12 +857,28 @@ async function main() {
   const results = await Promise.all(taskIds.map((taskId) => runTaskLoop(taskId)))
   const wallSeconds = (Date.now() - start) / 1000
 
-  const stopped = results.filter((r) => r.status === 'stop').map((r) => ({ task: r.task, reason: r.reason }))
+  const stopped = results.filter((r) => r.status === 'stop').map((r) => ({
+    task: r.task, reason: r.reason,
+    ...(environmentBlocks[r.task] ? { environment: environmentBlocks[r.task] } : {}),
+  }))
   const status = stopped.length === 0 ? 'merge-ready' : 'stop'
   const states = taskIds.map((taskId) => statePaths[taskId])
   const tasks = taskIds.map((taskId) => helperSummary(statePaths[taskId]).tasks[0])
 
-  const summary = { status, stopped, states, wave: config.waveNumber, tasks, children, wallSeconds }
+  const summary = {
+    status, stopped, states, wave: config.waveNumber, tasks, children, wallSeconds,
+    ...(preflightResults ? { preflight: { results: preflightResults } } : {}),
+    ...(status === 'stop'
+      ? { cleanup: buildCleanup(config.repoPath, stopped.map((s) => s.task), statePaths) }
+      : {}),
+  }
+  if (summary.cleanup) {
+    for (const line of summary.cleanup) process.stderr.write(line + '\n')
+    // Each cleanup line above also removes that task's state file (see
+    // cleanupLine), so once every printed line has been run, a fresh --out
+    // is all a re-run needs.
+    process.stderr.write('re-run with a fresh --out after cleanup\n')
+  }
   writeFileSync(join(config.outPath, 'summary.json'), JSON.stringify(summary, null, 2) + '\n')
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
   process.exit(status === 'merge-ready' ? 0 : 1)

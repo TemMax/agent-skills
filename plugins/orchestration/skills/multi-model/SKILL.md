@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.1.0
+  version: 4.2.0
 ---
 
 # Orchestrating Multi-Model Development
@@ -176,7 +176,12 @@ English does not mean English replies.
 7. **Review** (see the checklist below). Fixes — as one concrete list. Two misses
    in the same place — fix the task spec, don't repeat the prompt.
 8. **The final end-to-end review is the orchestrator's own.** Before it you may
-   launch an Opus verifier, but the verdict is the orchestrator's.
+   launch an Opus verifier, but the verdict is the orchestrator's. **The
+   coordinator never authors code.** This holds for defects its own review or
+   the final review finds, however small: they go to a one-task supervised
+   wave, never a coordinator edit. Measured: in the 2026-09-24/25 sessions,
+   orchestrators wrote wiring and review fixes themselves and pushed them
+   unreviewed.
 9. **Completion.** Claude: at most 3 iterations per task, then escalation. Codex
    uses the native helper's bounded attempts from shared Codex routing. Run the
    plan's `ci.commands` exactly (in addition to the offline suite) before the
@@ -186,6 +191,24 @@ English does not mean English replies.
    summary: done / verified / remaining. **Set the wave plan's `status: done`**
    in the same breath — an open plan keeps the drift hook paying for a wave that
    ended.
+
+**Scope of a bypass.** When supervised execution fails and the user approves
+"implement directly," record the scope in the plan — which waves the approval
+covers — and state that same scope in the PR body. The approval covers those
+waves only. It does not cover review fixes: a defect a review or the final
+review finds still goes to a one-task supervised wave, and critical-review's
+findings gate still applies regardless of the bypass. Set the plan's
+`status: done` with a note recording the bypass and its scope, not a
+free-text status in place of `done`.
+
+**Stop handling.** A stop is `failed`, `error`, `contract-unsatisfiable`, or
+**`environment-blocked`** — the environment itself is broken, not the
+contract or the task's work: name the failing command and its exact error
+line, fix the machine, and re-run, rather than treating a broken environment
+as a contract defect. Every stop ends with one recommended next action,
+phrased as a yes/no question for the user to approve or decline. This keeps
+the long-waits rule below: wait on a running agent or runner with long waits,
+not frequent polls.
 
 The orchestrator spends its own effort on decisions, not on reading. It does
 not read whole files or diffs into its own context — that is delegated to a
@@ -261,6 +284,13 @@ of the executor task template):
 - never open, print, copy or transmit credentials, tokens or configuration
   files that hold them (for example `~/.codex`, `~/.claude`, app configs with
   Authorization headers); if the research needs a secret, stop and report.
+- quote globs in shell commands: the shell may be zsh, where an unquoted
+  `--include=*.kt` fails with "no matches found" (measured: 31 occurrences in
+  one session);
+- a claim that a build task or target exists cites the build tool's own
+  listing;
+- a read-only agent returns its report as text and never writes files
+  (measured: a read-only agent ran `mkdir` when asked to write a report).
 
 ## Choosing Executor Effort — Quick Reference
 
@@ -393,12 +423,22 @@ reduce the documented failure modes:
    behalf." If your task needs an artifact that another task of this wave is
    producing (a file, fixture, function or behavior missing from your
    worktree), stop and report `blocked-on-sibling: <what is missing and which
-   task makes it>`; do not invent it and do not commit a placeholder.
+   task makes it>`; do not invent it and do not commit a placeholder. An
+   environment block — a broken machine, not broken work — stops and makes
+   `environment-blocked: ` followed by the verbatim error line the first line of the report:
+   permissions on a cache or `.git`, a missing SDK, a lock file, commit
+   signing that needs a prompt.
 4. **Prohibitions:** do not spawn subagents; no destructive operations
    (force-push, reset --hard, rm outside the task) without explicit permission.
    Never open, print, copy or transmit credentials, tokens or configuration
    files that hold them (for example `~/.codex`, `~/.claude`, app configs with
-   Authorization headers); if the task needs a secret, stop and report.
+   Authorization headers); if the task needs a secret, stop and report. That
+   includes untracked build configuration a worktree links —
+   `local.properties`, `.env`, `*.keystore`, `gradle.properties` under
+   `~/.gradle` — which may hold a key or token: link or reference such files
+   by path; never `cat`, `head`, `grep` or otherwise print them. Never end
+   your turn while a command you started is still running — no Monitor, no
+   ScheduleWakeup; keep polling its log until it exits.
    Phrase prohibitions without qualifiers — executors rules-lawyer around wording
    when it conflicts with "the overriding goal".
 5. **Definition of done and response format:** list of changed files, the
@@ -692,6 +732,9 @@ Opus 5 relays subagent claims unverified (p. 81).
 | Recording an unpushed local `HEAD` as the wave base | Worktrees fork from `origin/<default-branch>`, so every branch shows your local-only files as deletions and every executor gets a phantom `files` violation | Push the base commit, or record `origin/<default-branch>`; verify with `git merge-base` after the first commit |
 | Amending a contract in conversation only | The rework prompt is rebuilt from the old task object; the amendment reaches nobody | Edit the plan, re-invoke with `resumeFromRunId` |
 | A full-repo gate in a per-task contract | Wall-clock multiplied by the task count; stall watchdogs kill the wait | Scope `must_run` to the task's module; the full gate runs once per wave at merge |
+| Reading an environment block as a contract defect | An amendment or escalation is spent on a broken machine, not broken work | Stop as `environment-blocked`: name the command and its error line, fix the machine, re-run |
+| Extending an "implement directly" approval to review fixes | Fixes ship with no supervisor and no findings gate, on an approval the user never gave for them | The bypass covers only the waves recorded in the plan; review fixes still go to a one-task supervised wave and critical-review's findings gate |
+| The coordinator writing a small fix itself | Unreviewed code reaches the branch outside any wave, however small the defect | Even a one-line fix goes to a one-task supervised wave |
 
 ## References
 

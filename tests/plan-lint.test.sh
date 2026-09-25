@@ -110,7 +110,9 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "same-wave overlap exits 1" "1" "$rc"
 contains "overlap names both tasks" 'tasks "http-retry" and "docs-sync" overlap' "$out"
 
-mutate '"files_forbidden": ["src/auth/**"]' '"files_forbidden": ["src/http/impl/**"]'
+# Same literal prefix as its own files_allowed entry — still a genuine
+# overlap under the stricter carve-out rules (item 3).
+mutate '"files_forbidden": ["src/auth/**"]' '"files_forbidden": ["src/http/**"]'
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "self allowed/forbidden overlap named" "overlaps its own files_forbidden" "$out"
 
@@ -118,6 +120,99 @@ mutate "## Task docs-sync" "## Task docs-sync-two"
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "missing prose section named" 'no "## Task docs-sync" section' "$out"
 contains "orphan prose section named" '"## Task docs-sync-two" has no matching task' "$out"
+
+section "task headings must be exactly \"## Task <id>\""
+
+mutate "## Task docs-sync" "## Task docs-sync — Sync the docs"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "titled task heading exits 1" "1" "$rc"
+contains "titled task heading named" \
+  'prose: task heading "## Task docs-sync — Sync the docs" must be exactly "## Task <id>" — put the title on the next line' \
+  "$out"
+contains "titled task heading also reports the missing bare section" 'no "## Task docs-sync" section' "$out"
+
+mutate "## Task docs-sync" "## Task docs-sync	"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "trailing-tab task heading exits 0" "0" "$rc"
+contains "trailing-tab task heading is clean" "OK: 0 error(s)" "$out"
+
+mutate "## Task docs-sync" "## Task Docs-Sync"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "uppercase task heading exits 1" "1" "$rc"
+contains "uppercase task heading named" \
+  'prose: task heading "## Task Docs-Sync" must be exactly "## Task <id>" — put the title on the next line' "$out"
+
+section "carve-outs: forbidden narrowing allowed is legal"
+
+# app/AGENTS.md (no wildcard, allowed) is not matched by app/**/src/** (forbidden)
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"files_allowed": ["docs/**"]', '"files_allowed": ["app/AGENTS.md"]', 1)
+s = s.replace('"files_forbidden": []', '"files_forbidden": ["app/**/src/**"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "no-wildcard allowed not matched by forbidden glob exits 0" "0" "$rc"
+check "no-wildcard allowed not matched by forbidden glob has no self-overlap error" \
+  '! grep -qF "overlaps its own files_forbidden" <<<"$out"'
+
+# app/feed/impl/** (allowed, wildcard) carved out by the literal file
+# app/feed/impl/src/Dock.kt (forbidden)
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"files_allowed": ["docs/**"]', '"files_allowed": ["app/feed/impl/**"]', 1)
+s = s.replace('"files_forbidden": []', '"files_forbidden": ["app/feed/impl/src/Dock.kt"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "literal forbidden file narrowing wildcard allowed exits 0" "0" "$rc"
+check "literal forbidden file narrowing wildcard allowed has no self-overlap error" \
+  '! grep -qF "overlaps its own files_forbidden" <<<"$out"'
+
+# app/feed/impl/** (allowed, wildcard) is a carve-out from app/**/src/**
+# (forbidden, wildcards before its trailing **) — wildcards in the middle
+# narrow rather than cover, so this must not be flagged.
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"files_allowed": ["docs/**"]', '"files_allowed": ["app/feed/impl/**"]', 1)
+s = s.replace('"files_forbidden": []', '"files_forbidden": ["app/**/src/**"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "forbidden glob with wildcards before its trailing ** is a carve-out exits 0" "0" "$rc"
+check "forbidden glob with wildcards before its trailing ** has no self-overlap error" \
+  '! grep -qF "overlaps its own files_forbidden" <<<"$out"'
+
+# src/** with src/** stays an error
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"files_allowed": ["src/http/**"]', '"files_allowed": ["src/**"]', 1)
+s = s.replace('"files_forbidden": ["src/auth/**"]', '"files_forbidden": ["src/**"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "identical wildcard allowed/forbidden exits 1" "1" "$rc"
+contains "identical wildcard allowed/forbidden named" \
+  'files_allowed "src/**" overlaps its own files_forbidden "src/**"' "$out"
+
+# forbidden prefix is an ancestor of the allowed prefix — still a real overlap
+mutate '"files_forbidden": ["src/auth/**"]' '"files_forbidden": ["src/**"]'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ancestor forbidden prefix exits 1" "1" "$rc"
+contains "ancestor forbidden prefix named" \
+  'files_allowed "src/http/**" overlaps its own files_forbidden "src/**"' "$out"
 
 section "warnings stay non-fatal"
 
@@ -155,6 +250,62 @@ mutate '"cmd": "true"' '"cmd": "! definitely-not-a-real-binary-xyz"'
 out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"; rc=$?
 expect "negated missing command exits 0" "0" "$rc"
 contains "negated missing command warned" 'command "definitely-not-a-real-binary-xyz" found neither' "$out"
+
+section "repo: missing files_allowed prefixes — typo vs folded"
+
+# top-level segment ("src") is also missing under the repo ($W/repo has only
+# docs/) — an individual, exact-worded "typo?" warning.
+out="$(node "$LINT" "$CLEAN" --repo "$W/repo" 2>&1)"
+contains "missing prefix with missing top segment names typo" \
+  "repo: files_allowed prefix \"src/http\" does not exist under $W/repo and neither does its top-level directory \"src\" (task \"http-retry\") — typo?" \
+  "$out"
+
+# top-level segment ("src") exists, only the nested path is missing — folded
+# into one "do not exist yet" warning instead of the per-path/typo one.
+mkdir -p "$W/repo4/src" "$W/repo4/docs"
+out="$(node "$LINT" "$CLEAN" --repo "$W/repo4" 2>&1)"; rc=$?
+expect "folded missing prefix exits 0" "0" "$rc"
+contains "folded missing prefix named" \
+  'repo: 1 files_allowed path(s) do not exist yet (expected when their task creates them): src/http (task http-retry)' \
+  "$out"
+check "folded missing prefix has no typo warning" '! grep -qF "typo?" <<<"$out"'
+
+# more than 5 folded prefixes: list at most 5, then "and <K> more"
+for n in 1 2 3 4 5 6 7; do mkdir -p "$W/repo5/src$n"; done
+python3 - "$CLEAN" "$W/fold.md" <<'PY'
+import json, re, sys
+src, dst = sys.argv[1:3]
+s = open(src).read()
+m = re.search(r'```json wave-plan\n(.*?)\n```', s, re.S)
+plan = json.loads(m.group(1))
+tasks = []
+for n in range(1, 8):
+    tid = 'fold-task-%d' % n
+    tasks.append({
+        "id": tid,
+        "branch": "wave/" + tid,
+        "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+        "ladder": ["claude-opus-5-5"],
+        "contract": {
+            "files_allowed": ["src%d/nested/**" % n],
+            "files_forbidden": [],
+            "must_run": [{"cmd": "true", "evidence": "required"}],
+            "forbidden_moves": [],
+            "report_must_answer": ["What changed?"]
+        }
+    })
+plan['waves'] = [{"wave": 1, "supervisor": {"model": "claude-fable-5-1", "effort": "high"}, "tasks": tasks}]
+plan['e2e'] = {"task": "fold-task-7"}
+prose = '\n'.join('## Task %s\n\nWork.\n' % t['id'] for t in tasks)
+out = 'status: draft\nbase: pending\n\n# Plan — fold test\n\n```json wave-plan\n' \
+  + json.dumps(plan, indent=2) + '\n```\n\n' + prose
+open(dst, 'w').write(out)
+PY
+out="$(node "$LINT" "$W/fold.md" --repo "$W/repo5" 2>&1)"; rc=$?
+expect "seven folded missing prefixes exits 0" "0" "$rc"
+contains "seven folded missing prefixes lists five then a count" \
+  'repo: 7 files_allowed path(s) do not exist yet (expected when their task creates them): src1/nested (task fold-task-1), src2/nested (task fold-task-2), src3/nested (task fold-task-3), src4/nested (task fold-task-4), src5/nested (task fold-task-5), and 2 more' \
+  "$out"
 
 section "the pinned full id"
 
@@ -582,7 +733,7 @@ section "ci: repo-checked commands"
 mkdir -p "$W/ci_repo/.github/workflows"
 cat > "$W/ci_repo/.github/workflows/ci.yml" <<'YAML'
 name: CI
-on: push
+on: pull_request
 jobs:
   test:
     steps:
@@ -713,6 +864,125 @@ out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
 expect "run block command line match exits 0" "0" "$rc"
 check "run block command line match has no substring-mismatch error" \
   '! grep -qF "does not appear in any listed" <<<"$out"'
+
+section "ci: command matching — shell-variable args and working-directory"
+
+cat > "$W/ci_repo/.github/workflows/matching2.yml" <<'YAML'
+name: Matching2
+on: push
+jobs:
+  test:
+    steps:
+      - run: ./gradlew spotlessCheck $GRADLE_FLAGS
+      - run: ./gradlew spotlessCheck extraword
+      - working-directory: gateway
+        run: go test ./...
+      - run: go vet ./...
+        working-directory: services/api
+      # run: make deploy
+YAML
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["./gradlew spotlessCheck"], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "command with trailing shell-variable arg exits 0" "0" "$rc"
+check "command with trailing shell-variable arg has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["./gradlew spotlessCheck extraword2"], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "command with non-variable trailing word still exits 1" "1" "$rc"
+contains "command with non-variable trailing word still named" \
+  'ci.commands: "./gradlew spotlessCheck extraword2" does not appear in any listed ci.workflows file' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["go test ./..."], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "plain command still matches inside a working-directory step exits 0" "0" "$rc"
+check "plain command still matches inside a working-directory step has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["cd gateway && go test ./..."], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "cd-prefixed command matches working-directory-before-run step exits 0" "0" "$rc"
+check "cd-prefixed command matches working-directory-before-run step has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["cd services/api && go vet ./..."], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "cd-prefixed command matches working-directory-after-run step exits 0" "0" "$rc"
+check "cd-prefixed command matches working-directory-after-run step has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["cd services/api && go test ./..."], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "cd-prefixed command with wrong working-directory exits 1" "1" "$rc"
+contains "cd-prefixed command with wrong working-directory named" \
+  'ci.commands: "cd services/api && go test ./..." does not appear in any listed ci.workflows file' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows"' \
+       '"ci": { "commands": ["make deploy"], "workflows": [".github/workflows/matching2.yml"] }'
+out="$(node "$LINT" "$W/m.md" --repo "$W/ci_repo" 2>&1)"; rc=$?
+expect "commented-out command still exits 1" "1" "$rc"
+contains "commented-out command still named" \
+  'ci.commands: "make deploy" does not appear in any listed ci.workflows file' "$out"
+
+section "ci: workflow classification — which files count as CI"
+
+# A repo whose only workflow runs on push + workflow_dispatch is not CI:
+# "none: ..." must still be accepted, both with --repo and with --base.
+NOCI_REPO="$W/noci_repo"
+mkdir -p "$NOCI_REPO/.github/workflows"
+cat > "$NOCI_REPO/.github/workflows/release.yml" <<'YAML'
+name: Release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  release:
+    steps:
+      - run: npm publish
+YAML
+
+out="$(node "$LINT" "$CLEAN" --repo "$NOCI_REPO" 2>&1)"; rc=$?
+expect "push+workflow_dispatch-only workflow: none accepted with --repo exits 0" "0" "$rc"
+check "push+workflow_dispatch-only workflow: no 'has CI workflows' error" \
+  '! grep -qF "the repository has CI workflows" <<<"$out"'
+
+git -C "$NOCI_REPO" init -q
+git -C "$NOCI_REPO" config user.name "plan-lint test"
+git -C "$NOCI_REPO" config user.email "plan-lint-test@example.invalid"
+git -C "$NOCI_REPO" config commit.gpgsign false
+git -C "$NOCI_REPO" add -A
+git -C "$NOCI_REPO" commit -q -m noci
+NOCI_SHA="$(git -C "$NOCI_REPO" rev-parse HEAD)"
+
+out="$(node "$LINT" "$CLEAN" --repo "$NOCI_REPO" --base "$NOCI_SHA" 2>&1)"; rc=$?
+expect "push+workflow_dispatch-only workflow: none accepted with --base exits 0" "0" "$rc"
+check "push+workflow_dispatch-only workflow with --base: no 'has CI workflows' error" \
+  '! grep -qF "the repository has CI workflows" <<<"$out"'
+
+# A repo with a pull_request-triggered workflow still requires ci — cover
+# each of the three trigger shapes plan-lint must recognize.
+scalar_ci_test() {  # $1 = label, $2 = on-block YAML lines
+  local label="$1" onblock="$2" repo="$W/pr_repo_$3"
+  mkdir -p "$repo/.github/workflows"
+  printf 'name: CI\n%s\njobs:\n  test:\n    steps:\n      - run: npm test\n' "$onblock" \
+    > "$repo/.github/workflows/ci.yml"
+  out="$(node "$LINT" "$CLEAN" --repo "$repo" 2>&1)"; rc=$?
+  expect "$label: none rejected with --repo exits 1" "1" "$rc"
+  contains "$label: names the cause" "the repository has CI workflows" "$out"
+}
+
+scalar_ci_test "scalar on: pull_request" "on: pull_request" scalar
+scalar_ci_test "list on: [push, pull_request]" "on: [push, pull_request]" list
+scalar_ci_test "mapping key pull_request: under on:" \
+  "$(printf 'on:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]')" mapping
 
 section "e2e: required end-to-end task"
 
@@ -1169,5 +1439,369 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "2 of 2 single-task waves exits 0" "0" "$rc"
 check "2 of 2 single-task waves has no parallelism warning" \
   '! grep -qF "parallelism:" <<<"$out"'
+
+section "worktree: shape"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": ["local.properties"], "writable": ["~/.gradle"], "auto": true },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "well-formed worktree exits 0" "0" "$rc"
+contains "well-formed worktree is clean" "OK: 0 error(s)" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": "nope",
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree wrong shape exits 1" "1" "$rc"
+contains "worktree wrong shape named" \
+  "worktree: must be an object with only \"links\", \"writable\" and \"auto\"" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": [], "bogus": true },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree extra key exits 1" "1" "$rc"
+contains "worktree extra key named" \
+  "worktree: must be an object with only \"links\", \"writable\" and \"auto\"" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": ["/abs/path"] },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree absolute link exits 1" "1" "$rc"
+contains "worktree absolute link named" \
+  'worktree.links: array of non-empty repository-relative strings required (no leading "/", no ".." segment)' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": ["a/../b"] },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree dotdot link exits 1" "1" "$rc"
+contains "worktree dotdot link named" \
+  'worktree.links: array of non-empty repository-relative strings required (no leading "/", no ".." segment)' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": [""] },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree empty-string link exits 1" "1" "$rc"
+contains "worktree empty-string link named" \
+  'worktree.links: array of non-empty repository-relative strings required (no leading "/", no ".." segment)' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "writable": ["relative/path"] },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree relative writable exits 1" "1" "$rc"
+contains "worktree relative writable named" \
+  'worktree.writable: array of absolute or "~/"-prefixed strings required' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "auto": "yes" },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "worktree non-boolean auto exits 1" "1" "$rc"
+contains "worktree non-boolean auto named" "worktree.auto: boolean required" "$out"
+
+section "worktree: link existence warning (--repo)"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"worktree": { "links": ["local.properties"] },
+  "ci": "none: fixture repository without CI workflows",'
+mkdir -p "$W/wt_repo"
+out="$(node "$LINT" "$W/m.md" --repo "$W/wt_repo" 2>&1)"; rc=$?
+expect "missing worktree link with --repo exits 0" "0" "$rc"
+contains "missing worktree link warned" \
+  'worktree: link "local.properties" does not exist in the repo' "$out"
+
+touch "$W/wt_repo/local.properties"
+out="$(node "$LINT" "$W/m.md" --repo "$W/wt_repo" 2>&1)"; rc=$?
+expect "present worktree link with --repo exits 0" "0" "$rc"
+check "present worktree link has no missing-link warning" \
+  '! grep -qF "does not exist in the repo" <<<"$out"'
+
+section "depends_on: shape"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": ".", "ref": "origin/main", "path": "cmd/web" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "well-formed depends_on exits 0" "0" "$rc"
+contains "well-formed depends_on is clean" "OK: 0 error(s)" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": "nope",
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on not array exits 1" "1" "$rc"
+contains "depends_on not array named" "depends_on: array required" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 9, "repo": ".", "ref": "origin/main", "path": "cmd/web" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on nonexistent wave exits 1" "1" "$rc"
+contains "depends_on nonexistent wave named" \
+  "depends_on[0].wave: must be an integer naming an existing wave" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": "relative/path", "ref": "origin/main", "path": "cmd/web" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on relative repo exits 1" "1" "$rc"
+contains "depends_on relative repo named" \
+  'depends_on[0].repo: must be "." or an absolute path' "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": ".", "ref": "", "path": "cmd/web" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on empty ref exits 1" "1" "$rc"
+contains "depends_on empty ref named" "depends_on[0].ref: non-empty string required" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": ".", "ref": "origin/main", "path": "/abs/cmd" }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on absolute path exits 1" "1" "$rc"
+contains "depends_on absolute path named" \
+  "depends_on[0].path: non-empty relative string required" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"depends_on": [{ "wave": 1, "repo": ".", "ref": "origin/main", "path": "cmd/web", "extra": true }],
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "depends_on extra key exits 1" "1" "$rc"
+contains "depends_on extra key named" \
+  'depends_on[0]: must be an object with exactly "wave", "repo", "ref" and "path"' "$out"
+
+section "inherits"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"inherits": 5,
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "inherits non-string exits 1" "1" "$rc"
+contains "inherits non-string named" "inherits: must be a string naming the parent plan" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"inherits": "missing-parent.md",
+  "ci": "none: fixture repository without CI workflows",'
+mkdir -p "$W/inherit_repo"
+out="$(node "$LINT" "$W/m.md" --repo "$W/inherit_repo" 2>&1)"; rc=$?
+expect "inherits unreadable parent with --repo exits 1" "1" "$rc"
+contains "inherits unreadable parent named" \
+  'inherits: "missing-parent.md" cannot be read as a plan' "$out"
+
+cat > "$W/inherit_repo/parent.md" <<'EOF'
+status: draft
+base: pending
+
+```json wave-plan
+{ "waves": [{ "wave": 1, "supervisor": { "model": "claude-fable-5-1", "effort": "high" }, "tasks": [] }],
+  "ci": { "commands": ["true"], "workflows": [] },
+  "e2e": { "task": "http-retry" } }
+```
+EOF
+
+python3 - "$CLEAN" "$W/inherit_child.md" <<'PY'
+import sys
+src, dst = sys.argv[1:3]
+s = open(src).read()
+old = '"ci": "none: fixture repository without CI workflows",\n  "e2e": { "task": "http-retry" },'
+assert old in s, 'mutation target missing: ' + old
+s = s.replace(old, '"inherits": "parent.md",', 1)
+open(dst, 'w').write(s)
+PY
+
+out="$(node "$LINT" "$W/inherit_child.md" --repo "$W/inherit_repo" 2>&1)"; rc=$?
+expect "inherits child omitting ci/e2e with --repo exits 0" "0" "$rc"
+contains "inherits child omitting ci/e2e with --repo is clean" "OK: 0 error(s)" "$out"
+
+out="$(node "$LINT" "$W/inherit_child.md" 2>&1)"; rc=$?
+expect "inherits child omitting ci/e2e without --repo exits 1" "1" "$rc"
+contains "inherits child omitting ci without --repo named" \
+  'ci: required — the exact CI entrypoint commands, or "none: <reason>"' "$out"
+contains "inherits child omitting e2e without --repo named" \
+  'e2e: required — the task that runs the shipped fixtures end to end, or "not-applicable: <reason>"' "$out"
+
+# A recovery plan inheriting from a parent whose e2e names the PARENT's own
+# task id ("http-retry") — the recovery plan's own waves name a different
+# task, so the inherited e2e.task cannot be checked against this plan and
+# must be treated as not-applicable rather than an unknown-task-id error.
+cat > "$W/inherit_recovery_child.md" <<'EOF'
+status: draft
+base: pending
+
+```json wave-plan
+{ "waves": [{ "wave": 1,
+    "supervisor": { "model": "claude-opus-5-5" },
+    "tasks": [
+      { "id": "patch-fix",
+        "branch": "wave/patch-fix",
+        "executor": { "model": "claude-sonnet-5" },
+        "ladder": [],
+        "contract": {
+          "files_allowed": ["src/http/**"],
+          "files_forbidden": [],
+          "must_run": [{ "cmd": "true", "evidence": "required" }],
+          "forbidden_moves": [],
+          "report_must_answer": ["What was fixed?"] } }
+    ] }],
+  "inherits": "parent.md" }
+```
+
+## Task patch-fix
+
+Fix the regression.
+EOF
+out="$(node "$LINT" "$W/inherit_recovery_child.md" --repo "$W/inherit_repo" 2>&1)"; rc=$?
+expect "inherited e2e naming a task outside the recovery plan exits 0" "0" "$rc"
+contains "inherited e2e naming a task outside the recovery plan is clean" "OK: 0 error(s)" "$out"
+check "inherited e2e naming a task outside the recovery plan has no unknown-task-id error" \
+  '! grep -qF "e2e.task: must name a task id that exists in the plan" <<<"$out"'
+
+section "ci-gate: coverage warning"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"ci": { "commands": ["npm run lint"], "workflows": [] },'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci-gate uncovered command exits 0" "0" "$rc"
+contains "ci-gate uncovered command warned" \
+  "ci-gate: \"npm run lint\" — no task's must_run carries \"lint\"; scope that gate to each task's module" "$out"
+
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"ci": "none: fixture repository without CI workflows",',
+  '"ci": { "commands": ["npm run lint"], "workflows": [] },', 1)
+old = ('"cmd": "true", "evidence": "required" }],\n'
+  '          "forbidden_moves": ["weakening, deleting or skipping an existing test"]')
+assert old in s, 'mutation target missing: ' + old
+s = s.replace(old,
+  '"cmd": "npm run lint --fix", "evidence": "required" }],\n'
+  '          "forbidden_moves": ["weakening, deleting or skipping an existing test"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci-gate covered command exits 0" "0" "$rc"
+check "ci-gate covered command has no ci-gate warning" \
+  '! grep -qF "ci-gate:" <<<"$out"'
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"ci": { "commands": ["./gradlew :app:test"], "workflows": [] },'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci-gate runner-module token exits 0" "0" "$rc"
+contains "ci-gate runner-module token named" \
+  "ci-gate: \"./gradlew :app:test\" — no task's must_run carries \":app:test\"; scope that gate to each task's module" "$out"
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"ci": { "commands": ["npm run test -- --ci"], "workflows": [] },'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "ci-gate flag-stripped token exits 0" "0" "$rc"
+contains "ci-gate flag-stripped token named" \
+  "ci-gate: \"npm run test -- --ci\" — no task's must_run carries \"test\"; scope that gate to each task's module" "$out"
+
+section "must_run: absolute paths under \$HOME outside the repo"
+
+mutate '"cmd": "true"' "\"cmd\": \"cat $HOME/.ssh/config\""
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "must_run absolute home path, no --repo, exits 0" "0" "$rc"
+contains "must_run absolute home path, no --repo, warned" \
+  "must_run: \"cat $HOME/.ssh/config\" references $HOME/.ssh/config outside the repository — executors run in a sandboxed worktree" "$out"
+
+mutate '"cmd": "true"' '"cmd": "cat ~/.gradle/gradle.properties"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "must_run tilde home path exits 0" "0" "$rc"
+contains "must_run tilde home path warned" \
+  "must_run: \"cat ~/.gradle/gradle.properties\" references ~/.gradle/gradle.properties outside the repository — executors run in a sandboxed worktree" "$out"
+
+mkdir -p "$W/homepath_other_repo"
+mutate '"cmd": "true"' "\"cmd\": \"cat $HOME/.ssh/config\""
+out="$(node "$LINT" "$W/m.md" --repo "$W/homepath_other_repo" 2>&1)"; rc=$?
+expect "must_run home path outside a given --repo exits 0" "0" "$rc"
+contains "must_run home path outside a given --repo warned" \
+  "must_run: \"cat $HOME/.ssh/config\" references $HOME/.ssh/config outside the repository — executors run in a sandboxed worktree" "$out"
+
+TEST_HOME="$(mktemp -d)"
+HOME_REPO="$TEST_HOME/.plan-lint-test-repo-$$"
+mkdir -p "$HOME_REPO"
+mutate '"cmd": "true"' "\"cmd\": \"cat $HOME_REPO/local.properties\""
+out="$(HOME="$TEST_HOME" node "$LINT" "$W/m.md" --repo "$HOME_REPO" 2>&1)"; rc=$?
+expect "must_run home path inside --repo exits 0" "0" "$rc"
+check "must_run home path inside --repo has no outside-repo warning" \
+  '! grep -qF "outside the repository" <<<"$out"'
+rm -rf "$TEST_HOME"
+
+section "--base <sha>: reads .github/workflows from the commit"
+
+BASE_REPO="$W/base_repo"
+mkdir -p "$BASE_REPO/.github/workflows"
+git -C "$BASE_REPO" init -q
+git -C "$BASE_REPO" config user.name "plan-lint test"
+git -C "$BASE_REPO" config user.email "plan-lint-test@example.invalid"
+git -C "$BASE_REPO" config commit.gpgsign false
+cat > "$BASE_REPO/.github/workflows/ci.yml" <<'YAML'
+name: CI
+on: pull_request
+jobs:
+  test:
+    steps:
+      - run: npm test
+YAML
+git -C "$BASE_REPO" add -A
+git -C "$BASE_REPO" commit -q -m base
+BASE_SHA="$(git -C "$BASE_REPO" rev-parse HEAD)"
+
+# Working tree now diverges from what was committed.
+cat > "$BASE_REPO/.github/workflows/ci.yml" <<'YAML'
+name: CI
+on: pull_request
+jobs:
+  test:
+    steps:
+      - run: npm run something-else
+YAML
+
+mutate '"ci": "none: fixture repository without CI workflows",' \
+       '"ci": { "commands": ["npm test"], "workflows": [".github/workflows/ci.yml"] },'
+
+out="$(node "$LINT" "$W/m.md" --repo "$BASE_REPO" 2>&1)"; rc=$?
+expect "without --base, diverged working tree exits 1" "1" "$rc"
+contains "without --base names the mismatch" \
+  'ci.commands: "npm test" does not appear in any listed ci.workflows file' "$out"
+
+out="$(node "$LINT" "$W/m.md" --repo "$BASE_REPO" --base "$BASE_SHA" 2>&1)"; rc=$?
+expect "with --base, committed workflow still matches exits 0" "0" "$rc"
+check "with --base has no substring-mismatch error" \
+  '! grep -qF "does not appear in any listed" <<<"$out"'
+
+node "$LINT" "$CLEAN" --base "$BASE_SHA" >/dev/null 2>&1
+expect "--base without --repo exits 2" "2" "$?"
+
+section "--base <sha>: files_allowed existence check"
+
+BASE_REPO2="$W/base_repo2"
+mkdir -p "$BASE_REPO2/src/http" "$BASE_REPO2/docs"
+git -C "$BASE_REPO2" init -q
+git -C "$BASE_REPO2" config user.name "plan-lint test"
+git -C "$BASE_REPO2" config user.email "plan-lint-test@example.invalid"
+git -C "$BASE_REPO2" config commit.gpgsign false
+touch "$BASE_REPO2/src/http/keep.txt" "$BASE_REPO2/docs/keep.txt"
+git -C "$BASE_REPO2" add -A
+git -C "$BASE_REPO2" commit -q -m "add src/http and docs"
+BASE_SHA2="$(git -C "$BASE_REPO2" rev-parse HEAD)"
+rm -rf "$BASE_REPO2/src"
+
+out="$(node "$LINT" "$CLEAN" --repo "$BASE_REPO2" 2>&1)"
+contains "without --base, working tree missing src/http warns typo" \
+  "files_allowed prefix \"src/http\" does not exist under $BASE_REPO2" "$out"
+
+out="$(node "$LINT" "$CLEAN" --repo "$BASE_REPO2" --base "$BASE_SHA2" 2>&1)"
+check "with --base, src/http existing at the commit has no typo warning" \
+  '! grep -qF "files_allowed prefix \"src/http\" does not exist" <<<"$out"'
 
 summary

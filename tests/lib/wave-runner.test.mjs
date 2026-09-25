@@ -720,6 +720,203 @@ test('L2 the verifier prompt records the exit status of the whole command line',
   assert.ok(!p.includes("Record each command's exit code"), 'old ambiguous sentence is gone')
 })
 
+// ---------- E: environment-blocked stop points and worktree.links ----------
+
+test('E1 (a) an executor report with an environment-blocked line stops at once: ' +
+  'no verify call, no judge call', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: (prompt, opts) => {
+      if ((opts.label ?? '').startsWith('exec:')) {
+        return 'environment-blocked: Operation not permitted\nran the build\n'
+      }
+      throw new Error('no verifier or judge call is expected for an executor-reported block')
+    },
+  })
+  assert.equal(result.tasks[0].status, 'environment-blocked')
+  assert.equal(result.status, 'partial')
+  assert.equal(execCalls(calls, 't-one').length, 1)
+  assert.equal(verifyCalls(calls, 't-one').length, 0)
+  assert.equal(supCalls(calls, 't-one').length, 0)
+  assert.deepEqual(result.tasks[0].attempts.map((a) => a.kind), ['environment'])
+  assert.deepEqual(result.tasks[0].environment, { source: 'executor', line: 'Operation not permitted' })
+  assert.equal(result.tasks[0].attempts[0].line, 'Operation not permitted')
+})
+
+test('E2 (b) verifier facts.environmentBlocked stops at once: no judge call', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: (prompt, opts) => {
+      if ((opts.label ?? '').startsWith('exec:')) return 'report for t-one\n$ true\n(exit 0)'
+      if ((opts.label ?? '').startsWith('verify:')) {
+        return { ...FACTS_GREEN(), environmentBlocked: 'SDK location not found. Define a valid SDK location.' }
+      }
+      throw new Error('no judge call is expected for a verifier-reported block')
+    },
+  })
+  assert.equal(result.tasks[0].status, 'environment-blocked')
+  assert.equal(result.status, 'partial')
+  assert.equal(execCalls(calls, 't-one').length, 1)
+  assert.equal(verifyCalls(calls, 't-one').length, 1)
+  assert.equal(supCalls(calls, 't-one').length, 0)
+  assert.deepEqual(result.tasks[0].attempts.map((a) => a.kind), ['environment'])
+  assert.deepEqual(result.tasks[0].environment,
+    { source: 'verifier', line: 'SDK location not found. Define a valid SDK location.' })
+})
+
+test('E2b (b) verifier facts.environmentBlocked also names the failed must_run cmd, ' +
+  'when the verifier itself saw one fail', async () => {
+  const { result } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: (prompt, opts) => {
+      if ((opts.label ?? '').startsWith('exec:')) return 'report for t-one\n$ true\n(exit 0)'
+      if ((opts.label ?? '').startsWith('verify:')) {
+        return { ...FACTS_GREEN(),
+          mustRun: [{ cmd: 'true', exit: 128, output: 'unable to create directory', pasteFoundInReport: true }],
+          environmentBlocked: 'unable to create directory' }
+      }
+      throw new Error('no judge call is expected for a verifier-reported block')
+    },
+  })
+  assert.equal(result.tasks[0].status, 'environment-blocked')
+  assert.deepEqual(result.tasks[0].environment,
+    { source: 'verifier', line: 'unable to create directory', cmd: 'true' })
+})
+
+test('E3 (c) a judge verdict with a violation classed "environment" stops the task, ' +
+  'even ahead of a satisfiable:false violation in the same verdict', async () => {
+  const envVerdict = { ok: false, violations: [
+    { rule: 'must_run: true', class: 'environment', evidence: 'Operation not permitted', quote: '' },
+    { rule: 'must_run: true', class: 'must_run', evidence: 'other', quote: '', satisfiable: false },
+  ], remarks: [] }
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [envVerdict] }),
+  })
+  assert.equal(result.tasks[0].status, 'environment-blocked')
+  assert.equal(supCalls(calls, 't-one').length, 1)
+  assert.equal(verdictAttempts(result.tasks[0]).length, 1)
+  assert.deepEqual(result.tasks[0].environment,
+    { source: 'supervisor', line: 'Operation not permitted', cmd: 'true' })
+})
+
+test('E4 worktree.links renders "ln -s" lines in the executor and verifier prompts, ' +
+  'and they are absent when no links are given', async () => {
+  const withLinks = waveArgs({ worktree: { links: ['local.properties', 'config/.env'] } })
+  const { calls: withCalls } = await runWorkflow(SCRIPT, {
+    args: withLinks,
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  const execPrompt = execCalls(withCalls, 't-one')[0].prompt
+  const verifyPrompt = verifyCalls(withCalls, 't-one')[0].prompt
+  for (const p of [execPrompt, verifyPrompt]) {
+    assert.ok(p.includes('ln -s /tmp/simrepo/local.properties'), 'links local.properties')
+    assert.ok(p.includes('ln -s /tmp/simrepo/config/.env'), 'links config/.env')
+    assert.ok(p.includes('skip if it exists; never open, print or copy it'), 'names the skip/never rule')
+  }
+
+  const { calls: withoutCalls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  const execPromptNoLinks = execCalls(withoutCalls, 't-one')[0].prompt
+  const verifyPromptNoLinks = verifyCalls(withoutCalls, 't-one')[0].prompt
+  assert.ok(!execPromptNoLinks.includes('ln -s'), 'no ln -s in executor prompt without links')
+  assert.ok(!verifyPromptNoLinks.includes('ln -s'), 'no ln -s in verifier prompt without links')
+})
+
+test('E5 worktree.links renders a WORKTREE LINKS block in the supervisor prompt', async () => {
+  const withLinks = waveArgs({ worktree: { links: ['local.properties'] } })
+  const { calls } = await runWorkflow(SCRIPT, {
+    args: withLinks,
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  const sup = supCalls(calls, 't-one')[0].prompt
+  assert.match(sup, /WORKTREE LINKS \(symlink into your own checkout; never open, print or copy\):/)
+  assert.ok(sup.includes('- local.properties'))
+})
+
+test('E6 an invalid worktree link ("../x") fails closed, zero agent calls', async () => {
+  const bad = waveArgs({ worktree: { links: ['../x'] } })
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: bad,
+    agentStub: () => { throw new Error('no agent may be called') },
+  })
+  assert.equal(result.status, 'invalid-args')
+  assert.match(result.errors.join('; '), /worktree\.links\[0\]/)
+  assert.equal(calls.length, 0)
+})
+
+test('E8 a report with a real (non-placeholder) marker starting a non-first line ' +
+  'proceeds to the verifier and judge instead of stopping', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: (prompt, opts) => {
+      if ((opts.label ?? '').startsWith('exec:')) {
+        return 'report for t-one\nenvironment-blocked: Operation not permitted\n$ true\n(exit 0)'
+      }
+      if ((opts.label ?? '').startsWith('verify:')) return FACTS_GREEN()
+      if (prompt.startsWith(SUP)) return V.ok()
+      throw new Error('unexpected call')
+    },
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.equal(execCalls(calls, 't-one').length, 1)
+  assert.equal(verifyCalls(calls, 't-one').length, 1)
+  assert.equal(supCalls(calls, 't-one').length, 1)
+})
+
+test('E9 a report whose first line is a placeholder marker ' +
+  '(`environment-blocked: <verbatim error line>`) proceeds to the verifier and judge', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: (prompt, opts) => {
+      if ((opts.label ?? '').startsWith('exec:')) {
+        return '`environment-blocked: <verbatim error line>`\nreport for t-one\n$ true\n(exit 0)'
+      }
+      if ((opts.label ?? '').startsWith('verify:')) return FACTS_GREEN()
+      if (prompt.startsWith(SUP)) return V.ok()
+      throw new Error('unexpected call')
+    },
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.equal(execCalls(calls, 't-one').length, 1)
+  assert.equal(verifyCalls(calls, 't-one').length, 1)
+  assert.equal(supCalls(calls, 't-one').length, 1)
+})
+
+test('E7 the Secrets and Long-command sentences appear in the executor and verifier prompts', async () => {
+  const { calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  const execPrompt = execCalls(calls, 't-one')[0].prompt
+  const verifyPrompt = verifyCalls(calls, 't-one')[0].prompt
+  const secrets = 'never `cat`, `head`, `grep` or otherwise print them.'
+  const longCmd = 'no Monitor, no ScheduleWakeup; keep polling its log until it exits.'
+  assert.ok(execPrompt.includes(secrets), 'executor prompt has the Secrets sentence')
+  assert.ok(execPrompt.includes(longCmd), 'executor prompt has the Long-command sentence')
+  assert.ok(verifyPrompt.includes(secrets), 'verifier prompt has the Secrets sentence')
+  assert.ok(verifyPrompt.includes(longCmd), 'verifier prompt has the Long-command sentence')
+})
+
+test('E10 the verifier prompt\'s environment-signature list names the git-object-write and ' +
+  'commit-signing strings, matching worktree-env.mjs ENVIRONMENT_SIGNATURES', async () => {
+  const { calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }),
+  })
+  const verifyPrompt = verifyCalls(calls, 't-one')[0].prompt
+  for (const needle of [
+    'unable to create directory',
+    'insufficient permission for adding an object',
+    'failed to write commit object',
+    'gpg failed to sign the data',
+  ]) {
+    assert.ok(verifyPrompt.includes(needle), 'verifier prompt names: ' + needle)
+  }
+})
+
 let failed = 0
 for (const t of tests) {
   try { await t.fn(); console.log('ok -', t.name) }
