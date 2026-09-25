@@ -6,6 +6,24 @@ orchestration version; a code-review bump is stated inside it.
 
 ## 4.2.0
 
+### Highlights
+
+**multi-model**
+- Stops on a broken environment, not on the task
+- Codex workers can build and commit in the sandbox
+- Model-free preflight before any agent starts
+
+**super-plan**
+- Every CI gate goes into each task's checks
+- plan-lint: fewer false errors, less noise
+
+**ship**
+- Each stop ends with one recommended next step
+- Preflight runs in a fresh worktree
+
+**critical-review**
+- Fix waves start from the pushed PR head
+
 Non-breaking. A read-through of four 2026-09-24/25 session transcripts
 (Android/KMP, a four-repository Go/Rust/Python feature, docs + Android
 attachments) found the failures were mostly environmental: waves could not

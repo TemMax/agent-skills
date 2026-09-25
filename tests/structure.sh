@@ -135,6 +135,135 @@ for marker in \
   check "README source/layout inventory: $marker" "grep -Fq '$marker' README.md"
 done
 
+section "CHANGELOG.md Highlights block"
+highlights_out="$(python3 - <<'PY'
+import re, os, glob
+
+path = "CHANGELOG.md"
+lines = open(path, encoding="utf-8").read().split("\n")
+
+results = []
+def ok(name): results.append(("PASS", name, ""))
+def bad(name, detail=""): results.append(("FAIL", name, detail))
+
+group_re = re.compile(r'^\*\*[a-z0-9-]+\*\*$')
+bullet_re = re.compile(r'^- ')
+heading_re = re.compile(r'^(### |## )')
+
+heading_idx = None
+for i, l in enumerate(lines):
+    if l.startswith("## "):
+        heading_idx = i
+        break
+
+if heading_idx is None:
+    bad("topmost release heading found", "no '## ' heading in CHANGELOG.md")
+else:
+    section_end = len(lines)
+    for i in range(heading_idx + 1, len(lines)):
+        if lines[i].startswith("## "):
+            section_end = i
+            break
+    section_body = lines[heading_idx + 1:section_end]
+
+    first_nonblank = None
+    first_nonblank_idx = None
+    for j, l in enumerate(section_body):
+        if l.strip() != "":
+            first_nonblank = l
+            first_nonblank_idx = j
+            break
+
+    if first_nonblank != "### Highlights":
+        bad("first line after release heading is '### Highlights'", f"got: {first_nonblank!r}")
+    else:
+        ok("first line after release heading is '### Highlights'")
+
+        def next_nonblank(seq, start, limit):
+            j = start
+            while j < limit and seq[j].strip() == "":
+                j += 1
+            return j
+
+        block_scan_limit = len(section_body)
+        i = first_nonblank_idx + 1
+        groups = []
+        current = None
+        bad_lines = []
+
+        while i < block_scan_limit:
+            line = section_body[i]
+            if line.strip() == "":
+                j = next_nonblank(section_body, i, block_scan_limit)
+                if j >= block_scan_limit:
+                    break
+                nxt = section_body[j]
+                if heading_re.match(nxt):
+                    break
+                # Still "in the block" if the next content line at least
+                # attempts to look like a group or a bullet; genuine prose
+                # (neither) ends the block.
+                if not (nxt.lstrip().startswith("**") or bullet_re.match(nxt)):
+                    break
+                i += 1
+                continue
+            if heading_re.match(line):
+                break
+            if group_re.match(line):
+                current = {"name": line.strip("*"), "bullets": []}
+                groups.append(current)
+                i += 1
+                continue
+            if bullet_re.match(line):
+                if current is not None:
+                    current["bullets"].append(line)
+                else:
+                    bad_lines.append(line)
+                i += 1
+                continue
+            bad_lines.append(line)
+            i += 1
+
+        if not bad_lines:
+            ok("Highlights block contains only blank, group, and bullet lines")
+        else:
+            bad("Highlights block contains only blank, group, and bullet lines",
+                f"unexpected line(s): {bad_lines}")
+
+        skill_dirs = {os.path.basename(d) for d in glob.glob("plugins/*/skills/*") if os.path.isdir(d)}
+
+        for g in groups:
+            name = g["name"]
+            if name in skill_dirs:
+                ok(f"Highlights group is an existing skill: {name}")
+            else:
+                bad(f"Highlights group is an existing skill: {name}", f"no plugins/*/skills/{name}")
+
+            n = len(g["bullets"])
+            if 1 <= n <= 3:
+                ok(f"Highlights group has 1-3 bullets: {name}")
+            else:
+                bad(f"Highlights group has 1-3 bullets: {name}", f"got {n} bullets")
+
+            for b in g["bullets"]:
+                if len(b) <= 70:
+                    ok(f"Highlights bullet <=70 chars: {b[:40]}")
+                else:
+                    bad(f"Highlights bullet <=70 chars: {b[:40]}", f"len={len(b)}")
+
+for r in results:
+    print("\t".join(r))
+PY
+)"
+while IFS=$'\t' read -r result name detail; do
+  [ -n "$result" ] || continue
+  if [ "$result" = PASS ]; then
+    pass "$name"
+  else
+    fail "$name" "$detail"
+  fi
+done <<< "$highlights_out"
+
 section "Executables are executable"
 for f in plugins/*/hooks/*; do
   case "$f" in *.json) continue;; esac
