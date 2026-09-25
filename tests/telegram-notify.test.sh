@@ -45,7 +45,10 @@ cat > "$REPO/CHANGELOG.md" <<'MD'
 
 ## 1.0.0
 
-Initial release.
+### Highlights
+
+**core**
+- Initial release
 MD
 git -C "$REPO" add CHANGELOG.md
 git -C "$REPO" commit -q -m "1.0.0"
@@ -57,6 +60,11 @@ cat > "$REPO/CHANGELOG.md" <<'MD'
 
 ## 1.1.0
 
+### Highlights
+
+**telegram**
+- Rich messages support GitHub-flavoured Markdown
+
 ### Features
 
 - add `code` & <tags>
@@ -64,7 +72,10 @@ cat > "$REPO/CHANGELOG.md" <<'MD'
 
 ## 1.0.0
 
-Initial release.
+### Highlights
+
+**core**
+- Initial release
 MD
 git -C "$REPO" add CHANGELOG.md
 git -C "$REPO" commit -q -m "1.1.0"
@@ -76,13 +87,24 @@ cat > "$REPO/CHANGELOG.md" <<'MD'
 
 ## 1.2.0
 
-Second minor release.
+### Highlights
+
+**announce**
+- Button label is now "Full changelog"
 
 ## 1.1.1
 
-Patch release.
+### Highlights
+
+**telegram**
+- Long notes are trimmed to fit Telegram's limit
 
 ## 1.1.0
+
+### Highlights
+
+**telegram**
+- Rich messages support GitHub-flavoured Markdown
 
 ### Features
 
@@ -91,7 +113,10 @@ Patch release.
 
 ## 1.0.0
 
-Initial release.
+### Highlights
+
+**core**
+- Initial release
 MD
 git -C "$REPO" add CHANGELOG.md
 git -C "$REPO" commit -q -m "1.2.0 and 1.1.1"
@@ -107,9 +132,10 @@ git -C "$REPO" show "${C}:CHANGELOG.md" > "$C_CHANGELOG"
 echo "== changelog-section.sh =="
 
 section_110="$("$REPO_ROOT/scripts/changelog-section.sh" 1.1.0 "$C_CHANGELOG")"
-expected_110="$(printf '%s\n%s\n%s\n%s' \
+expected_110="$(printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s' \
+  '### Highlights' '' '**telegram**' '- Rich messages support GitHub-flavoured Markdown' '' \
   '### Features' '' '- add `code` & <tags>' '- **bold** and a [link](https://example.com/a)')"
-eq "$section_110" "$expected_110" "1.1.0 section body is trimmed"
+eq "$section_110" "$expected_110" "1.1.0 section body is trimmed (now includes the Highlights block)"
 
 if err="$("$REPO_ROOT/scripts/changelog-section.sh" 9.9.9 "$C_CHANGELOG" 2>&1)"; then
     fail "changelog-section.sh 9.9.9 unexpectedly succeeded: $err"
@@ -120,7 +146,88 @@ else
 fi
 
 section_100="$("$REPO_ROOT/scripts/changelog-section.sh" 1.0.0 "$C_CHANGELOG")"
-eq "$section_100" "Initial release." "last section (running to EOF) is handled"
+expected_100="$(printf '%s\n%s\n%s\n%s' '### Highlights' '' '**core**' '- Initial release')"
+eq "$section_100" "$expected_100" "last section (running to EOF) is handled (now the Highlights block)"
+
+# ---------------------------------------------------------------------------
+# changelog-highlights.sh
+# ---------------------------------------------------------------------------
+echo "== changelog-highlights.sh =="
+
+highlights_110="$("$REPO_ROOT/scripts/changelog-highlights.sh" 1.1.0 "$C_CHANGELOG")"
+expected_highlights_110="$(printf '%s\n%s\n%s' \
+  '**telegram**' '- Rich messages support GitHub-flavoured Markdown')"
+eq "$highlights_110" "$expected_highlights_110" \
+  "1.1.0 Highlights block is trimmed and stops before ### Features"
+reject "$highlights_110" "### Features"
+reject "$highlights_110" "add \`code\`"
+
+highlights_100="$("$REPO_ROOT/scripts/changelog-highlights.sh" 1.0.0 "$C_CHANGELOG")"
+eq "$highlights_100" "$(printf '%s\n%s' '**core**' '- Initial release')" \
+  "1.0.0 Highlights block (last section, running to EOF)"
+
+# Prose right after the bullets, with no heading following it, ends the block there --
+# it does not run to EOF.
+prose_after_changelog="$(mktemp)"
+tmpfiles+=("$prose_after_changelog")
+cat > "$prose_after_changelog" <<'MD'
+# Changelog
+
+## 9.0.0
+
+### Highlights
+
+**core**
+- Initial release
+
+A closing paragraph of prose with no heading after it, running to EOF.
+MD
+highlights_prose_after="$("$REPO_ROOT/scripts/changelog-highlights.sh" 9.0.0 "$prose_after_changelog")"
+eq "$highlights_prose_after" "$(printf '%s\n%s' '**core**' '- Initial release')" \
+  "prose right after the bullets (no trailing heading) ends the block there"
+reject "$highlights_prose_after" "closing paragraph"
+
+# Prose between two groups ends the block at that point -- the second group is dropped.
+prose_between_changelog="$(mktemp)"
+tmpfiles+=("$prose_between_changelog")
+cat > "$prose_between_changelog" <<'MD'
+# Changelog
+
+## 9.1.0
+
+### Highlights
+
+**core**
+- Initial release
+
+A stray paragraph of prose between two groups.
+
+**telegram**
+- Should not appear
+MD
+highlights_prose_between="$("$REPO_ROOT/scripts/changelog-highlights.sh" 9.1.0 "$prose_between_changelog")"
+eq "$highlights_prose_between" "$(printf '%s\n%s' '**core**' '- Initial release')" \
+  "prose between two groups ends the block there"
+reject "$highlights_prose_between" "stray paragraph"
+reject "$highlights_prose_between" "telegram"
+reject "$highlights_prose_between" "Should not appear"
+
+no_highlights_changelog="$(mktemp)"
+tmpfiles+=("$no_highlights_changelog")
+cat > "$no_highlights_changelog" <<'MD'
+# Changelog
+
+## 9.9.9
+
+No highlights block in this section at all.
+MD
+if err="$("$REPO_ROOT/scripts/changelog-highlights.sh" 9.9.9 "$no_highlights_changelog" 2>&1)"; then
+    fail "changelog-highlights.sh 9.9.9 unexpectedly succeeded: $err"
+else
+    st=$?
+    eq "$st" "1" "missing Highlights block exits 1"
+    expect "$err" 'changelog-highlights: no "### Highlights" in "## 9.9.9"'
+fi
 
 # ---------------------------------------------------------------------------
 # changelog-new-versions.sh
@@ -166,7 +273,7 @@ expect "$rich" "# agent-skills 1.1.0"
 expect "$rich" "### Features"
 expect "$rich" "- add \`code\` &amp; &lt;tags&gt;"
 expect "$rich" "- **bold** and a [link](https://example.com/a)"
-expect "$rich" '<tg-button type="url" style="success" url="https://github.com/TemMax/agent-skills/blob/main/CHANGELOG.md#110">Changelog</tg-button>'
+expect "$rich" '<tg-button type="url" style="success" url="https://github.com/TemMax/agent-skills/blob/main/CHANGELOG.md#110">Full changelog</tg-button>'
 expect "$rich" '<tg-button type="url" url="https://github.com/TemMax/agent-skills">Repository</tg-button>'
 reject "$rich" "<tags>"
 
@@ -179,7 +286,7 @@ expect "$message" "<b>agent-skills 1.1.0 released</b>"
 expect "$message" "<b>Features</b>"
 expect "$message" "• add <code>code</code> &amp; &lt;tags&gt;"
 expect "$message" '• <b>bold</b> and a <a href="https://example.com/a">link</a>'
-expect "$message" "https://github.com/TemMax/agent-skills/blob/main/CHANGELOG.md#110"
+expect "$message" '<a href="https://github.com/TemMax/agent-skills/blob/main/CHANGELOG.md#110">Full changelog</a>'
 expect "$message" "https://github.com/TemMax/agent-skills"
 reject "$message" "##"
 reject "$message" "<h2>"
@@ -194,6 +301,18 @@ expect "$rich_procsub" "- add \`code\` &amp; &lt;tags&gt;"
 message_procsub="$(scripts/telegram-notify.sh --dry-run-fallback 1.1.0 <(cat "$notes"))"
 expect "$message_procsub" "<b>Features</b>"
 expect "$message_procsub" "• add <code>code</code> &amp; &lt;tags&gt;"
+
+# A paragraph hard-wrapped over two lines, with a code span split across the wrap point, is
+# unwrapped into one logical line before either form is built: the code span survives intact.
+wrapped_notes="$(mktemp)"
+tmpfiles+=("$wrapped_notes")
+printf 'foo `a\n<b>` bar\n' > "$wrapped_notes"
+
+wrapped_rich="$(scripts/telegram-notify.sh --dry-run 1.0.0 "$wrapped_notes")"
+expect "$wrapped_rich" 'foo `a <b>` bar'
+
+wrapped_message="$(scripts/telegram-notify.sh --dry-run-fallback 1.0.0 "$wrapped_notes")"
+expect "$wrapped_message" 'foo <code>a &lt;b&gt;</code> bar'
 
 echo "-- rich dry-run for 1.1.0 --"
 printf '%s\n' "$rich"
@@ -266,6 +385,30 @@ cd "$REPO"
 announce_out="$("$REPO_ROOT/scripts/announce-changelog.sh" --dry-run "$A" "$B")"
 cd "$REPO_ROOT"
 expect "$announce_out" "# agent-skills 1.1.0"
+# Only the Highlights block is posted, not the rest of the section.
+expect "$announce_out" "**telegram**"
+expect "$announce_out" "Rich messages support GitHub-flavoured Markdown"
+reject "$announce_out" "### Features"
+reject "$announce_out" "add \`code\`"
+
+# A version whose section has no Highlights block is not sent, and the release is failed.
+cd "$REPO"
+cat > CHANGELOG.md <<'MD'
+# Changelog
+
+## 9.9.9
+
+No highlights block in this section at all.
+MD
+set +e
+missing_out="$("$REPO_ROOT/scripts/announce-changelog.sh" --dry-run --version 9.9.9 2>&1)"
+missing_status=$?
+set -e
+cd "$REPO_ROOT"
+eq "$missing_status" "1" "announce-changelog.sh --version exits 1 when Highlights is missing"
+expect "$missing_out" 'changelog-highlights: no "### Highlights" in "## 9.9.9"'
+reject "$missing_out" "# agent-skills 9.9.9"
+git -C "$REPO" checkout -q -- CHANGELOG.md
 
 printf '\n%s passed, %s failed\n' "$PASSED" "$FAILED"
 [ "$FAILED" -eq 0 ]
