@@ -105,6 +105,20 @@ const prefixesCollide = (a, b) => {
     || pa.startsWith(pb + '/') || pb.startsWith(pa + '/')
 }
 
+// Copied from wave-runner.workflow.mjs's globRe. Deliberately tiny: **
+// crosses slashes, * and ? do not; everything else is literal.
+function globRe(glob) {
+  let re = ''
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i]
+    if (ch === '*') {
+      if (glob[i + 1] === '*') { re += '.*'; i++ } else { re += '[^/]*' }
+    } else if (ch === '?') { re += '[^/]' }
+    else re += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  }
+  return new RegExp('^' + re + '$')
+}
+
 const ids = []
 if (plan) {
   const premiumApproval = plan.approvals && typeof plan.approvals === 'object'
@@ -249,8 +263,24 @@ if (plan) {
           })
         }
         if (Array.isArray(c.files_allowed) && Array.isArray(c.files_forbidden)) {
+          // Report only when the forbidden glob covers the allowed one: a
+          // literal (no-wildcard) allowed path that the forbidden glob
+          // matches, or a forbidden `**`-glob whose prefix sits at or above
+          // the allowed glob's prefix. A forbidden glob that narrows an
+          // allowed one (a deeper prefix, or a literal file under it) is a
+          // legal carve-out and reported nowhere here.
           for (const a of c.files_allowed) for (const f of c.files_forbidden) {
-            if (typeof a === 'string' && typeof f === 'string' && prefixesCollide(a, f)) {
+            if (typeof a !== 'string' || typeof f !== 'string') continue
+            const aHasWildcard = /[*?]/.test(a)
+            let overlaps = false
+            if (!aHasWildcard) {
+              overlaps = globRe(f).test(a)
+            } else if (f === '**' || f.endsWith('**')) {
+              const fPrefix = literalPrefix(f)
+              const aPrefix = literalPrefix(a)
+              overlaps = fPrefix === '' || fPrefix === aPrefix || aPrefix.startsWith(fPrefix + '/')
+            }
+            if (overlaps) {
               err(tat + ' ("' + t.id + '"): files_allowed "' + a + '" overlaps its own files_forbidden "' + f + '"')
             }
           }
@@ -416,7 +446,17 @@ if (plan) {
 }
 
 // ---- prose half ↔ machine half ----
-const proseIds = [...text.matchAll(/^## Task ([a-z0-9-]+)/gm)].map((m) => m[1])
+// Inline for now; a later task switches this to the shared module. A
+// heading that trails a title on the same line (e.g. "## Task foo — Title")
+// looked fine here but crashed the runner's init, so it must be exactly
+// "## Task <id>" with the title on the next line instead.
+const proseIds = [...text.matchAll(/^## Task ([a-z0-9-]+)[ \t]*\r?$/gm)].map((m) => m[1])
+for (const line of text.split('\n')) {
+  const bare = line.replace(/\r$/, '')
+  if (/^## Task\b/.test(bare) && !/^## Task ([a-z0-9-]+)[ \t]*\r?$/.test(bare)) {
+    err('prose: task heading "' + bare + '" must be exactly "## Task <id>" — put the title on the next line')
+  }
+}
 for (const id of ids) {
   if (!proseIds.includes(id)) err('prose: no "## Task ' + id + '" section for task "' + id + '"')
 }
@@ -424,20 +464,58 @@ for (const id of proseIds) {
   if (!ids.includes(id)) err('prose: section "## Task ' + id + '" has no matching task in the json block')
 }
 
+// A step's `working-directory:` can appear before or after its `run:`
+// within the same `- ` list item; every raw line inside that item gets the
+// item's working-directory (if any) recorded against it, so command lines
+// can also be matched as `cd <dir> && <line>`. Block boundaries are found
+// purely by indentation: a `- ` marker's item runs through the following
+// more-indented (or blank) lines, ending at the next line indented at or
+// past the marker's own column.
+const workingDirsByLine = (rawLines) => {
+  const byLine = new Array(rawLines.length).fill(null)
+  for (let start = 0; start < rawLines.length; start++) {
+    const marker = rawLines[start].match(/^(\s*)-\s/)
+    if (!marker) continue
+    const indent = marker[1].length
+    let end = rawLines.length - 1
+    for (let i = start + 1; i < rawLines.length; i++) {
+      if (rawLines[i].trim() === '') continue
+      const lineIndent = (rawLines[i].match(/^[ \t]*/) || [''])[0].length
+      if (lineIndent <= indent) { end = i - 1; break }
+    }
+    let wd = null
+    for (let i = start; i <= end; i++) {
+      const stripped = rawLines[i].replace(/^[ \t]+/, '').replace(/^-\s+/, '')
+      const m = stripped.match(/^working-directory:\s*(.+?)\s*$/)
+      if (m) { wd = m[1].replace(/^['"]|['"]$/g, ''); break }
+    }
+    if (wd) for (let i = start; i <= end; i++) byLine[i] = wd
+  }
+  return byLine
+}
 // Split a workflow file's text into the lines a command may be matched
 // against: normal lines have leading whitespace, an optional `- ` and an
 // optional `run:`/`run: |` prefix stripped; a `run: |` block scalar's
-// following more-indented lines are each their own raw line.
+// following more-indented lines are each their own raw line. Every actual
+// command line also gets a `cd <dir> && <line>` sibling entry when its step
+// carries a working-directory.
 const deriveWorkflowLines = (workflowText) => {
   const rawLines = workflowText.split(/\r?\n/)
+  const wdByLine = workingDirsByLine(rawLines)
   const out = []
   let blockIndent = null
-  for (const raw of rawLines) {
+  for (let idx = 0; idx < rawLines.length; idx++) {
+    const raw = rawLines[idx]
     const indent = (raw.match(/^[ \t]*/) || [''])[0].length
     const isBlank = raw.trim() === ''
     if (blockIndent !== null) {
       if (isBlank) { out.push(''); continue }
-      if (indent > blockIndent) { out.push(raw.trim()); continue }
+      if (indent > blockIndent) {
+        const line = raw.trim()
+        out.push(line)
+        if (line !== '' && wdByLine[idx]) out.push('cd ' + wdByLine[idx] + ' && ' + line)
+        continue
+      }
       blockIndent = null // dedented past the block; fall through
     }
     let stripped = raw.replace(/^[ \t]+/, '')
@@ -447,17 +525,25 @@ const deriveWorkflowLines = (workflowText) => {
       out.push('')
       continue
     }
-    out.push(stripped.replace(/^run:\s*/, '').trim())
+    const wasRun = /^run:\s*/.test(stripped) && stripped.trim() !== 'run:'
+    const line = stripped.replace(/^run:\s*/, '').trim()
+    out.push(line)
+    if (wasRun && line !== '' && wdByLine[idx]) out.push('cd ' + wdByLine[idx] + ' && ' + line)
   }
   return out
 }
 // A command matches a line when it IS the line, or occurs in it bounded on
 // the left by line start/`&&`/`;`/`|` and on the right by line end/`&&`/
 // `;`/`|`/`\` (whitespace around the boundary ignored) — never as a bare
-// substring fragment of a longer token.
+// substring fragment of a longer token. Trailing shell-variable arguments
+// ($NAME, ${NAME}, "$NAME" or "${NAME}") between the command and that right
+// boundary are also allowed, so a command still matches a workflow line that
+// forwards flags through an env var.
+const VAR_TOKEN = '(?:"\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}"|"\\$[A-Za-z_][A-Za-z0-9_]*"'
+  + '|\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}|\\$[A-Za-z_][A-Za-z0-9_]*)'
 const cmdMatchesLine = (cmd, line) => {
   const esc = cmd.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const re = new RegExp('(?:^|&&|;|\\|)\\s*' + esc + '\\s*(?:&&|;|\\||\\\\|$)')
+  const re = new RegExp('(?:^|&&|;|\\|)\\s*' + esc + '(?:\\s+' + VAR_TOKEN + ')*\\s*(?:&&|;|\\||\\\\|$)')
   return re.test(line)
 }
 const commandInWorkflows = (cmd, workflowTexts) =>
@@ -512,14 +598,24 @@ if (repo && plan) {
 // ---- optional repo checks (warnings only) ----
 if (repo && plan && Array.isArray(plan.waves)) {
   const pathDirs = (process.env.PATH || '').split(':').filter(Boolean)
+  // Missing files_allowed prefixes: when the prefix's own top-level segment
+  // is also missing, that's a likely typo and gets its own warning; when
+  // the top-level segment exists (only a deeper path is missing — expected
+  // when a task creates it), fold all such prefixes into one warning below.
+  const foldedMissing = []
   for (const w of plan.waves) {
     for (const t of (Array.isArray(w.tasks) ? w.tasks : [])) {
       if (!t || !t.contract) continue
       for (const g of (t.contract.files_allowed || [])) {
         if (typeof g !== 'string') continue
         const p = literalPrefix(g)
-        if (p && !existsSync(join(repo, p))) {
-          warn('repo: files_allowed prefix "' + p + '" does not exist under ' + repo + ' (task "' + t.id + '")')
+        if (!p || existsSync(join(repo, p))) continue
+        const seg = p.split('/')[0]
+        if (seg && !existsSync(join(repo, seg))) {
+          warn('repo: files_allowed prefix "' + p + '" does not exist under ' + repo
+            + ' and neither does its top-level directory "' + seg + '" (task "' + t.id + '") — typo?')
+        } else {
+          foldedMissing.push({ p, id: t.id })
         }
       }
       for (const m of (t.contract.must_run || [])) {
@@ -547,6 +643,13 @@ if (repo && plan && Array.isArray(plan.waves)) {
         if (!found) warn('repo: must_run command "' + bin + '" found neither on PATH nor in the repo (task "' + t.id + '")')
       }
     }
+  }
+  if (foldedMissing.length > 0) {
+    const shown = foldedMissing.slice(0, 5).map((m) => m.p + ' (task ' + m.id + ')')
+    let msg = 'repo: ' + foldedMissing.length + ' files_allowed path(s) do not exist yet (expected when their task creates them): '
+      + shown.join(', ')
+    if (foldedMissing.length > 5) msg += ', and ' + (foldedMissing.length - 5) + ' more'
+    warn(msg)
   }
 }
 
