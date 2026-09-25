@@ -37,7 +37,7 @@ test('W1 the embedded WAVE_ARGS is the exact runner input built from the plan', 
   assert.ok(line, 'WAVE_ARGS line present')
   const input = JSON.parse(line.slice('const WAVE_ARGS = '.length))
   assert.deepEqual(Object.keys(input),
-    ['base', 'defaultBranch', 'repoPath', 'supervisorPromptText', 'supervisor', 'tasks'])
+    ['base', 'defaultBranch', 'repoPath', 'supervisorPromptText', 'supervisor', 'worktree', 'tasks'])
   assert.equal(input.base, BASE)
   assert.equal(input.defaultBranch, 'main')
   assert.equal(input.repoPath, REPO)
