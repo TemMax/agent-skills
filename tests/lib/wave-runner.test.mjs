@@ -728,7 +728,7 @@ test('E1 (a) an executor report with an environment-blocked line stops at once: 
     args: waveArgs(),
     agentStub: (prompt, opts) => {
       if ((opts.label ?? '').startsWith('exec:')) {
-        return 'ran the build\nenvironment-blocked: Operation not permitted\n'
+        return 'environment-blocked: Operation not permitted\nran the build\n'
       }
       throw new Error('no verifier or judge call is expected for an executor-reported block')
     },
@@ -820,6 +820,45 @@ test('E6 an invalid worktree link ("../x") fails closed, zero agent calls', asyn
   assert.equal(result.status, 'invalid-args')
   assert.match(result.errors.join('; '), /worktree\.links\[0\]/)
   assert.equal(calls.length, 0)
+})
+
+test('E8 a report that only quotes the marker mid-report (not as its first line) ' +
+  'proceeds to the verifier and judge instead of stopping', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: (prompt, opts) => {
+      if ((opts.label ?? '').startsWith('exec:')) {
+        return 'report for t-one\nSee the README: `environment-blocked: <verbatim error line>` ' +
+          'is the dead-end marker.\n$ true\n(exit 0)'
+      }
+      if ((opts.label ?? '').startsWith('verify:')) return FACTS_GREEN()
+      if (prompt.startsWith(SUP)) return V.ok()
+      throw new Error('unexpected call')
+    },
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.equal(execCalls(calls, 't-one').length, 1)
+  assert.equal(verifyCalls(calls, 't-one').length, 1)
+  assert.equal(supCalls(calls, 't-one').length, 1)
+})
+
+test('E9 a report whose first line is a placeholder marker ' +
+  '(`environment-blocked: <verbatim error line>`) proceeds to the verifier and judge', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: (prompt, opts) => {
+      if ((opts.label ?? '').startsWith('exec:')) {
+        return '`environment-blocked: <verbatim error line>`\nreport for t-one\n$ true\n(exit 0)'
+      }
+      if ((opts.label ?? '').startsWith('verify:')) return FACTS_GREEN()
+      if (prompt.startsWith(SUP)) return V.ok()
+      throw new Error('unexpected call')
+    },
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.equal(execCalls(calls, 't-one').length, 1)
+  assert.equal(verifyCalls(calls, 't-one').length, 1)
+  assert.equal(supCalls(calls, 't-one').length, 1)
 })
 
 test('E7 the Secrets and Long-command sentences appear in the executor and verifier prompts', async () => {

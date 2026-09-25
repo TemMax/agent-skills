@@ -261,7 +261,7 @@ function executorPrompt(t) {
     'stop and report what is blocking you. Do not invent values, do not work',
     'around the restriction, do not pick an interpretation on the user\'s behalf.',
     'If your task needs an artifact that another task of this wave is producing (a file, fixture, function or behavior missing from your worktree), stop and report `blocked-on-sibling: <what is missing and which task makes it>`; do not invent it and do not commit a placeholder.',
-    'Stop and report `environment-blocked: <verbatim error line>` when a build or tool cannot start because of the machine (permission denied on a cache directory or `.git`, SDK not found, a lock file, commit signing).',
+    'Stop and make the first line of your report `environment-blocked: <verbatim error line>` when a build or tool cannot start because of the machine (permission denied on a cache directory or `.git`, SDK not found, a lock file, commit signing).',
     '',
     '## Prohibitions',
     'Do not spawn subagents. No force-push, no reset --hard, no rm outside the',
@@ -476,7 +476,22 @@ function sameRuleRepeat(prevVerdict, verdict) {
 // 'environment-blocked' (the machine, not the work, blocked a command — no
 // verifier, no judge for an executor-reported block; no judge for a
 // verifier-reported one; the wave's own status stays 'partial' for it).
-const ENVIRONMENT_BLOCKED_REPORT_RE = /^[ \t]*`?environment-blocked:/m
+// The marker counts only on the report's first non-empty line, optionally
+// wrapped in backticks, and only when the text after the colon is not a
+// <placeholder> — this keeps a quoted example mid-report from tripping it.
+function reportHasEnvironmentBlockedMarker(report) {
+  if (typeof report !== 'string') return false
+  const firstLine = report.split('\n').find((line) => line.trim() !== '')
+  if (firstLine === undefined) return false
+  let trimmed = firstLine.trim()
+  if (trimmed.startsWith('`') && trimmed.endsWith('`') && trimmed.length >= 2) {
+    trimmed = trimmed.slice(1, -1)
+  }
+  const prefix = 'environment-blocked:'
+  if (!trimmed.startsWith(prefix)) return false
+  const remainder = trimmed.slice(prefix.length).trim()
+  return remainder !== '' && !remainder.startsWith('<')
+}
 
 async function runTask(t) {
   const rungs = [t.executor.model, ...(t.ladder ?? defaultLadder(t.executor.model))]
@@ -518,7 +533,7 @@ async function runTask(t) {
 
       // (a) The executor itself hit the machine, not the work: stop at once,
       // never spend a verifier or a judge call on it.
-      if (typeof report === 'string' && ENVIRONMENT_BLOCKED_REPORT_RE.test(report)) {
+      if (reportHasEnvironmentBlockedMarker(report)) {
         attempts.push({ rung, model, effort, kind: 'environment', verdict: null, escalation: null })
         log(t.id + ': environment-blocked (reported by the executor)')
         return finish('environment-blocked')
