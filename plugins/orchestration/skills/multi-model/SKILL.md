@@ -284,6 +284,13 @@ of the executor task template):
 - never open, print, copy or transmit credentials, tokens or configuration
   files that hold them (for example `~/.codex`, `~/.claude`, app configs with
   Authorization headers); if the research needs a secret, stop and report.
+- quote globs in shell commands: the shell may be zsh, where an unquoted
+  `--include=*.kt` fails with "no matches found" (measured: 31 occurrences in
+  one session);
+- a claim that a build task or target exists cites the build tool's own
+  listing;
+- a read-only agent returns its report as text and never writes files
+  (measured: a read-only agent ran `mkdir` when asked to write a report).
 
 ## Choosing Executor Effort — Quick Reference
 
@@ -416,12 +423,22 @@ reduce the documented failure modes:
    behalf." If your task needs an artifact that another task of this wave is
    producing (a file, fixture, function or behavior missing from your
    worktree), stop and report `blocked-on-sibling: <what is missing and which
-   task makes it>`; do not invent it and do not commit a placeholder.
+   task makes it>`; do not invent it and do not commit a placeholder. An
+   environment block — a broken machine, not broken work — stops and reports
+   `environment-blocked: ` followed by the verbatim error line: permissions on
+   a cache or `.git`, a missing SDK, a lock file, commit signing that needs a
+   prompt.
 4. **Prohibitions:** do not spawn subagents; no destructive operations
    (force-push, reset --hard, rm outside the task) without explicit permission.
    Never open, print, copy or transmit credentials, tokens or configuration
    files that hold them (for example `~/.codex`, `~/.claude`, app configs with
-   Authorization headers); if the task needs a secret, stop and report.
+   Authorization headers); if the task needs a secret, stop and report. That
+   includes untracked build configuration a worktree links —
+   `local.properties`, `.env`, `*.keystore`, `gradle.properties` under
+   `~/.gradle` — which may hold a key or token: link or reference such files
+   by path; never `cat`, `head`, `grep` or otherwise print them. Never end
+   your turn while a command you started is still running — no Monitor, no
+   ScheduleWakeup; keep polling its log until it exits.
    Phrase prohibitions without qualifiers — executors rules-lawyer around wording
    when it conflicts with "the overriding goal".
 5. **Definition of done and response format:** list of changed files, the
