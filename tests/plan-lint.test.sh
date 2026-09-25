@@ -175,6 +175,23 @@ expect "literal forbidden file narrowing wildcard allowed exits 0" "0" "$rc"
 check "literal forbidden file narrowing wildcard allowed has no self-overlap error" \
   '! grep -qF "overlaps its own files_forbidden" <<<"$out"'
 
+# app/feed/impl/** (allowed, wildcard) is a carve-out from app/**/src/**
+# (forbidden, wildcards before its trailing **) — wildcards in the middle
+# narrow rather than cover, so this must not be flagged.
+cp "$CLEAN" "$W/m.md"
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace('"files_allowed": ["docs/**"]', '"files_allowed": ["app/feed/impl/**"]', 1)
+s = s.replace('"files_forbidden": []', '"files_forbidden": ["app/**/src/**"]', 1)
+open(p, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "forbidden glob with wildcards before its trailing ** is a carve-out exits 0" "0" "$rc"
+check "forbidden glob with wildcards before its trailing ** has no self-overlap error" \
+  '! grep -qF "overlaps its own files_forbidden" <<<"$out"'
+
 # src/** with src/** stays an error
 cp "$CLEAN" "$W/m.md"
 python3 - "$W/m.md" <<'PY'
@@ -1556,6 +1573,42 @@ contains "inherits child omitting ci without --repo named" \
 contains "inherits child omitting e2e without --repo named" \
   'e2e: required — the task that runs the shipped fixtures end to end, or "not-applicable: <reason>"' "$out"
 
+# A recovery plan inheriting from a parent whose e2e names the PARENT's own
+# task id ("http-retry") — the recovery plan's own waves name a different
+# task, so the inherited e2e.task cannot be checked against this plan and
+# must be treated as not-applicable rather than an unknown-task-id error.
+cat > "$W/inherit_recovery_child.md" <<'EOF'
+status: draft
+base: pending
+
+```json wave-plan
+{ "waves": [{ "wave": 1,
+    "supervisor": { "model": "claude-opus-5-5" },
+    "tasks": [
+      { "id": "patch-fix",
+        "branch": "wave/patch-fix",
+        "executor": { "model": "claude-sonnet-5" },
+        "ladder": [],
+        "contract": {
+          "files_allowed": ["src/http/**"],
+          "files_forbidden": [],
+          "must_run": [{ "cmd": "true", "evidence": "required" }],
+          "forbidden_moves": [],
+          "report_must_answer": ["What was fixed?"] } }
+    ] }],
+  "inherits": "parent.md" }
+```
+
+## Task patch-fix
+
+Fix the regression.
+EOF
+out="$(node "$LINT" "$W/inherit_recovery_child.md" --repo "$W/inherit_repo" 2>&1)"; rc=$?
+expect "inherited e2e naming a task outside the recovery plan exits 0" "0" "$rc"
+contains "inherited e2e naming a task outside the recovery plan is clean" "OK: 0 error(s)" "$out"
+check "inherited e2e naming a task outside the recovery plan has no unknown-task-id error" \
+  '! grep -qF "e2e.task: must name a task id that exists in the plan" <<<"$out"'
+
 section "ci-gate: coverage warning"
 
 mutate '"ci": "none: fixture repository without CI workflows",' \
@@ -1620,14 +1673,15 @@ expect "must_run home path outside a given --repo exits 0" "0" "$rc"
 contains "must_run home path outside a given --repo warned" \
   "must_run: \"cat $HOME/.ssh/config\" references $HOME/.ssh/config outside the repository — executors run in a sandboxed worktree" "$out"
 
-HOME_REPO="$HOME/.plan-lint-test-repo-$$"
+TEST_HOME="$(mktemp -d)"
+HOME_REPO="$TEST_HOME/.plan-lint-test-repo-$$"
 mkdir -p "$HOME_REPO"
 mutate '"cmd": "true"' "\"cmd\": \"cat $HOME_REPO/local.properties\""
-out="$(node "$LINT" "$W/m.md" --repo "$HOME_REPO" 2>&1)"; rc=$?
+out="$(HOME="$TEST_HOME" node "$LINT" "$W/m.md" --repo "$HOME_REPO" 2>&1)"; rc=$?
 expect "must_run home path inside --repo exits 0" "0" "$rc"
 check "must_run home path inside --repo has no outside-repo warning" \
   '! grep -qF "outside the repository" <<<"$out"'
-rm -rf "$HOME_REPO"
+rm -rf "$TEST_HOME"
 
 section "--base <sha>: reads .github/workflows from the commit"
 

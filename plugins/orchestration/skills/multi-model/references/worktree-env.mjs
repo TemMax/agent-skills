@@ -70,13 +70,31 @@ export function readPlanJson(planPath) {
 
 export const INHERITED_KEYS = ['ci', 'e2e', 'worktree', 'approvals', 'review']
 
+// Task ids declared by this plan's own `waves` — never the parent's, even
+// after inheritance is applied. Used to tell whether an inherited e2e.task
+// still names something that exists in the child.
+function ownTaskIds(plan) {
+  return (Array.isArray(plan.waves) ? plan.waves : [])
+    .flatMap((w) => (w && typeof w === 'object' && Array.isArray(w.tasks) ? w.tasks : []))
+    .filter((t) => t && typeof t === 'object' && typeof t.id === 'string')
+    .map((t) => t.id)
+}
+
 export function effectivePlan(planPath, repo) {
   const plan = readPlanJson(planPath)
   if (typeof plan.inherits === 'string') {
     const parentPath = isAbsolute(plan.inherits) ? plan.inherits : resolve(repo, plan.inherits)
     const parent = readPlanJson(parentPath)
+    const childOmittedE2e = plan.e2e === undefined
     for (const key of INHERITED_KEYS) {
       if (plan[key] === undefined && parent[key] !== undefined) plan[key] = parent[key]
+    }
+    // An inherited e2e naming a task id is naming one of the PARENT's task
+    // ids — a recovery plan's own waves rarely include it. That is not an
+    // error; the parent's e2e task simply isn't part of this recovery.
+    if (childOmittedE2e && plan.e2e && typeof plan.e2e === 'object' && !Array.isArray(plan.e2e)
+      && typeof plan.e2e.task === 'string' && !ownTaskIds(plan).includes(plan.e2e.task)) {
+      plan.e2e = 'not-applicable: inherited e2e task ' + plan.e2e.task + ' is not part of this recovery plan'
     }
   }
   return plan
