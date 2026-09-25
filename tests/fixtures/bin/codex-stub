@@ -25,12 +25,21 @@
 #                              invocation (prompt starts with "# Task:").
 #                              good: create/commit a file, write a report.
 #                              empty: write an empty report.
-#                              fail: exit 1 without writing a report.
+#                              fail: exit 1 without writing a report; also
+#                              prints CODEX_STUB_FAIL_STDERR to stderr first,
+#                              if set.
+#   CODEX_STUB_FAIL_STDERR    text printed to stderr before a CODEX_STUB_EXECUTOR_MODE=fail
+#                              exit (default: nothing printed).
 #   CODEX_STUB_VERDICT        JSON text written verbatim to the -o file for a
 #                              supervisor invocation (prompt starts with
 #                              "# Supervisor Prompt"). Defaults to a clean
 #                              verdict with no violations and one remark:
 #                              {"ok":true,"violations":[],"remarks":["stub: clean"]}.
+#   CODEX_STUB_SANDBOX_OUTPUT text printed (to stdout) for a `sandbox` argv[0]
+#                              invocation (the preflight probe). Nothing else
+#                              runs: the wrapped `bash -c` command is never
+#                              actually executed by this double.
+#   CODEX_STUB_SANDBOX_EXIT   exit code for a `sandbox` invocation (default 0).
 set -euo pipefail
 
 if [ -z "${CODEX_STUB_LOG:-}" ]; then
@@ -70,6 +79,32 @@ for a in "$@"; do
   argv_json+="$(json_string "$a")"
 done
 argv_json+="]"
+
+# The preflight probe: `<codex> sandbox -c ... -- bash -c '<cmd>'`. Never a
+# model call (no prompt, no -o file), so it is handled entirely separately
+# from the executor/supervisor dispatch below, before anything reads stdin.
+# Per this double's contract: log argv, run nothing (the wrapped `bash -c`
+# command is never actually executed), print CODEX_STUB_SANDBOX_OUTPUT, exit
+# CODEX_STUB_SANDBOX_EXIT.
+if [ "${1:-}" = "sandbox" ]; then
+  cwd="$(pwd)"
+  start_ts="$(now_ms)"
+  start_record="$(printf '{"event":"start","ts":%s,"cwd":%s,"argv":%s,"prompt":null,"symlinks":[]}' \
+    "$start_ts" "$(json_string "$cwd")" "$argv_json")"
+  write_record start "$start_record"
+
+  sleep "${CODEX_STUB_SLEEP:-0}"
+
+  printf '%s' "${CODEX_STUB_SANDBOX_OUTPUT:-}"
+  exit_code="${CODEX_STUB_SANDBOX_EXIT:-0}"
+
+  end_ts="$(now_ms)"
+  end_record="$(printf '{"event":"end","ts":%s,"cwd":%s,"argv":%s,"exit":%s}' \
+    "$end_ts" "$(json_string "$cwd")" "$argv_json" "$exit_code")"
+  write_record end "$end_record"
+
+  exit "$exit_code"
+fi
 
 worktree=""
 outfile=""
@@ -138,6 +173,9 @@ case "$prompt" in
         printf '' > "$outfile"
         ;;
       fail)
+        if [ -n "${CODEX_STUB_FAIL_STDERR:-}" ]; then
+          printf '%s\n' "$CODEX_STUB_FAIL_STDERR" >&2
+        fi
         exit_code=1
         ;;
       *)
