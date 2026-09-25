@@ -35,7 +35,7 @@
 
 import { spawn, spawnSync } from 'node:child_process'
 import {
-  existsSync, mkdirSync, readFileSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync,
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -387,14 +387,18 @@ function reportNestedSandboxAndExit() {
 // whatever worktrees/branches init already created.
 // ---------------------------------------------------------------------------
 
-function cleanupLine(repoPath, taskId) {
+// Also removes the task's state file: cleanup plus a fresh --out is then
+// everything a re-run needs (no leftover state-conflict, no leftover
+// worktree or branch).
+function cleanupLine(repoPath, taskId, statePath) {
   return 'git -C ' + repoPath + ' worktree remove --force '
     + join(repoPath, '.worktrees', 'wave-' + taskId)
     + ' && git -C ' + repoPath + ' branch -D wave/' + taskId
+    + ' && rm -f ' + statePath
 }
 
-function buildCleanup(repoPath, taskIds) {
-  return taskIds.map((taskId) => cleanupLine(repoPath, taskId))
+function buildCleanup(repoPath, taskIds, statePaths) {
+  return taskIds.map((taskId) => cleanupLine(repoPath, taskId, statePaths[taskId]))
 }
 
 // ---------------------------------------------------------------------------
@@ -456,11 +460,16 @@ function preflightSandboxArgs({ writableRoots, networkOn, cmd }) {
 }
 
 // Runs every distinct must_run command against a detached worktree at the
-// base commit. Always removes that worktree before returning (even when a
-// blocking signature was found), so the caller writes summary.json and
-// exits only after cleanup has already happened.
-function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, networkOn, wave, outPath }) {
-  const preflightPath = join(outPath, 'preflight')
+// base commit. The scratch worktree lives under a fresh mkdtemp directory of
+// its own, under <repo>/.worktrees/ — never under --out, since the preflight
+// now runs before --out exists at all (a stop here must leave nothing
+// behind). Always removes that worktree before returning (even when a
+// blocking signature was found), so the caller can report the stop with
+// nothing left to clean up.
+function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, networkOn, wave }) {
+  const worktreesDir = join(repoPath, '.worktrees')
+  mkdirSync(worktreesDir, { recursive: true })
+  const preflightPath = mkdtempSync(join(worktreesDir, 'codex-preflight-'))
   const added = spawnSync('git', ['-C', repoPath, 'worktree', 'add', '--detach', preflightPath, base],
     { encoding: 'utf8' })
   if (added.status !== 0) {
@@ -547,7 +556,7 @@ async function main() {
   // Worktree environment (writable cache dirs, linked untracked files) and
   // the repository's git common dir, so every sandboxed Codex child (executor
   // and supervisor) can write caches and, for the executor, commit from a
-  // linked worktree. See "Shared definitions" in the friction plan.
+  // linked worktree. See the Plan Format section in super-plan/SKILL.md.
   const planForEnv = effectivePlan(config.planPath, config.repoPath)
   const env = resolveWorktreeEnv(config.repoPath, planForEnv)
   const commonDir = gitCommonDir(config.repoPath)
@@ -557,10 +566,11 @@ async function main() {
   }
 
   // depends_on: refuse to start this wave until whatever it depends on is
-  // present, before any worktree exists. See "Shared definitions".
+  // present, before any worktree exists. See the Plan Format section in
+  // super-plan/SKILL.md. Checked before --out is created, before verify, and
+  // before `init`: a stop here must leave nothing behind to clean up.
   const unmetDependsOn = checkDependsOn(planForEnv, config.waveNumber, config.repoPath)
   if (unmetDependsOn.length > 0) {
-    mkdirSync(config.outPath, { recursive: true })
     const summary = {
       status: 'stop',
       wave: config.waveNumber,
@@ -568,9 +578,38 @@ async function main() {
       dependsOn: unmetDependsOn,
       cleanup: [],
     }
-    writeFileSync(join(config.outPath, 'summary.json'), JSON.stringify(summary, null, 2) + '\n')
     process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
     process.exit(1)
+  }
+
+  // Preflight: probe every distinct must_run command, sandboxed at the base
+  // commit, before any model child starts and before --out or any task
+  // worktree/state exists — a matched signature stops the whole run here,
+  // cheaply, with nothing left to clean up, instead of every task
+  // discovering the same machine problem on its own after `init` has already
+  // created its worktree, branch and state file. A red command with no
+  // matching signature is only ever recorded (it may be expected-red), which
+  // is why its result still rides along on the final summary.json below even
+  // when nothing is blocked.
+  let preflightResults = null
+  if (config.preflightOn) {
+    const { blocked, results } = runPreflight({
+      codexBin: config.codexBin, repoPath: config.repoPath, base: config.base, timeoutMs: config.timeoutMs,
+      env, commonDir, networkOn: config.executorNetworkOn, wave,
+    })
+    preflightResults = results
+    if (blocked) {
+      const summary = {
+        status: 'stop',
+        wave: config.waveNumber,
+        stopped: [{ task: '*', reason: 'environment-blocked' }],
+        preflight: { results, blocked },
+        cleanup: [],
+      }
+      process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
+      process.stderr.write(blocked.line + '\n')
+      process.exit(1)
+    }
   }
 
   // Everything from here on is real work; create the run directory and the
@@ -641,38 +680,13 @@ async function main() {
     statePaths[taskId] = initResult.state
   }
 
-  // Preflight: probe every distinct must_run command, sandboxed at the base
-  // commit, before any model child starts. A matched signature stops the
-  // whole run here, cheaply, instead of every task discovering the same
-  // machine problem on its own. A red command with no matching signature is
-  // only ever recorded (it may be expected-red), which is why its result
-  // still rides along on the final summary.json below even when nothing is
-  // blocked.
-  let preflightResults = null
-  if (config.preflightOn) {
-    const { blocked, results } = runPreflight({
-      codexBin: config.codexBin, repoPath: config.repoPath, base: config.base, timeoutMs: config.timeoutMs,
-      env, commonDir, networkOn: config.executorNetworkOn, wave, outPath: config.outPath,
-    })
-    preflightResults = results
-    if (blocked) {
-      const summary = {
-        status: 'stop',
-        wave: config.waveNumber,
-        stopped: [{ task: '*', reason: 'environment-blocked' }],
-        preflight: { results, blocked },
-        cleanup: buildCleanup(config.repoPath, taskIds),
-      }
-      writeFileSync(join(config.outPath, 'summary.json'), JSON.stringify(summary, null, 2) + '\n')
-      process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
-      process.stderr.write(blocked.line + '\n')
-      for (const line of summary.cleanup) process.stderr.write(line + '\n')
-      process.exit(1)
-    }
-  }
-
   const semaphore = createSemaphore(config.jobs)
   const children = []
+  // taskId -> { source: 'executor'|'supervisor', id, line } the first time a
+  // child's failure is classified environment for that task, so the blocked
+  // line reaches the orchestrator on the final stopped[] entry (the state
+  // helper itself only ever receives {error:{kind:'environment'}}).
+  const environmentBlocks = {}
 
   async function handleExecutor(taskId, statePath, action) {
     const taskDir = join(config.outPath, taskId)
@@ -706,12 +720,14 @@ async function main() {
     let payload
     if (result.timedOut || result.exitCode !== 0) {
       const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
+      if (envBlock) environmentBlocks[taskId] = { source: 'executor', id: envBlock.id, line: envBlock.line }
       payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'transport' } }
     } else {
       let report = ''
       try { report = readFileSync(reportPath, 'utf8') } catch { report = '' }
       if (report === '') {
         const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
+        if (envBlock) environmentBlocks[taskId] = { source: 'executor', id: envBlock.id, line: envBlock.line }
         payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'null-result' } }
       } else {
         payload = { report }
@@ -795,12 +811,14 @@ async function main() {
       let payload
       if (result.timedOut || result.exitCode !== 0) {
         const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
+        if (envBlock) environmentBlocks[taskId] = { source: 'supervisor', id: envBlock.id, line: envBlock.line }
         payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'transport' } }
       } else {
         let parsed = null
         try { parsed = JSON.parse(readFileSync(reportPath, 'utf8')) } catch { parsed = null }
         if (parsed === null) {
           const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
+          if (envBlock) environmentBlocks[taskId] = { source: 'supervisor', id: envBlock.id, line: envBlock.line }
           payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'null-result' } }
         } else {
           const stripped = stripNullViolationKeys(parsed)
@@ -839,7 +857,10 @@ async function main() {
   const results = await Promise.all(taskIds.map((taskId) => runTaskLoop(taskId)))
   const wallSeconds = (Date.now() - start) / 1000
 
-  const stopped = results.filter((r) => r.status === 'stop').map((r) => ({ task: r.task, reason: r.reason }))
+  const stopped = results.filter((r) => r.status === 'stop').map((r) => ({
+    task: r.task, reason: r.reason,
+    ...(environmentBlocks[r.task] ? { environment: environmentBlocks[r.task] } : {}),
+  }))
   const status = stopped.length === 0 ? 'merge-ready' : 'stop'
   const states = taskIds.map((taskId) => statePaths[taskId])
   const tasks = taskIds.map((taskId) => helperSummary(statePaths[taskId]).tasks[0])
@@ -847,10 +868,16 @@ async function main() {
   const summary = {
     status, stopped, states, wave: config.waveNumber, tasks, children, wallSeconds,
     ...(preflightResults ? { preflight: { results: preflightResults } } : {}),
-    ...(status === 'stop' ? { cleanup: buildCleanup(config.repoPath, stopped.map((s) => s.task)) } : {}),
+    ...(status === 'stop'
+      ? { cleanup: buildCleanup(config.repoPath, stopped.map((s) => s.task), statePaths) }
+      : {}),
   }
   if (summary.cleanup) {
     for (const line of summary.cleanup) process.stderr.write(line + '\n')
+    // Each cleanup line above also removes that task's state file (see
+    // cleanupLine), so once every printed line has been run, a fresh --out
+    // is all a re-run needs.
+    process.stderr.write('re-run with a fresh --out after cleanup\n')
   }
   writeFileSync(join(config.outPath, 'summary.json'), JSON.stringify(summary, null, 2) + '\n')
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
