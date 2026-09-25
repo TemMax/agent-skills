@@ -271,9 +271,13 @@ test('(b) --jobs 1 never overlaps children; --jobs 2 does', () => {
   const one = makeRepo()
   const onePlan = writePlan(one.root, ['task-a', 'task-b'])
   const oneLog = join(one.root, 'codex.log')
+  // --preflight off: this test is about jobs concurrency, not the preflight
+  // probe, and the probe would otherwise add its own logged `sandbox`
+  // invocation ahead of every executor/supervisor here, throwing off the
+  // interval count and overlap math below.
   const oneResult = runRunner(
     ['--plan', onePlan, '--wave', '1', '--repo', one.repo, '--base', one.base,
-      '--codex', STUB, '--jobs', '1', '--out', join(one.root, 'out')],
+      '--codex', STUB, '--jobs', '1', '--preflight', 'off', '--out', join(one.root, 'out')],
     { CODEX_STUB_LOG: oneLog, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_SLEEP: '1' },
   )
   assert.equal(oneResult.status, 0, oneResult.stdout + oneResult.stderr)
@@ -293,7 +297,7 @@ test('(b) --jobs 1 never overlaps children; --jobs 2 does', () => {
   const twoLog = join(two.root, 'codex.log')
   const twoResult = runRunner(
     ['--plan', twoPlan, '--wave', '1', '--repo', two.repo, '--base', two.base,
-      '--codex', STUB, '--jobs', '2', '--out', join(two.root, 'out')],
+      '--codex', STUB, '--jobs', '2', '--preflight', 'off', '--out', join(two.root, 'out')],
     { CODEX_STUB_LOG: twoLog, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_SLEEP: '1' },
   )
   assert.equal(twoResult.status, 0, twoResult.stdout + twoResult.stderr)
@@ -399,9 +403,10 @@ test('(g) --jobs 2 with three tasks never overlaps more than two children, and o
   const planPath = writePlan(root, ['task-a', 'task-b', 'task-c'])
   const logPath = join(root, 'codex.log')
 
+  // --preflight off: see the matching note on test (b) above.
   const result = runRunner(
     ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base,
-      '--codex', STUB, '--jobs', '2', '--out', join(root, 'out')],
+      '--codex', STUB, '--jobs', '2', '--preflight', 'off', '--out', join(root, 'out')],
     { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_SLEEP: '1' },
   )
   assert.equal(result.status, 0, result.stdout + result.stderr)
@@ -702,9 +707,12 @@ test('(m) executor and supervisor argv both carry --add-dir <git common dir>', (
   assert.equal(result.status, 0, result.stdout + result.stderr)
   const commonDir = git(repo, 'rev-parse', '--path-format=absolute', '--git-common-dir')
 
+  // The preflight probe (default on) logs its own `sandbox` start record
+  // with prompt: null (it is never a model call) alongside these — every
+  // prompt-based filter below must skip it rather than crash on it.
   const starts = readLog(logPath).filter((entry) => entry.event === 'start')
-  const executorStart = starts.find((entry) => entry.prompt.startsWith('# Task: '))
-  const supervisorStart = starts.find((entry) => entry.prompt.startsWith('# Supervisor Prompt'))
+  const executorStart = starts.find((entry) => entry.prompt?.startsWith('# Task: '))
+  const supervisorStart = starts.find((entry) => entry.prompt?.startsWith('# Supervisor Prompt'))
   assert.ok(executorStart, 'expected a logged executor invocation')
   assert.ok(supervisorStart, 'expected a logged supervisor invocation')
   assert.ok(addDirValues(executorStart.argv).includes(commonDir),
@@ -724,7 +732,7 @@ test('(n) supervisor argv gets the network flag by default and drops it with --e
   )
   assert.equal(onResult.status, 0, onResult.stdout + onResult.stderr)
   const onSupervisorStart = readLog(onLog).find((entry) => entry.event === 'start'
-    && entry.prompt.startsWith('# Supervisor Prompt'))
+    && entry.prompt?.startsWith('# Supervisor Prompt'))
   assert.ok(onSupervisorStart, 'expected a logged supervisor invocation')
   assert.ok(onSupervisorStart.argv.includes('sandbox_workspace_write.network_access=true'),
     'supervisor argv must carry the network flag by default: ' + JSON.stringify(onSupervisorStart.argv))
@@ -739,7 +747,7 @@ test('(n) supervisor argv gets the network flag by default and drops it with --e
   )
   assert.equal(offResult.status, 0, offResult.stdout + offResult.stderr)
   const offSupervisorStart = readLog(offLog).find((entry) => entry.event === 'start'
-    && entry.prompt.startsWith('# Supervisor Prompt'))
+    && entry.prompt?.startsWith('# Supervisor Prompt'))
   assert.ok(offSupervisorStart, 'expected a logged supervisor invocation')
   assert.equal(offSupervisorStart.argv.includes('sandbox_workspace_write.network_access=true'), false,
     '--executor-network off must drop the supervisor network flag too: '
@@ -762,11 +770,268 @@ test('(o) a gitignored local.properties is linked into the supervisor checkout, 
   assert.equal(result.status, 0, result.stdout + result.stderr)
 
   const supervisorStart = readLog(logPath).find((entry) => entry.event === 'start'
-    && entry.prompt.startsWith('# Supervisor Prompt'))
+    && entry.prompt?.startsWith('# Supervisor Prompt'))
   assert.ok(supervisorStart, 'expected a logged supervisor invocation')
   assert.ok(Array.isArray(supervisorStart.symlinks), 'the stub must log a symlinks array')
   assert.ok(supervisorStart.symlinks.includes('local.properties'),
     'the supervisor checkout must have local.properties linked: ' + JSON.stringify(supervisorStart.symlinks))
   assert.ok(addDirValues(supervisorStart.argv).includes(gradleHome),
     'supervisor argv must add-dir an existing GRADLE_USER_HOME: ' + JSON.stringify(supervisorStart.argv))
+})
+
+// ---------------------------------------------------------------------------
+// --preflight (default on): probes every distinct must_run command,
+// sandboxed at the base commit, before any model child starts.
+// ---------------------------------------------------------------------------
+
+test('(p) a signature in the preflight output stops with environment-blocked and zero executor starts', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    {
+      CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good',
+      CODEX_STUB_SANDBOX_OUTPUT: 'bash: Operation not permitted\n', CODEX_STUB_SANDBOX_EXIT: '1',
+    },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop')
+  assert.deepEqual(result.json.stopped, [{ task: '*', reason: 'environment-blocked' }])
+  assert.ok(result.json.preflight, 'expected a preflight field on the stop summary')
+  assert.equal(result.json.preflight.blocked.cmd, 'true')
+  assert.equal(result.json.preflight.blocked.id, 'permission-denied')
+  assert.match(result.json.preflight.blocked.line, /Operation not permitted/)
+  assert.deepEqual(result.json.preflight.results.map((r) => r.cmd), ['true'])
+  assert.equal(result.json.preflight.results[0].exit, 1)
+
+  // Cleanup hint: init already created task-a's worktree+branch before the
+  // preflight ran, so it still needs tearing down even though `stopped`
+  // only names the pseudo task '*'.
+  assert.deepEqual(result.json.cleanup, [
+    'git -C ' + repo + ' worktree remove --force ' + join(repo, '.worktrees', 'wave-task-a')
+      + ' && git -C ' + repo + ' branch -D wave/task-a',
+  ])
+
+  const starts = readLog(logPath).filter((entry) => entry.event === 'start')
+  assert.equal(starts.filter((entry) => entry.prompt?.startsWith('# Task: ')).length, 0,
+    'no executor should ever have started: ' + JSON.stringify(starts))
+  assert.equal(starts.filter((entry) => entry.argv[0] === 'sandbox').length, 1,
+    'exactly one preflight command should have run')
+
+  // The preflight worktree itself is removed in a finally, regardless of
+  // the stop.
+  const worktrees = git(repo, 'worktree', 'list', '--porcelain')
+  assert.equal(worktrees.includes('preflight'), false, 'no preflight worktree should remain: ' + worktrees)
+})
+
+test('(q) a plain red preflight command does not stop the run', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    {
+      CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good',
+      CODEX_STUB_SANDBOX_OUTPUT: 'just a plain failure, nothing machine-related\n',
+      CODEX_STUB_SANDBOX_EXIT: '1',
+    },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready', 'an expected-red preflight command must never stop the run')
+  // It is still recorded, just not treated as a stop.
+  assert.deepEqual(result.json.preflight.results.map((r) => ({ cmd: r.cmd, exit: r.exit })),
+    [{ cmd: 'true', exit: 1 }])
+
+  const starts = readLog(logPath).filter((entry) => entry.event === 'start')
+  assert.ok(starts.some((entry) => entry.prompt?.startsWith('# Task: ')),
+    'the executor must still have run after an expected-red preflight command')
+})
+
+test('(r) --preflight off skips the probe entirely', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--preflight', 'off', '--out', join(root, 'out')],
+    {
+      CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good',
+      // Even a would-be-blocking signature must never be probed for.
+      CODEX_STUB_SANDBOX_OUTPUT: 'Operation not permitted', CODEX_STUB_SANDBOX_EXIT: '1',
+    },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.equal(Object.hasOwn(result.json, 'preflight'), false,
+    '--preflight off must leave no preflight field on the summary')
+
+  const starts = readLog(logPath).filter((entry) => entry.event === 'start')
+  assert.equal(starts.filter((entry) => entry.argv[0] === 'sandbox').length, 0,
+    '--preflight off must never invoke the sandbox probe: ' + JSON.stringify(starts))
+})
+
+test('(s) the preflight argv includes writable_roots with the git common dir', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const commonDir = git(repo, 'rev-parse', '--path-format=absolute', '--git-common-dir')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+
+  const sandboxStart = readLog(logPath).find((entry) => entry.event === 'start' && entry.argv[0] === 'sandbox')
+  assert.ok(sandboxStart, 'expected a logged preflight (sandbox) invocation')
+  assert.deepEqual(sandboxStart.argv.slice(0, 2), ['sandbox', '-c'])
+  assert.ok(sandboxStart.argv.includes('sandbox_mode="workspace-write"'),
+    'preflight argv must set sandbox_mode=workspace-write: ' + JSON.stringify(sandboxStart.argv))
+  const writableRootsArg = sandboxStart.argv.find((a) => a.startsWith('sandbox_workspace_write.writable_roots='))
+  assert.ok(writableRootsArg, 'expected a writable_roots -c value: ' + JSON.stringify(sandboxStart.argv))
+  const writableRoots = JSON.parse(writableRootsArg.slice('sandbox_workspace_write.writable_roots='.length))
+  assert.ok(writableRoots.includes(commonDir),
+    'writable_roots must include the git common dir: ' + JSON.stringify(writableRoots))
+  assert.ok(sandboxStart.argv.includes('sandbox_workspace_write.network_access=true'),
+    'preflight argv must carry the network flag by default: ' + JSON.stringify(sandboxStart.argv))
+  assert.deepEqual(sandboxStart.argv.slice(-3), ['bash', '-c', 'true'],
+    'preflight must wrap the must_run cmd in bash -c: ' + JSON.stringify(sandboxStart.argv))
+})
+
+// ---------------------------------------------------------------------------
+// Environment detection for children: a timed-out, non-zero, empty or
+// unparsable result is checked against detectEnvironmentBlock before it
+// falls back to a generic transport/null-result agent failure.
+// ---------------------------------------------------------------------------
+
+test('(t) an executor stub that exits non-zero with "Operation not permitted" on stderr ends the task as '
+  + 'environment-blocked', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    {
+      CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'fail',
+      CODEX_STUB_FAIL_STDERR: 'chmod: /repo/.git/objects: Operation not permitted',
+    },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop')
+  assert.equal(result.json.stopped.length, 1)
+  assert.equal(result.json.stopped[0].task, 'task-a')
+  assert.equal(result.json.stopped[0].reason, 'environment-blocked')
+  assert.equal(result.json.tasks[0].status, 'environment-blocked')
+
+  const state = JSON.parse(readFileSync(result.json.states[0], 'utf8'))
+  const failures = state.tasks['task-a'].agentFailures
+  assert.ok(failures.some((f) => f.point === 'executor' && f.kind === 'environment'),
+    'expected a recorded executor environment failure: ' + JSON.stringify(failures))
+  // An environment-typed error is a machine problem, not a charged attempt.
+  assert.equal(state.tasks['task-a'].totalAttempts, 0,
+    'an environment-typed failure must not grow totalAttempts: ' + JSON.stringify(state.tasks['task-a']))
+})
+
+// ---------------------------------------------------------------------------
+// Timeout diagnostics: every children[] entry gets stderrFile, and a timed
+// out child also gets timedOut and eventsTail.
+// ---------------------------------------------------------------------------
+
+test('(u) a timed-out child has timedOut and eventsTail, and every child has stderrFile', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--timeout-min', '0.01', '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_SLEEP: '2' },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.ok(result.json.children.length > 0)
+  assert.ok(result.json.children.every((c) => typeof c.stderrFile === 'string' && c.stderrFile !== ''),
+    'every children[] entry must carry stderrFile: ' + JSON.stringify(result.json.children))
+  const timedOutChildren = result.json.children.filter((c) => c.timedOut === true)
+  assert.ok(timedOutChildren.length > 0, 'expected at least one timed-out child: '
+    + JSON.stringify(result.json.children))
+  for (const child of timedOutChildren) {
+    assert.ok(Array.isArray(child.eventsTail), 'timedOut child must carry eventsTail: ' + JSON.stringify(child))
+    assert.ok(child.eventsTail.length <= 10)
+    assert.ok(child.eventsTail.every((line) => line.length <= 500))
+  }
+})
+
+// ---------------------------------------------------------------------------
+// depends_on: refuse to start the wave until whatever it depends on exists.
+// ---------------------------------------------------------------------------
+
+function planTextWithDependsOn(taskIds, dependsOn) {
+  const base = planText(taskIds)
+  return base.replace('"ci": "none: this fixture repo has no CI to run",',
+    '"ci": "none: this fixture repo has no CI to run",\n  "depends_on": ' + JSON.stringify(dependsOn) + ',')
+}
+
+test('(v) an unmet depends_on stops before any worktree exists', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = join(root, 'plan.md')
+  writeFileSync(planPath, planTextWithDependsOn(['task-a'], [
+    { wave: 1, repo: '.', ref: base, path: 'does-not-exist.txt' },
+  ]))
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop')
+  assert.deepEqual(result.json.stopped, [{ task: '*', reason: 'depends-on-unmet' }])
+  assert.ok(Array.isArray(result.json.dependsOn) && result.json.dependsOn.length === 1,
+    'expected the unmet dependency listed: ' + JSON.stringify(result.json.dependsOn))
+  assert.equal(result.json.dependsOn[0].path, 'does-not-exist.txt')
+  assert.deepEqual(result.json.cleanup, [], 'nothing was created yet, so there is nothing to clean up')
+
+  const worktrees = spawnSync('sh', ['-c', 'ls "' + repo + '/.worktrees" 2>/dev/null | grep "^wave-" || true'],
+    { encoding: 'utf8' }).stdout.trim()
+  assert.equal(worktrees, '', 'no wave-* worktree may exist before init has ever run: ' + worktrees)
+  assert.equal(existsSync(logPath + '.d'), false, 'no codex child may ever have been launched')
+})
+
+// ---------------------------------------------------------------------------
+// Cleanup hint: on any stop, summary.json carries one cleanup string per
+// stopped (real) task, and prints them to stderr.
+// ---------------------------------------------------------------------------
+
+test('(w) the cleanup strings are present on stop', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'fail' },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop')
+  const expected = 'git -C ' + repo + ' worktree remove --force ' + join(repo, '.worktrees', 'wave-task-a')
+    + ' && git -C ' + repo + ' branch -D wave/task-a'
+  assert.deepEqual(result.json.cleanup, [expected])
+  assert.ok(result.stderr.includes(expected), 'the cleanup line must also be printed to stderr: ' + result.stderr)
 })
