@@ -32,6 +32,12 @@ REPO_URL="https://github.com/${REPO}"
 # Telegram caps a message at 4096 characters; the notes get what the frame leaves.
 NOTES_BUDGET=3500
 
+# Read the notes once: a notes argument given as process substitution is a pipe that can be
+# read only once, so both awk programs below must work from this single copy.
+NOTES_COPY="$(mktemp)"
+trap 'rm -f "$NOTES_COPY"' EXIT
+cat "$NOTES_FILE" > "$NOTES_COPY"
+
 notes="$(awk '
   function esc(s) {
     gsub(/&/, "\\&amp;", s)
@@ -84,7 +90,7 @@ notes="$(awk '
     para = (para == "" ? inline($0) : para " " inline($0)); printed = 1
   }
   END { flush() }
-' "$NOTES_FILE")"
+' "$NOTES_COPY")"
 
 # Cut at a line boundary so no tag is left open.
 if [ "${#notes}" -gt "$NOTES_BUDGET" ]; then
@@ -102,7 +108,7 @@ rich_notes="$(awk '
     for (i = 1; i <= n; i++) out = out (i % 2 ? esc(parts[i]) : parts[i]) (i < n ? "`" : "")
     print out
   }
-' "$NOTES_FILE")"
+' "$NOTES_COPY")"
 
 rich="# agent-skills ${VERSION}
 

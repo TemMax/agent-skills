@@ -185,6 +185,16 @@ reject "$message" "##"
 reject "$message" "<h2>"
 reject "$message" "<ul>"
 
+# A notes argument given as process substitution is a pipe that can be read only once; the
+# rich message and the HTML fallback must each read it in full, not just the frame.
+rich_procsub="$(scripts/telegram-notify.sh --dry-run 1.1.0 <(cat "$notes"))"
+expect "$rich_procsub" "### Features"
+expect "$rich_procsub" "- add \`code\` &amp; &lt;tags&gt;"
+
+message_procsub="$(scripts/telegram-notify.sh --dry-run-fallback 1.1.0 <(cat "$notes"))"
+expect "$message_procsub" "<b>Features</b>"
+expect "$message_procsub" "• add <code>code</code> &amp; &lt;tags&gt;"
+
 echo "-- rich dry-run for 1.1.0 --"
 printf '%s\n' "$rich"
 echo "-- HTML fallback dry-run for 1.1.0 --"
