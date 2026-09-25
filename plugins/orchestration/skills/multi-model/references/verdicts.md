@@ -85,9 +85,22 @@ Verdict shape:
 ```
 
 `violations` decide `ok`; `remarks` never do. Classes: `files`, `must_run`,
-`forbidden-move`, `report`. A violation without evidence the
+`forbidden-move`, `report`, `environment`. A violation without evidence the
 supervisor produced itself is dropped, not softened — otherwise the supervisor
 fabricates as readily as the executor it judges.
+
+A violation of class `environment` means the machine, not the task, is at
+fault — a `must_run` command's own final attempt matched a known
+machine-failure signature, or the mechanical verifier's checkout could not be
+trusted for that reason (see "Status `environment-blocked`" in the friction
+plan's shared definitions, and `codex-wave-protocol.md`'s "Toolchain caches,
+`.git` and linked files"). Reading a verdict or verifier facts: any
+`environment` violation, wherever it appears, drives the task straight to the
+terminal `environment-blocked` status ahead of every other check — including
+`satisfiable`, `pasteReproduced` and the escalation ladder. It is never
+charged as an executor attempt and never routed to the contract-amendment
+flow; the fix is to repair the machine and re-run, not to rework, escalate,
+or amend the contract.
 
 When a `must_run` command fails, run it a second time before recording anything.
 If the retry passes, record a remark naming the command unstable and do not
