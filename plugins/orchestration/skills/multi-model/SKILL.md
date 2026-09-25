@@ -424,10 +424,10 @@ reduce the documented failure modes:
    producing (a file, fixture, function or behavior missing from your
    worktree), stop and report `blocked-on-sibling: <what is missing and which
    task makes it>`; do not invent it and do not commit a placeholder. An
-   environment block — a broken machine, not broken work — stops and reports
-   `environment-blocked: ` followed by the verbatim error line: permissions on
-   a cache or `.git`, a missing SDK, a lock file, commit signing that needs a
-   prompt.
+   environment block — a broken machine, not broken work — stops and makes
+   `environment-blocked: ` followed by the verbatim error line the first line of the report:
+   permissions on a cache or `.git`, a missing SDK, a lock file, commit
+   signing that needs a prompt.
 4. **Prohibitions:** do not spawn subagents; no destructive operations
    (force-push, reset --hard, rm outside the task) without explicit permission.
    Never open, print, copy or transmit credentials, tokens or configuration
