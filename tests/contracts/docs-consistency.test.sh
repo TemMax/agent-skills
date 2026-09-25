@@ -8,6 +8,7 @@ AMEND=plugins/orchestration/skills/multi-model/references/contract-amendment.md
 VD=plugins/orchestration/skills/multi-model/references/verdicts.md
 CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
 README=README.md
+CHANGELOG=CHANGELOG.md
 ADR009=docs/decisions/009-environment-blocked-and-worktree-env.md
 
 one_line() { tr '\n' ' ' < "$1" | tr -s ' '; }
@@ -37,12 +38,12 @@ check "resumeFromRunId would replay the cached blocked report" \
   "one_line '$CWA' | grep -qF 'replay the cached blocked report'"
 
 section "\"never charged as an attempt\" reworded to \"ends the task\""
-for f in "$README" "$ADR009" "$PROTOCOL" "$VD"; do
+for f in "$CHANGELOG" "$ADR009" "$PROTOCOL" "$VD"; do
   check "$f: 'no retry, escalation or amendment' appears" \
     "one_line '$f' | grep -qF 'no retry, escalation or amendment'"
 done
-check "only the typed child-error path is truly uncharged (README)" \
-  "one_line '$README' | grep -qF 'is never charged as an attempt at all'"
+check "only the typed child-error path is truly uncharged (CHANGELOG)" \
+  "one_line '$CHANGELOG' | grep -qF 'is never charged as an attempt at all'"
 check "only the typed child-error path is truly uncharged (ADR 009)" \
   "one_line '$ADR009' | grep -qF 'is never charged as an attempt at all'"
 
