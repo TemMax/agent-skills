@@ -309,6 +309,16 @@ contains "seven folded missing prefixes lists five then a count" \
 
 section "the pinned full id"
 
+out="$(node "$LINT" "$CLEAN" 2>&1)"; rc=$?
+expect "sonnet-5 executor still exits 0" "0" "$rc"
+contains "sonnet-5 executor retired route warned" \
+  'retired route: claude-sonnet-5 is no longer an executor route (use claude-sonnet-5-5); approved plans still run' "$out"
+
+mutate '"model": "claude-sonnet-5"' '"model": "claude-sonnet-5-5"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "sonnet-5-5 executor exits 0" "0" "$rc"
+check "sonnet-5-5 executor is not flagged as retired" '! grep -qF "retired route: claude-sonnet-5" <<<"$out"'
+
 mutate '"model": "claude-sonnet-5"' '"model": "claude-opus-4-8"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "pinned full id in executor.model exits 0" "0" "$rc"
