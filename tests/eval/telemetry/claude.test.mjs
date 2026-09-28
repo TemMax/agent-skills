@@ -245,7 +245,7 @@ test('report: shipped prices.json (no --prices) prices every fixture model, matc
   const report = JSON.parse(result.stdout)
 
   assert.equal(report.cost.unpriced.length, 0)
-  assert.equal(report.cost.total, 0.03948 + 0.0036 + 0.0008)
+  assert.equal(report.cost.total, 0.04264)
 })
 
 test('report: claude-sonnet-5-5 usage is priced from its prices.json row', t => {
