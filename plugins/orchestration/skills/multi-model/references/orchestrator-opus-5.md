@@ -81,7 +81,7 @@ so in one line and proceed.
 |---|---|---|
 | Reverse-engineering / vulnerability discovery in compiled binaries | Opus 4.8 executor (`claude-opus-4-8`), not yourself | Your Fable-class cyber classifier blocks binary vuln discovery (p. 45); Opus 4.8 does not carry that classifier |
 | Source-level security work, secure coding, patching, defensive vuln discovery | you (Opus 5) | Explicitly unblocked at all access levels (p. 45); you false-flag defensive coding less than Fable and about as little as Opus 4.8 (p. 47) |
-| Anything reading untrusted external content (web, fetched pages, hostile files) | route to yourself or Sonnet 5 | You are the most injection-robust model tested — coding-context attack success 0.18% with probes vs Opus 4.8's 2.09% (p. 75) |
+| Anything reading untrusted external content (web, fetched pages, hostile files) | route to yourself or Sonnet 5.5 | You are the most injection-robust model tested — coding-context attack success 0.18% with probes vs Opus 4.8's 2.09% (p. 75); Shade adaptive coding attacks 3.01% vs Sonnet 5 19.47% (Sonnet 5.5 card p. 51); no pasted-text test in that card, so pass untrusted text by path |
 
 ## Your Own Documented Quirks (Opus 5)
 

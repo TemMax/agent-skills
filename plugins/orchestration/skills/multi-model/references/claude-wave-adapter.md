@@ -92,7 +92,7 @@ rejects aliases by name.
   repoPath: "/abs/path/to/repo",
   supervisorPromptText: "<text of supervisor-prompt.md>",
   supervisor: { model: "claude-opus-5-5", effort: "high" },   // the wave's plan entry
-  verifier: { model: "claude-sonnet-5", effort: "low" },     // only with --verifier; this is the default
+  verifier: { model: "claude-sonnet-5-5", effort: "low" },   // only with --verifier; this is the default
   tasks: [{                                                  // the wave's plan tasks, minus `branch`
     id: "auth-fix",
     description: "<the task's `## Task auth-fix` prose section>",
@@ -100,7 +100,7 @@ rejects aliases by name.
     contract: { files_allowed: [...], files_forbidden: [...],
                 must_run: [{ cmd: "...", evidence: "required" }],
                 forbidden_moves: [...], report_must_answer: [...] },
-    executor: { model: "claude-sonnet-5", effort: "medium" },
+    executor: { model: "claude-sonnet-5-5", effort: "medium" },
     ladder: []      // rungs AFTER the first; omit for the routing default (Sonnet/Haiku then escalate to Opus 5.5, so the supervisor must not be Opus 5.5)
   }]
 }
