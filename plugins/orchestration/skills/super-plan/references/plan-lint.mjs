@@ -169,6 +169,8 @@ if (plan) {
   const retiredExecLadderWarn = (model) => {
     if (model === 'claude-opus-5') {
       warn('retired route: Opus 5 is no longer an executor route (use claude-opus-5-5)')
+    } else if (model === 'claude-sonnet-5') {
+      warn('retired route: claude-sonnet-5 is no longer an executor route (use claude-sonnet-5-5); approved plans still run')
     } else if (model === 'claude-opus-4-8') {
       warn('Opus 4.8 is routed only for compiled-binary work — ignore this warning if the task is compiled-binary reverse-engineering')
     }
