@@ -633,14 +633,14 @@ contains "gpt-6-sol over gpt-5.6-terra executor named" \
 
 section "Claude default ladder"
 
-mk_default_ladder_plan() {  # $1 = ladder JSON fragment ("" = no ladder key) → writes $W/m.md
-  python3 - "$W/m.md" "$1" <<'PY'
+mk_default_ladder_plan() {  # $1 = executor model, $2 = ladder JSON fragment ("" = no ladder key) → writes $W/m.md
+  python3 - "$W/m.md" "$1" "$2" <<'PY'
 import json, sys
-dst, ladder_line = sys.argv[1:]
+dst, model, ladder_line = sys.argv[1:]
 task = {
   "id": "sonnet-task",
   "branch": "wave/sonnet-task",
-  "executor": {"model": "claude-sonnet-5", "effort": "medium"},
+  "executor": {"model": model, "effort": "medium"},
   "contract": {
     "files_allowed": ["src/**"],
     "files_forbidden": [],
@@ -666,17 +666,34 @@ open(dst, 'w').write(out)
 PY
 }
 
-mk_default_ladder_plan ""
+mk_default_ladder_plan "claude-sonnet-5" ""
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "Sonnet task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
 contains "Sonnet task without ladder under Opus 5.5 supervisor named" \
   'supervisor model also appears as executor or ladder rung' "$out"
 
-mk_default_ladder_plan "[]"
+mk_default_ladder_plan "claude-sonnet-5" "[]"
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "Sonnet task with explicit empty ladder under Opus 5.5 supervisor exits 0" "0" "$rc"
 check "Sonnet task with explicit empty ladder has no supervisor-collision error" \
   '! grep -qF "supervisor model also appears as executor or ladder rung" <<<"$out"'
+
+mutate '"model": "claude-sonnet-5"' '"model": "claude-sonnet-5-5"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "claude-sonnet-5-5 as explicit executor exits 0" "0" "$rc"
+contains "claude-sonnet-5-5 as explicit executor is clean" "OK: 0 error(s)" "$out"
+
+mk_default_ladder_plan "claude-sonnet-5-5" ""
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Sonnet 5.5 task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
+contains "Sonnet 5.5 task without ladder under Opus 5.5 supervisor named" \
+  'supervisor model also appears as executor or ladder rung' "$out"
+
+mk_default_ladder_plan "claude-haiku-4-5-20251001" ""
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Haiku task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
+contains "Haiku task without ladder under Opus 5.5 supervisor named" \
+  'supervisor model also appears as executor or ladder rung' "$out"
 
 section "ci: required CI entrypoint"
 
