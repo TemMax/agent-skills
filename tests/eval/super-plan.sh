@@ -11,7 +11,7 @@ cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 . tests/eval/model-cli.sh
 
-# Default is Sonnet 5, not Haiku: measured 2026-08-18, Haiku 4.5 did not
+# Default is Sonnet 5.5 (`claude-sonnet-5-5`) since 2026-09-28, not Haiku: measured 2026-08-18, Haiku 4.5 did not
 # reliably follow this skill (prose printed before the plan content, `branch`
 # values not matching `wave/<id>`, a `ladder` array holding branch names
 # instead of short model names, and a same-wave file overlap that survived
