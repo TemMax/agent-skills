@@ -342,7 +342,7 @@ check "wave plan artifact opens with the unfenced status/base header" \
 check "wave plan artifact uses one fenced json wave-plan block with ci, e2e and waves" \
   "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\`\`\`json wave-plan' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"waves\":' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"ci\":' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"e2e\":'"
 check "wave plan artifact example nests a Sonnet task with an empty ladder under a claude-opus-5-5 supervisor" \
-  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"model\": \"claude-opus-5-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"executor\": { \"model\": \"claude-sonnet-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"ladder\": []'"
+  "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"model\": \"claude-opus-5-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"executor\": { \"model\": \"claude-sonnet-5-5\"' && sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF '\"ladder\": []'"
 check "wave plan artifact points to super-plan's Plan Format for the full schema" \
   "sed -n '/^## Wave Plan Artifact\$/,/^## Task Prompt Template/p' '$MM' | grep -qF 'super-plan'\''s Plan Format'"
 

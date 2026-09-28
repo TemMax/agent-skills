@@ -442,7 +442,7 @@ check "the Model identifiers section names its probe" \
   "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | grep -qF 'wf_e635018e-8f3'"
 check "the Agent-tool exception names alias and full ID" \
   "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'a spawn through it names the alias AND the full ID from this table.'"
-for id in claude-haiku-4-5-20251001 claude-sonnet-5 claude-opus-5-5 claude-opus-5 claude-opus-4-8 claude-fable-5-1; do
+for id in claude-haiku-4-5-20251001 claude-sonnet-5 claude-sonnet-5-5 claude-opus-5-5 claude-opus-5 claude-opus-4-8 claude-fable-5-1; do
   check "the linter accepts $id" "grep -qF \"'$id'\" $PL"
 done
 check "the linter rejects aliases by name"         "grep -qF 'is an alias' $PL"
