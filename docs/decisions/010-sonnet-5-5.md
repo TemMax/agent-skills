@@ -34,9 +34,11 @@ Sonnet 5.5 has no Agent-tool alias, and the Agent tool accepts only aliases.
 
 ## Decision
 
-Route closed implementation, code-volume research, browser work and untrusted
-reads to Sonnet 5.5. It is the default executor, the default verifier and the
-middle rung of the default Claude ladder (Haiku 4.5, Sonnet 5.5, Opus 5.5).
+Route closed implementation and code-volume research to Sonnet 5.5, and have
+the browser and untrusted-content rows of the Fable 5.1 and Opus 5
+orchestrator profiles name Sonnet 5.5. It is the default executor, the
+default verifier and the middle rung of the default Claude ladder (Haiku 4.5,
+Sonnet 5.5, Opus 5.5).
 
 Retire Sonnet 5 as a route: it is no longer a default for anything, and its
 dossier section is kept as route history.
@@ -65,8 +67,10 @@ live evaluation (default eval model moved to `claude-sonnet-5-5`) still has to
 be run and its results recorded; until then the dossier's Sonnet 5.5 figures
 are the card's and are cited as such.
 
-The fallback stays Sonnet 5: a task that fails on Sonnet 5.5 escalates up the
-ladder to Opus 5.5, and a plan or an operator that needs to leave Sonnet 5.5
+Cyber-blocked requests fall back to Claude Sonnet 5, and so do requests
+blocked by the narrow AI-R&D classifier (Sonnet 5.5 card pp. 10-11, 29, 51).
+Separately, a task that fails on Sonnet 5.5 escalates to Opus 5.5 along the
+runner's default ladder. A plan or an operator that needs to leave Sonnet 5.5
 can name `claude-sonnet-5` explicitly. When the `sonnet` alias re-points to
 Sonnet 5.5 the Model identifiers table must be re-probed and updated. Sonnet
 research needs a Workflow call instead of an Agent-tool spawn until then.
