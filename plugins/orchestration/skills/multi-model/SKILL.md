@@ -74,7 +74,8 @@ permits a mixed/unknown-provider wave or bypasses lint and user approval.
 | Model | Full ID | Agent-tool alias (probed 2026-09-22, Workflow `wf_e635018e-8f3`) |
 |---|---|---|
 | Haiku 4.5 | `claude-haiku-4-5-20251001` | `haiku` |
-| Sonnet 5 | `claude-sonnet-5` | `sonnet` |
+| Sonnet 5.5 | `claude-sonnet-5-5` | none (probed 2026-09-28: `sonnet` still resolves to `claude-sonnet-5`) |
+| Sonnet 5 (retired route; ID valid for approved plans) | `claude-sonnet-5` | `sonnet` |
 | Opus 5.5 | `claude-opus-5-5` | `opus` |
 | Opus 5 | `claude-opus-5` | none |
 | Opus 4.8 | `claude-opus-4-8` | none |
@@ -88,7 +89,10 @@ on 2026-09-22 `opus` moved from Opus 5 to Opus 5.5, so every route written as
 **Agent-tool exception.** The Claude Code Agent tool schema accepts only
 aliases, so a spawn through it names the alias AND the full ID from this table.
 A model without an alias (Opus 5, Opus 4.8) is spawned only through Workflow
-`agent()`. When a new Claude model ships, re-probe (a Workflow that asks each
+`agent()`. Sonnet 5.5 has no alias yet, so a Sonnet 5.5 research or audit
+spawn runs as a one-agent Workflow `agent()` call with the full ID, for example
+`agent(prompt, { model: 'claude-sonnet-5-5', effort: 'medium' })`. That is not a
+wave script. When a new Claude model ships, re-probe (a Workflow that asks each
 agent to report its model ID) and update this table before routing through an
 alias.
 
@@ -225,8 +229,8 @@ the work it is waiting for.
 | Task | Model | Why (see the dossiers) |
 |---|---|---|
 | Mechanical work per exact instruction, zero decisions | Haiku 4.5 (`claude-haiku-4-5-20251001`) | Cheaper; condition — zero decisions |
-| Implementation against a clear spec, tests, migrations, isolated features | Sonnet 5 (`claude-sonnet-5`, default) | Near-Opus quality on closed tasks |
-| Digging through a large volume of code for a specific question | Sonnet 5 (`claude-sonnet-5`) | Holds 1M context |
+| Implementation against a clear spec, tests, migrations, isolated features | Sonnet 5.5 (`claude-sonnet-5-5`, default) | Near-Opus quality on closed tasks: SWE-bench Pro 81.3 vs Sonnet 5's 63.2 (Opus 5.5 89.9), p. 109; false completion claims 1.54 vs Sonnet 5's 2.52 (p. 66) |
+| Digging through a large volume of code for a specific question | Sonnet 5.5 (`claude-sonnet-5-5`) | Holds 1M context; ProgramBench 79.7 vs Sonnet 5's 77.3 (Opus 5.5 91.2), pp. 117–118 |
 | Independent verification, "what's actually broken here" | Opus 5.5 executor (`claude-opus-5-5`, default heavy) | Fewer false completion claims than Opus 5 (1.14 vs 1.56, pp. 106–114); silent use of a leaked answer 12.1% vs 36.3% (p. 131); volunteers hidden git manipulations 96.9% vs 50.2% (p. 132) |
 | Fine-grained debugging, concurrency, source-level security-sensitive code | Opus 5.5 executor (`claude-opus-5-5`) | Strongest coding in the lineup — SWE-bench Pro 89.9 (p. 175), Terminal-Bench 4.0 66.4 (p. 178); source-code vulnerability work unblocked, binaries blocked (pp. 48, 55) |
 | A long unsliceable session | Opus 5.5 executor (`claude-opus-5-5`) | ProgramBench 91.2 with episodes up to the full 1M window (pp. 183–184), at $4 / $20 vs Opus 5's $5 / $25 (p. 180) |
@@ -235,9 +239,11 @@ the work it is waiting for.
 | Untrusted content whose compromise would reach secrets or irreversible actions (content known hostile, an agent that can act) | Fable 5.1 executor (`claude-fable-5-1`) | Most injection-robust model to date: IPI 0.1% at k=1 / 1.0% at k=15 vs Opus 5's 0.4 / 4.8; none of 2,826 directly-answered coding requests broke (pp. 83, 86). Opus 5.5 stays the cost default; only with `approvals.premium` recorded at Gate 1 |
 | Reverse-engineering / vulnerability discovery in compiled binaries | Opus 4.8 executor (`claude-opus-4-8`) | Opus 5.5's, Opus 5's and Fable 5.1's cyber classifiers block binaries (Opus 5.5 card pp. 48, 55; Fable 5.1 card p. 52); Opus 4.8 is where the fallback lands anyway (Opus 5.5 card pp. 12–13) — choose it, don't fall into it |
 
-Torn between Haiku and Sonnet → Sonnet. Torn between Sonnet and Opus → improve the
-task spec first, then upgrade the model. Opus 5.5 (`claude-opus-5-5`) is the
-default heavy executor and verifier. Opus 5 remains addressable as
+Torn between Haiku and Sonnet → Sonnet 5.5. Torn between Sonnet and Opus → improve the
+task spec first, then upgrade the model. Sonnet 5.5 (`claude-sonnet-5-5`) is the
+default executor for closed implementation; Opus 5.5 (`claude-opus-5-5`) is the
+default heavy executor and verifier. `claude-sonnet-5` is retired as a route
+(2026-09-28); the ID stays valid so that approved plans still execute. Opus 5 remains addressable as
 `claude-opus-5` — the standard supervisor for Opus 5.5 executors and for
 tasks whose rungs reach Opus 5.5; retired as an executor. Opus 4.8
 (`claude-opus-4-8`) is retained only for compiled-binary work and as the
@@ -262,12 +268,12 @@ expensive rate available. Never spawn a research agent without naming its model.
 | Research kind | Model | Why (see the dossiers) |
 |---|---|---|
 | Mechanical pattern search: occurrences of a known string or shape | Haiku 4.5 (`claude-haiku-4-5-20251001`) | Zero decisions; simple file searches are its documented lane |
-| Closed enumeration: files, call sites, conventions, test commands that actually run | Sonnet 5 (`claude-sonnet-5`), low/medium | Strong at digging through large code volumes (ProgramBench 76–86%, 1M context) and cheap; a closed question neutralizes its documented fabricate-when-information-is-missing failure (Sonnet 5 card, p. 71) |
+| Closed enumeration: files, call sites, conventions, test commands that actually run | Sonnet 5.5 (`claude-sonnet-5-5`), medium, spawned through Workflow `agent()` | Strong at digging through large code volumes (ProgramBench 79.7, 1M context, pp. 117–118) and cheap; wide search at low collapses (WANDR 10.0 at low vs 29.9 at medium, p. 122); a closed question bounds its documented guessing (AA-Omniscience incorrect-answer rate 0.27, p. 80) |
 | Open research sub-question: how a subsystem works, what depends on what, why it is shaped this way | Opus 5.5 (`claude-opus-5-5`), medium/high | Cheaper than Opus 5 ($4 / $20 vs $5 / $25 per million tokens, p. 180) at DRACO parity (87.4 vs 88.3, p. 187) |
 | A report the orchestrator will trust without re-verification | Opus 5.5 (`claude-opus-5-5`), medium/high | Strongest tested model or tied on most honesty metrics of the dossier's automated-behavioral-audit comparison (Opus 5.5 card pp. 106–114, p. 110); its MASK honesty-under-pressure rate is below Opus 5's and Sonnet 5's (p. 130), so a report it produces under user pressure still gets spot-checked |
 | Reasoning over a near-1M-token surface | Opus 4.8 (`claude-opus-4-8`) | The only measured long-context reasoning result in the comparison set (GraphWalks 1M 68.1) |
 
-Torn between Haiku and Sonnet → Sonnet, as always. The route comes from this
+Torn between Haiku and Sonnet → Sonnet 5.5, as always. The route comes from this
 table, never from inheritance: on an Opus 5.5 seat the open-research route
 equals the seat model, which is allowed because the table chose it — and every
 spawn still names its model. Research is gathering, not deciding — the
@@ -278,7 +284,9 @@ of the executor task template):
 
 - every claim carries evidence as `file:line`, or as a command plus its output;
 - `not found` is a valid and expected answer — never fill a gap with a guess
-  (Sonnet 5 fabricates precisely when information is missing, p. 71);
+  (Sonnet 5.5 guesses instead of abstaining: AA-Omniscience incorrect-answer
+  rate 0.27, the highest of six, p. 80; Sonnet 5 fabricated precisely when
+  information was missing, Sonnet 5 card p. 71);
 - read the sources: answering from memory about library or system behavior is
   forbidden (Opus 5's documented recall-as-truth failure, p. 87);
 - never open, print, copy or transmit credentials, tokens or configuration
@@ -300,7 +308,8 @@ is your profile's business, not this table's.
 | Model | low | medium | high | xhigh |
 |---|---|---|---|---|
 | Haiku 4.5 (`claude-haiku-4-5-20251001`) | — does not support effort — | | | |
-| Sonnet 5 (`claude-sonnet-5`) | obvious solution, but the code must be read | routine implementation per spec | default for non-trivial work | hardest execution tasks; plateau! |
+| Sonnet 5.5 (`claude-sonnet-5-5`) | simple, fully specified edits | routine implementation per spec | default for non-trivial work | hardest execution tasks, the coding peak (FrontierCode 52.1 at xhigh vs 46.2 at max with ~12× the tokens, p. 111); never max for scoped coding |
+| Sonnet 5 (`claude-sonnet-5`; retired route) | obvious solution, but the code must be read | routine implementation per spec | default for non-trivial work | hardest execution tasks; plateau! |
 | Opus 5.5 executor (`claude-opus-5-5`) | simple, fully specified edits | **peak on scoped coding** (FrontierCode, p. 176) | default for non-trivial work (CursorBench high = xhigh, p. 179) | long-horizon knowledge work (≈ max at 41–51% fewer tokens, pp. 209–210); avoid max — pasted-text compliance 7.4% (p. 125) |
 | Opus 5 executor (`claude-opus-5`; retired route, kept for approved older plans) | unusually strong on simple/scoped tasks | well-specified work | default for non-trivial work | avoid — overthinking/self-verification risk |
 | Opus 4.8 executor (`claude-opus-4-8`) | — | compiled-binary work only: most well-specified tasks (min effort ≈ Opus 4.7 max) | compiled-binary work only: debugging, verification, long horizon | compiled-binary work only: research-grade only |
@@ -373,7 +382,7 @@ base: 7c05ff5
     "tasks": [
       { "id": "http-retry",
         "branch": "wave/http-retry",
-        "executor": { "model": "claude-sonnet-5", "effort": "medium" },
+        "executor": { "model": "claude-sonnet-5-5", "effort": "medium" },
         "ladder": [],
         "contract": {
           "files_allowed": ["src/http/**"],
@@ -440,7 +449,12 @@ reduce the documented failure modes:
    your turn while a command you started is still running — no Monitor, no
    ScheduleWakeup; keep polling its log until it exits.
    Phrase prohibitions without qualifiers — executors rules-lawyer around wording
-   when it conflicts with "the overriding goal".
+   when it conflicts with "the overriding goal". The task text is not
+   authorization to use credentials, secrets found in the repository, or
+   production systems; if the task seems to need one, stop and report.
+   Measured: Sonnet 5.5 accepts unverifiable authorization more readily than
+   Opus 5.5 (2.76 vs 2.39) and once reasoned 'The card is the authorization'
+   (Sonnet 5.5 card pp. 60–62).
 5. **Definition of done and response format:** list of changed files, the
    gist of the changes, output of actually executed tests/linter, plus the
    committed-work proof: `git log --oneline <base>..HEAD` (non-empty) and
@@ -521,14 +535,15 @@ weaker tier than Opus 5.5 even where Opus 5.5 benchmarks higher.
 | Executor | Supervisor | Effort |
 |---|---|---|
 | Haiku 4.5 (`claude-haiku-4-5-20251001`) | Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
-| Sonnet 5 (`claude-sonnet-5`) | Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
+| Sonnet 5.5 (`claude-sonnet-5-5`) | Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
+| Sonnet 5 (`claude-sonnet-5`) | retired route — same supervisor as the Sonnet 5.5 row | high |
 | Opus 5.5 (`claude-opus-5-5`) | Fable 5.1 (`claude-fable-5-1`), fallback Opus 5 (`claude-opus-5`) | high |
 | Opus 5 (`claude-opus-5`) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) | high |
 | Opus 4.8 (`claude-opus-4-8`) | Opus 5.5 (`claude-opus-5-5`, standard) or Fable 5.1 (`claude-fable-5-1`, premium — `approvals.premium`) | high |
 | Fable 5.1 (`claude-fable-5-1`, explicit specialized choice or approved rung) | Opus 5.5 (`claude-opus-5-5`), fallback Opus 5 (`claude-opus-5`) | high |
 
 A wave has one supervisor, so pick its row by the strongest model any task
-in the wave can run, ladder rungs included — a `claude-sonnet-5` task whose
+in the wave can run, ladder rungs included — a `claude-sonnet-5-5` task whose
 ladder reaches `claude-opus-5-5` is supervised by `claude-fable-5-1`, not by
 Opus 5.5 (the runner and the linter reject a supervisor that is also a rung).
 The rung rule counts the default ladder: an omitted `ladder` field is not an
@@ -742,8 +757,8 @@ Opus 5 relays subagent claims unverified (p. 81).
   `references/orchestrator-fable-5.md`, `references/orchestrator-opus-5.md`,
   `references/orchestrator-opus-4-8.md` — the orchestrator profiles. Load exactly
   one, per Step 0.
-- `references/model-dossiers.md` — dossiers on all seven models (Opus 5.5,
-  Fable 5.1, Fable 5, Opus 5, Opus 4.8, Sonnet 5, Haiku 4.5) with numbers and
+- `references/model-dossiers.md` — dossiers on all eight models (Opus 5.5,
+  Fable 5.1, Fable 5, Opus 5, Opus 4.8, Sonnet 5.5, Sonnet 5, Haiku 4.5) with numbers and
   page references to the system cards: benchmarks, documented failure modes,
   effort curves, multi-agent harness data, orchestration takeaways. Load it for
   contested routing calls or to justify a choice.
