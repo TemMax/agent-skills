@@ -422,10 +422,10 @@ OP5=plugins/orchestration/skills/multi-model/references/orchestrator-opus-5.md
 
 check "the runner accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $WR"
 check "the linter accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $PL"
-check "every full ID in the runner is one of the six" \
-  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|opus-5-5|opus-5|opus-4-8|fable-5-1)' | grep -q ."
-check "the simulator tier guards the six-ID rule" \
-  "grep -qF \"grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|opus-5-5|opus-5|opus-4-8|fable-5-1)'\" tests/wave-runner.test.sh"
+check "every full ID in the runner is one of the seven" \
+  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|sonnet-5-5|opus-5-5|opus-5|opus-4-8|fable-5-1)' | grep -q ."
+check "the simulator tier guards the seven-ID rule" \
+  "grep -qF \"grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|sonnet-5-5|opus-5-5|opus-5|opus-4-8|fable-5-1)'\" tests/wave-runner.test.sh"
 check "the runner rejects aliases by name"         "grep -qF 'is an alias' $WR"
 check "the linter tier rejects the bare short form" \
   "grep -qF '\"model\": \"opus-4-8\"' tests/plan-lint.test.sh"
