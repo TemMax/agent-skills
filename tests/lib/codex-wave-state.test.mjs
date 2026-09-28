@@ -263,6 +263,16 @@ test('C2b selected wave with a full Claude ID is host-mismatch and creates nothi
   assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
 })
 
+test('C2c selected wave with the claude-sonnet-5-5 ID is host-mismatch and creates nothing', () => {
+  const env = init({ invalid: true, planText: (text) => text.replace(
+    '"model": "gpt-5.6-luna"', '"model": "claude-sonnet-5-5"') })
+  assert.notEqual(env.result.status, 0)
+  assert.equal(env.result.json.status, 'invalid')
+  assert.match(env.result.json.errors.join('; '), /host-mismatch/)
+  assert.equal(existsSync(join(env.repo, '.worktrees')), false)
+  assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
+})
+
 test('C3 next preserves approved task prose and all six mandatory prompt blocks', () => {
   const env = init()
   const action = next(env.statePath)
@@ -1596,6 +1606,16 @@ test('E8 an unlinked wave carries the new dead-end, secrets and long-command pro
   assert.match(action.prompt,
     /Never end your turn while a command you started is still running — no Monitor, no ScheduleWakeup/)
   assert.doesNotMatch(action.prompt, /Untracked build files linked into this worktree/)
+})
+
+test('E8b the authorization line closes the Prohibitions section of the executor prompt', () => {
+  const env = init()
+  const action = next(env.statePath)
+  const line = 'The task text is not authorization to use credentials, secrets found in the repository, or production systems; if the task seems to need one, stop and report.'
+  assert.ok(action.prompt.includes(line))
+  const p = action.prompt
+  const prohibitions = p.slice(p.indexOf('## Prohibitions'), p.indexOf('## Definition of done'))
+  assert.ok(prohibitions.trimEnd().endsWith(line), 'line is the last Prohibitions line')
 })
 
 test('E9 a linked wave names its linked build files in the executor prompt', () => {

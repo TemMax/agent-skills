@@ -79,7 +79,7 @@ Codex `gpt-6-luna` session started with `model_reasoning_effort="low"` gets a
 `PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=gpt-6-luna
 effort=low`, and a Claude Code session started with `--effort low` sees that
 effort from its shell tool (`printenv CLAUDE_EFFORT`). It costs two small
-model calls — one `gpt-6-luna` call and one `claude-sonnet-5` call — and,
+model calls — one `gpt-6-luna` call and one Sonnet 5.5 (`claude-sonnet-5-5`) call — and,
 because Codex's own seatbelt sandbox cannot nest another sandboxed `codex
 exec`, it must run outside any sandbox; skip a part whose CLI is missing from
 PATH rather than fail it.
@@ -168,6 +168,11 @@ follows from this record.
 stage B re-measure of the critical-review and wave rows after the scorer,
 supervisor sandbox/working-directory, and `wave.sh` Codex-path fixes; see
 `tests/eval/gpt-6-results-2026-09-23.md`.
+
+**2026-09-28 — Sonnet 5.5 support.** The dated record is
+[`tests/eval/sonnet-5-5-results-2026-09-28.md`](eval/sonnet-5-5-results-2026-09-28.md):
+alias probe, Workflow executor results and live tiers, all single runs; no
+Codex tiers were run.
 
 **2026-09-24 — stage C verification.** Live suites, the Sol reviewer and
 Sol-vs-Astra supervisor comparison, the seam-audit before/after, and the
@@ -409,8 +414,9 @@ inside the repository. Requires `node`.
 fixture one defect at a time and asserts the shipped `plan-lint.mjs` names
 each error class; warnings are asserted non-fatal. Requires `node`. Both the
 linter and the runner accept Claude models by full ID only —
-`claude-haiku-4-5-20251001`, `claude-sonnet-5`, `claude-opus-5-5`,
-`claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` — and reject the aliases
+`claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5` (a retired
+route that stays valid), `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`,
+`claude-fable-5-1` — and reject the aliases
 `haiku`, `sonnet`, `opus` and `fable` by name, because an alias re-points
 silently when a model ships (probe wf_e635018e-8f3, 2026-09-22, in
 `tests/eval/wave-insession.md`).
@@ -442,8 +448,11 @@ Worth stating plainly, because a green run is easy to over-read.
   failure. Apply the adjudication rules above rather than adjusting expectations
   to protect a prompt.
 - **Default model is the cheapest one that measured reliable.** Every
-  evaluation runs on Haiku 4.5 unless `EVAL_MODEL` says otherwise, with one
-  exception: the super-plan tier defaults to Sonnet 5. Measured 2026-08-12,
+  evaluation runs on Haiku 4.5 unless `EVAL_MODEL` says otherwise, with two
+  exceptions: the super-plan and seam-audit tiers default to Sonnet 5.5
+  (`claude-sonnet-5-5`; super-plan moved from Sonnet 5 on 2026-09-28, the
+  measurements below predate the move).
+  Measured 2026-08-12,
   one run per fixture: the supervisor tier passes 9/9 on Sonnet 5, Opus 5 and
   Fable 5 as well (`EVAL_MODEL=claude-sonnet-5|claude-opus-5|claude-fable-5`,
   F1–F4). Single runs prove each model *can* judge these fixtures, not a

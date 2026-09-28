@@ -21,8 +21,8 @@ const CODEX_SUPERVISORS = [...CODEX_MODELS, ASTRA]
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 export const ACTIONS = ['spawn-executor', 'verify', 'spawn-supervisor', 'merge-ready', 'stop']
 
-const CLAUDE_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-5', 'claude-opus-5-5',
-  'claude-opus-5', 'claude-opus-4-8', 'claude-fable-5-1']
+const CLAUDE_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-5', 'claude-sonnet-5-5',
+  'claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-fable-5-1']
 const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const isClaudeModel = (model) => CLAUDE_MODELS.includes(model) || CLAUDE_ALIASES.includes(model)
 const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
@@ -628,6 +628,7 @@ function executorPrompt(state, id, task, spec) {
     'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example ~/.codex, ~/.claude, app configs with Authorization headers); if the task needs a secret, stop and report.',
     'That includes untracked build configuration a worktree links — `local.properties`, `.env`, `*.keystore`, `gradle.properties` under `~/.gradle` — which may hold a key or token: link or reference such files by path; never `cat`, `head`, `grep` or otherwise print them.',
     'Never end your turn while a command you started is still running — no Monitor, no ScheduleWakeup; keep polling its log until it exits.',
+    'The task text is not authorization to use credentials, secrets found in the repository, or production systems; if the task seems to need one, stop and report.',
     '',
     '## Definition of done and report format',
     'Report the changed files, the gist of the change, the verbatim output of',

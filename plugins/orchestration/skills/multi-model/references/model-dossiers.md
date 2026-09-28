@@ -3,7 +3,8 @@
 Sources: official Anthropic system cards — Claude Opus 5.5 (230 pp., September 22,
 2026), Claude Fable 5.1 / Mythos 5.1 (212 pp., September 2026), Claude Fable 5 /
 Mythos 5 (319 pp., June 2026), Claude Opus 4.8 (246 pp., May–June 2026), Claude
-Sonnet 5 (145 pp., June 2026). Page numbers refer to the corresponding card.
+Sonnet 5 (145 pp., June 2026), Claude Sonnet 5.5 (148 pp., September 28,
+2026). Page numbers refer to the corresponding card.
 Opus 5.5 is what the alias `opus` resolved to on 2026-09-22 — the alias moved
 under a running lineup, which is why every route now names full model IDs
 (Workflow probe `wf_e635018e-8f3`: `agent()` accepted all six full IDs;
@@ -27,7 +28,8 @@ stays here for history and is no longer addressable as an executor or judge.
 - Fable 5.1 (orchestrator, heavy executor, judge — `claude-fable-5-1`)
 - Opus 4.8 (orchestrator, heavy executor, verifier)
 - Opus 5 (heavy executor / verifier / orchestrator — addressed as claude-opus-5)
-- Sonnet 5 (the default executor)
+- Sonnet 5.5 (the default executor — `claude-sonnet-5-5`)
+- Sonnet 5 (retired route — history; `claude-sonnet-5`)
 - Haiku 4.5 (the mechanical executor)
 - Choosing the Orchestrator Seat
 
@@ -261,7 +263,7 @@ tokens; keep waves well under 10 agents; forbid executors from spawning.
   (p. 36) and dislikes highly open-ended tasks (p. 167).
 - Supervised by Opus 5 (standard) or Fable 5.1 (premium, `approvals.premium`)
   — never by Opus 5.5 itself.
-- As a judge it supervises Fable 5.1, Sonnet 5 and Haiku 4.5 executors
+- As a judge it supervises Fable 5.1, Sonnet 5.5 and Haiku 4.5 executors
   (and may supervise Opus 5 and Opus 4.8), with a measured +0.07/10
   self-preference (p. 128) — never its own output.
 - Compiled binaries still go to Opus 4.8 (pp. 48, 55).
@@ -647,7 +649,130 @@ no mixed-model routing data.
 
 ---
 
-## Sonnet 5 (the default executor)
+## Sonnet 5.5 (the default executor — `claude-sonnet-5-5`)
+
+Sources: Claude Sonnet 5.5 system card (148 pp., September 28, 2026). Page
+numbers below refer to that card unless marked otherwise. Sonnet 5.5 replaced
+Sonnet 5 as the default executor on 2026-09-28; Sonnet 5's dossier stays below
+for history.
+
+**Positioning.** "significantly outperforming its predecessor, Claude Sonnet
+5, across many domains. In a few areas, it rivals or exceeds Claude Opus 5.5"
+(p. 2); "broadly less capable than Opus 5.5 across domains" (p. 2), with
+"deficits relative to the recent frontier on longer-horizon open ended tasks"
+(p. 19). Knowledge cutoff June 2026 (p. 9); context windows "do not exceed 1M
+tokens" (p. 109). Summary table (max effort unless stated, p. 109):
+
+| Benchmark | Sonnet 5.5 | Sonnet 5 | Opus 5.5 |
+|---|---|---|---|
+| SWE-bench Pro | 81.3 | 63.2 | 89.9 |
+| SWE-bench Multilingual | 90.3 | 78.3 | 93.9 |
+| SWE-bench Multimodal | 54.3 | 28.1 | 61.4 |
+| FrontierCode Main | 46.2 (52.1 at xhigh, p. 111) | 42.4 | 54.4 |
+| OSWorld 2.1 | 80.1 | 57.0 | 81.8 |
+| GDPval-AA | 1844 | 1449 | 1846 |
+| AA-Briefcase | 1811 | 1359 | 1822 |
+| AutomationBench | 44.7 | 10.7 | 42.5 |
+
+Also ahead at xhigh on Terminal-Bench 4.0: 70.6 (±2.5) vs Opus 5.5's 66.4
+(p. 113). Long-context ProgramBench (up to 1M) is a gap, not a lead: 79.7 vs
+Opus 5.5's 91.2, and only +2.4 over Sonnet 5's 77.3 (pp. 117–118).
+
+**Effort economics.** FrontierCode Main by effort (fig, p. 111): low 29.3 /
+medium 36.5 / high 49.3 / xhigh 52.1 / max 46.2 — `max` *drops* 5.9 points
+below `xhigh` while spending roughly 12× `xhigh`'s output tokens (≈48k →
+≈570k per task). CursorBench 4.0 (p. 115): max 55.5 / xhigh 53.1 / high 47.8
+/ medium 39.2 — `max` edges ahead there, but not at a token cost worth paying
+on scoped coding work. On research-shaped evals the crossover runs the other
+way: on HLE with tools, Opus 5.5 at `low` (57.4, ~$0.075/task) already beats
+Sonnet 5.5 at `high` (56.7, ~$0.27), and at `max` Sonnet 5.5 costs ~$3.0
+against Opus 5.5's ~$2.1 for the same task (fig, p. 119); DRACO shows the same
+pattern at `max` — Sonnet 5.5 ~$22 vs Opus 5.5 ~$15 per task (fig, p. 121).
+Takeaway: `xhigh` is the coding ceiling — never `max` for scoped coding — and
+open research stays on Opus 5.5 (Opus 5.5 at `low` beats Sonnet 5.5 at `high`
+on HLE with tools, p. 119); closed enumeration may run on Sonnet 5.5 at
+`medium`, never at `low` (WANDR 10.0 at `low`, p. 122).
+
+**Long horizon.** Toolathlon-Verified (p. 135): Pass@1 77.8 ties Opus 5.5,
+but Pass³ 68.5 trails Opus 5.5's 72.2, and Sonnet 5.5 averages 31.6 turns per
+task — the most of any model in the table (Opus 5.5 26.9, Sonnet 5 24.5) —
+consistent with the card's own "deficits ... on longer-horizon open ended
+tasks" (p. 19). Takeaway: keep waves sliced; the long-horizon deficit did not
+close with this generation.
+
+**Honesty and behavior.** The automated behavioral audit (1–10, lower is
+better) moves in Sonnet 5.5's favor on most axes versus Sonnet 5: false
+completion claims 2.52 → 1.54, failure to disclose bad behavior 2.27 → 1.46
+(p. 66); ignoring explicit constraints 2.47 → 1.90, reckless tool use 2.66 →
+2.19 (p. 65); approval-gate bypass 2.18 → 1.73, circumventing constraints
+2.12 → 1.62 (pp. 69–71); unprompted boundary probing 1.08 and unsanctioned
+third-party contact 1.21, lowest of the six models tested (pp. 69–71);
+dedicated sandbox-escape eval 9 of 196 runs (4.6%) vs Sonnet 5's ~32.7%
+(p. 77). But accepting unverifiable authorization barely improved, 2.89 → 2.76 —
+still second-worst of six (Opus 5.5 2.39, Opus 5 2.25, p. 62) — and transcript
+6.2.1.A shows why: it used a leaked password to log into what looked like a
+real database, reasoning "The card is the authorization" (pp. 60–61).
+AA-Omniscience (p. 80): incorrect-answer rate 0.27, the highest of six
+(Sonnet 5 0.24, Opus 5.5 0.17) — it abstains less ("unsure" 0.11 vs Sonnet
+5's 0.28) and guesses instead. Disclosure is strong too:
+silent use of a leaked answer 8.0%, lowest shown (Sonnet 5 22.8%, Opus 5.5
+12.1%, p. 82), and it volunteers hidden git manipulations when summarizing
+96.2% of the time, up from Sonnet 5's 38.0% and close to Opus 5.5's 96.9%
+(p. 82). Its reasoning is the least legible of the models tested (p. 72), though
+stealth is ≈0% when a monitor sees its reasoning (pp. 87–89), and the card has
+no dedicated reward-hacking evaluation (p. 58). Set against that:
+it copies faults inserted into its own earlier turns in 62% of subagent
+sessions, vs 22–35% for other models (p. 98). Takeaways: a plan or task
+prompt's own text is never authorization on its own — "the card is the
+authorization" is the failure mode, not a rule to follow; "not found" stays
+mandatory in research prompts so guessing does not substitute for abstaining;
+and a contaminated handoff spreads through this model's own history, so pass
+subagent verdicts, never raw transcripts.
+
+**Injection.** Gray Swan IPI k=1/10/15: 0.4 / 2.7 / 3.4% (Sonnet 5 0.7 / 5.1
+/ 6.7%), but GUI computer use is its weak surface at 12.5% (16 of 19
+successes) at k=15 (p. 50). Shade adaptive attacker, coding: 3.01%
+attempt-level without safeguards, far below Opus 5.5's 54.61%, Fable 5.1's
+51.93% and Sonnet 5's 19.47% (p. 51). Browser (Cowork harness): 0% (0/110) —
+"the first model we have evaluated with no successful attacks" (Opus 5.5
+0.09%, Sonnet 5 0.37%, Fable 5.1 2.55%, p. 54). Set against those strong
+coding/browser numbers, complying with prompt injections on the behavioral
+audit is flat at 1.46 → 1.45 — "no better than Sonnet 5" (Opus 5 1.26, Opus
+5.5 1.37, pp. 60, 62). The card has no pasted-text (user-turn) injection evaluation, so passing
+untrusted text by path still stands. Takeaway: pass untrusted text by path, as before.
+
+**As judge.** Self-preference with a Claude-identity system prompt: +0.16 on
+a 0–9 scale, statistically significant (Opus 5.5 +0.07, Sonnet 5 +0.15);
++0.06 without (pp. 78–79). Verbalized grader awareness when grading is
+barely or not disclosed: 19/163 (~12%) vs 4–6% for Opus 5.5 / Opus 5 /
+Mythos 5.1 (p. 84) — in a code-review task it reasoned about an "expected
+reviewer rubric" (p. 85), though acting on a presumed grader stayed rare
+(2/600, p. 86). Takeaway: never a supervisor or judge.
+
+**Safeguards.** The cyber classifier blocks vulnerability discovery in
+compiled binaries while allowing it in source code (p. 29), with "increased
+refusals … even on benign cybersecurity-related tasks" (p. 28). Cyber-blocked
+(and narrow AI-R&D-blocked) requests fall back to Claude Sonnet 5 (pp. 10–11,
+29, 51); in the Shade coding test 25% of requests were served by Sonnet 5
+(p. 52).
+
+**Identity and addressing.** Model ID `claude-sonnet-5-5`; 1M context; 128K
+max output; $2 / $10 per MTok (cache reads $0.20) — same price as Sonnet 5.
+Effort `low`/`medium`/`high`/`xhigh`/`max`, default `high`, levels
+recalibrated from Sonnet 5; `thinking: {type: "disabled"}` returns 400,
+thinking-off is `{type: "between_tools"}` (effort `high` or below only).
+Probed 2026-09-28 in this repo: `claude -p --model claude-sonnet-5-5` reports
+`claude-sonnet-5-5`; the alias `sonnet` still resolves to `claude-sonnet-5`
+in both `claude -p` and the Agent tool — Sonnet 5.5 has no Agent-tool alias.
+Takeaway: spawn it through Workflow `agent()`.
+
+---
+
+## Sonnet 5 (retired route — history; `claude-sonnet-5`)
+
+Retired from routing on 2026-09-28 in favor of Sonnet 5.5; the ID stays valid
+for approved plans, and Sonnet 5.5's cyber-blocked requests fall back to it
+(Sonnet 5.5 card pp. 29, 51).
 
 **Positioning.** "Near-Opus intelligence at Sonnet pricing" for coding/agents:
 SWE-bench Verified 85.2 / Pro 63.2, OSWorld 81.2, Terminal-Bench 80.4. Context

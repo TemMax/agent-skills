@@ -233,7 +233,7 @@ check "premium supervision needs the user's pick"      "grep -qF 'A premium mode
 check "the Seam audit step exists"                     "grep -qF '**Seam audit.**' $SP"
 check "the Seam audit runs before lint"                "grep -qF 'Fix what it finds before lint' $SP"
 check "the Seam audit uses the cheap route" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5\` at \`medium\`; Codex: \`gpt-6-sol\` at \`medium\`'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5-5\` at \`medium\`, spawned as a one-agent Workflow \`agent()\` with that full ID (the Agent tool'\''s \`sonnet\` alias still resolves to Sonnet 5); Codex: \`gpt-6-sol\` at \`medium\`'"
 check "the Seam audit explicitly checks the same-task rule for changed formats/signatures/fixtures" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the same-task rule' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'for every changed format, signature or fixture, find every reader of it and require that reader be in the same task as the change'"
 check "the Seam audit lists per-task artifacts absent at the wave's base and fails on same-wave sibling production" \
@@ -422,10 +422,10 @@ OP5=plugins/orchestration/skills/multi-model/references/orchestrator-opus-5.md
 
 check "the runner accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $WR"
 check "the linter accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $PL"
-check "every full ID in the runner is one of the six" \
-  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|opus-5-5|opus-5|opus-4-8|fable-5-1)' | grep -q ."
-check "the simulator tier guards the six-ID rule" \
-  "grep -qF \"grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|opus-5-5|opus-5|opus-4-8|fable-5-1)'\" tests/wave-runner.test.sh"
+check "every full ID in the runner is one of the seven" \
+  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|sonnet-5-5|opus-5-5|opus-5|opus-4-8|fable-5-1)' | grep -q ."
+check "the simulator tier guards the seven-ID rule" \
+  "grep -qF \"grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|sonnet-5-5|opus-5-5|opus-5|opus-4-8|fable-5-1)'\" tests/wave-runner.test.sh"
 check "the runner rejects aliases by name"         "grep -qF 'is an alias' $WR"
 check "the linter tier rejects the bare short form" \
   "grep -qF '\"model\": \"opus-4-8\"' tests/plan-lint.test.sh"
@@ -442,7 +442,7 @@ check "the Model identifiers section names its probe" \
   "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | grep -qF 'wf_e635018e-8f3'"
 check "the Agent-tool exception names alias and full ID" \
   "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'a spawn through it names the alias AND the full ID from this table.'"
-for id in claude-haiku-4-5-20251001 claude-sonnet-5 claude-opus-5-5 claude-opus-5 claude-opus-4-8 claude-fable-5-1; do
+for id in claude-haiku-4-5-20251001 claude-sonnet-5 claude-sonnet-5-5 claude-opus-5-5 claude-opus-5 claude-opus-4-8 claude-fable-5-1; do
   check "the linter accepts $id" "grep -qF \"'$id'\" $PL"
 done
 check "the linter rejects aliases by name"         "grep -qF 'is an alias' $PL"

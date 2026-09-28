@@ -12,7 +12,7 @@ or a supervisor verdict.
 ## Mechanical verification before the judge
 
 The shipped runner inserts a fact-collecting stage between the executor and
-the judge. A cheap verifier agent (default `claude-sonnet-5`/`low`, overridable via
+the judge. A cheap verifier agent (default `claude-sonnet-5-5`/`low`, overridable via
 `args.verifier`) checks out the branch and records facts: does the branch
 carry commits at all, which paths changed, what each `must_run` command
 returns when actually run, and whether the report pastes output where the

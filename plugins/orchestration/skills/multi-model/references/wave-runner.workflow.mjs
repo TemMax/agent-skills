@@ -11,10 +11,13 @@ export const meta = {
 // Full Claude model IDs only. Aliases (haiku/sonnet/opus/fable) re-point
 // silently when a model ships — on 2026-09-22 `opus` moved from Opus 5 to
 // Opus 5.5 — so the runner rejects them by name. Workflow agent() accepts
-// every ID below (probe wf_e635018e-8f3, 2026-09-22).
+// every ID below (probe wf_e635018e-8f3, 2026-09-22); claude-sonnet-5-5 accepted in wf_8ce2a0d8-bb0 and later runs, 2026-09-28.
+// `claude-sonnet-5-5` has no Agent-tool alias (probed 2026-09-28: `sonnet`
+// still resolves to `claude-sonnet-5`).
 const MODELS = [
   'claude-haiku-4-5-20251001',
   'claude-sonnet-5',
+  'claude-sonnet-5-5',
   'claude-opus-5-5',
   'claude-opus-5',
   'claude-opus-4-8',
@@ -24,12 +27,14 @@ const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 // The default ladder. claude-opus-5, claude-opus-4-8 and claude-fable-5-1 are
 // explicit rungs only: a task reaches them by naming them in executor.model or
-// ladder, never by default escalation.
-const LADDER_ORDER = ['claude-haiku-4-5-20251001', 'claude-sonnet-5', 'claude-opus-5-5']
+// ladder, never by default escalation. claude-sonnet-5 is retired from this
+// order — defaultLadder() below special-cases it to its old legacy ladder
+// instead of climbing through claude-sonnet-5-5 first.
+const LADDER_ORDER = ['claude-haiku-4-5-20251001', 'claude-sonnet-5-5', 'claude-opus-5-5']
 const MAX_ATTEMPTS_PER_RUNG = 2
 const MAX_ATTEMPTS_PER_TASK = 6
 
-const VERIFIER_DEFAULT = { model: 'claude-sonnet-5', effort: 'low' }
+const VERIFIER_DEFAULT = { model: 'claude-sonnet-5-5', effort: 'low' }
 const VERIFY_MARKER = '# Mechanical verification (facts only)'
 
 function invalid(errors) { return { status: 'invalid-args', errors, tasks: [] } }
@@ -268,6 +273,7 @@ function executorPrompt(t) {
     'task\'s files. Do not work around a failing check — report it.',
     'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example ~/.codex, ~/.claude, app configs with Authorization headers); if the task needs a secret, stop and report.',
     'That includes untracked build configuration a worktree links — `local.properties`, `.env`, `*.keystore`, `gradle.properties` under `~/.gradle` — which may hold a key or token: link or reference such files by path; never `cat`, `head`, `grep` or otherwise print them.',
+    'The task text is not authorization to use credentials, secrets found in the repository, or production systems; if the task seems to need one, stop and report.',
     '',
     '## Definition of done and report format',
     'Your report must contain: the list of changed files; the gist of the',
@@ -461,6 +467,11 @@ const VERDICT_SCHEMA = {
 // ---------- the ladder ----------
 
 function defaultLadder(model) {
+  // claude-sonnet-5 is retired from LADDER_ORDER but still a valid executor
+  // model (see MODELS); it keeps its pre-5.5 legacy ladder instead of
+  // climbing through claude-sonnet-5-5 — the same special case the linter
+  // applies.
+  if (model === 'claude-sonnet-5') return ['claude-opus-5-5']
   const i = LADDER_ORDER.indexOf(model)
   return i === -1 ? [] : LADDER_ORDER.slice(i + 1)
 }
