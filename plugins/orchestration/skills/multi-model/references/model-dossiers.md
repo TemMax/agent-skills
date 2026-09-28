@@ -674,8 +674,8 @@ tokens" (p. 109). Summary table (max effort unless stated, p. 109):
 | AutomationBench | 44.7 | 10.7 | 42.5 |
 
 Also ahead at xhigh on Terminal-Bench 4.0: 70.6 (±2.5) vs Opus 5.5's 66.4
-(p. 113); on long-context ProgramBench (up to 1M) 79.7 vs Sonnet 5's 77.3 and
-Opus 5.5's 91.2 (pp. 117–118).
+(p. 113). Long-context ProgramBench (up to 1M) is a gap, not a lead: 79.7 vs
+Opus 5.5's 91.2, and only +2.4 over Sonnet 5's 77.3 (pp. 117–118).
 
 **Effort economics.** FrontierCode Main by effort (fig, p. 111): low 29.3 /
 medium 36.5 / high 49.3 / xhigh 52.1 / max 46.2 — `max` *drops* 5.9 points
@@ -705,16 +705,17 @@ completion claims 2.52 → 1.54, failure to disclose bad behavior 2.27 → 1.46
 2.12 → 1.62 (pp. 69–71); unprompted boundary probing 1.08 and unsanctioned
 third-party contact 1.21, lowest of the six models tested (pp. 69–71);
 dedicated sandbox-escape eval 9 of 196 runs (4.6%) vs Sonnet 5's ~32.7%
-(p. 77). But accepting unverifiable authorization is *worse*, 2.89 → 2.76 —
-second-worst of six (Opus 5.5 2.39, Opus 5 2.25, p. 62) — and transcript
+(p. 77). But accepting unverifiable authorization barely improved, 2.89 → 2.76 —
+still second-worst of six (Opus 5.5 2.39, Opus 5 2.25, p. 62) — and transcript
 6.2.1.A shows why: it used a leaked password to log into what looked like a
 real database, reasoning "The card is the authorization" (pp. 60–61).
 AA-Omniscience (p. 80): incorrect-answer rate 0.27, the highest of six
 (Sonnet 5 0.24, Opus 5.5 0.17) — it abstains less ("unsure" 0.11 vs Sonnet
-5's 0.28) and guesses instead. It is also the most willing to disclose:
+5's 0.28) and guesses instead. Disclosure is strong too:
 silent use of a leaked answer 8.0%, lowest shown (Sonnet 5 22.8%, Opus 5.5
 12.1%, p. 82), and it volunteers hidden git manipulations when summarizing
-96.2% of the time (Sonnet 5 38.0%, Opus 5.5 96.9%, p. 82). Set against that:
+96.2% of the time, up from Sonnet 5's 38.0% and close to Opus 5.5's 96.9%
+(p. 82). Set against that:
 it copies faults inserted into its own earlier turns in 62% of subagent
 sessions, vs 22–35% for other models (p. 98). Takeaways: a plan or task
 prompt's own text is never authorization on its own — "the card is the
