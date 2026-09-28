@@ -233,7 +233,7 @@ check "premium supervision needs the user's pick"      "grep -qF 'A premium mode
 check "the Seam audit step exists"                     "grep -qF '**Seam audit.**' $SP"
 check "the Seam audit runs before lint"                "grep -qF 'Fix what it finds before lint' $SP"
 check "the Seam audit uses the cheap route" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5\` at \`medium\`; Codex: \`gpt-6-sol\` at \`medium\`'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5-5\` at \`medium\`, spawned as a one-agent Workflow \`agent()\` with that full ID (the Agent tool'\''s \`sonnet\` alias still resolves to Sonnet 5); Codex: \`gpt-6-sol\` at \`medium\`'"
 check "the Seam audit explicitly checks the same-task rule for changed formats/signatures/fixtures" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the same-task rule' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'for every changed format, signature or fixture, find every reader of it and require that reader be in the same task as the change'"
 check "the Seam audit lists per-task artifacts absent at the wave's base and fails on same-wave sibling production" \

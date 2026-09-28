@@ -118,7 +118,7 @@ done
 section "super-plan emits provider-pure wave plans from the active profile"
 
 check "plan-format table names every full Claude plan identifier" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Claude | \`claude-haiku-4-5-20251001\`, \`claude-sonnet-5\`, \`claude-opus-5-5\`, \`claude-opus-5\`, \`claude-opus-4-8\`, \`claude-fable-5-1\` |'"
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Claude | \`claude-haiku-4-5-20251001\`, \`claude-sonnet-5-5\`, \`claude-sonnet-5\`, \`claude-opus-5-5\`, \`claude-opus-5\`, \`claude-opus-4-8\`, \`claude-fable-5-1\` |'"
 check "example wave-plan block uses a full Claude supervisor id" \
   "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' '$SP' | grep -qF '\"model\": \"claude-fable-5-1\"'"
 check "plan-format table names every exact Codex plan identifier" \

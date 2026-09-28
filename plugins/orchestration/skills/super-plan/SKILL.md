@@ -142,7 +142,7 @@ approvals.
    the strongest model any task in the wave can run —
    every executor AND every ladder rung —
    from multi-model's supervisor table; a supervisor that also appears
-   as an executor or rung is a lint error (a `claude-sonnet-5` executor
+   as an executor or rung is a lint error (a `claude-sonnet-5-5` executor
    with a `claude-opus-5-5` rung takes Opus 5 (`claude-opus-5`, standard)
    or Fable 5.1 (premium, with `approvals.premium`)). An omitted ladder
    uses the runner's default ladder (Sonnet/Haiku → Opus 5.5), so a wave
@@ -244,7 +244,9 @@ approvals.
    expectation; a mismatch is a contract defect caught before any executor
    is spawned.
 5. **Seam audit.** Between Tasks and Lint, one read-only audit agent on the
-   cheap route — Claude: `claude-sonnet-5` at `medium`; Codex: `gpt-6-sol`
+   cheap route — Claude: `claude-sonnet-5-5` at `medium`, spawned as a
+   one-agent Workflow `agent()` with that full ID (the Agent tool's
+   `sonnet` alias still resolves to Sonnet 5); Codex: `gpt-6-sol`
    at `medium` — checks every contract against the code: each `must_run`
    command exists and runs the way CI runs it, every referenced path or API
    exists, the interfaces passed between tasks agree, and every recorded
@@ -347,7 +349,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
        "tasks": [
          { "id": "http-retry",
            "branch": "wave/http-retry",
-           "executor": { "model": "claude-sonnet-5", "effort": "medium" },
+           "executor": { "model": "claude-sonnet-5-5", "effort": "medium" },
            "ladder": ["claude-opus-5-5"],
            "contract": {
              "files_allowed": ["src/http/**"],
@@ -433,8 +435,11 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 
    | Plan host | Allowed model fields |
    |---|---|
-   | Claude | `claude-haiku-4-5-20251001`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
+   | Claude | `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
    | Codex | `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+
+   New Claude plans route Sonnet work to `claude-sonnet-5-5`; `claude-sonnet-5`
+   remains valid only so that already approved plans still execute.
 
    New Codex plans route to `gpt-6-sol` and `gpt-6-luna` per shared Codex
    routing; the GPT-5.6 IDs remain valid only so that already approved plans
