@@ -79,7 +79,7 @@ Codex `gpt-6-luna` session started with `model_reasoning_effort="low"` gets a
 `PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=gpt-6-luna
 effort=low`, and a Claude Code session started with `--effort low` sees that
 effort from its shell tool (`printenv CLAUDE_EFFORT`). It costs two small
-model calls — one `gpt-6-luna` call and one `claude-sonnet-5` call — and,
+model calls — one `gpt-6-luna` call and one Sonnet 5.5 (`claude-sonnet-5-5`) call — and,
 because Codex's own seatbelt sandbox cannot nest another sandboxed `codex
 exec`, it must run outside any sandbox; skip a part whose CLI is missing from
 PATH rather than fail it.
@@ -443,7 +443,9 @@ Worth stating plainly, because a green run is easy to over-read.
   to protect a prompt.
 - **Default model is the cheapest one that measured reliable.** Every
   evaluation runs on Haiku 4.5 unless `EVAL_MODEL` says otherwise, with one
-  exception: the super-plan tier defaults to Sonnet 5. Measured 2026-08-12,
+  exception: the super-plan tier defaults to Sonnet 5.5 (`claude-sonnet-5-5`;
+  moved from Sonnet 5 on 2026-09-28, the measurements below predate the move).
+  Measured 2026-08-12,
   one run per fixture: the supervisor tier passes 9/9 on Sonnet 5, Opus 5 and
   Fable 5 as well (`EVAL_MODEL=claude-sonnet-5|claude-opus-5|claude-fable-5`,
   F1–F4). Single runs prove each model *can* judge these fixtures, not a

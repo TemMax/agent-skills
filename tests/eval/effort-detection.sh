@@ -10,7 +10,7 @@
 #   2. Claude Code: a session started with --effort low sees that effort
 #      from its shell tool (printenv CLAUDE_EFFORT).
 #
-# Cost: two small model calls — one gpt-6-luna call and one claude-sonnet-5
+# Cost: two small model calls — one gpt-6-luna call and one claude-sonnet-5-5
 # call. Must run outside any sandbox: Codex's own seatbelt sandbox cannot
 # nest another sandboxed `codex exec`, so this script cannot run inside one.
 # Do not run it from a sandboxed agent session; the coordinator runs it
@@ -72,7 +72,7 @@ if ! command -v claude >/dev/null 2>&1; then
   printf '  SKIP  claude not on PATH\n'
 else
   claude_answer="$(env -u CLAUDE_EFFORT claude -p "Run exactly: printenv CLAUDE_EFFORT ; and reply with its raw output only, or EMPTY." \
-    --model claude-sonnet-5 --effort low --allowedTools "Bash(printenv:*)" < /dev/null 2>/dev/null)"
+    --model claude-sonnet-5-5 --effort low --allowedTools "Bash(printenv:*)" < /dev/null 2>/dev/null)"
   if printf '%s' "$claude_answer" | grep -qF 'low'; then
     claude_result=found
   else

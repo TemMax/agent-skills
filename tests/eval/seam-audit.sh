@@ -183,7 +183,7 @@ fi
 if [ "${EVAL_PROVIDER:-claude}" = codex ]; then
   MODEL="${EVAL_MODEL:-gpt-6-sol}"
 else
-  MODEL="${EVAL_MODEL:-claude-sonnet-5}"
+  MODEL="${EVAL_MODEL:-claude-sonnet-5-5}"
 fi
 REPEAT="${EVAL_REPEAT:-1}"
 case "$REPEAT" in ''|*[!0-9]*|0) printf 'seam-audit: EVAL_REPEAT must be a positive integer\n' >&2; exit 64 ;; esac
