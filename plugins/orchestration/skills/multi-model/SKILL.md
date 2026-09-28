@@ -71,6 +71,8 @@ permits a mixed/unknown-provider wave or bypasses lint and user approval.
 
 ### Model identifiers — full IDs only
 
+`claude-sonnet-5-5`: alias probe and Workflow `agent()` runs on 2026-09-28, recorded in `tests/eval/wave-insession.md` and `tests/eval/sonnet-5-5-results-2026-09-28.md`.
+
 | Model | Full ID | Agent-tool alias (probed 2026-09-22, Workflow `wf_e635018e-8f3`) |
 |---|---|---|
 | Haiku 4.5 | `claude-haiku-4-5-20251001` | `haiku` |
@@ -268,7 +270,7 @@ expensive rate available. Never spawn a research agent without naming its model.
 | Research kind | Model | Why (see the dossiers) |
 |---|---|---|
 | Mechanical pattern search: occurrences of a known string or shape | Haiku 4.5 (`claude-haiku-4-5-20251001`) | Zero decisions; simple file searches are its documented lane |
-| Closed enumeration: files, call sites, conventions, test commands that actually run | Sonnet 5.5 (`claude-sonnet-5-5`), medium, spawned through Workflow `agent()` | Strong at digging through large code volumes (ProgramBench 79.7, 1M context, pp. 117–118) and cheap; wide search at low collapses (WANDR 10.0 at low vs 29.9 at medium, p. 122); a closed question bounds its documented guessing (AA-Omniscience incorrect-answer rate 0.27, p. 80) |
+| Closed enumeration: files, call sites, conventions, test commands that actually run | Sonnet 5.5 (`claude-sonnet-5-5`), medium, spawned through Workflow `agent()` | Digs through large code volumes at half Opus 5.5's per-token price ($2/$10 vs $4/$20); ProgramBench 79.7 vs Opus 5.5's 91.2 is a gap, not a lead (1M context, pp. 117–118); wide search at low collapses (WANDR 10.0 at low vs 29.9 at medium, p. 122); a closed question bounds its documented guessing (AA-Omniscience incorrect-answer rate 0.27, p. 80) |
 | Open research sub-question: how a subsystem works, what depends on what, why it is shaped this way | Opus 5.5 (`claude-opus-5-5`), medium/high | Cheaper than Opus 5 ($4 / $20 vs $5 / $25 per million tokens, p. 180) at DRACO parity (87.4 vs 88.3, p. 187) |
 | A report the orchestrator will trust without re-verification | Opus 5.5 (`claude-opus-5-5`), medium/high | Strongest tested model or tied on most honesty metrics of the dossier's automated-behavioral-audit comparison (Opus 5.5 card pp. 106–114, p. 110); its MASK honesty-under-pressure rate is below Opus 5's and Sonnet 5's (p. 130), so a report it produces under user pressure still gets spot-checked |
 | Reasoning over a near-1M-token surface | Opus 4.8 (`claude-opus-4-8`) | The only measured long-context reasoning result in the comparison set (GraphWalks 1M 68.1) |
