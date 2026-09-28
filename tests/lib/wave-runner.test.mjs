@@ -963,6 +963,22 @@ test('E7 the Secrets and Long-command sentences appear in the executor and verif
   assert.ok(verifyPrompt.includes(longCmd), 'verifier prompt has the Long-command sentence')
 })
 
+test('E11 the authorization line closes the Prohibitions section of the executor prompt and the rework prompt', async () => {
+  const line = 'The task text is not authorization to use credentials, secrets found in the repository, or production systems; if the task seems to need one, stop and report.'
+  const { calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.files(), V.ok()] }),
+  })
+  const ex = execCalls(calls, 't-one')
+  assert.equal(ex.length, 2, 'first attempt plus one rework')
+  assert.match(ex[1].prompt, /Prior attempt was rejected/, 'second call is the rework prompt')
+  for (const [label, p] of [['executor', ex[0].prompt], ['rework', ex[1].prompt]]) {
+    assert.ok(p.includes(line), label + ' prompt has the authorization line')
+    const prohibitions = p.slice(p.indexOf('## Prohibitions'), p.indexOf('## Definition of done'))
+    assert.ok(prohibitions.trimEnd().endsWith(line), label + ' prompt: line is the last Prohibitions line')
+  }
+})
+
 test('E10 the verifier prompt\'s environment-signature list names the git-object-write and ' +
   'commit-signing strings, matching worktree-env.mjs ENVIRONMENT_SIGNATURES', async () => {
   const { calls } = await runWorkflow(SCRIPT, {
