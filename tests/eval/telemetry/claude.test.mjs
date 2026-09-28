@@ -248,6 +248,32 @@ test('report: shipped prices.json (no --prices) prices every fixture model, matc
   assert.equal(report.cost.total, 0.03948 + 0.0036 + 0.0008)
 })
 
+test('report: claude-sonnet-5-5 usage is priced from its prices.json row', t => {
+  const dir = mktempDir()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const projectDir = join(dir, 'projects', 'sonnet-5-5-test')
+  mkdirSync(projectDir, { recursive: true })
+  const session = 'session-sonnet55-0000-0000-000000000000'
+
+  const rootRows = [
+    userText(0, 'go'),
+    assistant(1, 'claude-sonnet-5-5', usage(1000, 0, 0, 200), [{ type: 'text', text: 'done' }]),
+  ]
+  const rootPath = join(projectDir, `${session}.jsonl`)
+  writeFileSync(rootPath, jsonl(rootRows))
+
+  // claude-sonnet-5-5 row is [2, 0.2, 10] ($/MTok): (1000*2 + 200*10) / 1e6
+  const result = spawnSync(process.execPath, [CLI, 'claude', '--transcript', rootPath, '--json'], { encoding: 'utf8', timeout: 10000 })
+  assert.equal(result.status, 0, result.stderr)
+  const report = JSON.parse(result.stdout)
+
+  assert.equal(report.cost.unpriced.length, 0)
+  const group = report.cost.byRoleModel.find(g => g.model === 'claude-sonnet-5-5')
+  assert.ok(group, 'expected a priced orchestrator/claude-sonnet-5-5 group')
+  assert.equal(group.role, 'orchestrator')
+  assert.equal(group.cost, 0.004)
+})
+
 test('readable table output (non-JSON) mentions the key sections', t => {
   const fixture = buildFixture()
   t.after(() => rmSync(fixture.dir, { recursive: true, force: true }))
