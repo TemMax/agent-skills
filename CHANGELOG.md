@@ -36,10 +36,11 @@ route history with a fallback note. Cyber-blocked requests on Sonnet 5.5 fall
 back to Sonnet 5 (card pp. 10-11, 29).
 
 **Routing, effort and supervisor.** Closed implementation against a clear
-spec, code-volume research, browser work and untrusted reads now route to
-Sonnet 5.5 (SWE-bench Pro 81.3 vs Sonnet 5's 63.2, Opus 5.5 89.9, p. 109;
-false completion claims 1.54 vs 2.52, p. 66; ProgramBench 79.7 vs 77.3, Opus
-5.5 91.2, pp. 117-118). Effort for coding is capped at `xhigh`: FrontierCode
+spec and code-volume research now route to Sonnet 5.5 (SWE-bench Pro 81.3 vs
+Sonnet 5's 63.2, Opus 5.5 89.9, p. 109; false completion claims 1.54 vs 2.52,
+p. 66; ProgramBench 79.7 vs 77.3, Opus 5.5 91.2, pp. 117-118). The browser
+and untrusted-content rows of the Fable 5.1 and Opus 5 orchestrator profiles
+now name Sonnet 5.5. Effort for coding is capped at `xhigh`: FrontierCode
 Main is 52.1 at xhigh and 46.2 at max, with about 12x the output tokens at max
 (p. 111), so `max` is never used for scoped coding. A Sonnet 5.5 executor is
 supervised at `high` by Opus 5.5 when no rung reaches Opus 5.5 (an omitted
