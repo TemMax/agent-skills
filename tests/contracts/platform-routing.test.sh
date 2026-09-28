@@ -262,7 +262,7 @@ check "Opus 4.8 orchestrator profile is still kept" \
 section "executor prompts prohibit touching credential files"
 
 check "Task Prompt Template forbids opening, printing, copying or transmitting credentials" \
-  "sed -n '/^4\. \*\*Prohibitions:\*\*/,/overriding goal.*\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example \`~/.codex\`, \`~/.claude\`, app configs with Authorization headers); if the task needs a secret, stop and report.'"
+  "sed -n '/^4\. \*\*Prohibitions:\*\*/,/^5\. \*\*Definition of done/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example \`~/.codex\`, \`~/.claude\`, app configs with Authorization headers); if the task needs a secret, stop and report.'"
 
 section "Codex routing offers a standard gpt-6-sol supervisor for all-Luna waves"
 
