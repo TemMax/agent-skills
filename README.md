@@ -134,7 +134,8 @@ modes, and page references to the system cards — loaded on demand for conteste
 calls.
 
 **Full model IDs.** Plans and runner args name full Claude IDs, never
-aliases: `claude-haiku-4-5-20251001`, `claude-sonnet-5`, `claude-opus-5-5`,
+aliases: `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`
+(a retired route that stays valid for approved plans), `claude-opus-5-5`,
 `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1`. Aliases are rejected
 by name because they re-point silently — on 2026-09-22 `opus` moved from
 Opus 5 to Opus 5.5, so every route still written as `opus` would have changed
@@ -348,7 +349,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.2.0, code-review 1.11.0):
+orchestration 4.3.0, code-review 1.11.0):
 
 | Before | After |
 |---|---|

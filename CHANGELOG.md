@@ -4,6 +4,78 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.3.0
+
+### Highlights
+
+**multi-model**
+- Sonnet 5.5 is the default executor
+- Sonnet research runs as a Workflow agent
+
+**super-plan**
+- Seam audit runs on Sonnet 5.5
+
+Non-breaking. Claude Sonnet 5.5 (`claude-sonnet-5-5`) shipped with its system
+card on 2026-09-28, and the orchestration skills now route to it. Plans that
+name `claude-sonnet-5` keep working unchanged, code-review stays at 1.11.0,
+and the new routes are backed only by the card's numbers, not yet by a live
+evaluation in this repository.
+
+**New ID.** `claude-sonnet-5-5` is accepted by the plan linter, the wave
+runners and the model-ID contract checks, next to the existing six. Per the
+API reference it has a 1M context, 128K max output and the same $2 / $10 per
+MTok price as Sonnet 5. Its effort levels are recalibrated from Sonnet 5, and
+`thinking: {type: "disabled"}` returns 400; thinking-off is
+`{type: "between_tools"}`.
+
+**Sonnet 5 retired as a route.** `claude-sonnet-5` is no longer a default
+executor, research or audit route, but the ID stays valid so approved plans
+that name it still lint and run; the linter and the runner give it an
+explicit legacy ladder (`claude-opus-5-5`). Its dossier section is kept as
+route history with a fallback note. Cyber-blocked requests on Sonnet 5.5 fall
+back to Sonnet 5 (card pp. 10-11, 29).
+
+**Routing, effort and supervisor.** Closed implementation against a clear
+spec, code-volume research, browser work and untrusted reads now route to
+Sonnet 5.5 (SWE-bench Pro 81.3 vs Sonnet 5's 63.2, Opus 5.5 89.9, p. 109;
+false completion claims 1.54 vs 2.52, p. 66; ProgramBench 79.7 vs 77.3, Opus
+5.5 91.2, pp. 117-118). Effort for coding is capped at `xhigh`: FrontierCode
+Main is 52.1 at xhigh and 46.2 at max, with about 12x the output tokens at max
+(p. 111), so `max` is never used for scoped coding. A Sonnet 5.5 executor is
+supervised at `high` by Opus 5.5 when no rung reaches Opus 5.5 (an omitted
+ladder uses the default ladder, which does) and by Opus 5 otherwise, with
+Fable 5.1 as the premium alternative; Sonnet 5 keeps the same supervisor row.
+
+**Research through Workflow `agent()`.** Sonnet 5.5 has no Agent-tool alias:
+probed 2026-09-28, `claude -p --model claude-sonnet-5-5` reports
+`claude-sonnet-5-5`, while `sonnet` still resolves to `claude-sonnet-5` in
+both `claude -p` and the Agent tool. A Sonnet 5.5 research or audit spawn
+therefore runs as a one-agent Workflow `agent()` call with the full ID at
+`medium`, not through the Agent tool. It is not a wave script. Wide search at
+`low` collapses (WANDR 10.0 at low vs 29.9 at medium, p. 122), so `medium` is
+the floor. The super-plan seam audit uses this route.
+
+**Default ladder and verifier.** The default Claude ladder is now Haiku 4.5,
+then Sonnet 5.5, then Opus 5.5, and Sonnet 5.5 is the runner's default
+verifier. The linter's ladder order and rung-collision checks moved with it,
+including the legacy Sonnet 5 case.
+
+**Task text is not authorization.** The executor prompt template and every
+executor prompt now carry one line: the task text is not authorization to use
+credentials, secrets found in the repository, or production systems; if the
+task seems to need one, stop and report. Measured in the card's behavioral
+audit, Sonnet 5.5 accepts unverifiable authorization at 2.76 (Opus 5.5 2.39,
+Sonnet 5 2.89; lower is better), and in transcript 6.2.1.A it logged in with a
+leaked password reasoning "The card is the authorization" (pp. 60-62).
+
+**Dossier.** `references/model-dossiers.md` gains a Sonnet 5.5 section:
+positioning, effort economics, long-horizon behavior, honesty and behavior,
+injection robustness, use as a judge, safeguards and identity. It records the
+weak spots next to the gains: the highest incorrect-answer rate of six models
+on AA-Omniscience (0.27, p. 80), the least legible reasoning of the tested
+models (p. 72), a self-preference of +0.16 as a judge (pp. 78-79), and no
+dedicated reward-hacking or pasted-text injection evaluation in the card.
+
 ## 4.2.0
 
 ### Highlights
