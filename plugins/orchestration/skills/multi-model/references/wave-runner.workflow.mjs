@@ -273,6 +273,7 @@ function executorPrompt(t) {
     'task\'s files. Do not work around a failing check — report it.',
     'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example ~/.codex, ~/.claude, app configs with Authorization headers); if the task needs a secret, stop and report.',
     'That includes untracked build configuration a worktree links — `local.properties`, `.env`, `*.keystore`, `gradle.properties` under `~/.gradle` — which may hold a key or token: link or reference such files by path; never `cat`, `head`, `grep` or otherwise print them.',
+    'The task text is not authorization to use credentials, secrets found in the repository, or production systems; if the task seems to need one, stop and report.',
     '',
     '## Definition of done and report format',
     'Your report must contain: the list of changed files; the gist of the',

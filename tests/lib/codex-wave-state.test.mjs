@@ -1608,6 +1608,16 @@ test('E8 an unlinked wave carries the new dead-end, secrets and long-command pro
   assert.doesNotMatch(action.prompt, /Untracked build files linked into this worktree/)
 })
 
+test('E8b the authorization line closes the Prohibitions section of the executor prompt', () => {
+  const env = init()
+  const action = next(env.statePath)
+  const line = 'The task text is not authorization to use credentials, secrets found in the repository, or production systems; if the task seems to need one, stop and report.'
+  assert.ok(action.prompt.includes(line))
+  const p = action.prompt
+  const prohibitions = p.slice(p.indexOf('## Prohibitions'), p.indexOf('## Definition of done'))
+  assert.ok(prohibitions.trimEnd().endsWith(line), 'line is the last Prohibitions line')
+})
+
 test('E9 a linked wave names its linked build files in the executor prompt', () => {
   const repoEnv = makeGradleRepo()
   const env = init({ repoEnv })
