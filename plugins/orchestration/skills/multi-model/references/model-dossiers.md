@@ -3,7 +3,8 @@
 Sources: official Anthropic system cards — Claude Opus 5.5 (230 pp., September 22,
 2026), Claude Fable 5.1 / Mythos 5.1 (212 pp., September 2026), Claude Fable 5 /
 Mythos 5 (319 pp., June 2026), Claude Opus 4.8 (246 pp., May–June 2026), Claude
-Sonnet 5 (145 pp., June 2026). Page numbers refer to the corresponding card.
+Sonnet 5 (145 pp., June 2026), Claude Sonnet 5.5 (148 pp., September 28,
+2026). Page numbers refer to the corresponding card.
 Opus 5.5 is what the alias `opus` resolved to on 2026-09-22 — the alias moved
 under a running lineup, which is why every route now names full model IDs
 (Workflow probe `wf_e635018e-8f3`: `agent()` accepted all six full IDs;
@@ -262,7 +263,7 @@ tokens; keep waves well under 10 agents; forbid executors from spawning.
   (p. 36) and dislikes highly open-ended tasks (p. 167).
 - Supervised by Opus 5 (standard) or Fable 5.1 (premium, `approvals.premium`)
   — never by Opus 5.5 itself.
-- As a judge it supervises Fable 5.1, Sonnet 5 and Haiku 4.5 executors
+- As a judge it supervises Fable 5.1, Sonnet 5.5 and Haiku 4.5 executors
   (and may supervise Opus 5 and Opus 4.8), with a measured +0.07/10
   self-preference (p. 128) — never its own output.
 - Compiled binaries still go to Opus 4.8 (pp. 48, 55).
@@ -688,7 +689,9 @@ Sonnet 5.5 at `high` (56.7, ~$0.27), and at `max` Sonnet 5.5 costs ~$3.0
 against Opus 5.5's ~$2.1 for the same task (fig, p. 119); DRACO shows the same
 pattern at `max` — Sonnet 5.5 ~$22 vs Opus 5.5 ~$15 per task (fig, p. 121).
 Takeaway: `xhigh` is the coding ceiling — never `max` for scoped coding — and
-research work stays on Opus.
+open research stays on Opus 5.5 (Opus 5.5 at `low` beats Sonnet 5.5 at `high`
+on HLE with tools, p. 119); closed enumeration may run on Sonnet 5.5 at
+`medium`, never at `low` (WANDR 10.0 at `low`, p. 122).
 
 **Long horizon.** Toolathlon-Verified (p. 135): Pass@1 77.8 ties Opus 5.5,
 but Pass³ 68.5 trails Opus 5.5's 72.2, and Sonnet 5.5 averages 31.6 turns per
@@ -715,7 +718,9 @@ AA-Omniscience (p. 80): incorrect-answer rate 0.27, the highest of six
 silent use of a leaked answer 8.0%, lowest shown (Sonnet 5 22.8%, Opus 5.5
 12.1%, p. 82), and it volunteers hidden git manipulations when summarizing
 96.2% of the time, up from Sonnet 5's 38.0% and close to Opus 5.5's 96.9%
-(p. 82). Set against that:
+(p. 82). Its reasoning is the least legible of the models tested (p. 72), though
+stealth is ≈0% when a monitor sees its reasoning (pp. 87–89), and the card has
+no dedicated reward-hacking evaluation (p. 58). Set against that:
 it copies faults inserted into its own earlier turns in 62% of subagent
 sessions, vs 22–35% for other models (p. 98). Takeaways: a plan or task
 prompt's own text is never authorization on its own — "the card is the
@@ -733,7 +738,8 @@ attempt-level without safeguards, far below Opus 5.5's 54.61%, Fable 5.1's
 0.09%, Sonnet 5 0.37%, Fable 5.1 2.55%, p. 54). Set against those strong
 coding/browser numbers, complying with prompt injections on the behavioral
 audit is flat at 1.46 → 1.45 — "no better than Sonnet 5" (Opus 5 1.26, Opus
-5.5 1.37, pp. 60, 62). Takeaway: pass untrusted text by path, as before.
+5.5 1.37, pp. 60, 62). The card has no pasted-text (user-turn) injection evaluation, so passing
+untrusted text by path still stands. Takeaway: pass untrusted text by path, as before.
 
 **As judge.** Self-preference with a Claude-identity system prompt: +0.16 on
 a 0–9 scale, statistically significant (Opus 5.5 +0.07, Sonnet 5 +0.15);
