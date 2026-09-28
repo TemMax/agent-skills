@@ -250,7 +250,8 @@ approvals.
    at `medium` — checks every contract against the code: each `must_run`
    command exists and runs the way CI runs it, every referenced path or API
    exists, the interfaces passed between tasks agree, and every recorded
-   base expectation is plausible. It also checks the same-task rule
+   base expectation is plausible. If Workflow is unavailable in this host or session, run the audit
+   in-session on the current model and say so in the Gate 2 message. It also checks the same-task rule
    explicitly: for every changed format, signature or fixture, find every
    reader of it and require that reader be in the same task as the change.
    For every task, it lists the artifacts that task reads that do not
