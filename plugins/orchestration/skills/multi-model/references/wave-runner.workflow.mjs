@@ -11,7 +11,7 @@ export const meta = {
 // Full Claude model IDs only. Aliases (haiku/sonnet/opus/fable) re-point
 // silently when a model ships — on 2026-09-22 `opus` moved from Opus 5 to
 // Opus 5.5 — so the runner rejects them by name. Workflow agent() accepts
-// every ID below (probe wf_e635018e-8f3, 2026-09-22).
+// every ID below (probe wf_e635018e-8f3, 2026-09-22); claude-sonnet-5-5 accepted in wf_8ce2a0d8-bb0 and later runs, 2026-09-28.
 // `claude-sonnet-5-5` has no Agent-tool alias (probed 2026-09-28: `sonnet`
 // still resolves to `claude-sonnet-5`).
 const MODELS = [
