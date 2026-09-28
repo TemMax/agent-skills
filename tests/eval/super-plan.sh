@@ -22,10 +22,11 @@ cd "$(dirname "$0")/../.." || exit 1
 # now runs the skill's Lint step on a draft in the fixture's temp dir
 # (measured 2026-09-22: Sonnet 5 3/3 runs, 18/18 checks); previously "Write
 # NOTHING to disk" made the Lint step impossible.
+# Default moved to Sonnet 5.5 on 2026-09-28 (Sonnet 5 retired as a route); re-measure before relying on the old counts.
 if [ "${EVAL_PROVIDER:-claude}" = codex ]; then
   MODEL="${EVAL_MODEL:-gpt-5.6-sol}"
 else
-  MODEL="${EVAL_MODEL:-claude-sonnet-5}"
+  MODEL="${EVAL_MODEL:-claude-sonnet-5-5}"
 fi
 SKILL=plugins/orchestration/skills/super-plan/SKILL.md
 LINT=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
