@@ -54,6 +54,7 @@ A generic selection explains missing, unsupported, or conflicting identity.
 | `gpt-5.6-luna` | `references/reviewer-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `references/reviewer-gpt-6-astra.md` |
 | `gpt-6-sol` | `references/reviewer-gpt-6-sol.md` |
+| `gpt-6.1-sol` | `references/reviewer-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `references/reviewer-gpt-6-luna.md` |
 | unknown | `references/reviewer-generic.md` |
 
@@ -105,6 +106,17 @@ Gate 1 choice — the review runs as a measured route. Its summary must state
 the 2026-09-24 strict-gate counts (10/10 clean, 10/10 planted) and the
 PR-support caveat (3/4, one withheld-case miss). Never claim a supported
 GPT-6 Luna or Astra review route.
+
+### GPT-6.1 Sol — 2026-09-29 UTC
+
+No GPT-6.1 Sol review route is measured yet; it is uncalibrated. GPT-6
+Sol's measured-supported review route does not transfer to GPT-6.1 Sol — a
+different model. A GPT-6.1 Sol model-selection request returns
+`unsupported` with the mechanical evidence packet until a dated strict-gate
+measurement exists. When a ship plan records `review.model: gpt-6.1-sol`,
+the review runs and its summary states that the GPT-6.1 Sol review route is
+uncalibrated, with no dated strict-gate measurement yet. Never silently
+substitute another GPT model, mix providers, or make `max` a default.
 
 ## Overview
 
