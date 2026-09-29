@@ -269,6 +269,8 @@ expect "Astra routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judg
   "$(run_hook 'Summary: all tasks done, nothing remaining.' gpt-6-astra)"
 expect "GPT-6 Sol routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-6-sol)"
+expect "GPT-6.1 Sol routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
+  "$(run_hook "$ROUTING_CLAIM" gpt-6.1-sol)"
 expect "GPT-6 Luna routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-6-luna)"
 expect "Sol routes to Terra-high" "would-call: host=codex judge=gpt-5.6-terra effort=high" \
