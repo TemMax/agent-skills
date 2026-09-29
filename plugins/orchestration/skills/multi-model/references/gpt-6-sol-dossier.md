@@ -8,6 +8,16 @@ and limits" below). Operational policy is maintained separately in
 [codex-routing.md](codex-routing.md): uncalibrated reliability is not a
 blanket prohibition on supervised use.
 
+## Route status (2026-09-29)
+
+GPT-6 Sol is no longer chosen for new executor routes: shared Codex
+routing sends ordinary and difficult tasks, the Luna ladder rung and Codex
+research to `gpt-6.1-sol` (`gpt-6-1-sol-dossier.md`). `gpt-6-sol` stays a
+valid plan ID so that approved plans still run, and it keeps its two
+measured roles — the standard supervisor of all-`gpt-6-luna` waves and
+the lower-cost final-review option — until GPT-6.1 Sol is measured in
+them. The measurements below are kept as history.
+
 ## Sources
 
 - [GPT-6 Astra System Card, 156-page PDF](https://deploymentsafety.openai.com/gpt-6-astra/gpt-6-astra.pdf).

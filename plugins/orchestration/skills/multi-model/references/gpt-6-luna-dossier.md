@@ -85,7 +85,7 @@ The host instruction does not itself establish role suitability.
 
 No production Luna orchestration, executor, or supervisor route is
 calibrated. The mechanical starting point is `gpt-6-luna` at `medium`, with
-an optional ladder up to `gpt-6-sol` for tasks the initial tier cannot
+an optional ladder up to `gpt-6.1-sol` for tasks the initial tier cannot
 close; see [codex-routing.md](codex-routing.md) for the governing selection
 policy. This dossier does not itself authorize a route: it records
 capability and alignment evidence, not a tested pairing.
