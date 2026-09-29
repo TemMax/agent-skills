@@ -26,8 +26,6 @@ the pipeline and need no extra approval.
    the same host instruction ("an agent based on GPT-6"; verified with Codex
    CLI 0.155.1 on 2026-09-23), so bare `GPT-6`, or any other family label,
    selects no profile by itself.
-   GPT-6.1 Sol names the same bare family (probed with Codex CLI 0.159.0
-   on 2026-09-29).
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
 5. Effort comes only from the host. On Codex the `PLUGIN_RUNTIME_CONTEXT_V1`
