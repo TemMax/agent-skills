@@ -163,7 +163,7 @@ check "--mode with a bad value exits 2" \
 check "missing --results exits 2" \
   "PATH=\"$BIN:\$PATH\" bash tests/eval/ship-smoke.sh --mode native; [ \$? -eq 2 ]"
 check "--supervisor with a bad value exits 2 with the usage error" \
-  "PATH=\"$BIN:\$PATH\" bash tests/eval/ship-smoke.sh --mode native --supervisor gpt-6-nonsense --results $W/r-bad-supervisor > $W/bad-supervisor.out 2>&1; rc=\$?; [ \$rc -eq 2 ] && grep -qF -- '--supervisor must be gpt-6-astra or gpt-6-sol' $W/bad-supervisor.out"
+  "PATH=\"$BIN:\$PATH\" bash tests/eval/ship-smoke.sh --mode native --supervisor gpt-6-nonsense --results $W/r-bad-supervisor > $W/bad-supervisor.out 2>&1; rc=\$?; [ \$rc -eq 2 ] && grep -qF -- '--supervisor must be gpt-6-astra, gpt-6.1-sol or gpt-6-sol' $W/bad-supervisor.out"
 
 DIRTY="$W/dirty-results"; mkdir -p "$DIRTY"
 printf 'pre-existing evidence\n' > "$DIRTY/keep.txt"
@@ -236,10 +236,10 @@ PLAN_JSON_NATIVE="$W/plan-native.json"
 python3 "$W/extract-plan.py" "$RESULTS_NATIVE/native/plan.md" > "$PLAN_JSON_NATIVE"
 check "default plan's wave supervisor is gpt-6-astra/high" \
   "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); s=p['waves'][0]['supervisor']; exit(0 if s=={'model':'gpt-6-astra','effort':'high'} else 1)\""
-check "default plan's add-guard executor/ladder unchanged (gpt-6-luna/medium, ladder gpt-6-sol)" \
-  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); tk=p['waves'][0]['tasks'][0]; exit(0 if tk['executor']=={'model':'gpt-6-luna','effort':'medium'} and tk['ladder']==['gpt-6-sol'] else 1)\""
-check "default plan's add-doc executor unchanged (gpt-6-sol/medium, no ladder key)" \
-  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); tk=p['waves'][0]['tasks'][1]; exit(0 if tk['executor']=={'model':'gpt-6-sol','effort':'medium'} and 'ladder' not in tk else 1)\""
+check "default plan's add-guard executor/ladder (gpt-6-luna/medium, ladder gpt-6.1-sol)" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); tk=p['waves'][0]['tasks'][0]; exit(0 if tk['executor']=={'model':'gpt-6-luna','effort':'medium'} and tk['ladder']==['gpt-6.1-sol'] else 1)\""
+check "default plan's add-doc executor (gpt-6.1-sol/medium, no ladder key)" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); tk=p['waves'][0]['tasks'][1]; exit(0 if tk['executor']=={'model':'gpt-6.1-sol','effort':'medium'} and 'ladder' not in tk else 1)\""
 check "default plan still carries approvals.premium for gpt-6-astra" \
   "python3 -c \"import json; p=json.load(open('$PLAN_JSON_NATIVE')); a=p.get('approvals',{}).get('premium',{}); exit(0 if a.get('models')==['gpt-6-astra'] else 1)\""
 check "default orchestrator prompt names supervisor gpt-6-astra/high" \
@@ -273,6 +273,35 @@ check "Sol variant orchestrator prompt names supervisor gpt-6-sol/high" \
 check "Sol variant plan is lint-clean against its fixture repo" \
   "node plugins/orchestration/skills/super-plan/references/plan-lint.mjs '$RESULTS_SOL/native/plan.md' --repo '$REPO_SOL' | grep -qE '^OK: 0 error'"
 contains "Sol variant comparison.md shows the supervisor" "| native | gpt-6-sol |" "$(cat "$RESULTS_SOL/comparison.md")"
+
+section "--supervisor gpt-6.1-sol: standard-supervisor plan variant"
+RESULTS_SOL61="$W/results-sol61"
+set +e
+CODEX_HOME="$W/codex-home-sol61" PATH="$BIN:$PATH" \
+  bash tests/eval/ship-smoke.sh --mode native --supervisor gpt-6.1-sol --results "$RESULTS_SOL61" \
+  > "$W/sol61.out" 2>&1
+rc_sol61=$?
+set -e
+expect "Sol 6.1 supervisor mode exits 0" "0" "$rc_sol61"
+check "Sol 6.1 variant plan.md evidence was copied" "[ -s '$RESULTS_SOL61/native/plan.md' ]"
+REPO_SOL61="$(cat "$RESULTS_SOL61/native/repo-path.txt")"
+PLAN_JSON_SOL61="$W/plan-sol61.json"
+python3 "$W/extract-plan.py" "$RESULTS_SOL61/native/plan.md" > "$PLAN_JSON_SOL61"
+check "Sol 6.1 variant plan's wave supervisor is gpt-6.1-sol/high" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL61')); s=p['waves'][0]['supervisor']; exit(0 if s=={'model':'gpt-6.1-sol','effort':'high'} else 1)\""
+check "Sol 6.1 variant's add-guard executor is gpt-6-luna/medium with empty ladder" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL61')); tk=p['waves'][0]['tasks'][0]; exit(0 if tk['executor']=={'model':'gpt-6-luna','effort':'medium'} and tk['ladder']==[] else 1)\""
+check "Sol 6.1 variant's add-doc executor is gpt-6-luna/medium with empty ladder" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL61')); tk=p['waves'][0]['tasks'][1]; exit(0 if tk['executor']=={'model':'gpt-6-luna','effort':'medium'} and tk['ladder']==[] else 1)\""
+check "Sol 6.1 variant plan carries no approvals key (no premium model used)" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL61')); exit(0 if 'approvals' not in p else 1)\""
+check "Sol 6.1 variant plan's other fields (ci/e2e/contracts) unchanged" \
+  "python3 -c \"import json; p=json.load(open('$PLAN_JSON_SOL61')); w=p['waves'][0]; exit(0 if w['tasks'][0]['contract']['files_allowed']==['src/**'] and w['tasks'][1]['contract']['files_allowed']==['docs/**'] and p['ci']=='none: disposable fixture repository without CI' else 1)\""
+check "Sol 6.1 variant orchestrator prompt names supervisor gpt-6.1-sol/high" \
+  "grep -qF 'supervisor gpt-6.1-sol/high' '$RESULTS_SOL61/native/orchestrator.prompt.md'"
+check "Sol 6.1 variant plan is lint-clean against its fixture repo" \
+  "node plugins/orchestration/skills/super-plan/references/plan-lint.mjs '$RESULTS_SOL61/native/plan.md' --repo '$REPO_SOL61' | grep -qE '^OK: 0 error'"
+contains "Sol 6.1 variant comparison.md shows the supervisor" "| native | gpt-6.1-sol |" "$(cat "$RESULTS_SOL61/comparison.md")"
 
 section "runner mode: --sessions override, summary.json children merged in"
 RESULTS_RUNNER="$W/results-runner"

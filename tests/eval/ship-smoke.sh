@@ -4,14 +4,15 @@
 # wall time, orchestrator cost and correctness via the telemetry analyzer.
 #
 # Usage: bash tests/eval/ship-smoke.sh --mode native|runner|both
-#          [--orchestrator gpt-6-sol] [--effort high]
-#          [--supervisor gpt-6-astra|gpt-6-sol] --results DIR
+#          [--orchestrator gpt-6.1-sol] [--effort high]
+#          [--supervisor gpt-6-astra|gpt-6.1-sol|gpt-6-sol] --results DIR
 #
 # Builds a disposable repo with a local bare origin and a lint-clean two-task
 # Codex wave plan (add-guard / add-doc; supervisor defaults to the premium
-# gpt-6-astra/high, or, with --supervisor gpt-6-sol, the standard-supervisor
-# variant: both executors gpt-6-luna/medium, no ladder, supervisor
-# gpt-6-sol/high, no approvals.premium), runs
+# gpt-6-astra/high with the add-doc executor and add-guard ladder on
+# gpt-6.1-sol, or, with --supervisor gpt-6.1-sol or gpt-6-sol, the
+# standard-supervisor variant: both executors gpt-6-luna/medium, no ladder,
+# the chosen supervisor at high effort, no approvals.premium), runs
 # one Codex orchestrator session per requested mode (WITHOUT --ephemeral, so
 # its rollout persists), finds that session's root rollout under
 # ~/.codex/sessions by its `thread.started` id, and hands it to
@@ -50,8 +51,8 @@ PRICES="$ROOT/tests/eval/telemetry/prices.json"
 usage() {
   cat <<'USAGE'
 Usage: bash tests/eval/ship-smoke.sh --mode native|runner|both
-         [--orchestrator gpt-6-sol] [--effort high]
-         [--supervisor gpt-6-astra|gpt-6-sol] --results DIR
+         [--orchestrator gpt-6.1-sol] [--effort high]
+         [--supervisor gpt-6-astra|gpt-6.1-sol|gpt-6-sol] --results DIR
 
 Measures one small Codex wave run two ways — the orchestrator executing the
 wave with the native spawn_agent/wait_agent action loop vs. driving it
@@ -61,7 +62,8 @@ tests/eval/telemetry/telemetry.mjs. --mode both runs one instance of each,
 each against its own fresh fixture repo.
 
 --supervisor selects the fixture plan's wave supervisor: the default
-gpt-6-astra (premium, approvals.premium recorded) or the standard-supervisor
+gpt-6-astra (premium, approvals.premium recorded; add-doc executor and
+add-guard ladder on gpt-6.1-sol) or a standard supervisor, gpt-6.1-sol or
 gpt-6-sol (both executors gpt-6-luna/medium, no ladder, no approvals.premium
 key), per the codex-routing standard-supervisor rule.
 
@@ -70,7 +72,7 @@ absent or empty directory, else this exits 73 without touching it.
 USAGE
 }
 
-MODE="" ORCHESTRATOR="gpt-6-sol" EFFORT="high" SUPERVISOR="gpt-6-astra" RESULTS=""
+MODE="" ORCHESTRATOR="gpt-6.1-sol" EFFORT="high" SUPERVISOR="gpt-6-astra" RESULTS=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --mode) MODE="$2"; shift 2 ;;
@@ -89,8 +91,8 @@ case "$MODE" in
   *) printf 'ship-smoke: --mode must be native, runner or both: %s\n' "$MODE" >&2; usage >&2; exit 2 ;;
 esac
 case "$SUPERVISOR" in
-  gpt-6-astra|gpt-6-sol) ;;
-  *) printf 'ship-smoke: --supervisor must be gpt-6-astra or gpt-6-sol: %s\n' "$SUPERVISOR" >&2; usage >&2; exit 2 ;;
+  gpt-6-astra|gpt-6.1-sol|gpt-6-sol) ;;
+  *) printf 'ship-smoke: --supervisor must be gpt-6-astra, gpt-6.1-sol or gpt-6-sol: %s\n' "$SUPERVISOR" >&2; usage >&2; exit 2 ;;
 esac
 if [ -z "$RESULTS" ]; then
   printf 'ship-smoke: --results is required\n' >&2; usage >&2; exit 2
@@ -145,21 +147,24 @@ PY
   PLAN="$REPO/plan.md"
   local supervisor="${2:-gpt-6-astra}"
   local guard_executor add_doc_executor guard_ladder approvals_block
-  if [ "$supervisor" = gpt-6-sol ]; then
-    guard_executor='{ "model": "gpt-6-luna", "effort": "medium" }'
-    add_doc_executor='{ "model": "gpt-6-luna", "effort": "medium" }'
-    guard_ladder='[]'
-    approvals_block=''
-  else
-    guard_executor='{ "model": "gpt-6-luna", "effort": "medium" }'
-    add_doc_executor='{ "model": "gpt-6-sol", "effort": "medium" }'
-    guard_ladder='["gpt-6-sol"]'
-    approvals_block='  "approvals": { "premium": {
+  case "$supervisor" in
+    gpt-6.1-sol|gpt-6-sol)
+      guard_executor='{ "model": "gpt-6-luna", "effort": "medium" }'
+      add_doc_executor='{ "model": "gpt-6-luna", "effort": "medium" }'
+      guard_ladder='[]'
+      approvals_block=''
+      ;;
+    *)
+      guard_executor='{ "model": "gpt-6-luna", "effort": "medium" }'
+      add_doc_executor='{ "model": "gpt-6.1-sol", "effort": "medium" }'
+      guard_ladder='["gpt-6.1-sol"]'
+      approvals_block='  "approvals": { "premium": {
     "models": ["gpt-6-astra"],
     "reason": "premium model used as this fixture wave'"'"'s supervisor",
     "approved_by": "harness",
     "date": "2026-09-24" } }'
-  fi
+      ;;
+  esac
   {
     printf 'status: draft\nbase: pending\n\n# Plan — ship-smoke wave\n\n```json wave-plan\n'
     printf '{ "waves": [\n'
@@ -179,9 +184,9 @@ PY
     printf '      { "id": "add-doc",\n'
     printf '        "branch": "wave/add-doc",\n'
     printf '        "executor": %s,\n' "$add_doc_executor"
-    if [ "$supervisor" = gpt-6-sol ]; then
-      printf '        "ladder": [],\n'
-    fi
+    case "$supervisor" in
+      gpt-6.1-sol|gpt-6-sol) printf '        "ladder": [],\n' ;;
+    esac
     printf '        "contract": {\n'
     printf '          "files_allowed": ["docs/**"],\n'
     printf '          "files_forbidden": ["src/**", "tests/**"],\n'
