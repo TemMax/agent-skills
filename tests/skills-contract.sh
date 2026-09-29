@@ -202,7 +202,13 @@ check "headless mode records assumptions"       "grep -q 'Assumptions (would ask
 check "superpowers attribution survives"        "grep -q 'Jesse Vincent' $SP"
 check "the MIT notice ships"                    "[ -f plugins/orchestration/skills/super-plan/references/LICENSE-superpowers ]"
 check "plan model fields are provider-specific" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '| Codex | \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '| Codex | \`gpt-6.1-sol\`, \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
+check "profile table lists gpt-6.1-sol" \
+  "grep -qF '| \`gpt-6.1-sol\` | \`../multi-model/references/orchestrator-gpt-6-1-sol.md\` |' $SP"
+check "new Codex plans route executors to gpt-6.1-sol" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'New Codex plans route executors to \`gpt-6.1-sol\`'"
+check "GPT-6.1 Sol names the same bare family" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'GPT-6.1 Sol names the same bare family (probed with Codex CLI 0.159.0 on 2026-09-29).'"
 check "bare GPT alias is excluded from plan fields" \
   "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '\`gpt-5.6\` is never a plan id'"
 check "profile rather than host defaults routes every plan role" \
@@ -233,7 +239,7 @@ check "premium supervision needs the user's pick"      "grep -qF 'A premium mode
 check "the Seam audit step exists"                     "grep -qF '**Seam audit.**' $SP"
 check "the Seam audit runs before lint"                "grep -qF 'Fix what it finds before lint' $SP"
 check "the Seam audit uses the cheap route" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5-5\` at \`medium\`, spawned as a one-agent Workflow \`agent()\` with that full ID (the Agent tool'\''s \`sonnet\` alias still resolves to Sonnet 5); Codex: \`gpt-6-sol\` at \`medium\`'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5-5\` at \`medium\`, spawned as a one-agent Workflow \`agent()\` with that full ID (the Agent tool'\''s \`sonnet\` alias still resolves to Sonnet 5); Codex: \`gpt-6.1-sol\` at \`medium\`'"
 check "the Seam audit explicitly checks the same-task rule for changed formats/signatures/fixtures" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the same-task rule' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'for every changed format, signature or fixture, find every reader of it and require that reader be in the same task as the change'"
 check "the Seam audit lists per-task artifacts absent at the wave's base and fails on same-wave sibling production" \
@@ -271,7 +277,7 @@ check "Gate 1 fixes wave shape before the supervisor choice" \
 check "a changed wave shape re-asks the supervisor choice before Gate 2" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 're-ask the user before Gate 2'"
 check "a Codex Sol executor forces the Astra supervisor" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A Codex wave with a \`gpt-6-sol\` executor has no standard supervisor'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A Codex wave with a \`gpt-6.1-sol\` or \`gpt-6-sol\` executor has no standard supervisor'"
 check "super-plan records ship's Stage 3 review child in the plan's review key, Sol measured with a strict-gate line" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'by default, recorded in \`approvals.premium\`, or, when the user picks it to save that cost, \`gpt-6-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-24 — disclosed at Gate 1 too.'"
 check "super-plan documents the optional review key next to ci/e2e/approvals" \

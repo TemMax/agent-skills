@@ -23,7 +23,8 @@ the output format and every contract rule are this plugin's own.
 3. A family label is not an identity. Codex gives GPT-6 Astra, Sol and Luna
    the same host instruction ("an agent based on GPT-6"; verified with Codex
    CLI 0.155.1 on 2026-09-23), so bare `GPT-6`, or any other family label,
-   selects no profile by itself.
+   selects no profile by itself. GPT-6.1 Sol names the same bare family
+   (probed with Codex CLI 0.159.0 on 2026-09-29).
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
 5. Effort comes only from the host. On Codex the `PLUGIN_RUNTIME_CONTEXT_V1`
@@ -58,6 +59,7 @@ A generic selection explains missing, unsupported, or conflicting identity.
 | `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `../multi-model/references/orchestrator-gpt-6-astra.md` |
 | `gpt-6-sol` | `../multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.1-sol` | `../multi-model/references/orchestrator-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `../multi-model/references/orchestrator-gpt-6-luna.md` |
 | unknown | `../multi-model/references/orchestrator-generic.md` |
 
@@ -117,8 +119,8 @@ approvals.
    waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves
    merge-ready first try — toy waves,
    correct work only). A Codex
-   wave with a `gpt-6-sol` executor has no standard supervisor — it needs
-   `gpt-6-astra`. Record the model for ship's Stage 3 critical-review child
+   wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
+   supervisor — it needs `gpt-6-astra`. Record the model for ship's Stage 3 critical-review child
    in the plan's `review` key here too: `gpt-6-astra` by default, recorded
    in `approvals.premium`, or, when the user picks it to save that cost,
    `gpt-6-sol` — strict review gate clean 10/10, planted 10/10; PR support
@@ -127,7 +129,7 @@ approvals.
    approval in `approvals.premium`. If
    the Tasks step later changes a wave so the chosen supervisor no longer
    fits (for example it adds a `claude-opus-5-5` ladder rung, or a Codex
-   wave gains a `gpt-6-sol` executor), re-ask the user before Gate 2 rather
+   wave gains a `gpt-6.1-sol` executor), re-ask the user before Gate 2 rather
    than carry the stale supervisor forward.
 3. **Gate 1 — design.** Present a compact summary: architecture, the wave
    sketch (which tasks, which waves, why), decisions taken, forks the user
@@ -246,7 +248,7 @@ approvals.
 5. **Seam audit.** Between Tasks and Lint, one read-only audit agent on the
    cheap route — Claude: `claude-sonnet-5-5` at `medium`, spawned as a
    one-agent Workflow `agent()` with that full ID (the Agent tool's
-   `sonnet` alias still resolves to Sonnet 5); Codex: `gpt-6-sol`
+   `sonnet` alias still resolves to Sonnet 5); Codex: `gpt-6.1-sol`
    at `medium` — checks every contract against the code: each `must_run`
    command exists and runs the way CI runs it, every referenced path or API
    exists, the interfaces passed between tasks agree, and every recorded
@@ -437,13 +439,16 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    | Plan host | Allowed model fields |
    |---|---|
    | Claude | `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
-   | Codex | `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+   | Codex | `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 
    New Claude plans route Sonnet work to `claude-sonnet-5-5`; `claude-sonnet-5`
    remains valid only so that already approved plans still execute.
 
-   New Codex plans route to `gpt-6-sol` and `gpt-6-luna` per shared Codex
-   routing; the GPT-5.6 IDs remain valid only so that already approved plans
+   New Codex plans route executors to `gpt-6.1-sol` and `gpt-6-luna` per
+   shared Codex routing. `gpt-6-sol` remains valid so that already approved
+   plans still execute, and it stays the standard supervisor of all-Luna
+   waves and the lower-cost final-review option — the two roles measured for
+   it. The GPT-5.6 IDs remain valid only so that already approved plans
    still execute.
 
    Aliases (`haiku`, `sonnet`, `opus`, `fable`) are rejected by the linter
