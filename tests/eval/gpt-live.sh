@@ -12,7 +12,7 @@ cd "$(dirname "$0")/../.." || exit 1
 
 usage() {
   cat <<'USAGE'
-Usage: bash tests/eval/gpt-live.sh [--models "gpt-6-sol gpt-6-luna"]
+Usage: bash tests/eval/gpt-live.sh [--models "gpt-6.1-sol gpt-6-luna"]
          [--tiers "supervisor drift super-plan skill-navigation safety profile-routing"]
          [--jobs 6] [--effort medium] [--repeat 1] [--results DIR]
 
@@ -32,7 +32,7 @@ every job exited 0.
 USAGE
 }
 
-MODELS="gpt-6-sol gpt-6-luna"
+MODELS="gpt-6.1-sol gpt-6-luna"
 TIERS="supervisor drift super-plan skill-navigation safety profile-routing"
 JOBS=6
 EFFORT=medium

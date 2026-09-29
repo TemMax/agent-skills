@@ -8,7 +8,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/test-env.sh
 
-models="${MATRIX_MODELS:-gpt-6-sol gpt-6-luna}"
+models="${MATRIX_MODELS:-gpt-6.1-sol gpt-6-luna}"
 first_model="${models%% *}"
 skill_scripts='super-plan wave critical-review ship'
 support_scripts='profile-routing safety supervisor drift'
