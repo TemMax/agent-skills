@@ -10,7 +10,9 @@ SH=plugins/orchestration/skills/ship/SKILL.md
 section "codex-routing: ordinary/difficult waves have no standard supervisor"
 
 check "codex-routing states ordinary and difficult tasks route to Sol" \
-  "grep -qF '\`ordinary\` and \`difficult\` tasks route their initial executor to \`gpt-6-sol\`' '$CP_ROUTING'"
+  "grep -qF '\`ordinary\` and \`difficult\` tasks route their initial executor to \`gpt-6.1-sol\`' '$CP_ROUTING'"
+check "codex-routing states GPT-6 Sol is no longer chosen for new executor routes" \
+  "grep -qF 'GPT-6 Sol is no longer chosen for new executor routes' '$CP_ROUTING'"
 check "codex-routing states such a wave has no standard supervisor" \
   "grep -qF 'so a wave containing either task class has no standard supervisor' '$CP_ROUTING'"
 check "codex-routing states such a wave needs the premium gpt-6-astra supervisor" \

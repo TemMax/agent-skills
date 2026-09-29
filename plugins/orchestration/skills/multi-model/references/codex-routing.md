@@ -19,14 +19,14 @@ plan approvals still apply; existing authorization remains valid.
 
 | Task class | Initial executor | Effort | Optional ladder, in order |
 |---|---|---|---|
-| mechanical | `gpt-6-luna` | `medium` | `gpt-6-sol` |
-| ordinary | `gpt-6-sol` | `medium` | none |
-| difficult | `gpt-6-sol` | `high` | none |
+| mechanical | `gpt-6-luna` | `medium` | `gpt-6.1-sol` |
+| ordinary | `gpt-6.1-sol` | `medium` | none |
+| difficult | `gpt-6.1-sol` | `high` | none |
 
 The Luna→Sol rung is available only under an Astra supervisor; a wave with
 the standard `gpt-6-sol` supervisor has no ladder.
 
-`ordinary` and `difficult` tasks route their initial executor to `gpt-6-sol`,
+`ordinary` and `difficult` tasks route their initial executor to `gpt-6.1-sol`,
 so a wave containing either task class has no standard supervisor: the
 standard-supervisor option is available only when every executor and rung is
 `gpt-6-luna`, and a Sol executor already breaks that condition. Such a wave
@@ -38,13 +38,13 @@ bounded bug or implementation requiring substantial reasoning. Resolve product
 ambiguity before dispatch. Select the initial tier by task needs, not by the
 coordinator's model. If it is unavailable, choose an available higher tier before
 plan approval and record why; use that model's initial effort from the table
-(Sol/medium or Sol/high), since this is initial selection, not runtime
+(GPT-6.1 Sol/medium or GPT-6.1 Sol/high), since this is initial selection, not runtime
 escalation. Omit unavailable optional rungs. If no suitable
 executor exists, report that capability gap. Every rung is an exact model ID;
 escalated rungs use `high`. Never default to `max`.
 
-Read-only research uses Luna/medium for exact enumeration, Sol/medium for
-closed codebase questions, or Sol/high for difficult investigation. Preserve the
+Read-only research uses Luna/medium for exact enumeration, GPT-6.1 Sol/medium for
+closed codebase questions, or GPT-6.1 Sol/high for difficult investigation. Preserve the
 mandatory evidence, missing-data and source-reading instructions in multi-model.
 Research never replaces independent supervision or the coordinator's decisions.
 
@@ -53,6 +53,18 @@ Luna cost half as much per token and measure far lower on coding deception and
 on inventing results when a tool is broken (dossiers `gpt-6-sol-dossier.md`,
 `gpt-6-luna-dossier.md`). Already approved plans that name GPT-5.6 IDs still
 execute unchanged.
+
+GPT-6 Sol is no longer chosen for new executor routes: GPT-6.1 Sol has
+the same $2/$10 per-million-token input/output price (cached input $0.10
+against $0.20) and, in its card, fails to stop at an environment warning
+far less often (23.5% against 64.4%) and produces fewer misaligned
+outcomes in realistic work environments (1.94% against 4.93%) — dossier
+`gpt-6-1-sol-dossier.md`. Its Coding Deception rate is slightly higher
+(1.50% against 1.30%), so artifact checks stay mandatory. Already approved
+plans that name `gpt-6-sol` still execute. `gpt-6-sol` keeps its two
+measured roles — the standard supervisor of all-`gpt-6-luna` waves and
+the lower-cost final-review option — until GPT-6.1 Sol has its own dated
+measurement in them.
 
 ## Verification and stops
 
