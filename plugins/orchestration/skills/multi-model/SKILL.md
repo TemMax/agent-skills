@@ -54,6 +54,7 @@ A generic selection explains missing, unsupported, or conflicting identity.
 | `gpt-5.6-luna` | `references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `references/orchestrator-gpt-6-astra.md` |
 | `gpt-6-sol` | `references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.1-sol` | `references/orchestrator-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `references/orchestrator-gpt-6-luna.md` |
 | unknown | `references/orchestrator-generic.md` |
 
