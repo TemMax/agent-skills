@@ -91,4 +91,14 @@ for f in "$SOL6" "$ASTRA6" "$SOL" "$TERRA" "$LUNA"; do
   check "$f requires Astra for a Sol executor" "grep -qF 'A wave with a Sol' '$f' && grep -qF 'needs Astra' '$f'"
 done
 
+SOL6_DOSSIER="$REFS/gpt-6-sol-dossier.md"
+LUNA6="$REFS/orchestrator-gpt-6-luna.md"
+LUNA6_DOSSIER="$REFS/gpt-6-luna-dossier.md"
+
+for f in "$SOL6" "$SOL6_DOSSIER"; do
+  check "$f has the 2026-09-29 route status" "grep -qF '## Route status (2026-09-29)' '$f'"
+done
+check "gpt-6-luna profile escalates refusals to gpt-6.1-sol" "grep -qF 'escalated to \`gpt-6.1-sol\`' '$LUNA6'"
+check "gpt-6-luna dossier names gpt-6.1-sol" "grep -qF 'gpt-6.1-sol' '$LUNA6_DOSSIER'"
+
 summary
