@@ -90,6 +90,7 @@ CASES=(
   'SessionStart preserves Terra id|{"hook_event_name":"SessionStart","model":"gpt-5.6-terra"}|context|SessionStart|gpt-5.6-terra|codex|unknown'
   'SubagentStart preserves Luna id|{"hook_event_name":"SubagentStart","model":"gpt-5.6-luna"}|context|SubagentStart|gpt-5.6-luna|codex|unknown'
   'SessionStart preserves GPT-6 Sol id|{"hook_event_name":"SessionStart","model":"gpt-6-sol"}|context|SessionStart|gpt-6-sol|codex|unknown'
+  'SessionStart preserves GPT-6.1 Sol id|{"hook_event_name":"SessionStart","model":"gpt-6.1-sol"}|context|SessionStart|gpt-6.1-sol|codex|unknown'
   'SessionStart preserves GPT-6 Luna id|{"hook_event_name":"SessionStart","model":"gpt-6-luna"}|context|SessionStart|gpt-6-luna|codex|unknown'
   'SessionStart exposes Claude model|{"hook_event_name":"SessionStart","model":"claude-fable-5-1"}|context|SessionStart|claude-fable-5-1|claude|unknown'
   'SessionStart preserves Opus 5.5 context-window suffix|{"hook_event_name":"SessionStart","model":"claude-opus-5-5[1m]"}|context|SessionStart|claude-opus-5-5[1m]|claude|unknown'
