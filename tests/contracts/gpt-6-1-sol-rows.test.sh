@@ -10,14 +10,14 @@ SENT='GPT-6.1 Sol names the same bare family (probed with Codex CLI 0.159.0 on 2
 
 section "GPT-6.1 Sol rows"
 
-expect "multi-model exact-model row" \
+check "multi-model exact-model row" \
   "grep -qF '| \`gpt-6.1-sol\` | \`references/orchestrator-gpt-6-1-sol.md\` |' '$MM'"
-expect "ship exact-model row" \
+check "ship exact-model row" \
   "grep -qF '| \`gpt-6.1-sol\` | \`../multi-model/references/orchestrator-gpt-6-1-sol.md\` |' '$SH'"
-expect "multi-model Step 0 sentence" \
+check "multi-model Step 0 sentence" \
   "tr '\n' ' ' < '$MM' | tr -s ' ' | grep -qF '$SENT'"
-expect "ship Step 0 sentence" \
+check "ship Step 0 sentence" \
   "tr '\n' ' ' < '$SH' | tr -s ' ' | grep -qF '$SENT'"
-expect "orchestrator profile exists" "test -f '$REF'"
+check "orchestrator profile exists" "test -f '$REF'"
 
 summary
