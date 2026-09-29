@@ -4,7 +4,7 @@
 // asserts exact minutes, costs, concurrency and a thread-limit error. Never
 // reads real ~/.codex sessions.
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -19,6 +19,11 @@ const ROOT = 'root-0000-0000-0000-000000000000'
 const EXEC = 'exec-1111-1111-1111-111111111111'
 const SUPER = 'super-2222-2222-2222-222222222222'
 const GRANDCHILD = 'gc-3333-3333-3333-333333333333'
+
+test('shipped prices.json prices gpt-6.1-sol at the 2026-09-29 model-page rates', () => {
+  const prices = JSON.parse(readFileSync(PRICES, 'utf8'))
+  assert.deepEqual(prices['gpt-6.1-sol'], [2, 0.1, 10])
+})
 
 const BASE = Date.parse('2026-09-23T00:00:00.000Z')
 const at = minutes => new Date(BASE + minutes * 60000).toISOString()
