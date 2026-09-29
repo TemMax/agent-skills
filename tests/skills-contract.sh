@@ -207,8 +207,6 @@ check "profile table lists gpt-6.1-sol" \
   "grep -qF '| \`gpt-6.1-sol\` | \`../multi-model/references/orchestrator-gpt-6-1-sol.md\` |' $SP"
 check "new Codex plans route executors to gpt-6.1-sol" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'New Codex plans route executors to \`gpt-6.1-sol\`'"
-check "GPT-6.1 Sol names the same bare family" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'GPT-6.1 Sol names the same bare family (probed with Codex CLI 0.159.0 on 2026-09-29).'"
 check "bare GPT alias is excluded from plan fields" \
   "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '\`gpt-5.6\` is never a plan id'"
 check "profile rather than host defaults routes every plan role" \

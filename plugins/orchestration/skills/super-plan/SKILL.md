@@ -23,8 +23,7 @@ the output format and every contract rule are this plugin's own.
 3. A family label is not an identity. Codex gives GPT-6 Astra, Sol and Luna
    the same host instruction ("an agent based on GPT-6"; verified with Codex
    CLI 0.155.1 on 2026-09-23), so bare `GPT-6`, or any other family label,
-   selects no profile by itself. GPT-6.1 Sol names the same bare family
-   (probed with Codex CLI 0.159.0 on 2026-09-29).
+   selects no profile by itself.
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
 5. Effort comes only from the host. On Codex the `PLUGIN_RUNTIME_CONTEXT_V1`
@@ -120,8 +119,8 @@ approvals.
    merge-ready first try — toy waves,
    correct work only). A Codex
    wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
-   supervisor — it needs `gpt-6-astra`. Record the model for ship's Stage 3 critical-review child
-   in the plan's `review` key here too: `gpt-6-astra` by default, recorded
+   supervisor — it needs `gpt-6-astra`. Record the model for ship's Stage 3
+   critical-review child in the plan's `review` key here too: `gpt-6-astra` by default, recorded
    in `approvals.premium`, or, when the user picks it to save that cost,
    `gpt-6-sol` — strict review gate clean 10/10, planted 10/10; PR support
    3/4 on 2026-09-24 — disclosed at Gate 1 too.
