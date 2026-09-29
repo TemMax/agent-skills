@@ -11,7 +11,7 @@ base: pending
       { "id": "divide-guard",
         "branch": "wave/divide-guard",
         "executor": { "model": "gpt-6-luna", "effort": "medium" },
-        "ladder": ["gpt-6-sol"],
+        "ladder": ["gpt-6.1-sol"],
         "contract": {
           "files_allowed": ["src/**"],
           "files_forbidden": ["tests/**"],

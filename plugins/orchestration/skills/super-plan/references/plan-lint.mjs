@@ -34,8 +34,9 @@ const defaultLadderFor = (execModel) => {
   return i === -1 ? [] : CLAUDE_DEFAULT_LADDER_ORDER.slice(i + 1)
 }
 const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
-const CODEX_MODELS = ['gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+const CODEX_MODELS = ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const ASTRA = 'gpt-6-astra'
+const STANDARD_CODEX_SUPERVISORS = ['gpt-6.1-sol', 'gpt-6-sol']
 const MODELS = [...CLAUDE_MODELS, ...CODEX_MODELS]
 const EXECUTOR_MODELS = [...MODELS, ASTRA]
 const SUPERVISORS = [...MODELS, ASTRA]
@@ -171,6 +172,8 @@ if (plan) {
       warn('retired route: Opus 5 is no longer an executor route (use claude-opus-5-5)')
     } else if (model === 'claude-sonnet-5') {
       warn('retired route: claude-sonnet-5 is no longer an executor route (use claude-sonnet-5-5); approved plans still run')
+    } else if (model === 'gpt-6-sol') {
+      warn('retired route: gpt-6-sol is no longer an executor route (use gpt-6.1-sol); approved plans still run')
     } else if (model === 'claude-opus-4-8') {
       warn('Opus 4.8 is routed only for compiled-binary work — ignore this warning if the task is compiled-binary reverse-engineering')
     }
@@ -321,12 +324,12 @@ if (plan) {
           }
         }
       })
-      if (w.supervisor && w.supervisor.model === 'gpt-6-sol') {
+      if (w.supervisor && STANDARD_CODEX_SUPERVISORS.includes(w.supervisor.model)) {
         const allLuna = w.tasks.every((t) => t && typeof t === 'object'
           && t.executor && t.executor.model === 'gpt-6-luna'
           && (!Array.isArray(t.ladder) || t.ladder.every((m) => m === 'gpt-6-luna')))
         if (!allLuna) {
-          err(at + '.supervisor.model: gpt-6-sol supervises only waves whose executors and rungs are all gpt-6-luna')
+          err(at + '.supervisor.model: ' + w.supervisor.model + ' supervises only waves whose executors and rungs are all gpt-6-luna')
         }
       }
       const waveModels = [
@@ -433,9 +436,9 @@ if (plan) {
     if (!review || typeof review !== 'object' || Array.isArray(review)) {
       err('review: must be an object {"model", "effort"}')
     } else {
-      const reviewModelValid = review.model === ASTRA || review.model === 'gpt-6-sol'
+      const reviewModelValid = [ASTRA, 'gpt-6.1-sol', 'gpt-6-sol'].includes(review.model)
       if (!reviewModelValid) {
-        err('review.model: one of gpt-6-astra/gpt-6-sol — the Codex final-review child chosen at Gate 1')
+        err('review.model: one of gpt-6-astra/gpt-6.1-sol/gpt-6-sol — the Codex final-review child chosen at Gate 1')
       } else {
         checkPremium('review.model', review.model)
       }
