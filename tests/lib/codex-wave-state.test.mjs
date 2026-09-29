@@ -311,6 +311,33 @@ test('C3b GPT-6 wave dispatches gpt-6-luna executor then gpt-6-astra supervisor'
   assert.equal(supervisorAction.effort, 'high')
 })
 
+test('C3d GPT-6.1 Sol rung: gpt-6-luna executor with ladder gpt-6.1-sol under gpt-6-astra', () => {
+  const env = init({ planText: (text) => text
+    .replace('"model": "gpt-5.6-terra", "effort": "high"', '"model": "gpt-6-astra", "effort": "high"')
+    .replace('"model": "gpt-5.6-luna", "effort": "medium"', '"model": "gpt-6-luna", "effort": "medium"')
+    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-6.1-sol"]') })
+  const executorAction = next(env.statePath)
+  assert.equal(executorAction.action, 'spawn-executor')
+  assert.equal(executorAction.model, 'gpt-6-luna')
+  assert.equal(executorAction.effort, 'medium')
+  prepareAttempt(env)
+  const supervisorAction = next(env.statePath)
+  assert.equal(supervisorAction.action, 'spawn-supervisor')
+  assert.equal(supervisorAction.model, 'gpt-6-astra')
+  assert.equal(supervisorAction.effort, 'high')
+})
+
+test('C3e GPT-6.1 Sol executor dispatches under gpt-6-astra', () => {
+  const env = init({ planText: (text) => text
+    .replace('"model": "gpt-5.6-terra", "effort": "high"', '"model": "gpt-6-astra", "effort": "high"')
+    .replace('"model": "gpt-5.6-luna", "effort": "medium"', '"model": "gpt-6.1-sol", "effort": "medium"')
+    .replace('"ladder": ["gpt-5.6-sol"]', '"ladder": []') })
+  const executorAction = next(env.statePath)
+  assert.equal(executorAction.action, 'spawn-executor')
+  assert.equal(executorAction.model, 'gpt-6.1-sol')
+  assert.equal(executorAction.effort, 'medium')
+})
+
 test('C3c bare gpt-6 is rejected at init', () => {
   const env = init({ invalid: true, planText: (text) => text.replace(
     '"model": "gpt-5.6-luna"', '"model": "gpt-6"') })
