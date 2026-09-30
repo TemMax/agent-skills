@@ -708,7 +708,26 @@ open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-6-sol supervisor over gpt-6-luna exits 0" "0" "$rc"
-check "gpt-6-sol supervisor prints no retired route line" \
+contains "gpt-6-sol supervisor retired route warned" \
+  'retired route: gpt-6-sol is no longer the standard supervisor (use gpt-6.1-sol); approved plans still run' "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY2'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6.1-sol", "effort": "high"')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY2
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+check "gpt-6.1-sol supervisor over gpt-6-luna prints no gpt-6-sol retired route line" \
+  '! grep -qF "retired route: gpt-6-sol" <<<"$out"'
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-sol", "effort": "high" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+check "review gpt-6-sol prints no retired route line" \
   '! grep -qF "retired route: gpt-6-sol" <<<"$out"'
 
 codex_mutate '"e2e": { "task": "divide-guard" }' \

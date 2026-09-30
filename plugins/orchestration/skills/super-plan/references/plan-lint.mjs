@@ -200,6 +200,9 @@ if (plan) {
       if (w.supervisor && typeof w.supervisor.model === 'string') {
         checkPremium(at + '.supervisor.model', w.supervisor.model)
         retiredWarn(w.supervisor.model)
+        if (w.supervisor.model === 'gpt-6-sol') {
+          warn('retired route: gpt-6-sol is no longer the standard supervisor (use gpt-6.1-sol); approved plans still run')
+        }
       }
       if (!Array.isArray(w.tasks) || w.tasks.length === 0) {
         err(at + '.tasks: non-empty array required'); return
