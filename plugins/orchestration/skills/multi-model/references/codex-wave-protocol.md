@@ -1,7 +1,7 @@
 # Codex-native supervised wave protocol
 
 Use this protocol only for a Codex-only wave. The supervisor is the one chosen
-at Gate 1 — the premium `gpt-6-astra`, or the standard `gpt-6-sol` for an
+at Gate 1 — the premium `gpt-6-astra`, or the standard `gpt-6.1-sol` for an
 all-`gpt-6-luna` wave. An Astra executor or rung needs
 `astra_executor_reason: "<concrete reason>"` and `approvals.premium`, which
 never authorizes it by itself.

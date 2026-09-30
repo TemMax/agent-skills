@@ -126,6 +126,12 @@ each of two 2026-09-24 runs (10/10 and 10/10) and PR support 3/4 (one
 `pr-gate-withheld` miss) — see
 [`tests/eval/gpt-6-results-2026-09-23.md`](../../../../tests/eval/gpt-6-results-2026-09-23.md).
 
+On 2026-09-29 the standard supervisor of all-`gpt-6-luna` waves moved to
+`gpt-6.1-sol` (supervisor fixture 9/9, Codex CLI 0.159.0; seam audit 9/9
+with the planted seam caught 3/3). The review route stays `gpt-6-sol`:
+GPT-6.1 Sol missed the strict review gate (clean 4/5 and 5/5, planted
+10/10, PR support 3/4).
+
 ## Overview
 
 The orchestrator researches, plans, routes, integrates, verifies, and publishes;
@@ -557,7 +563,7 @@ empty one — it inherits the runner's default ladder, which reaches
 supervisor, executor or ladder rung — only when the user chose them at Gate 1
 and the plan records `approvals.premium`; the linter enforces it. Standard
 alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors),
-Codex `gpt-6-sol` for Luna-only waves.
+Codex `gpt-6.1-sol` for Luna-only waves.
 
 Plans name every supervisor by its full ID (see Model identifiers above): Fable
 5.1 is `claude-fable-5-1`. Fable 5 is no longer addressable and keeps its
@@ -615,7 +621,7 @@ supervised wave, stop before publication rather than push around the gate.
   generates the launch script and invokes the shipped runner).
 - Codex-only wave (GPT-6 Sol/Luna or GPT-5.6 executors, or separately approved
   Astra initial/final rung; supervisor per shared Codex routing (premium Astra
-  with `approvals.premium`, or standard `gpt-6-sol` for all-Luna waves)): read
+  with `approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves)): read
   and follow `references/codex-wave-protocol.md`; do not invoke Claude
   Workflow. Its default adapter is `references/codex-wave-runner.mjs`, as
   described there, with the native action loop as fallback. Launch

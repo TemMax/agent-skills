@@ -10,7 +10,7 @@ effort stays unknown; available exact child IDs can still establish a route.
 Choose from the host's actually available children and supported efforts.
 The wave's supervisor is chosen at Gate 1 — the premium `gpt-6-astra` at
 `high` (requires `approvals.premium`) or, for a wave whose executors and
-rungs are all `gpt-6-luna`, the standard `gpt-6-sol` at `high` (see
+rungs are all `gpt-6-luna`, the standard `gpt-6.1-sol` at `high` (see
 Verification and stops); then use the task table below. Availability is a
 capability check, not a reliability claim. Missing historical reports or
 pairings with no dated local measurement do not
@@ -24,7 +24,7 @@ plan approvals still apply; existing authorization remains valid.
 | difficult | `gpt-6.1-sol` | `high` | none |
 
 The Luna→Sol rung is available only under an Astra supervisor; a wave with
-the standard `gpt-6-sol` supervisor has no ladder.
+the standard `gpt-6.1-sol` supervisor has no ladder.
 
 `ordinary` and `difficult` tasks route their initial executor to `gpt-6.1-sol`,
 so a wave containing either task class has no standard supervisor: the
@@ -61,10 +61,12 @@ far less often (23.5% against 64.4%) and produces fewer misaligned
 outcomes in realistic work environments (1.94% against 4.93%) — dossier
 `gpt-6-1-sol-dossier.md`. Its Coding Deception rate is slightly higher
 (1.50% against 1.30%), so artifact checks stay mandatory. Already approved
-plans that name `gpt-6-sol` still execute. `gpt-6-sol` keeps its two
-measured roles — the standard supervisor of all-`gpt-6-luna` waves and
-the lower-cost final-review option — until GPT-6.1 Sol has its own dated
-measurement in them.
+plans that name `gpt-6-sol` still execute. The standard supervisor
+of all-`gpt-6-luna` waves moved to `gpt-6.1-sol`
+on 2026-09-29 (supervisor fixture 9/9, Codex CLI 0.159.0). The lower-cost
+final-review option stays `gpt-6-sol`: GPT-6.1 Sol missed the strict
+review gate the same day (clean 4/5 and 5/5, planted 10/10, PR support
+3/4).
 
 ## Verification and stops
 
@@ -83,11 +85,14 @@ these checks; it does not certify this pairing or disqualify a whole model famil
 recorded at Gate 1, the same gate multi-model applies to Fable 5.1, enforced by
 the linter. The **standard supervisor** option covers a narrower case: a wave
 whose executors and ladder rungs are all `gpt-6-luna` may use a fresh
-`gpt-6-sol` supervisor at `high` instead of Astra — there is no Luna→Sol ladder
-in such a wave, since Sol already holds the supervisor seat. The supervisor
-fixture recorded Sol 9/9 twice on 2026-09-23; that is a repeated fixture pass,
-not production calibration, so Sol remains uncalibrated as a production
-supervisor outside this narrow all-Luna case. Every stop rule below still
+`gpt-6.1-sol` supervisor at `high` instead of Astra — there
+is no Luna→Sol ladder in such a wave, since Sol already holds the
+supervisor seat. The supervisor fixture recorded GPT-6.1 Sol 9/9 on
+2026-09-29 (the previous standard supervisor, `gpt-6-sol`, 9/9 twice on
+2026-09-23); that is a repeated fixture pass, not production calibration,
+so GPT-6.1 Sol remains uncalibrated as a production supervisor outside
+this narrow all-Luna case. `gpt-6-sol` stays valid in that seat so that
+approved plans still run. Every stop rule below still
 applies unchanged to both the premium and the standard supervisor.
 
 If the required independent supervisor, native dispatch, isolation, or required
