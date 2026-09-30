@@ -160,7 +160,8 @@ is deliberately narrower than a claim that every profile is a production route:
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. A separately approved Astra initial executor or final rung is uncalibrated and requires a fresh Astra supervisor. |
-| Codex | `gpt-6-sol` | Exact profiles and dossiers; default Codex executors per shared routing; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review unsupported; supervisor only as the standard all-Luna supervisor (policy, uncalibrated). |
+| Codex | `gpt-6-sol` | Exact profiles and dossiers; retired as an executor route (default executors moved to `gpt-6.1-sol`, decision 011), still valid and the lower-cost review option; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review unsupported; supervisor only as the standard all-Luna supervisor (policy, uncalibrated). |
+| Codex | `gpt-6.1-sol` | Exact profiles and dossiers; default ordinary/difficult executor, Luna ladder rung, research and seam-audit route, and the standard supervisor of all-Luna waves (fixture 9/9, 2026-09-29); review route not supported (strict gate missed, 2026-09-29). Record: [`tests/eval/gpt-6-1-sol-results-2026-09-29.md`](tests/eval/gpt-6-1-sol-results-2026-09-29.md). |
 | Codex | `gpt-6-luna` | Exact profiles and dossiers; default Codex executors per shared routing; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review and supervisor routes unsupported. |
 | Either | any other model ID | The generic profile applies; missing identity/effort stay unknown, and no model-specific reliability claim follows. |
 
@@ -349,7 +350,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.3.0, code-review 1.11.0):
+orchestration 4.4.0, code-review 1.12.0):
 
 | Before | After |
 |---|---|
@@ -487,12 +488,14 @@ plugins/
           orchestrator-gpt-5-6-{sol,terra,luna}.md
           orchestrator-gpt-6-astra.md
           orchestrator-gpt-6-sol.md
+          orchestrator-gpt-6-1-sol.md
           orchestrator-gpt-6-luna.md
           orchestrator-generic.md
           model-dossiers.md
           gpt-5-6-dossier.md
           gpt-6-astra-dossier.md
           gpt-6-sol-dossier.md
+          gpt-6-1-sol-dossier.md
           gpt-6-luna-dossier.md
   code-review/
     .claude-plugin/plugin.json
@@ -508,12 +511,14 @@ plugins/
           reviewer-gpt-5-6-{sol,terra,luna}.md
           reviewer-gpt-6-astra.md
           reviewer-gpt-6-sol.md
+          reviewer-gpt-6-1-sol.md
           reviewer-gpt-6-luna.md
           reviewer-generic.md
           reviewer-dossier.md
           gpt-5-6-reviewer-dossier.md
           gpt-6-astra-reviewer-dossier.md
           gpt-6-sol-reviewer-dossier.md
+          gpt-6-1-sol-reviewer-dossier.md
           gpt-6-luna-reviewer-dossier.md
 tests/                           # structure / contracts / behaviour / live eval
   run.sh                         # ./tests/run.sh [--live]
