@@ -122,8 +122,8 @@ approvals.
    supervisor — it needs `gpt-6-astra`. Record the model for ship's Stage 3
    critical-review child in the plan's `review` key here too: `gpt-6-astra` by default, recorded
    in `approvals.premium`, or, when the user picks it to save that cost,
-   `gpt-6-sol` — strict review gate clean 10/10, planted 10/10; PR support
-   3/4 on 2026-09-24 — disclosed at Gate 1 too.
+   `gpt-6.1-sol` — strict review gate clean 10/10, planted 10/10; PR support
+   3/4 on 2026-09-30 — disclosed at Gate 1 too.
    A premium model is used only when the user picks it; record the
    approval in `approvals.premium`. If
    the Tasks step later changes a wave so the chosen supervisor no longer
@@ -396,9 +396,9 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      critical-review child, as an object, e.g.:
      `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,
      recorded in `approvals.premium`) or
-     `"review": {"model": "gpt-6-sol", "effort": "high"}` (measured:
+     `"review": {"model": "gpt-6.1-sol", "effort": "high"}` (measured:
      strict review gate clean 10/10, planted 10/10; PR support 3/4 on
-     2026-09-24).
+     2026-09-30; `gpt-6-sol` stays valid for approved plans).
 
    The linter enforces all three: a plan missing `ci`, missing `e2e`, or
    missing a required `approvals.premium` fails lint. It also checks the
@@ -445,8 +445,8 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 
    New Codex plans route executors to `gpt-6.1-sol` and `gpt-6-luna` per
    shared Codex routing. `gpt-6-sol` remains valid so that already approved
-   plans still execute, and it stays the lower-cost final-review option — the role measured for
-   it. The GPT-5.6 IDs remain valid only so that already approved plans
+   plans still execute, and it stays a valid review model for approved plans; the lower-cost final-review
+   option is `gpt-6.1-sol` since 2026-09-30. The GPT-5.6 IDs remain valid only so that already approved plans
    still execute.
 
    Aliases (`haiku`, `sonnet`, `opus`, `fable`) are rejected by the linter
