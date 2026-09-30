@@ -119,7 +119,7 @@ exact ID `gpt-6.1-sol` can select this model's profile.
 - Shared Codex routing sends ordinary and difficult tasks, the Luna ladder
   rung and Codex research to `gpt-6.1-sol`. These executor routes are
   operational but uncalibrated.
-- The standard supervisor of all-Luna waves is `gpt-6.1-sol` since 2026-09-29 (fixture pass, not production calibration); the lower-cost final-review option stays `gpt-6-sol`, because GPT-6.1 Sol missed the strict review gate.
+- The standard supervisor of all-Luna waves is `gpt-6.1-sol` since 2026-09-29 (fixture pass, not production calibration); the lower-cost final-review option is `gpt-6.1-sol` since 2026-09-30 (strict gate passed after a verdict-wording fix).
 - `codex-routing.md` governs.
 
 ## Local measurements (2026-09-29)
@@ -136,6 +136,7 @@ exact ID `gpt-6.1-sol` can select this model's profile.
 | drift (×3) | 3/3 |
 | seam-audit (×3) | 9/9; planted seam caught 3/3 (GPT-6 Sol 1/3 on 2026-09-24) |
 | critical-review strict gate, two ×5 runs | clean 4/5 and 5/5, planted 5/5 and 5/5, PR support 3/4 |
+| critical-review strict gate re-run (2026-09-30, after the verdict-wording fix), two ×5 runs | clean 5/5 and 5/5, planted 5/5 and 5/5, PR support 3/4 (one pr-gate-approved miss) |
 | profile-routing context cells | 0/4 and 1/4 — a harness artifact: the runtime-context line sat in the user prompt, which Step 0 does not accept as identity; delivered as developer instructions, 2/2 |
 
 The one failed clean-diff review was a format failure: its Overall

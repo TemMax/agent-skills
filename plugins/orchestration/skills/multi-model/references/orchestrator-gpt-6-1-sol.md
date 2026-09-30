@@ -42,9 +42,10 @@ The model page lists no `none` effort for this model.
   its own work or another Sol executor's work.
 - GPT-6.1 Sol holds the standard supervisor seat of all-`gpt-6-luna`
   waves since 2026-09-29 on a supervisor-fixture pass (9/9) — a fixture,
-  not production calibration. It missed the strict review gate the same
-  day (clean 4/5 and 5/5, planted 10/10, PR support 3/4), so the
-  lower-cost review option stays `gpt-6-sol`.
+  not production calibration. On 2026-09-30, after a verdict-wording fix, it
+  passed the strict review gate (clean 10/10, planted 10/10, PR support
+  3/4) and became the lower-cost review option too; its 2026-09-29 run had
+  missed it (clean 4/5 and 5/5).
 - Preserve isolated worktrees, task contracts, mechanical checks, and fresh
   independent verdicts. Never mix providers or silently reroute an approved
   plan.

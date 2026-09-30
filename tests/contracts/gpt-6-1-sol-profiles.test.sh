@@ -27,6 +27,8 @@ check "dossier environment warning row" "grep -qF '| Fails to stop at an environ
 check "dossier has Unmeasured properties" "grep -qF '## Unmeasured properties' '$D'"
 check "dossier has Local measurements section" "grep -qF '## Local measurements (2026-09-29)' '$D'"
 check "dossier records the strict gate clean result" "grep -qF 'clean 4/5 and 5/5' '$D'"
+check "dossier records the strict gate re-run" "tr '\\n' ' ' < '$D' | tr -s ' ' | grep -qF 'clean 5/5 and 5/5'"
+check "profile records the review route move" "tr '\\n' ' ' < '$P' | tr -s ' ' | grep -qF 'became the lower-cost review option too'"
 check "dossier cached input price" "grep -qF '\$0.10' '$D'"
 
 summary

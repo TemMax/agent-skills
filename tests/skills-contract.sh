@@ -277,13 +277,13 @@ check "a changed wave shape re-asks the supervisor choice before Gate 2" \
 check "a Codex Sol executor forces the Astra supervisor" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A Codex wave with a \`gpt-6.1-sol\` or \`gpt-6-sol\` executor has no standard supervisor'"
 check "super-plan records ship's Stage 3 review child in the plan's review key, Sol measured with a strict-gate line" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'by default, recorded in \`approvals.premium\`, or, when the user picks it to save that cost, \`gpt-6-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-24 — disclosed at Gate 1 too.'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'by default, recorded in \`approvals.premium\`, or, when the user picks it to save that cost, \`gpt-6.1-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30 — disclosed at Gate 1 too.'"
 check "super-plan documents the optional review key next to ci/e2e/approvals" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'optional, only on Codex plans that ship carry it' && grep -qF '\"review\"' $SP"
 check "super-plan says the linter also checks the review key" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the optional \`review\` key'"
 check "the review key is documented as an object with model and effort" \
-  "grep -qF '\"review\": {\"model\": \"gpt-6-sol\", \"effort\": \"high\"}' $SP && grep -qF '\"review\": {\"model\":' $SP"
+  "grep -qF '\"review\": {\"model\": \"gpt-6.1-sol\", \"effort\": \"high\"}' $SP && grep -qF '\"review\": {\"model\":' $SP"
 check "no wording in super-plan is left uncalibrated" \
   "! grep -qi 'uncalibrated' $SP"
 check "the supervisor-vs-executor example names Opus 5 and Fable 5.1" \

@@ -35,4 +35,9 @@ retained here.
 
 ## Review hypothesis
 
-Measured once, 2026-09-29: clean 4/5 and 5/5, planted 10/10, PR support 3/4 — below the strict gate, which needs 5/5 on every guard in each run. A further strict-gate run after the verdict-wording fix in `reviewer-gpt-6-1-sol.md` is required before any supported claim. GPT-6 Sol's calibration cannot be inherited, and the card does not measure self-preference or a false-positive/negative rate for this plugin's checklist.
+Measured once, 2026-09-29: clean 4/5 and 5/5, planted 10/10, PR support 3/4 —
+below the strict gate. Re-measured 2026-09-30 after the verdict-wording fix:
+clean 10/10, planted 10/10, PR support 3/4 — the route is measured-supported
+at `medium` effort. Other efforts are untested. GPT-6 Sol's calibration
+cannot be inherited, and the card does not measure self-preference or a
+false-positive/negative rate for this plugin's checklist.

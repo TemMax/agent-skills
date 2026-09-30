@@ -110,3 +110,14 @@ and harness fixes.
   defect detection comes from the supervisor fixture.
 - The GPT-6.1 Sol review route is unsupported; the review route stays
   `gpt-6-sol`.
+
+## Review gate re-run (2026-09-30)
+
+`tests/eval/critical-review.sh`, `EVAL_REPEAT=5`, two runs of five:
+
+| Run | Clean | Planted | PR support |
+|---|---|---|---|
+| 2026-09-29 | 4/5 and 5/5 | | |
+| 2026-09-30 | 5/5 and 5/5 | 5/5 and 5/5 | 3/4 (one `pr-gate-approved` miss) |
+
+The review route moved to `gpt-6.1-sol`.

@@ -21,12 +21,15 @@ evaluated for this checklist, and `max` is never assumed by default.
 ## Calibration status
 
 2026-09-29 local strict-gate run, `medium` effort, Codex CLI 0.159.0, two
-runs of five: clean 4/5 and 5/5, planted 5/5 and 5/5, PR support 3/4. The
-strict gate needs 5/5 on every guard in each run, so the route stays
-uncalibrated. GPT-6 Sol's measured-supported review route (strict gate
-10/10 clean, 10/10 planted, 2026-09-24) belongs to `gpt-6-sol` and does
-not transfer. A GPT-6.1 Sol model-selection request returns `unsupported`
-with the mechanical evidence packet.
+runs of five: clean 4/5 and 5/5, planted 5/5 and 5/5, PR support 3/4 —
+below the gate, with one format failure in the verdict line. After the
+verdict-wording fix in Review method below, the 2026-09-30 re-run had
+clean 5/5 and 5/5, planted 5/5 and 5/5, PR support 3/4 (one
+`pr-gate-approved` miss). The route is now **measured-supported**: a
+GPT-6.1 Sol model-selection request may return `gpt-6.1-sol`, stating
+these counts and the PR-support caveat alongside it. Efforts other than
+`medium` remain uncalibrated. GPT-6 Sol's calibration does not transfer
+to this model, nor this model's to GPT-6 Sol.
 
 ## Review method
 
@@ -46,8 +49,9 @@ verdict line instead.
 
 ## Independence and escalation
 
-Preserve the mechanical evidence packet and hand final judgment upward
-while the route is uncalibrated. Never mix providers or silently substitute
+Preserve the mechanical evidence packet, state
+the strict-gate and PR-support counts, and hand final judgment upward
+when the PR-support caveat applies. Never mix providers or silently substitute
 another GPT model. Do not invent a stronger reviewer from a model label or
 from "capabilities comparable to GPT-6 Astra" (card p. 3): the card reports
 a Coding Deception rate of 1.50%, above GPT-6 Sol's 1.30% and Astra's 0.51%
@@ -56,7 +60,7 @@ defect-detection accuracy.
 
 ## Not measured
 
-Beyond the 2026-09-29 strict-gate run above, no evaluation of GPT-6.1 Sol
+Beyond the 2026-09-29 and 2026-09-30 strict-gate runs above, no evaluation of GPT-6.1 Sol
 as a reviewer exists in this plugin. The card measures no judge bias,
 self-preference, false-positive or false-negative rate for this checklist.
 Read `gpt-6-1-sol-reviewer-dossier.md` for sources

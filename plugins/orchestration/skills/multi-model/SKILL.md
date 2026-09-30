@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.4.0
+  version: 4.5.0
 ---
 
 # Orchestrating Multi-Model Development
@@ -128,9 +128,9 @@ each of two 2026-09-24 runs (10/10 and 10/10) and PR support 3/4 (one
 
 On 2026-09-29 the standard supervisor of all-`gpt-6-luna` waves moved to
 `gpt-6.1-sol` (supervisor fixture 9/9, Codex CLI 0.159.0; seam audit 9/9
-with the planted seam caught 3/3). The review route stays `gpt-6-sol`:
-GPT-6.1 Sol missed the strict review gate (clean 4/5 and 5/5, planted
-10/10, PR support 3/4).
+with the planted seam caught 3/3). On 2026-09-30 the review route moved to `gpt-6.1-sol` too: after a
+verdict-wording fix it passed the strict review gate (clean 10/10, planted
+10/10, PR support 3/4; its first run on 2026-09-29 had clean 4/5 and 5/5).
 
 ## Overview
 
