@@ -265,7 +265,7 @@ check "the e2e task sits after every task whose entrypoints or fixtures it runs"
 check "e2e fixture/output documentation stays in the e2e task or a later documentation-only wave" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'goes into the e2e task or a later documentation-only wave'"
 check "the Sol supervisor line names its measured fixture and wave evidence" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Sol supervisor of all-Luna waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves merge-ready first try — toy waves, correct work only'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Codex: \`gpt-6.1-sol\` for waves whose executors and rungs are only \`gpt-6-luna\` — supervisor fixture 9/9 on 2026-09-29; its predecessor \`gpt-6-sol\` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24 and three real small waves merge-ready first try — toy waves, correct work only)'"
 WCM=tests/eval/wave-cost-measurements-2026-09-24.md
 check "measurements record their price source"         "grep -qF 'tests/eval/telemetry/prices.json' $WCM"
 check "measurements record Opus 5"                     "grep -qF '| \`claude-opus-5\` | 5 | 0.5 | 25 |' $WCM"

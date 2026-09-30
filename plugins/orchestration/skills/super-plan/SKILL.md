@@ -72,7 +72,7 @@ While authoring or amending a plan, the active profile chooses executor, supervi
 For Codex, load the shared [route selection](../multi-model/references/codex-routing.md)
 before choosing children. It governs routing across profiles: use available
 explicit executors and the supervisor chosen at Gate 1 (premium Astra with
-`approvals.premium`, or standard `gpt-6-sol` for all-Luna waves) without a
+`approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves) without a
 separate calibration gate. Historical fixture failures inform verification;
 they do not block writing a concrete plan for the existing design and plan
 approvals.
@@ -113,11 +113,11 @@ approvals.
    on them — then decide and present the supervisor choice, named and never
    priced: premium (Fable 5.1 /
    GPT-6 Astra) vs standard (Claude: Opus 5.5 supervising Sonnet/Haiku
-   waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6-sol` for waves whose
-   executors and rungs are only `gpt-6-luna` — Sol supervisor of all-Luna
-   waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves
-   merge-ready first try — toy waves,
-   correct work only). A Codex
+   waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6.1-sol` for waves whose executors and rungs are only
+   `gpt-6-luna` — supervisor fixture 9/9 on 2026-09-29; its predecessor
+   `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24
+   and three real small waves merge-ready first try — toy waves, correct
+   work only). A Codex
    wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
    supervisor — it needs `gpt-6-astra`. Record the model for ship's Stage 3
    critical-review child in the plan's `review` key here too: `gpt-6-astra` by default, recorded
@@ -445,8 +445,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 
    New Codex plans route executors to `gpt-6.1-sol` and `gpt-6-luna` per
    shared Codex routing. `gpt-6-sol` remains valid so that already approved
-   plans still execute, and it stays the standard supervisor of all-Luna
-   waves and the lower-cost final-review option — the two roles measured for
+   plans still execute, and it stays the lower-cost final-review option — the role measured for
    it. The GPT-5.6 IDs remain valid only so that already approved plans
    still execute.
 
@@ -524,7 +523,7 @@ gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
 silently is the failure this mode exists to measure. A headless run uses
 standard supervisors only — Opus 5.5 (or Opus 5 for Opus 5.5 executors) for
-Claude waves, `gpt-6-sol` for all-Luna Codex waves; a premium choice it
+Claude waves, `gpt-6.1-sol` for all-Luna Codex waves; a premium choice it
 would have asked the user for goes under `Assumptions (would ask)` instead,
 and the plan carries no `approvals.premium` invented by the model.
 
