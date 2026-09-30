@@ -179,6 +179,11 @@ Sol-vs-Astra supervisor comparison, the seam-audit before/after, and the
 Codex wave runner's macOS nested-sandbox finding are recorded in
 [`tests/eval/stage-c-verification-2026-09-24.md`](eval/stage-c-verification-2026-09-24.md).
 
+**2026-09-29 — GPT-6.1 Sol support.** Live tiers, the strict critical-review
+gate, the seam-audit, the profile-routing harness finding, and the
+post-fix native wave, profile-routing and ship-smoke re-measures are recorded in
+[`tests/eval/gpt-6-1-sol-results-2026-09-29.md`](eval/gpt-6-1-sol-results-2026-09-29.md).
+
 ## Telemetry analyzer
 
 `tests/eval/telemetry/` (`telemetry.mjs`) is pure, offline log analysis —
