@@ -123,6 +123,15 @@ executor and supervisor `codex exec` gets `--add-dir` for:
   passed (`resolveWorktreeEnv`), and the runner warns to stderr about
   every one it skipped (`codex-wave-runner.mjs:554-557`).
 
+Each child also gets `-c sandbox_workspace_write.writable_roots=[<its
+worktree gitdir>, <git common dir>, <writable dirs>]`, and the preflight
+the same with its own worktree gitdir (`worktreeGitDir`, wrapping `git
+rev-parse --absolute-git-dir`). Codex CLI 0.159.0 keeps a linked
+worktree's gitdir (`<repo>/.git/worktrees/<name>`) read-only even when the
+common dir is `--add-dir`'d, so `git add` failed with `Unable to create
+'.../index.lock': Operation not permitted` until the gitdir became an
+explicit writable root (measured 2026-09-29; openai/codex #23661, #27418).
+
 **Supervisor network parity.** The supervisor gets
 `sandbox_workspace_write.network_access=true` under the exact same
 `--executor-network` flag as the executor — `codex-wave-runner.mjs:691` and
