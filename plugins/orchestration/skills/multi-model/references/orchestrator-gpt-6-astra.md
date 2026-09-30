@@ -35,7 +35,7 @@ score: the former standard `gpt-6-sol` supervisor (fixture 9/9 twice, 2026-09-23
 `tests/eval/gpt-6-results-2026-09-23.md`) and the `gpt-6-sol` final-review
 route (measured 2026-09-24: clean 10/10, planted 10/10, PR support 3/4);
 every other Sol-led pairing in this profile remains unmeasured
-(`gpt-6-sol-dossier.md`). On 2026-09-29 the standard supervisor seat moved to `gpt-6.1-sol` (supervisor fixture 9/9; `gpt-6-1-sol-dossier.md`); the lower-cost review route stays `gpt-6-sol`.
+(`gpt-6-sol-dossier.md`). On 2026-09-29 the standard supervisor seat moved to `gpt-6.1-sol` (supervisor fixture 9/9; `gpt-6-1-sol-dossier.md`); on 2026-09-30 the lower-cost review route moved to `gpt-6.1-sol` as well (strict gate clean 10/10, planted 10/10, PR support 3/4).
 
 Every wave uses a fresh, separate supervisor at explicit `high` effort,
 chosen at Gate 1 per shared Codex routing: the premium `gpt-6-astra` (plan
