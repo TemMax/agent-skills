@@ -117,6 +117,26 @@ expect "failed Codex without output returns its exact status" "7" "$empty_failur
 expect "failed Codex without output emits nothing" "" "$out"
 expect "failed Codex without output cannot reuse a stale answer" "" "$(cat "$FAILED_ANSWER")"
 
+section "EVAL_CODEX_DEVELOPER_INSTRUCTIONS is delivered as developer_instructions after the effort pair"
+DEV_CTX='PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=gpt-6.1-sol effort=unknown'
+CODEX_DEV="$W/codex-dev.md"
+out="$(PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_MODEL=gpt-6.1-sol EVAL_EFFORT=medium EVAL_TIMEOUT=5 EVAL_CODEX_DEVELOPER_INSTRUCTIONS="$DEV_CTX" \
+  eval_model "$REPO" read-only "$PROMPT" "$CODEX_DEV")"
+expect "Codex writes its final answer" "codex final answer" "$(cat "$CODEX_DEV")"
+expect "Codex argv carries developer_instructions after the effort pair" "$(printf '%s\n' exec --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --model gpt-6.1-sol -c 'model_reasoning_effort="medium"' -c "developer_instructions=\"$DEV_CTX\"" --output-last-message "$CODEX_DEV" -)" "$(cat "$LOG/codex.argv")"
+
+section "Developer instructions with a quote or backslash are rejected before codex runs"
+before="$(wc -l < "$LOG/calls")"
+set +e
+PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_CODEX_DEVELOPER_INSTRUCTIONS='bad "quote"' eval_model "$REPO" read-only "$PROMPT" "$W/dev-quote.md"
+quote_rc=$?
+PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_CODEX_DEVELOPER_INSTRUCTIONS='bad \slash' eval_model "$REPO" read-only "$PROMPT" "$W/dev-slash.md"
+slash_rc=$?
+set -e
+expect "quote in developer instructions exits 2" "2" "$quote_rc"
+expect "backslash in developer instructions exits 2" "2" "$slash_rc"
+expect "rejected developer instructions invoke no codex" "$before" "$(wc -l < "$LOG/calls")"
+
 section "Semantic fixtures preserve model failures before scoring"
 check "supervisor uses the status-preserving output helper" "grep -qxF '  EVAL_MODEL=\"\$MODEL\" eval_model_answer \"\$R\" read-only \"\$prompt_file\" \"\$answer_file\"' tests/eval/supervisor.sh"
 check "drift uses the status-preserving output helper" "grep -qxF '  EVAL_MODEL=\"\$MODEL\" eval_model_answer \"\$W\" read-only \"\$prompt_file\" \"\$answer_file\" | tr -d '\''\\r'\''' tests/eval/drift.sh"
