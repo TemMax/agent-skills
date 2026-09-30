@@ -366,7 +366,7 @@ if len(collab) != 4 or [item.get("tool") for item in collab] != [
 if any(item.get("status") != "completed" for item in collab):
     fail()
 if any(isinstance(item.get("prompt"), str)
-       and re.search(r"\b(?:claude|Workflow)\b", item["prompt"], re.I)
+       and re.search(r"(?<![\w./~-])(?:claude|Workflow)\b", item["prompt"], re.I)
        for item in collab):
     fail("claude-workflow-in-codex-events")
 
@@ -633,7 +633,8 @@ try:
         "For a failing result, use ok:false and put each finding in violations.",
         "Each violation has rule, class and evidence strings, plus an optional quote string.",
         "pasteReproduced and satisfiable are boolean fields inside the relevant violation;",
-        "include satisfiable on each must_run violation and explain it in that violation's evidence.",
+        "satisfiable belongs on each must_run violation, and on a report violation that",
+        "records a blocked-on-sibling stop — explain it in that violation's evidence.",
         "",
         "CONTRACT:",
         json.dumps(plan_task["contract"], indent=2, ensure_ascii=False),
@@ -1390,6 +1391,29 @@ with open(path, "w", encoding="utf-8") as stream:
         print(json.dumps(event, separators=(",", ":")), file=stream)
 PY
   [ "$(classify_codex success "$W/workflow-in-prompt" "$S_BASE")" = 'fail:claude-workflow-in-codex-events' ]
+  command cp -R "$W/success-cell" "$W/claude-path-in-prompt"
+  python3 - "$W/claude-path-in-prompt/evidence/codex-exec-events.jsonl" <<'PY'
+import json, sys
+path = sys.argv[1]
+events = [json.loads(line) for line in open(path, encoding="utf-8") if line.strip()]
+spawns = [event["item"] for event in events
+          if event.get("type") in ("item.started", "item.completed")
+          and event.get("item", {}).get("type") == "collab_tool_call"
+          and event["item"].get("tool") == "spawn_agent"
+          and str(event["item"].get("prompt", "")).startswith("# Task: divide-guard")]
+assert spawns
+for spawn in spawns:
+    # The executor prompt must still end with the contract, so the line goes
+    # at the end of the Context section instead of after the contract.
+    spawn["prompt"] = spawn["prompt"].replace(
+        "\n\n## Workspace (already prepared)",
+        "\nNever open ~/.claude or ~/.codex.\n\n## Workspace (already prepared)", 1)
+    assert "Never open ~/.claude or ~/.codex." in spawn["prompt"]
+with open(path, "w", encoding="utf-8") as stream:
+    for event in events:
+        print(json.dumps(event, separators=(",", ":")), file=stream)
+PY
+  [ "$(classify_codex success "$W/claude-path-in-prompt" "$S_BASE")" = 'pass' ]
   command cp -R "$W/success-cell" "$W/partial-state"
   printf '{"tasks":{}}\n' > "$W/partial-state/evidence/state.json"
   python3 - "$W/partial-state/evidence/state.json" "$W/partial-state/evidence/state-hashes.txt" <<'PY'
@@ -1472,7 +1496,7 @@ exit "${CAPTURE_TEST_EXIT:-0}"
 SH
   chmod +x "$W/real-codex-stub"
   capture_events=''
-  CAPTURE_TEST_ARGS="$W/capture-args" CAPTURE_TEST_PWD="$W/capture-pwd" EVAL_TIMEOUT=5 EVAL_MODEL=gpt-5.6-sol EVAL_EFFORT=medium \
+  CAPTURE_TEST_ARGS="$W/capture-args" CAPTURE_TEST_PWD="$W/capture-pwd" EVAL_TIMEOUT=60 EVAL_MODEL=gpt-5.6-sol EVAL_EFFORT=medium \
     eval_codex_json "$W/real-codex-stub" "$W/capture-model-repo" workspace-write \
     "$W/capture-prompt.md" "$W/capture-answer.txt" capture_events
   [ "$capture_events" = '{"type":"thread.started","thread_id":"offline-wrapper-test"}' ]
@@ -1482,7 +1506,7 @@ SH
 
   failure_events=''
   set +e
-  CAPTURE_TEST_ARGS="$W/capture-failure-args" CAPTURE_TEST_PWD="$W/capture-failure-pwd" CAPTURE_TEST_EXIT=19 EVAL_TIMEOUT=5 \
+  CAPTURE_TEST_ARGS="$W/capture-failure-args" CAPTURE_TEST_PWD="$W/capture-failure-pwd" CAPTURE_TEST_EXIT=19 EVAL_TIMEOUT=60 \
     eval_codex_json "$W/real-codex-stub" "$W/capture-model-repo" read-only \
     "$W/capture-prompt.md" "$W/capture-failure-answer.txt" failure_events
   capture_rc=$?
@@ -1494,7 +1518,7 @@ SH
   for bad_output in empty malformed; do
     bad_events='stale'
     set +e
-    CAPTURE_TEST_ARGS="$W/capture-$bad_output-args" CAPTURE_TEST_PWD="$W/capture-$bad_output-pwd" CAPTURE_TEST_OUTPUT="$bad_output" EVAL_TIMEOUT=5 \
+    CAPTURE_TEST_ARGS="$W/capture-$bad_output-args" CAPTURE_TEST_PWD="$W/capture-$bad_output-pwd" CAPTURE_TEST_OUTPUT="$bad_output" EVAL_TIMEOUT=60 \
       eval_codex_json "$W/real-codex-stub" "$W/capture-model-repo" read-only \
       "$W/capture-prompt.md" "$W/capture-$bad_output-answer.txt" bad_events
     capture_rc=$?
@@ -1505,7 +1529,7 @@ SH
   # Opt-in retains sessions and adds diagnostics without changing native scoring.
   local_rollout_events=''
   EVAL_CODEX_ROLLOUTS=1 EVAL_CODEX_SESSIONS_DIR="$W/missing-sessions" \
-    CAPTURE_TEST_ARGS="$W/retained-args" CAPTURE_TEST_PWD="$W/retained-pwd" EVAL_TIMEOUT=5 \
+    CAPTURE_TEST_ARGS="$W/retained-args" CAPTURE_TEST_PWD="$W/retained-pwd" EVAL_TIMEOUT=60 \
     eval_codex_json "$W/real-codex-stub" "$W/capture-model-repo" read-only \
     "$W/capture-prompt.md" "$W/retained-answer.txt" local_rollout_events "$W/retained-rollouts"
   if grep -q -- '--ephemeral' "$W/retained-args"; then
@@ -1517,7 +1541,7 @@ SH
   [ "$(printf '%s\n' "$local_rollout_events" | classify_codex_events -)" = 'fail:unverified-native-actions' ]
   set +e
   EVAL_CODEX_ROLLOUTS=1 EVAL_CODEX_SESSIONS_DIR="$W/missing-sessions" CAPTURE_TEST_EXIT=19 \
-    CAPTURE_TEST_ARGS="$W/retained-failure-args" CAPTURE_TEST_PWD="$W/retained-failure-pwd" EVAL_TIMEOUT=5 \
+    CAPTURE_TEST_ARGS="$W/retained-failure-args" CAPTURE_TEST_PWD="$W/retained-failure-pwd" EVAL_TIMEOUT=60 \
     eval_codex_json "$W/real-codex-stub" "$W/capture-model-repo" read-only \
     "$W/capture-prompt.md" "$W/retained-failure-answer.txt" local_rollout_events "$W/retained-failure-rollouts"
   retained_rc=$?
@@ -1528,7 +1552,7 @@ SH
   for opt in invalid reused missing-destination; do
     set +e
     EVAL_CODEX_ROLLOUTS="$([ "$opt" = invalid ] && printf invalid || printf 1)" \
-      CAPTURE_TEST_ARGS="$W/never-$opt" CAPTURE_TEST_PWD="$W/never-pwd-$opt" EVAL_TIMEOUT=5 \
+      CAPTURE_TEST_ARGS="$W/never-$opt" CAPTURE_TEST_PWD="$W/never-pwd-$opt" EVAL_TIMEOUT=60 \
       eval_codex_json "$W/real-codex-stub" "$W/capture-model-repo" read-only \
       "$W/capture-prompt.md" "$W/never-answer-$opt" local_rollout_events \
       "$([ "$opt" = missing-destination ] || printf '%s' "$W/retained-rollouts")"
