@@ -445,6 +445,18 @@ function distinctMustRunCmds(wave) {
   return cmds
 }
 
+// The linked worktree's own gitdir (<repo>/.git/worktrees/<name>). Codex
+// keeps it read-only unless it is an explicit writable root, even when the
+// git common dir is --add-dir'd (openai/codex #23661, #27418; reproduced on
+// Codex CLI 0.159.0, 2026-09-29).
+function worktreeGitDir(worktreePath) {
+  const r = spawnSync('git', ['-C', worktreePath, 'rev-parse', '--absolute-git-dir'], { encoding: 'utf8' })
+  if (r.status !== 0) {
+    throw new Error('git rev-parse --absolute-git-dir failed in ' + worktreePath + ': ' + (r.stderr || '').trim())
+  }
+  return r.stdout.trim()
+}
+
 // The exact argv every preflight command runs under: the same
 // workspace-write sandbox and writable roots an executor gets, wrapping the
 // command in `bash -c` so it runs exactly as the contract's must_run cmd
@@ -479,7 +491,7 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
   let blocked = null
   try {
     applyLinks(repoPath, preflightPath, env.links)
-    const writableRoots = [commonDir, ...env.writable]
+    const writableRoots = [worktreeGitDir(preflightPath), commonDir, ...env.writable]
     for (const cmd of distinctMustRunCmds(wave)) {
       const args = preflightSandboxArgs({ writableRoots, networkOn, cmd })
       const start = Date.now()
@@ -702,6 +714,7 @@ async function main() {
       '--sandbox', 'workspace-write',
       '--add-dir', commonDir,
       ...env.writable.flatMap((d) => ['--add-dir', d]),
+      '-c', 'sandbox_workspace_write.writable_roots=' + JSON.stringify([worktreeGitDir(action.worktree), commonDir, ...env.writable]),
       ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
       '--model', action.model,
       '-c', 'model_reasoning_effort=' + action.effort,
@@ -792,6 +805,7 @@ async function main() {
         '--sandbox', 'workspace-write',
         '--add-dir', commonDir,
         ...env.writable.flatMap((d) => ['--add-dir', d]),
+        '-c', 'sandbox_workspace_write.writable_roots=' + JSON.stringify([worktreeGitDir(checkoutPath), commonDir, ...env.writable]),
         ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
         '--model', action.model,
         '-c', 'model_reasoning_effort=' + action.effort,
