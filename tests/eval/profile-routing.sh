@@ -39,6 +39,7 @@ runtime_context() { # plugin exact-model
 if [ "${1:-}" = --self-test ]; then
   set -e
   [ "$(runtime_context orchestration gpt-5.6-terra)" = 'PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=gpt-5.6-terra effort=unknown' ]
+  [ "$(runtime_context orchestration gpt-6.1-sol)" = 'PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=gpt-6.1-sol effort=unknown' ]
   [ "$(classify_profile 'profile=gpt-5.6-terra effort=unknown' 'profile=gpt-5.6-terra effort=unknown')" = pass ]
   [ "$(classify_profile 'profile=gpt-5.6-sol effort=known' 'profile=generic effort=unknown')" = 'fail:inferred-sol-without-context' ]
   [ "$(classify_profile 'profile=generic effort=unknown' 'profile=generic effort=unknown')" = pass ]
@@ -66,7 +67,7 @@ now_ms() { python3 -c 'import time; print(time.monotonic_ns() // 1000000)' ; }
 
 record_cell() { # skill-name skill-file plugin profile-family mode
   local skill_name="$1" skill_file="$2" plugin="$3" family="$4" mode="$5"
-  local slug cell prompt answer class_file status_file profile_file expected context start end elapsed rc classification status
+  local slug cell prompt answer class_file status_file profile_file expected context prompt_context start end elapsed rc classification status
   slug="${MODEL}-profile-routing-${skill_name}-${mode}"
   cell="$EVAL_RESULTS_DIR/raw/$slug"
   if [ -e "$cell" ]; then
@@ -81,21 +82,27 @@ record_cell() { # skill-name skill-file plugin profile-family mode
 
   if [ "$mode" = context ]; then
     context="$(runtime_context "$plugin" "$MODEL")"
+    prompt_context="The host supplies this session's runtime context as developer instructions."
     expected="profile=$MODEL effort=unknown"
     profile_file="$(profile_path "$family" "$MODEL")"
   else
     context='PLUGIN_RUNTIME_CONTEXT_V1 is absent. No exact model id or effort is explicitly supplied by the session; do not infer either from the host, an alias, capabilities, prose, or defaults.'
+    prompt_context="$context"
     expected='profile=generic effort=unknown'
     profile_file="$(profile_path "$family" generic)"
   fi
 
   printf '%s\n\nCANDIDATE PROFILE CONTENT:\n%s\n\n%s\n\n%s\n' \
-    "$(cat "$skill_file")" "$(cat "$profile_file")" "$context" \
+    "$(cat "$skill_file")" "$(cat "$profile_file")" "$prompt_context" \
     "EVAL MODE: Apply Step 0 only. Read the referenced matching profile. Print exactly one line and nothing else: profile=<exact-id-or-generic> effort=<known-or-unknown>. The production hook's literal effort=unknown remains unknown; absent context also means generic/unknown." > "$prompt"
 
   start="$(now_ms)"
   set +e
-  eval_model "$R" read-only "$prompt" "$answer"
+  if [ "$mode" = context ]; then
+    EVAL_CODEX_DEVELOPER_INSTRUCTIONS="$context" eval_model "$R" read-only "$prompt" "$answer"
+  else
+    eval_model "$R" read-only "$prompt" "$answer"
+  fi
   rc=$?
   set -e
   end="$(now_ms)"

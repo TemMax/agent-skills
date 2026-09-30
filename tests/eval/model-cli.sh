@@ -42,6 +42,14 @@ eval_model() {
       esac
       ;;
     codex)
+      local dev="${EVAL_CODEX_DEVELOPER_INSTRUCTIONS:-}"
+      local dev_args=()
+      if [ -n "$dev" ]; then
+        case "$dev" in
+          *'"'*|*'\'*) return 2 ;; # embedded in a TOML string
+        esac
+        dev_args=(-c "developer_instructions=\"$dev\"")
+      fi
       local launch_cwd="$cwd"
       if [ "$sandbox" = workspace-write ]; then
         launch_cwd="$(dirname "$cwd")"
@@ -50,12 +58,14 @@ eval_model() {
         (cd "$cwd" && timeout "$limit" codex exec --ephemeral --ignore-user-config --ignore-rules \
           --skip-git-repo-check --sandbox "$sandbox" --model "$model" \
           -c "model_reasoning_effort=\"$effort\"" \
+          ${dev_args[@]+"${dev_args[@]}"} \
           -C "$cwd" --add-dir "$(dirname "$cwd")" \
           --output-last-message "$answer_file" - < "$prompt_file" >/dev/null)
       else
         (cd "$launch_cwd" && timeout "$limit" codex exec --ephemeral --ignore-user-config --ignore-rules \
           --skip-git-repo-check --sandbox "$sandbox" --model "$model" \
           -c "model_reasoning_effort=\"$effort\"" \
+          ${dev_args[@]+"${dev_args[@]}"} \
           --output-last-message "$answer_file" - < "$prompt_file" >/dev/null)
       fi
       ;;
