@@ -4,6 +4,40 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.5.0
+
+### Highlights
+
+**ship**
+- GPT-6.1 Sol is the lower-cost Codex final review
+
+**super-plan**
+- Gate 1 offers GPT-6.1 Sol as the review child
+
+**critical-review**
+- GPT-6.1 Sol review route is measured-supported
+
+Non-breaking. This release is orchestration 4.5.0 and code-review 1.13.0. The
+evidence is in
+[`tests/eval/gpt-6-1-sol-results-2026-09-29.md`](tests/eval/gpt-6-1-sol-results-2026-09-29.md).
+
+**Review route.** The strict critical-review gate re-run on 2026-09-30 scored
+clean 5/5 and 5/5, planted 5/5 and 5/5, and PR support 3/4 with one
+`pr-gate-approved` miss; the 2026-09-29 run had scored clean 4/5 and 5/5. The
+review route moved to `gpt-6.1-sol`: ship uses it as the lower-cost Codex final
+review, and super-plan Gate 1 offers it as the review child. `gpt-6-sol` stays
+a valid ID, so approved plans that name it still run. Decision 011 records the
+move.
+
+**Lint warning.** plan-lint now warns when a plan uses the retired `gpt-6-sol`
+review route. It is a warning, not an error.
+
+**Wave self-test.** The `wave.sh` self-test is fixed: the claude path regex is
+path-safe, the stub timeouts are longer, and the expected output contract text
+is updated.
+
+**model-cli flake.** The model-cli timeout flake is fixed.
+
 ## 4.4.0
 
 ### Highlights
