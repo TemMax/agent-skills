@@ -37,13 +37,14 @@ The model page lists no `none` effort for this model.
 - Every wave uses a fresh, separate supervisor at explicit `high` effort,
   chosen at Gate 1 per shared Codex routing: the premium `gpt-6-astra` (plan
   records `approvals.premium`), or — only for a wave whose executors and
-  rungs are all `gpt-6-luna` — the standard `gpt-6-sol`. A wave with a Sol
+  rungs are all `gpt-6-luna` — the standard `gpt-6.1-sol`. A wave with a Sol
   executor, GPT-6.1 Sol included, needs Astra. GPT-6.1 Sol never supervises
   its own work or another Sol executor's work.
-- GPT-6.1 Sol has no dated supervisor or final-review measurement in this
-  plugin. The standard supervisor and the lower-cost review option stay
-  `gpt-6-sol`, whose two routes are measured (`gpt-6-sol-dossier.md`);
-  "comparable to GPT-6 Astra" (card p. 3) does not transfer them.
+- GPT-6.1 Sol holds the standard supervisor seat of all-`gpt-6-luna`
+  waves since 2026-09-29 on a supervisor-fixture pass (9/9) — a fixture,
+  not production calibration. It missed the strict review gate the same
+  day (clean 4/5 and 5/5, planted 10/10, PR support 3/4), so the
+  lower-cost review option stays `gpt-6-sol`.
 - Preserve isolated worktrees, task contracts, mechanical checks, and fresh
   independent verdicts. Never mix providers or silently reroute an approved
   plan.
@@ -88,8 +89,7 @@ long waits over polling a running wave.
 
 ## Not measured
 
-No wave, supervisor pairing, drift-hook role, review route, or end-to-end
-route has been run with GPT-6.1 Sol in this plugin. The card is an addendum:
+Beyond the 2026-09-29 local evals (`gpt-6-1-sol-dossier.md`, Local measurements), no live wave or end-to-end route has been run with GPT-6.1 Sol in this plugin. The card is an addendum:
 it reports no coding or agentic capability benchmark, no effort curve and no
 self-preference measurement; the launch coding numbers in
 `gpt-6-1-sol-dossier.md` are third-party compilations. Model positioning and

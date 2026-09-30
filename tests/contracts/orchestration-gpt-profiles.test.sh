@@ -87,7 +87,7 @@ for f in "$SOL6" "$ASTRA6" "$SOL" "$TERRA" "$LUNA"; do
     "! grep -qF 'Every wave uses a fixed, separate \`gpt-6-astra\` supervisor' '$f' && ! grep -qF 'Every wave uses a separate \`gpt-6-astra\` supervisor' '$f' && ! grep -qF 'independent Astra/high supervision' '$f'"
   check "$f states the Gate 1 supervisor choice" "grep -qF 'chosen at Gate 1' '$f'"
   check "$f names the premium and standard supervisor options" \
-    "grep -qF 'the premium \`gpt-6-astra\`' '$f' && grep -qF 'the standard \`gpt-6-sol\`' '$f'"
+    "grep -qF 'the premium \`gpt-6-astra\`' '$f' && grep -qF 'the standard \`gpt-6.1-sol\`' '$f'"
   check "$f requires Astra for a Sol executor" "grep -qF 'A wave with a Sol' '$f' && grep -qF 'needs Astra' '$f'"
 done
 

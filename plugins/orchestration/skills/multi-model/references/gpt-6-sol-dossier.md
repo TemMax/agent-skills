@@ -13,10 +13,7 @@ blanket prohibition on supervised use.
 GPT-6 Sol is no longer chosen for new executor routes: shared Codex
 routing sends ordinary and difficult tasks, the Luna ladder rung and Codex
 research to `gpt-6.1-sol` (`gpt-6-1-sol-dossier.md`). `gpt-6-sol` stays a
-valid plan ID so that approved plans still run, and it keeps its two
-measured roles — the standard supervisor of all-`gpt-6-luna` waves and
-the lower-cost final-review option — until GPT-6.1 Sol is measured in
-them. The measurements below are kept as history.
+valid plan ID so that approved plans still run, and it keeps the lower-cost final-review option, a role GPT-6.1 Sol has not passed. The standard supervisor of all-`gpt-6-luna` waves moved to `gpt-6.1-sol` on 2026-09-29 (supervisor fixture 9/9). The measurements below are kept as history.
 
 ## Sources
 
