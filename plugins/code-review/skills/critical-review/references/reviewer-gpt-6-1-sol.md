@@ -20,12 +20,13 @@ evaluated for this checklist, and `max` is never assumed by default.
 
 ## Calibration status
 
-No dated local review measurement exists for GPT-6.1 Sol: its review route
-is uncalibrated. GPT-6 Sol's measured-supported review route (strict gate
-10/10 clean, 10/10 planted, 2026-09-24) belongs to `gpt-6-sol` and does not
-transfer to a different model. A GPT-6.1 Sol model-selection request
-returns `unsupported` with the mechanical evidence packet until a dated
-strict-gate measurement exists.
+2026-09-29 local strict-gate run, `medium` effort, Codex CLI 0.159.0, two
+runs of five: clean 4/5 and 5/5, planted 5/5 and 5/5, PR support 3/4. The
+strict gate needs 5/5 on every guard in each run, so the route stays
+uncalibrated. GPT-6 Sol's measured-supported review route (strict gate
+10/10 clean, 10/10 planted, 2026-09-24) belongs to `gpt-6-sol` and does
+not transfer. A GPT-6.1 Sol model-selection request returns `unsupported`
+with the mechanical evidence packet.
 
 ## Review method
 
@@ -37,7 +38,11 @@ separate confirmed violations from remarks. Answer every requested
 checklist item explicitly. State checks run and checks unavailable — say
 so plainly when a tool is broken (GPT-6.1 Sol fails to acknowledge a broken
 search tool in 2.08% of the card's cases, p. 18). Suspicion may prompt
-further inspection but is never itself a blocker.
+further inspection but is never itself a blocker. The route's calibration
+status belongs in the `Not verified` field. The `Overall verdict` uses the
+checklist's own words: a review with no findings says the word clean.
+Measured 2026-09-29: the one failed clean-diff run put the caveat into the
+verdict line instead.
 
 ## Independence and escalation
 
@@ -51,9 +56,10 @@ defect-detection accuracy.
 
 ## Not measured
 
-No evaluation of GPT-6.1 Sol as a reviewer exists in this plugin. The card
-measures no judge bias, self-preference, false-positive or false-negative
-rate for this checklist. Read `gpt-6-1-sol-reviewer-dossier.md` for sources
+Beyond the 2026-09-29 strict-gate run above, no evaluation of GPT-6.1 Sol
+as a reviewer exists in this plugin. The card measures no judge bias,
+self-preference, false-positive or false-negative rate for this checklist.
+Read `gpt-6-1-sol-reviewer-dossier.md` for sources
 and their limits.
 
 ## Common mistakes
