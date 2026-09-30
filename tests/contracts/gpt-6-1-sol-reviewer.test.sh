@@ -28,4 +28,13 @@ check "critical-review has the GPT-6.1 Sol status section" \
 check "code-review files do not link to orchestration" \
   "! grep -rn 'plugins/orchestration' '$f' '$d'"
 
+check "critical-review records the GPT-6.1 Sol strict-gate counts" \
+  "grep -qF 'clean 4/5 and 5/5' '$CR'"
+check "critical-review keeps the supervisor route apart from review" \
+  "grep -qF 'that is a supervisor route, not a review route' '$CR'"
+check "gpt-6.1-sol reviewer verdict uses the word clean" \
+  "grep -qF 'the word clean' '$f'"
+check "gpt-6.1-sol dossier records the single measurement" \
+  "grep -qF 'Measured once, 2026-09-29' '$d'"
+
 summary
