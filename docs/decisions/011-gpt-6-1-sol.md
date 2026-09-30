@@ -105,3 +105,17 @@ warnings.
 
 **Routing review to `gpt-6.1-sol`.** The strict gate missed; a shipped profile
 is not a supported route.
+
+## Update 2026-09-30
+
+The review route moved from `gpt-6-sol` to `gpt-6.1-sol`, which supersedes the
+"Review not supported" decision above and the rejected alternative "Routing
+review to `gpt-6.1-sol`".
+
+Evidence: the strict critical-review gate re-run on 2026-09-30 scored clean 5/5
+and 5/5, planted 5/5 and 5/5, and PR support 3/4 with one `pr-gate-approved`
+miss. The 2026-09-29 run had scored clean 4/5 and 5/5. The table is in
+[`tests/eval/gpt-6-1-sol-results-2026-09-29.md`](../../tests/eval/gpt-6-1-sol-results-2026-09-29.md).
+
+`gpt-6-sol` stays a valid ID for approved plans and is no longer the
+lower-cost review option; plan lint warns on it as a review route.
