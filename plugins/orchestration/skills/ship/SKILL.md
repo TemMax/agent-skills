@@ -76,8 +76,8 @@ for Luna-only waves — form an operational route through super-plan and
 multi-model without a separate calibration gate. Check actual capabilities
 before launch; preserve the approvals below. Stage 3 critical-review runs in
 a fresh child of the model the plan's `review` key names (chosen at Gate 1;
-`gpt-6-astra` recorded in `approvals.premium`, or `gpt-6-sol`, measured
-2026-09-24: clean 10/10, planted 10/10, PR support 3/4);
+`gpt-6-astra` recorded in `approvals.premium`, or `gpt-6.1-sol`,
+measured 2026-09-30: clean 10/10, planted 10/10, PR support 3/4);
 if the plan has no `review` key, stop and ask the user before invoking the
 review; never pick. Missing required review capability stops the route; it
 never authorizes self-review or publication. Claude sessions: unchanged
@@ -194,6 +194,8 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    vanishes from the PR resurfaces as a production defect found by hand.
    When the review child is `gpt-6-sol`, the body also carries the line
    `Review route: gpt-6-sol final review (measured 2026-09-24: clean 10/10, planted 10/10, PR support 3/4)`.
+   When the review child is `gpt-6.1-sol`, the body also carries the line
+   `Review route: gpt-6.1-sol final review (measured 2026-09-30: clean 10/10, planted 10/10, PR support 3/4)`.
    The body also always carries one line: `Runtime pass: ran with <capability>`
    when step 3's pass ran, naming the capability used, or
    `Runtime pass: skipped — <reason>` when it did not — including when no

@@ -57,10 +57,16 @@ section "ship: Failure map covers a red ci.commands command after the final wave
 check "ship Failure map stops before the push when a plan ci.commands command is red" \
   "grep -qF '| A plan \`ci.commands\` command is red after the final wave | Stop before the push; hand the output over |' '$SH'"
 
-section "Sol 6.1 standard supervisor: review route stays gpt-6-sol"
+section "Sol 6.1 standard supervisor: review route is gpt-6.1-sol"
 
-check "codex-routing keeps the lower-cost final-review option on gpt-6-sol" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'The lower-cost final-review option stays \`gpt-6-sol\`'"
+check "codex-routing names gpt-6.1-sol as the lower-cost final-review option" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'The lower-cost final-review option is \`gpt-6.1-sol\`'"
+check "multi-model records the 2026-09-30 review route move to gpt-6.1-sol" \
+  "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'On 2026-09-30 the review route moved to \`gpt-6.1-sol\` too: after a verdict-wording fix it passed the strict review gate (clean 10/10, planted 10/10, PR support 3/4; its first run on 2026-09-29 had clean 4/5 and 5/5).'"
+check "ship's PR body line for a gpt-6.1-sol review child carries the 2026-09-30 counts" \
+  "grep -qF 'Review route: gpt-6.1-sol final review (measured 2026-09-30: clean 10/10, planted 10/10, PR support 3/4)' '$SH' && ! grep -qi 'uncalibrated' '$SH' '$MMS'"
+check "codex-routing Verification and stops names gpt-6.1-sol measured 2026-09-30" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'or \`gpt-6.1-sol\` (measured 2026-09-30'"
 check "multi-model records the 2026-09-29 supervisor move to gpt-6.1-sol" \
   "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'On 2026-09-29 the standard supervisor of all-\`gpt-6-luna\` waves moved to \`gpt-6.1-sol\`'"
 check "multi-model names Codex gpt-6.1-sol for Luna-only waves" \

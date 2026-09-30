@@ -63,10 +63,11 @@ outcomes in realistic work environments (1.94% against 4.93%) — dossier
 (1.50% against 1.30%), so artifact checks stay mandatory. Already approved
 plans that name `gpt-6-sol` still execute. The standard supervisor
 of all-`gpt-6-luna` waves moved to `gpt-6.1-sol`
-on 2026-09-29 (supervisor fixture 9/9, Codex CLI 0.159.0). The lower-cost
-final-review option stays `gpt-6-sol`: GPT-6.1 Sol missed the strict
-review gate the same day (clean 4/5 and 5/5, planted 10/10, PR support
-3/4).
+on 2026-09-29 (supervisor fixture 9/9, Codex CLI 0.159.0). The lower-cost final-review option is `gpt-6.1-sol` since 2026-09-30:
+after a verdict-wording fix it passed the strict review gate (clean
+10/10, planted 10/10, PR support 3/4); its first run on 2026-09-29 had
+missed it (clean 4/5 and 5/5). `gpt-6-sol` stays valid as a review model
+so that approved plans still run.
 
 ## Verification and stops
 
@@ -118,7 +119,7 @@ and critical-review's fix/publication gates. A failed integration suite stops
 publication. Ship never merges the PR or deploys. Ship's final critical-review
 runs in a fresh child of the model the plan's `review` key names — chosen by
 the user at Gate 1: `gpt-6-astra` (premium, recorded
-in `approvals.premium`) or `gpt-6-sol` (measured 2026-09-24: clean 10/10,
+in `approvals.premium`) or `gpt-6.1-sol` (measured 2026-09-30: clean 10/10,
 planted 10/10, PR support 3/4; the PR says so). If the plan has no `review`
 key, stop and ask the user before invoking the review; never pick. The fresh
 child keeps a GPT-5.6 main seat
