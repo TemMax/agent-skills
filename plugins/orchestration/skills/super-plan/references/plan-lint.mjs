@@ -444,6 +444,9 @@ if (plan) {
         err('review.model: one of gpt-6-astra/gpt-6.1-sol/gpt-6-sol — the Codex final-review child chosen at Gate 1')
       } else {
         checkPremium('review.model', review.model)
+        if (review.model === 'gpt-6-sol') {
+          warn('retired route: gpt-6-sol is no longer the lower-cost review option (use gpt-6.1-sol); approved plans still run')
+        }
       }
       if (!EFFORTS.includes(review.effort)) {
         err('review.effort: one of ' + EFFORTS.join('/'))

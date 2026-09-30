@@ -727,8 +727,17 @@ codex_mutate '"e2e": { "task": "divide-guard" }' \
   '"e2e": { "task": "divide-guard" },
   "review": { "model": "gpt-6-sol", "effort": "high" }'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-check "review gpt-6-sol prints no retired route line" \
+contains "review gpt-6-sol warns as a retired review route" \
+  'retired route: gpt-6-sol is no longer the lower-cost review option (use gpt-6.1-sol); approved plans still run' "$out"
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6.1-sol", "effort": "high" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review gpt-6.1-sol exits 0 without retired route line" "0" "$rc"
+check "review gpt-6.1-sol prints no retired route line" \
   '! grep -qF "retired route: gpt-6-sol" <<<"$out"'
+contains "review gpt-6.1-sol stays at OK: 0 error(s)" "OK: 0 error(s)" "$out"
 
 codex_mutate '"e2e": { "task": "divide-guard" }' \
   '"e2e": { "task": "divide-guard" },
