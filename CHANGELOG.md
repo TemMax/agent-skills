@@ -4,6 +4,68 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.4.0
+
+### Highlights
+
+**multi-model**
+- GPT-6.1 Sol is the default Codex executor
+- GPT-6.1 Sol supervises all-Luna Codex waves
+- Codex waves commit from worktrees again (CLI 0.159)
+
+**super-plan**
+- Codex seam audit runs on GPT-6.1 Sol
+
+**critical-review**
+- GPT-6.1 Sol reviewer profile, review route not yet supported
+
+Non-breaking. OpenAI shipped GPT-6.1 Sol (`gpt-6.1-sol`) with its system card
+on 2026-09-29, and the Codex routes now use it. Plans that name `gpt-6-sol`
+keep working unchanged. This release is orchestration 4.4.0 and code-review
+1.12.0. The routes are backed by live runs on Codex CLI 0.159.0, recorded in
+[`tests/eval/gpt-6-1-sol-results-2026-09-29.md`](tests/eval/gpt-6-1-sol-results-2026-09-29.md).
+
+**New ID.** `gpt-6.1-sol` is an exact ID with its own orchestrator, dossier,
+reviewer and reviewer-dossier profiles. Per the model page it costs the same
+$2 input / $10 output per 1M tokens as GPT-6 Sol, with a 1,050,000 context and
+128,000 max output. A bare "GPT-6" host phrase still selects no profile; only
+the exact ID does. The card is an addendum with no coding or agentic capability
+benchmark, so the routes rest on the live runs below.
+
+**Routes.** `gpt-6.1-sol` is now the default ordinary and difficult Codex
+executor, a Luna ladder rung, and the research and seam-audit route.
+`gpt-6-sol` is retired as an executor route but stays a valid ID, so approved
+plans that name it still lint and run, with lint warnings; it remains the
+lower-cost review option.
+
+**Supervisor.** `gpt-6.1-sol` is the standard supervisor of all-Luna waves. The
+move rests on the supervisor fixture (9/9 at `medium`, 2026-09-29), with
+super-plan 6/6, skill-navigation 31/31, safety 8/8 and drift 3/3. Seam audit is
+9/9 with the planted seam caught 3/3 (GPT-6 Sol caught it 1/3 on 2026-09-24).
+In ship-smoke (`--mode runner`, three runs per supervisor, two-task toy waves
+with correct work only) every run was merge-ready first try. The GPT-6.1 Sol
+supervisor ran at the same wall time as Astra and was about 2.5x cheaper (mean
+$0.346 against $0.868), and its GPT-6.1 Sol executor passed 3/3 under Astra.
+
+**Review not supported.** The strict critical-review gate was missed on
+2026-09-29: clean 4/5 and 5/5, planted 10/10, PR support 3/4. The reviewer
+profile ships, but review stays on `gpt-6-sol`. Profile-routing context cells
+first failed only because the harness put the runtime line in the user prompt;
+as developer instructions they passed 2/2, and with the fixed harness
+profile-routing is 8/8 (context 4/4, generic 4/4).
+
+**Runner and harness fixes.** The first attempt at the native-wave and
+ship-smoke evals on 2026-09-29 found every child environment-blocked on
+`.git/worktrees/<name>/index.lock`, and ship-smoke's telemetry ran out of Node
+heap. After the runner and harness fixes, measured 2026-09-30 on Codex CLI
+0.159.0, the native Codex wave (`tests/eval/wave.sh`, `EVAL_MODEL=gpt-6.1-sol`,
+`EVAL_REPEAT=2`) passes `codex-native-success` and `codex-independent-must-run`
+(2/2). Codex waves commit from worktrees again.
+
+**code-review 1.12.0.** Adds the GPT-6.1 Sol reviewer profile and dossier.
+The review route is not yet supported, so the skill does not route review to
+it.
+
 ## 4.3.0
 
 ### Highlights
