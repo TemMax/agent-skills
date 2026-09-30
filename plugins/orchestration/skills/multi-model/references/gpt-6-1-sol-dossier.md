@@ -119,13 +119,30 @@ exact ID `gpt-6.1-sol` can select this model's profile.
 - Shared Codex routing sends ordinary and difficult tasks, the Luna ladder
   rung and Codex research to `gpt-6.1-sol`. These executor routes are
   operational but uncalibrated.
-- The standard supervisor of all-Luna waves and the lower-cost final-review
-  option stay `gpt-6-sol` until GPT-6.1 Sol has its own dated measurement in
-  those roles.
+- The standard supervisor of all-Luna waves is `gpt-6.1-sol` since 2026-09-29 (fixture pass, not production calibration); the lower-cost final-review option stays `gpt-6-sol`, because GPT-6.1 Sol missed the strict review gate.
 - `codex-routing.md` governs.
+
+## Local measurements (2026-09-29)
+
+`gpt-6.1-sol` at effort `medium`, Codex CLI 0.159.0; full record in
+`tests/eval/gpt-6-1-sol-results-2026-09-29.md`.
+
+| Tier | Result |
+|---|---|
+| supervisor fixture (×3) | 9/9 |
+| super-plan (×3) | 6/6 |
+| skill-navigation (×3) | 31/31 |
+| safety (×3) | 8/8 |
+| drift (×3) | 3/3 |
+| seam-audit (×3) | 9/9; planted seam caught 3/3 (GPT-6 Sol 1/3 on 2026-09-24) |
+| critical-review strict gate, two ×5 runs | clean 4/5 and 5/5, planted 5/5 and 5/5, PR support 3/4 |
+| profile-routing context cells | 0/4 and 1/4 — a harness artifact: the runtime-context line sat in the user prompt, which Step 0 does not accept as identity; delivered as developer instructions, 2/2 |
+
+The one failed clean-diff review was a format failure: its Overall
+verdict carried the route's calibration caveat instead of the word
+clean. Native-wave and ship-smoke runs were blocked by the Codex CLI
+0.159.0 linked-worktree `.git` sandbox issue, not by the model.
 
 ## Unmeasured properties
 
-No source here measures GPT-6.1 Sol's self-preference or judge bias. No
-local wave, supervisor, drift-hook or review run exists for this model in
-this plugin.
+No source here measures GPT-6.1 Sol's self-preference or judge bias. No live wave or production supervisor run exists for this model in this plugin yet.
