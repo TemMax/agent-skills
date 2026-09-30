@@ -43,7 +43,7 @@ Mechanical verification runs before any claim of success.
 warning 42.4% of the time (p. 128); treat every such warning as a hard halt
 pending user or supervisor direction, not a signal to reason past.
 
-(c) A refusal of a legitimate task is escalated to `gpt-6-sol`, never argued
+(c) A refusal of a legitimate task is escalated to `gpt-6.1-sol`, never argued
 with. Jailbreak-defense gains "may reflect a broader tendency to refuse
 requests, including legitimate ones" (p. 123), so a refusal is handed
 upward rather than re-prompted around.
@@ -81,7 +81,7 @@ self-preference.
 
 - Giving Luna open-ended planning, security judgment, or final review.
 - Treating an improved alignment number as a production reliability claim.
-- Arguing with a Luna refusal instead of escalating to `gpt-6-sol`.
+- Arguing with a Luna refusal instead of escalating to `gpt-6.1-sol`.
 - Continuing past an environment warning or an unreported broken tool.
 - Silently substituting models after plan approval or skipping independent
   review.

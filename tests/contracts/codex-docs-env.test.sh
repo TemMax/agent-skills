@@ -22,6 +22,10 @@ check "depends-on-unmet stop is documented" \
   "grep -q 'depends-on-unmet' $PROTOCOL"
 check "summary.json's eventsTail diagnostic is documented" \
   "grep -q 'eventsTail' $PROTOCOL"
+check "the worktree gitdir writable root is documented (worktreeGitDir)" \
+  "grep -qF 'worktreeGitDir' $PROTOCOL"
+check "the upstream Codex issue #23661 is cited" \
+  "grep -qF '#23661' $PROTOCOL"
 
 section "contract-amendment.md: the Codex path and the environment-blocked exclusion"
 check "environment-blocked is never an amendment" \

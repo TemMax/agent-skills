@@ -8,7 +8,7 @@ import {
   existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -918,6 +918,52 @@ test('(s) the preflight argv includes writable_roots with the git common dir', (
     'preflight argv must carry the network flag by default: ' + JSON.stringify(sandboxStart.argv))
   assert.deepEqual(sandboxStart.argv.slice(-3), ['bash', '-c', 'true'],
     'preflight must wrap the must_run cmd in bash -c: ' + JSON.stringify(sandboxStart.argv))
+})
+
+test('(x) executor, supervisor and preflight argv carry writable_roots with the worktree gitdir and the git common dir', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  const commonDir = git(repo, 'rev-parse', '--path-format=absolute', '--git-common-dir')
+
+  const prefix = 'sandbox_workspace_write.writable_roots='
+  const rootsOf = (argv) => {
+    const arg = argv.find((a) => a.startsWith(prefix))
+    assert.ok(arg, 'expected a writable_roots -c value: ' + JSON.stringify(argv))
+    return JSON.parse(arg.slice(prefix.length))
+  }
+  const worktreeOf = (argv) => argv[argv.indexOf('-C') + 1]
+
+  const starts = readLog(logPath).filter((entry) => entry.event === 'start')
+  const executorStart = starts.find((entry) => entry.prompt?.startsWith('# Task: '))
+  const supervisorStart = starts.find((entry) => entry.prompt?.startsWith('# Supervisor Prompt'))
+  const sandboxStart = starts.find((entry) => entry.argv[0] === 'sandbox')
+  assert.ok(executorStart, 'expected a logged executor invocation')
+  assert.ok(supervisorStart, 'expected a logged supervisor invocation')
+  assert.ok(sandboxStart, 'expected a logged preflight (sandbox) invocation')
+
+  for (const [label, start] of [['executor', executorStart], ['supervisor', supervisorStart]]) {
+    const writableRoots = rootsOf(start.argv)
+    const worktreeName = basename(worktreeOf(start.argv))
+    assert.ok(writableRoots.includes(commonDir),
+      label + ' writable_roots must include the git common dir: ' + JSON.stringify(writableRoots))
+    assert.ok(writableRoots.some((p) => p.endsWith('/.git/worktrees/' + worktreeName)),
+      label + ' writable_roots must include the worktree gitdir for ' + worktreeName + ': '
+      + JSON.stringify(writableRoots))
+    assert.ok(addDirValues(start.argv).includes(commonDir),
+      label + ' argv must still add-dir the git common dir: ' + JSON.stringify(start.argv))
+  }
+
+  const preflightRoots = rootsOf(sandboxStart.argv)
+  assert.ok(preflightRoots.some((p) => p.includes('/.git/worktrees/')),
+    'preflight writable_roots must include a worktree gitdir: ' + JSON.stringify(preflightRoots))
 })
 
 // ---------------------------------------------------------------------------

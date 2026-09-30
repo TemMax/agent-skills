@@ -2,7 +2,7 @@
 // Observed record shapes: Codex 0.154-0.155. Every rollout line is
 // {"timestamp": ISO, "type": T, "payload": {...}}. See telemetry.mjs for the
 // event vocabulary this module hands upward.
-import { readFileSync, readdirSync } from 'node:fs'
+import { closeSync, openSync, readFileSync, readSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 // Parse one rollout-*.jsonl file into an array of {timestamp, type, payload}
@@ -51,6 +51,39 @@ export function parentId(meta) {
   return null
 }
 
+// The session_meta payload of a rollout, read without parsing the whole file.
+// Codex writes session_meta as the first line, so only the head is read: 64 KiB
+// chunks until a newline shows up or 1 MiB has been read. When the first line
+// is not a session_meta row (or no newline appears within 1 MiB) this falls
+// back to a full parse. Returns null for an unreadable or malformed file.
+const META_CHUNK_BYTES = 64 * 1024
+const META_MAX_BYTES = 1024 * 1024
+
+export function readRolloutMeta(path) {
+  try {
+    let head = Buffer.alloc(0)
+    const fd = openSync(path, 'r')
+    try {
+      const chunk = Buffer.alloc(META_CHUNK_BYTES)
+      while (head.length < META_MAX_BYTES && !head.includes(0x0a)) {
+        const n = readSync(fd, chunk, 0, META_CHUNK_BYTES, head.length)
+        if (n === 0) break
+        head = Buffer.concat([head, chunk.subarray(0, n)])
+      }
+    } finally {
+      closeSync(fd)
+    }
+    const newline = head.indexOf(0x0a)
+    if (newline !== -1) {
+      const first = JSON.parse(head.subarray(0, newline).toString('utf8').trim())
+      if (first && first.type === 'session_meta') return first.payload || {}
+    }
+    return sessionMeta(parseRollout(path))
+  } catch {
+    return null
+  }
+}
+
 // Recursively find every .jsonl file under a Codex sessions directory
 // (normally ~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<id>.jsonl, but
 // we don't assume the exact layout so a temp fixture tree also works).
@@ -93,18 +126,12 @@ export function loadCodexRun(rootRolloutPath, sessionsDir) {
 
   if (sessionsDir) {
     for (const path of discoverRolloutFiles(sessionsDir)) {
-      let rows
-      try {
-        rows = parseRollout(path)
-      } catch {
-        continue // malformed or unreadable file: not this run's concern
-      }
-      const meta = sessionMeta(rows)
-      if (!meta) continue
+      const meta = readRolloutMeta(path)
+      if (!meta) continue // malformed or unreadable file: not this run's concern
       const id = sessionId(meta)
       if (!id || id === rootId) continue // keep the explicitly-given root copy
       if (byId.has(id)) continue // first discovery wins
-      byId.set(id, { id, path, rows, meta, parentId: parentId(meta) })
+      byId.set(id, { id, path, meta, parentId: parentId(meta) })
     }
   }
 
@@ -117,7 +144,13 @@ export function loadCodexRun(rootRolloutPath, sessionsDir) {
       if (found.has(node.id)) continue
       if (node.parentId === current) {
         found.add(node.id)
-        children.push(node)
+        let rows
+        try {
+          rows = parseRollout(node.path)
+        } catch {
+          continue // malformed or unreadable descendant: skip it
+        }
+        children.push({ ...node, rows })
         queue.push(node.id)
       }
     }

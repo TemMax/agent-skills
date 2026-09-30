@@ -569,7 +569,7 @@ import sys
 src, dst = sys.argv[1:]
 s = open(src).read()
 s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-6-sol", "effort": "medium"')
-s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
 open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -605,7 +605,7 @@ import sys
 src, dst = sys.argv[1:]
 s = open(src).read()
 s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
-s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
 open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -619,7 +619,7 @@ src, dst = sys.argv[1:]
 s = open(src).read()
 s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
 s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-6-sol", "effort": "medium"')
-s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
 open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -633,13 +633,109 @@ src, dst = sys.argv[1:]
 s = open(src).read()
 s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
 s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-5.6-terra", "effort": "medium"')
-s = s.replace('        "ladder": ["gpt-6-sol"],\n', '        "ladder": [],\n')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
 open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-6-sol over gpt-5.6-terra executor exits 1" "1" "$rc"
 contains "gpt-6-sol over gpt-5.6-terra executor named" \
   'waves[0].supervisor.model: gpt-6-sol supervises only waves whose executors and rungs are all gpt-6-luna' "$out"
+
+section "GPT-6.1 Sol"
+
+out="$(node "$LINT" "$GPT6_CLEAN" 2>&1)"; rc=$?
+expect "gpt-6.1-sol fixture exits 0" "0" "$rc"
+check "gpt-6.1-sol fixture prints no retired route line" '! grep -qF "retired route:" <<<"$out"'
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-6.1-sol", "effort": "medium"')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6.1-sol executor under Astra with empty ladder exits 0" "0" "$rc"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6.1-sol", "effort": "high"')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6.1-sol over gpt-6-luna exits 0" "0" "$rc"
+check "gpt-6.1-sol over gpt-6-luna has no standard-supervisor error" \
+  '! grep -qF "supervises only waves whose executors and rungs are all gpt-6-luna" <<<"$out"'
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6.1-sol", "effort": "high"')
+s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-6.1-sol", "effort": "medium"')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6.1-sol over gpt-6.1-sol executor exits 1" "1" "$rc"
+contains "gpt-6.1-sol over gpt-6.1-sol executor named" \
+  'waves[0].supervisor.model: gpt-6.1-sol supervises only waves whose executors and rungs are all gpt-6-luna' "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-luna", "effort": "medium"', '"model": "gpt-6-sol", "effort": "medium"')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol executor under Astra exits 0 with retired warning" "0" "$rc"
+contains "gpt-6-sol executor retired route warned" \
+  'retired route: gpt-6-sol is no longer an executor route (use gpt-6.1-sol); approved plans still run' "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-sol", "effort": "high"')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-sol supervisor over gpt-6-luna exits 0" "0" "$rc"
+contains "gpt-6-sol supervisor retired route warned" \
+  'retired route: gpt-6-sol is no longer the standard supervisor (use gpt-6.1-sol); approved plans still run' "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY2'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6.1-sol", "effort": "high"')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
+open(dst, 'w').write(s)
+PY2
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+check "gpt-6.1-sol supervisor over gpt-6-luna prints no gpt-6-sol retired route line" \
+  '! grep -qF "retired route: gpt-6-sol" <<<"$out"'
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6-sol", "effort": "high" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+check "review gpt-6-sol prints no retired route line" \
+  '! grep -qF "retired route: gpt-6-sol" <<<"$out"'
+
+codex_mutate '"e2e": { "task": "divide-guard" }' \
+  '"e2e": { "task": "divide-guard" },
+  "review": { "model": "gpt-6.1-sol", "effort": "high" }'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "review gpt-6.1-sol exits 0" "0" "$rc"
+contains "review gpt-6.1-sol is clean" "OK: 0 error(s)" "$out"
 
 section "Claude default ladder"
 
@@ -1338,7 +1434,7 @@ codex_mutate '"e2e": { "task": "divide-guard" }' \
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "review bad model exits 1" "1" "$rc"
 contains "review bad model named" \
-  'review.model: one of gpt-6-astra/gpt-6-sol — the Codex final-review child chosen at Gate 1' "$out"
+  'review.model: one of gpt-6-astra/gpt-6.1-sol/gpt-6-sol — the Codex final-review child chosen at Gate 1' "$out"
 
 codex_mutate '"e2e": { "task": "divide-guard" }' \
   '"e2e": { "task": "divide-guard" },
@@ -1361,7 +1457,7 @@ src, dst = sys.argv[1:]
 s = open(src).read()
 s = s.replace('"supervisor": { "model": "gpt-6-astra", "effort": "high" },',
               '"supervisor": { "model": "gpt-6-sol", "effort": "high" },')
-s = s.replace('        "ladder": ["gpt-6-sol"],\n', '')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '')
 s = s.replace('"e2e": { "task": "divide-guard" },',
               '"e2e": { "task": "divide-guard" },\n  "review": { "model": "gpt-6-astra", "effort": "high" },')
 open(dst, 'w').write(s)
@@ -1377,7 +1473,7 @@ src, dst = sys.argv[1:]
 s = open(src).read()
 s = s.replace('"supervisor": { "model": "gpt-6-astra", "effort": "high" },',
               '"supervisor": { "model": "gpt-6-sol", "effort": "high" },')
-s = s.replace('        "ladder": ["gpt-6-sol"],\n', '')
+s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '')
 s = s.replace('"e2e": { "task": "divide-guard" },',
               '"e2e": { "task": "divide-guard" },\n  "review": { "model": "gpt-6-astra", "effort": "high" },')
 s = s.replace('"date": "2026-09-24"', '"date": "2026-02-30"')

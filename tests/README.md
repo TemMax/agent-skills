@@ -140,7 +140,7 @@ parallel driver — each (model, tier) pair is one background job, bounded by
 `--jobs` — so a full default run finishes in minutes, not hours:
 
 ```sh
-bash tests/eval/gpt-live.sh [--models "gpt-6-sol gpt-6-luna"]
+bash tests/eval/gpt-live.sh [--models "gpt-6.1-sol gpt-6-luna"]
   [--tiers "supervisor drift super-plan skill-navigation safety profile-routing"]
   [--jobs 6] [--effort medium] [--repeat 1] [--results DIR]
 ```
@@ -179,6 +179,11 @@ Sol-vs-Astra supervisor comparison, the seam-audit before/after, and the
 Codex wave runner's macOS nested-sandbox finding are recorded in
 [`tests/eval/stage-c-verification-2026-09-24.md`](eval/stage-c-verification-2026-09-24.md).
 
+**2026-09-29 — GPT-6.1 Sol support.** Live tiers, the strict critical-review
+gate, the seam-audit, the profile-routing harness finding, and the
+post-fix native wave, profile-routing and ship-smoke re-measures are recorded in
+[`tests/eval/gpt-6-1-sol-results-2026-09-29.md`](eval/gpt-6-1-sol-results-2026-09-29.md).
+
 ## Telemetry analyzer
 
 `tests/eval/telemetry/` (`telemetry.mjs`) is pure, offline log analysis —
@@ -197,7 +202,7 @@ and its subagent transcripts. Both subcommands price tokens from
 ## ship-smoke
 
 `tests/eval/ship-smoke.sh --mode native|runner|both [--orchestrator
-gpt-6-sol] [--effort high] --results DIR` measures one small two-task Codex
+gpt-6.1-sol] [--effort high] --results DIR` measures one small two-task Codex
 wave (`add-guard`, `add-doc`) run two ways — one Codex orchestrator session
 executing the wave with the native `spawn_agent`/`wait_agent` action loop
 vs. the same orchestrator driving `codex-wave-runner.mjs` — and hands each

@@ -122,7 +122,7 @@ check "plan-format table names every full Claude plan identifier" \
 check "example wave-plan block uses a full Claude supervisor id" \
   "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' '$SP' | grep -qF '\"model\": \"claude-fable-5-1\"'"
 check "plan-format table names every exact Codex plan identifier" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Codex | \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Codex | \`gpt-6.1-sol\`, \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
 check "the bare GPT alias is never a plan identifier" \
   "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '\`gpt-5.6\` is never a plan id'"
 check "the active profile owns all planning routes" \
@@ -236,7 +236,7 @@ check "drift hook remains executable" "[ -x '$DH' ]"
 section "premium models gate Fable 5.1 and GPT-6 Astra behind approvals.premium"
 
 check "multi-model states the premium-approval paragraph" \
-  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna-only waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.1 and GPT-6 Astra are premium; they are used — as supervisor, executor or ladder rung — only when the user chose them at Gate 1 and the plan records \`approvals.premium\`; the linter enforces it. Standard alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors), Codex \`gpt-6-sol\` for Luna-only waves.'"
+  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna-only waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.1 and GPT-6 Astra are premium; they are used — as supervisor, executor or ladder rung — only when the user chose them at Gate 1 and the plan records \`approvals.premium\`; the linter enforces it. Standard alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors), Codex \`gpt-6.1-sol\` for Luna-only waves.'"
 check "the supervisor table default-ladder sentence counts an omitted ladder" \
   "grep -qF 'The rung rule counts the default ladder' '$MM' && grep -qF 'inherits the runner'\''s default ladder' '$MM'"
 check "Haiku and Sonnet supervisor rows route to Opus 5.5 or Opus 5 by rung, with Fable 5.1 as premium" \
@@ -264,12 +264,12 @@ section "executor prompts prohibit touching credential files"
 check "Task Prompt Template forbids opening, printing, copying or transmitting credentials" \
   "sed -n '/^4\. \*\*Prohibitions:\*\*/,/^5\. \*\*Definition of done/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example \`~/.codex\`, \`~/.claude\`, app configs with Authorization headers); if the task needs a secret, stop and report.'"
 
-section "Codex routing offers a standard gpt-6-sol supervisor for all-Luna waves"
+section "Codex routing offers a standard gpt-6.1-sol supervisor for all-Luna waves"
 
 check "codex-routing names gpt-6-astra as the premium supervisor needing approvals.premium" \
   "grep -qF '\`gpt-6-astra\` remains the premium supervisor and needs \`approvals.premium\`' '$CP_ROUTING'"
 check "codex-routing states the standard supervisor option" \
-  "sed -n '/The \*\*standard supervisor\*\* option covers/,/premium and the standard supervisor\.\$/p' '$CP_ROUTING' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The **standard supervisor** option covers a narrower case: a wave whose executors and ladder rungs are all \`gpt-6-luna\` may use a fresh \`gpt-6-sol\` supervisor at \`high\` instead of Astra — there is no Luna→Sol ladder in such a wave, since Sol already holds the supervisor seat. The supervisor fixture recorded Sol 9/9 twice on 2026-09-23; that is a repeated fixture pass, not production calibration, so Sol remains uncalibrated as a production supervisor outside this narrow all-Luna case. Every stop rule below still applies unchanged to both the premium and the standard supervisor.'"
+  "sed -n '/The \*\*standard supervisor\*\* option covers/,/premium and the standard supervisor\.\$/p' '$CP_ROUTING' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The **standard supervisor** option covers a narrower case: a wave whose executors and ladder rungs are all \`gpt-6-luna\` may use a fresh \`gpt-6.1-sol\` supervisor at \`high\` instead of Astra — there is no Luna→Sol ladder in such a wave, since Sol already holds the supervisor seat. The supervisor fixture recorded GPT-6.1 Sol 9/9 on 2026-09-29 (the previous standard supervisor, \`gpt-6-sol\`, 9/9 twice on 2026-09-23); that is a repeated fixture pass, not production calibration, so GPT-6.1 Sol remains uncalibrated as a production supervisor outside this narrow all-Luna case. \`gpt-6-sol\` stays valid in that seat so that approved plans still run. Every stop rule below still applies unchanged to both the premium and the standard supervisor.'"
 check "codex-routing keeps the mandatory-stop rule for missing capabilities" \
   "grep -qF 'stop before launching and name the missing capability' '$CP_ROUTING'"
 
@@ -280,11 +280,11 @@ check "codex-routing no longer names an available Astra supervisor as the defaul
 check "codex-routing's Authoring decision paragraph names the Gate 1 choice" \
   "grep -qF 'chosen at Gate 1' '$CP_ROUTING'"
 check "codex-routing states the Luna->Sol rung is Astra-only" \
-  "grep -qF 'The Luna→Sol rung is available only under an Astra supervisor; a wave with' '$CP_ROUTING' && grep -qF 'the standard \`gpt-6-sol\` supervisor has no ladder.' '$CP_ROUTING'"
+  "grep -qF 'The Luna→Sol rung is available only under an Astra supervisor; a wave with' '$CP_ROUTING' && grep -qF 'the standard \`gpt-6.1-sol\` supervisor has no ladder.' '$CP_ROUTING'"
 check "ship no longer names a fresh Astra/high supervisor as the default GPT-5.6 route" \
   "! grep -qF 'Available GPT-5.6 executors with a fresh Astra/high supervisor' '$SH'"
 check "ship names the Gate 1 supervisor choice, premium or standard, for GPT-6 executors" \
-  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'Available GPT-6 executors under the supervisor chosen at Gate 1 — premium \`gpt-6-astra\`/high with \`approvals.premium\`, or the standard \`gpt-6-sol\`/high for Luna-only waves — form an operational route through super-plan and multi-model without a separate calibration gate.'"
+  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'Available GPT-6 executors under the supervisor chosen at Gate 1 — premium \`gpt-6-astra\`/high with \`approvals.premium\`, or the standard \`gpt-6.1-sol\`/high for Luna-only waves — form an operational route through super-plan and multi-model without a separate calibration gate.'"
 
 section "ship runs the plan's ci.commands after the final wave"
 

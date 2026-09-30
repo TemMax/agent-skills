@@ -658,9 +658,9 @@ expected_supervisor = {"model": "gpt-6-astra" if orchestrator_model == "gpt-6-as
 expected_executor = {"model": "gpt-6-luna", "effort": "medium"}
 if wave.get("supervisor") != expected_supervisor \
         or plan_task.get("executor") != expected_executor \
-        or plan_task.get("ladder") != ["gpt-6-sol"] \
+        or plan_task.get("ladder") != ["gpt-6.1-sol"] \
         or state.get("supervisor") != expected_supervisor \
-        or task.get("rungs") != ["gpt-6-luna", "gpt-6-sol"] \
+        or task.get("rungs") != ["gpt-6-luna", "gpt-6.1-sol"] \
         or task.get("rung") != 0:
     fail("wrong-plan-model-tuple")
 verdicts = task.get("verdicts")
@@ -1069,7 +1069,7 @@ PY
   else
     command cp tests/fixtures/plans/codex-clean.md "$R/plan.md"
   fi
-  sed -e 's/"model": "gpt-5.6-luna"/"model": "gpt-6-luna"/' -e 's/"gpt-5.6-sol"/"gpt-6-sol"/' \
+  sed -e 's/"model": "gpt-5.6-luna"/"model": "gpt-6-luna"/' -e 's/"gpt-5.6-sol"/"gpt-6.1-sol"/' \
     "$R/plan.md" > "$root/renamed-plan.md"
   command mv "$root/renamed-plan.md" "$R/plan.md"
   if [ "${EVAL_MODEL:-}" = gpt-6-astra ]; then
@@ -1155,7 +1155,7 @@ if [ "${1:-}" = --self-test ]; then
 import json, sys
 state = json.load(open(sys.argv[1]))
 assert state["supervisor"] == {"model": "gpt-6-astra", "effort": "high"}
-assert state["tasks"]["divide-guard"]["rungs"] == ["gpt-6-luna", "gpt-6-sol"]
+assert state["tasks"]["divide-guard"]["rungs"] == ["gpt-6-luna", "gpt-6.1-sol"]
 PY
   mkdir -p "$W/astra-cell"
   capture_codex_evidence success "$A_REPO" "$A_BASE" "$W/astra/answer.txt" \

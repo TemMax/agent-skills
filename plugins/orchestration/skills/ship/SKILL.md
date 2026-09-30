@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.3.0
+  version: 4.4.0
 ---
 
 # Shipping a Feature (ship)
@@ -60,6 +60,7 @@ A generic selection explains missing, unsupported, or conflicting identity.
 | `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `../multi-model/references/orchestrator-gpt-6-astra.md` |
 | `gpt-6-sol` | `../multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.1-sol` | `../multi-model/references/orchestrator-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `../multi-model/references/orchestrator-gpt-6-luna.md` |
 | unknown | `../multi-model/references/orchestrator-generic.md` |
 
@@ -70,7 +71,7 @@ user in the language the user writes in.
 
 For Codex, load [shared route selection](../multi-model/references/codex-routing.md).
 Available GPT-6 executors under the supervisor chosen at Gate 1 — premium
-`gpt-6-astra`/high with `approvals.premium`, or the standard `gpt-6-sol`/high
+`gpt-6-astra`/high with `approvals.premium`, or the standard `gpt-6.1-sol`/high
 for Luna-only waves — form an operational route through super-plan and
 multi-model without a separate calibration gate. Check actual capabilities
 before launch; preserve the approvals below. Stage 3 critical-review runs in

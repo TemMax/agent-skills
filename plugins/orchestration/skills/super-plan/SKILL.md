@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.3.0
+  version: 4.4.0
 ---
 
 # Planning Waves (super-plan)
@@ -58,6 +58,7 @@ A generic selection explains missing, unsupported, or conflicting identity.
 | `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `../multi-model/references/orchestrator-gpt-6-astra.md` |
 | `gpt-6-sol` | `../multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.1-sol` | `../multi-model/references/orchestrator-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `../multi-model/references/orchestrator-gpt-6-luna.md` |
 | unknown | `../multi-model/references/orchestrator-generic.md` |
 
@@ -71,7 +72,7 @@ While authoring or amending a plan, the active profile chooses executor, supervi
 For Codex, load the shared [route selection](../multi-model/references/codex-routing.md)
 before choosing children. It governs routing across profiles: use available
 explicit executors and the supervisor chosen at Gate 1 (premium Astra with
-`approvals.premium`, or standard `gpt-6-sol` for all-Luna waves) without a
+`approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves) without a
 separate calibration gate. Historical fixture failures inform verification;
 they do not block writing a concrete plan for the existing design and plan
 approvals.
@@ -112,14 +113,14 @@ approvals.
    on them — then decide and present the supervisor choice, named and never
    priced: premium (Fable 5.1 /
    GPT-6 Astra) vs standard (Claude: Opus 5.5 supervising Sonnet/Haiku
-   waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6-sol` for waves whose
-   executors and rungs are only `gpt-6-luna` — Sol supervisor of all-Luna
-   waves: fixture 9/9 on 2026-09-23 and 2026-09-24, three real small waves
-   merge-ready first try — toy waves,
-   correct work only). A Codex
-   wave with a `gpt-6-sol` executor has no standard supervisor — it needs
-   `gpt-6-astra`. Record the model for ship's Stage 3 critical-review child
-   in the plan's `review` key here too: `gpt-6-astra` by default, recorded
+   waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6.1-sol` for waves whose executors and rungs are only
+   `gpt-6-luna` — supervisor fixture 9/9 on 2026-09-29; its predecessor
+   `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24
+   and three real small waves merge-ready first try — toy waves, correct
+   work only). A Codex
+   wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
+   supervisor — it needs `gpt-6-astra`. Record the model for ship's Stage 3
+   critical-review child in the plan's `review` key here too: `gpt-6-astra` by default, recorded
    in `approvals.premium`, or, when the user picks it to save that cost,
    `gpt-6-sol` — strict review gate clean 10/10, planted 10/10; PR support
    3/4 on 2026-09-24 — disclosed at Gate 1 too.
@@ -127,7 +128,7 @@ approvals.
    approval in `approvals.premium`. If
    the Tasks step later changes a wave so the chosen supervisor no longer
    fits (for example it adds a `claude-opus-5-5` ladder rung, or a Codex
-   wave gains a `gpt-6-sol` executor), re-ask the user before Gate 2 rather
+   wave gains a `gpt-6.1-sol` executor), re-ask the user before Gate 2 rather
    than carry the stale supervisor forward.
 3. **Gate 1 — design.** Present a compact summary: architecture, the wave
    sketch (which tasks, which waves, why), decisions taken, forks the user
@@ -246,7 +247,7 @@ approvals.
 5. **Seam audit.** Between Tasks and Lint, one read-only audit agent on the
    cheap route — Claude: `claude-sonnet-5-5` at `medium`, spawned as a
    one-agent Workflow `agent()` with that full ID (the Agent tool's
-   `sonnet` alias still resolves to Sonnet 5); Codex: `gpt-6-sol`
+   `sonnet` alias still resolves to Sonnet 5); Codex: `gpt-6.1-sol`
    at `medium` — checks every contract against the code: each `must_run`
    command exists and runs the way CI runs it, every referenced path or API
    exists, the interfaces passed between tasks agree, and every recorded
@@ -437,13 +438,15 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    | Plan host | Allowed model fields |
    |---|---|
    | Claude | `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
-   | Codex | `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+   | Codex | `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 
    New Claude plans route Sonnet work to `claude-sonnet-5-5`; `claude-sonnet-5`
    remains valid only so that already approved plans still execute.
 
-   New Codex plans route to `gpt-6-sol` and `gpt-6-luna` per shared Codex
-   routing; the GPT-5.6 IDs remain valid only so that already approved plans
+   New Codex plans route executors to `gpt-6.1-sol` and `gpt-6-luna` per
+   shared Codex routing. `gpt-6-sol` remains valid so that already approved
+   plans still execute, and it stays the lower-cost final-review option — the role measured for
+   it. The GPT-5.6 IDs remain valid only so that already approved plans
    still execute.
 
    Aliases (`haiku`, `sonnet`, `opus`, `fable`) are rejected by the linter
@@ -520,7 +523,7 @@ gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
 silently is the failure this mode exists to measure. A headless run uses
 standard supervisors only — Opus 5.5 (or Opus 5 for Opus 5.5 executors) for
-Claude waves, `gpt-6-sol` for all-Luna Codex waves; a premium choice it
+Claude waves, `gpt-6.1-sol` for all-Luna Codex waves; a premium choice it
 would have asked the user for goes under `Assumptions (would ask)` instead,
 and the plan carries no `approvals.premium` invented by the model.
 

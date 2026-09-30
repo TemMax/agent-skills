@@ -87,8 +87,18 @@ for f in "$SOL6" "$ASTRA6" "$SOL" "$TERRA" "$LUNA"; do
     "! grep -qF 'Every wave uses a fixed, separate \`gpt-6-astra\` supervisor' '$f' && ! grep -qF 'Every wave uses a separate \`gpt-6-astra\` supervisor' '$f' && ! grep -qF 'independent Astra/high supervision' '$f'"
   check "$f states the Gate 1 supervisor choice" "grep -qF 'chosen at Gate 1' '$f'"
   check "$f names the premium and standard supervisor options" \
-    "grep -qF 'the premium \`gpt-6-astra\`' '$f' && grep -qF 'the standard \`gpt-6-sol\`' '$f'"
+    "grep -qF 'the premium \`gpt-6-astra\`' '$f' && grep -qF 'the standard \`gpt-6.1-sol\`' '$f'"
   check "$f requires Astra for a Sol executor" "grep -qF 'A wave with a Sol' '$f' && grep -qF 'needs Astra' '$f'"
 done
+
+SOL6_DOSSIER="$REFS/gpt-6-sol-dossier.md"
+LUNA6="$REFS/orchestrator-gpt-6-luna.md"
+LUNA6_DOSSIER="$REFS/gpt-6-luna-dossier.md"
+
+for f in "$SOL6" "$SOL6_DOSSIER"; do
+  check "$f has the 2026-09-29 route status" "grep -qF '## Route status (2026-09-29)' '$f'"
+done
+check "gpt-6-luna profile escalates refusals to gpt-6.1-sol" "grep -qF 'escalated to \`gpt-6.1-sol\`' '$LUNA6'"
+check "gpt-6-luna dossier names gpt-6.1-sol" "grep -qF 'gpt-6.1-sol' '$LUNA6_DOSSIER'"
 
 summary

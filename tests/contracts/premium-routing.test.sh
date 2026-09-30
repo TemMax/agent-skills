@@ -6,11 +6,14 @@ cd "$(dirname "$0")/../.." || exit 1
 CP_ROUTING=plugins/orchestration/skills/multi-model/references/codex-routing.md
 CP_PROTOCOL=plugins/orchestration/skills/multi-model/references/codex-wave-protocol.md
 SH=plugins/orchestration/skills/ship/SKILL.md
+MMS=plugins/orchestration/skills/multi-model/SKILL.md
 
 section "codex-routing: ordinary/difficult waves have no standard supervisor"
 
 check "codex-routing states ordinary and difficult tasks route to Sol" \
-  "grep -qF '\`ordinary\` and \`difficult\` tasks route their initial executor to \`gpt-6-sol\`' '$CP_ROUTING'"
+  "grep -qF '\`ordinary\` and \`difficult\` tasks route their initial executor to \`gpt-6.1-sol\`' '$CP_ROUTING'"
+check "codex-routing states GPT-6 Sol is no longer chosen for new executor routes" \
+  "grep -qF 'GPT-6 Sol is no longer chosen for new executor routes' '$CP_ROUTING'"
 check "codex-routing states such a wave has no standard supervisor" \
   "grep -qF 'so a wave containing either task class has no standard supervisor' '$CP_ROUTING'"
 check "codex-routing states such a wave needs the premium gpt-6-astra supervisor" \
@@ -33,7 +36,7 @@ check "codex-routing never-pick sentence is present for the review child" \
 section "codex-wave-protocol: the supervisor is the one chosen at Gate 1"
 
 check "codex-wave-protocol names the Gate 1 supervisor choice, premium or standard" \
-  "grep -qF 'The supervisor is the one chosen' '$CP_PROTOCOL' && grep -qF 'at Gate 1 — the premium \`gpt-6-astra\`, or the standard \`gpt-6-sol\` for an' '$CP_PROTOCOL' && grep -qF 'all-\`gpt-6-luna\` wave.' '$CP_PROTOCOL'"
+  "grep -qF 'The supervisor is the one chosen' '$CP_PROTOCOL' && grep -qF 'at Gate 1 — the premium \`gpt-6-astra\`, or the standard \`gpt-6.1-sol\` for an' '$CP_PROTOCOL' && grep -qF 'all-\`gpt-6-luna\` wave.' '$CP_PROTOCOL'"
 check "codex-wave-protocol requires astra_executor_reason and approvals.premium for an Astra executor or rung" \
   "grep -qF 'An Astra executor or rung needs' '$CP_PROTOCOL' && grep -qF '\`astra_executor_reason: \"<concrete reason>\"\` and \`approvals.premium\`' '$CP_PROTOCOL'"
 
@@ -53,5 +56,16 @@ section "ship: Failure map covers a red ci.commands command after the final wave
 
 check "ship Failure map stops before the push when a plan ci.commands command is red" \
   "grep -qF '| A plan \`ci.commands\` command is red after the final wave | Stop before the push; hand the output over |' '$SH'"
+
+section "Sol 6.1 standard supervisor: review route stays gpt-6-sol"
+
+check "codex-routing keeps the lower-cost final-review option on gpt-6-sol" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'The lower-cost final-review option stays \`gpt-6-sol\`'"
+check "multi-model records the 2026-09-29 supervisor move to gpt-6.1-sol" \
+  "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'On 2026-09-29 the standard supervisor of all-\`gpt-6-luna\` waves moved to \`gpt-6.1-sol\`'"
+check "multi-model names Codex gpt-6.1-sol for Luna-only waves" \
+  "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'Codex \`gpt-6.1-sol\` for Luna-only waves.'"
+check "multi-model no longer names standard gpt-6-sol for all-Luna waves" \
+  "! tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'standard \`gpt-6-sol\` for all-Luna waves'"
 
 summary

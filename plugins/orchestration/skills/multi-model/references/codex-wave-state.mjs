@@ -14,7 +14,7 @@ import {
   resolveWorktreeEnv, TASK_HEADING_SOURCE,
 } from './worktree-env.mjs'
 
-export const CODEX_MODELS = ['gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+export const CODEX_MODELS = ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const ASTRA = 'gpt-6-astra'
 const CODEX_EXECUTOR_MODELS = [...CODEX_MODELS, ASTRA]
 const CODEX_SUPERVISORS = [...CODEX_MODELS, ASTRA]
