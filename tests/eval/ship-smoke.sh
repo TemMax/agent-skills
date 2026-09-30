@@ -421,13 +421,11 @@ PY
 
 find_rollout() { # sessions-dir thread-id
   node - "$1" "$2" <<'JS'
-import { discoverRolloutFiles, parseRollout, sessionMeta, sessionId } from './tests/eval/telemetry/codex.mjs'
+import { discoverRolloutFiles, readRolloutMeta, sessionId } from './tests/eval/telemetry/codex.mjs'
 const [sessionsDir, threadId] = process.argv.slice(2)
 let found = null
 for (const path of discoverRolloutFiles(sessionsDir)) {
-  let rows
-  try { rows = parseRollout(path) } catch { continue }
-  const meta = sessionMeta(rows)
+  const meta = readRolloutMeta(path)
   if (!meta) continue
   if (sessionId(meta) === threadId) { found = path; break }
 }

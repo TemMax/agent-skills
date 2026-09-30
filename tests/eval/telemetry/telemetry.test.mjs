@@ -11,6 +11,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import { timeBucketsMs } from './telemetry.mjs'
+import { loadCodexRun, readRolloutMeta } from './codex.mjs'
 
 const CLI = fileURLToPath(new URL('./telemetry.mjs', import.meta.url))
 const PRICES = fileURLToPath(new URL('./prices.json', import.meta.url))
@@ -343,6 +344,67 @@ test('loadCodexRun: nested source.subagent.thread_spawn.parent_thread_id attache
   assert.equal(report.children.length, 1)
   assert.equal(report.children[0].id, childId)
   assert.equal(report.children[0].role, 'executor')
+})
+
+test('readRolloutMeta: returns the first-line session_meta payload without parsing the rest', t => {
+  const dir = mktempDir()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const path = join(dir, 'rollout-head.jsonl')
+  const first = JSON.stringify(row(0, 'session_meta', { id: 'head-1', cwd: '/repo' }))
+  writeFileSync(path, `${first}\nthis second line is not valid JSON\n`)
+  assert.deepEqual(readRolloutMeta(path), { id: 'head-1', cwd: '/repo' })
+})
+
+test('readRolloutMeta: falls back to a full parse when session_meta is on the second line', t => {
+  const dir = mktempDir()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const path = join(dir, 'rollout-second.jsonl')
+  writeFileSync(path, jsonl([
+    row(0, 'turn_context', { model: 'gpt-6-sol' }),
+    row(0, 'session_meta', { id: 'second-1' }),
+  ]))
+  assert.deepEqual(readRolloutMeta(path), { id: 'second-1' })
+})
+
+test('readRolloutMeta: returns null for an empty file', t => {
+  const dir = mktempDir()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const path = join(dir, 'rollout-empty.jsonl')
+  writeFileSync(path, '')
+  assert.equal(readRolloutMeta(path), null)
+})
+
+test('loadCodexRun: an unrelated rollout with a valid first line and an invalid body is never fully parsed', t => {
+  const dir = mktempDir()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const sessions = join(dir, 'sessions')
+  mkdirSync(sessions, { recursive: true })
+
+  const rootId = 'root-heads-0000-0000-000000000000'
+  const childId = 'child-heads-0000-0000-000000000000'
+  const otherId = 'other-heads-0000-0000-000000000000'
+  const rootPath = join(sessions, `rollout-root-${rootId}.jsonl`)
+  writeFileSync(rootPath, jsonl([
+    row(0, 'session_meta', { id: rootId, cwd: '/repo', cli_version: '0.155.0' }),
+    row(1, 'event_msg', { type: 'task_complete' }),
+  ]))
+  writeFileSync(join(sessions, `rollout-child-${childId}.jsonl`), jsonl([
+    row(0, 'session_meta', {
+      id: childId,
+      cli_version: '0.155.0',
+      source: { subagent: { thread_spawn: { parent_thread_id: rootId } } },
+    }),
+    row(1, 'event_msg', { type: 'task_complete' }),
+  ]))
+  writeFileSync(
+    join(sessions, `rollout-other-${otherId}.jsonl`),
+    `${JSON.stringify(row(0, 'session_meta', { id: otherId, cli_version: '0.155.0' }))}\n{not json at all\n`,
+  )
+
+  const run1 = loadCodexRun(rootPath, sessions)
+  assert.deepEqual(run1.children.map(c => c.id), [childId])
+  assert.equal(run1.children[0].parentId, rootId)
+  assert.equal(run1.children[0].rows.length, 2)
 })
 
 test('timeBucketsMs: an out-of-order row never moves the clock backwards', () => {
