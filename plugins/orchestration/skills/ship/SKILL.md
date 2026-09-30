@@ -71,7 +71,7 @@ user in the language the user writes in.
 
 For Codex, load [shared route selection](../multi-model/references/codex-routing.md).
 Available GPT-6 executors under the supervisor chosen at Gate 1 — premium
-`gpt-6-astra`/high with `approvals.premium`, or the standard `gpt-6-sol`/high
+`gpt-6-astra`/high with `approvals.premium`, or the standard `gpt-6.1-sol`/high
 for Luna-only waves — form an operational route through super-plan and
 multi-model without a separate calibration gate. Check actual capabilities
 before launch; preserve the approvals below. Stage 3 critical-review runs in
