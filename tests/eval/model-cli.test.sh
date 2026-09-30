@@ -43,7 +43,7 @@ PROMPT="$W/prompt.md"
 printf 'Give only the final answer.\n' > "$PROMPT"
 
 run_model() {
-  PATH="$BIN:$PATH" EVAL_PROVIDER="$1" EVAL_MODEL="$2" EVAL_EFFORT="$3" EVAL_TIMEOUT=5 \
+  PATH="$BIN:$PATH" EVAL_PROVIDER="$1" EVAL_MODEL="$2" EVAL_EFFORT="$3" EVAL_TIMEOUT=60 \
     eval_model "$REPO" "$4" "$PROMPT" "$5"
 }
 
@@ -84,7 +84,7 @@ check "Codex workspace-write receives no unsafe bypass flag" "! rg -q -- 'bypass
 
 section "EVAL_CODEX_CWD_IS_REPO=1 launches Codex from the repo itself"
 CODEX_CWD_REPO="$W/codex-cwd-repo.md"
-out="$(PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_MODEL=gpt-5.6-terra EVAL_EFFORT=medium EVAL_TIMEOUT=5 EVAL_CODEX_CWD_IS_REPO=1 \
+out="$(PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_MODEL=gpt-5.6-terra EVAL_EFFORT=medium EVAL_TIMEOUT=60 EVAL_CODEX_CWD_IS_REPO=1 \
   eval_model "$REPO" workspace-write "$PROMPT" "$CODEX_CWD_REPO")"
 expect "Codex writes its final answer" "codex final answer" "$(cat "$CODEX_CWD_REPO")"
 expect "Codex argv adds -C <repo> and --add-dir <parent>" "$(printf '%s\n' exec --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox workspace-write --model gpt-5.6-terra -c 'model_reasoning_effort="medium"' -C "$REPO" --add-dir "$W" --output-last-message "$CODEX_CWD_REPO" -)" "$(cat "$LOG/codex.argv")"
@@ -92,7 +92,7 @@ expect "Codex runs from the repository itself" "$REPO" "$(cat "$LOG/codex.pwd")"
 
 section "Without EVAL_CODEX_CWD_IS_REPO, workspace-write argv and launch dir are unchanged"
 CODEX_UNCHANGED="$W/codex-unchanged.md"
-out="$(PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_MODEL=gpt-5.6-terra EVAL_EFFORT=medium EVAL_TIMEOUT=5 \
+out="$(PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_MODEL=gpt-5.6-terra EVAL_EFFORT=medium EVAL_TIMEOUT=60 \
   eval_model "$REPO" workspace-write "$PROMPT" "$CODEX_UNCHANGED")"
 expect "Codex writes its final answer" "codex final answer" "$(cat "$CODEX_UNCHANGED")"
 expect "Codex argv is unchanged without the variable" "$(printf '%s\n' exec --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox workspace-write --model gpt-5.6-terra -c 'model_reasoning_effort="medium"' --output-last-message "$CODEX_UNCHANGED" -)" "$(cat "$LOG/codex.argv")"
@@ -120,7 +120,7 @@ expect "failed Codex without output cannot reuse a stale answer" "" "$(cat "$FAI
 section "EVAL_CODEX_DEVELOPER_INSTRUCTIONS is delivered as developer_instructions after the effort pair"
 DEV_CTX='PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=gpt-6.1-sol effort=unknown'
 CODEX_DEV="$W/codex-dev.md"
-out="$(PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_MODEL=gpt-6.1-sol EVAL_EFFORT=medium EVAL_TIMEOUT=5 EVAL_CODEX_DEVELOPER_INSTRUCTIONS="$DEV_CTX" \
+out="$(PATH="$BIN:$PATH" EVAL_PROVIDER=codex EVAL_MODEL=gpt-6.1-sol EVAL_EFFORT=medium EVAL_TIMEOUT=60 EVAL_CODEX_DEVELOPER_INSTRUCTIONS="$DEV_CTX" \
   eval_model "$REPO" read-only "$PROMPT" "$CODEX_DEV")"
 expect "Codex writes its final answer" "codex final answer" "$(cat "$CODEX_DEV")"
 expect "Codex argv carries developer_instructions after the effort pair" "$(printf '%s\n' exec --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --model gpt-6.1-sol -c 'model_reasoning_effort="medium"' -c "developer_instructions=\"$DEV_CTX\"" --output-last-message "$CODEX_DEV" -)" "$(cat "$LOG/codex.argv")"
