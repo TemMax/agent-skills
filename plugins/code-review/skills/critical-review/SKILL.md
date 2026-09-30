@@ -107,23 +107,26 @@ the 2026-09-24 strict-gate counts (10/10 clean, 10/10 planted) and the
 PR-support caveat (3/4, one withheld-case miss). Never claim a supported
 GPT-6 Luna or Astra review route.
 
-### GPT-6.1 Sol — 2026-09-29 UTC
+### GPT-6.1 Sol — 2026-09-29 and 2026-09-30 UTC
 
 The first dated strict-gate run for GPT-6.1 Sol (2026-09-29, Codex CLI
-0.159.0, `medium` effort, two runs of five): clean 4/5 and 5/5, planted
-5/5 and 5/5, PR support 3/4 (one `pr-gate-withheld` miss). The strict gate
-needs every guard at 5/5 in each run, so the GPT-6.1 Sol review route
-stays uncalibrated. The one clean failure was a format failure: the
-Overall verdict carried the route's calibration caveat instead of the
-word clean. GPT-6 Sol's measured-supported review route does not transfer
-to GPT-6.1 Sol — a different model. A GPT-6.1 Sol model-selection request
-returns `unsupported` with the mechanical evidence packet. When a ship
-plan records `review.model: gpt-6.1-sol`, the review runs and its summary
-states that the GPT-6.1 Sol review route is uncalibrated and quotes these
-counts. On the same day multi-model's standard supervisor of
-all-`gpt-6-luna` waves moved to `gpt-6.1-sol` (supervisor fixture 9/9);
-that is a supervisor route, not a review route. Never silently substitute
-another GPT model, mix providers, or make `max` a default.
+0.159.0, `medium` effort, two runs of five) had
+clean 4/5 and 5/5, planted 5/5 and 5/5, PR support 3/4; the one clean
+failure was a format failure — the Overall verdict carried the route's
+calibration caveat instead of the word clean. After a verdict-wording fix
+in the reviewer profile, the 2026-09-30 re-run had clean 5/5 and 5/5,
+planted 5/5 and 5/5, and PR support 3/4 (one `pr-gate-approved` miss).
+The GPT-6.1 Sol review route is now **measured-supported**: a GPT-6.1 Sol
+model-selection request may return `gpt-6.1-sol`, stating these counts
+and the PR-support caveat (3/4) alongside it. When a ship plan records
+`review.model: gpt-6.1-sol`, the review runs as a measured route and its
+summary states the 2026-09-30 counts (10/10 clean, 10/10 planted) and the
+PR-support caveat. GPT-6 Sol's measured route stays valid for plans that
+name `gpt-6-sol`; neither model's calibration transfers to the other. On
+2026-09-29 multi-model's standard supervisor of all-`gpt-6-luna` waves
+moved to `gpt-6.1-sol` (supervisor fixture 9/9);
+that is a supervisor route, not a review route. Never silently
+substitute another GPT model, mix providers, or make `max` a default.
 
 ## Overview
 
