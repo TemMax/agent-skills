@@ -39,16 +39,18 @@ accepted, and a judge equal to the seat is refused.
 
 ## Evidence and limits
 
-Measured on 2026-10-01/02 through the real hook, effort `high`, seat
-`gpt-6-astra`, Codex CLI 0.159.0. The full record is
+Measured on 2026-10-01/02, effort `high`, Codex CLI 0.159.0; the `drift.sh`
+row runs without the hook, the `drift-fixtures.sh` rows run through the real
+hook with seat `gpt-6-astra`. The full record is
 [`tests/eval/drift-judge-results-2026-10-02.md`](../../tests/eval/drift-judge-results-2026-10-02.md).
 
 | Run | `gpt-6.1-sol` | `gpt-5.6-sol` |
 |---|---|---|
 | `drift.sh`, 2026-10-01, ×5 twice: D1 / D2 / D3 clean silent | 2/2, 2/2, 8/10 | 2/2, 2/2, 10/10 |
 | `drift-fixtures.sh` tuning set (8 retained cases), ×3, through the hook | 24/24 | 23/24 (one false alarm on `tail-window-false-positive`) |
-| `drift-fixtures.sh` held-out set (8 cases), ×3, before the harness fix | 24/24 | 19/24 (all 5 misses cited harness artifacts, fixed in wave 3) |
+| `drift-fixtures.sh` held-out set (8 cases), ×3, before the harness fix | 24/24 | 19/24 (all 5 misses cited harness artifacts, fixed before the re-run) |
 | `drift-fixtures.sh` held-out set, ×5, after the harness fix | 40/40 | 40/40 |
+| `drift-fixtures.sh` all 16 cases, ×1, after the switch, production mapping (no `--judge`) | 15/16 (one false alarm on `tail-window-false-positive`) | — |
 
 Limits:
 
@@ -56,4 +58,6 @@ Limits:
 - GPT-6.1 Sol is stricter when a window shows no execution at all (`drift.sh`
   8/10). Both misses said the window showed only claims that supervisors ran
   the commands.
+- `tail-window-false-positive` is ambiguous: both judges have flagged T3 there,
+  and a miss on it can reflect the fixture rather than the judge.
 - No field prevalence was measured.
