@@ -28,7 +28,7 @@ expect "node --test drift-rollout.test.mjs passes" 0 $?
 section "Tuning --check"
 OUT="$($RUNNER --set tuning --check 2>&1)"; RC=$?
 expect "--check exits 0" 0 "$RC"
-expect "8 ready lines" 8 "$(printf '%s\n' "$OUT" | grep -c "${TAB}ready${TAB}would-call: host=codex judge=gpt-5.6-sol effort=high")"
+expect "8 ready lines" 8 "$(printf '%s\n' "$OUT" | grep -c "${TAB}ready${TAB}would-call: host=codex judge=gpt-6.1-sol effort=high")"
 
 section "Fake NOTHING"
 fx "$NOTHING" --set tuning
