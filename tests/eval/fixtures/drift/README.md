@@ -9,3 +9,7 @@ Use the [adjudication rules](../../../../docs/decisions/004-adversarial-evaluati
 when replaying cases. A false-positive fix must be checked against every true
 positive; a transcript window must permit legitimate earlier completion without
 accepting injected claims or unsupported scope cuts.
+
+The retained cases are the tuning set. The held-out set lives in
+[../drift-heldout/](../drift-heldout/README.md). Run both through the real hook
+with `bash tests/eval/drift-fixtures.sh --set all`.

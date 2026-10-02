@@ -46,6 +46,12 @@ Offline tests establish deterministic behavior; live fixtures establish bounded
 model behavior; the separate dated calibration report records route evidence
 and limitations. None substitutes for the others.
 
+`drift-fixtures.sh` runs the retained and held-out drift cases through the real
+hook. It is offline-tested by `drift-fixtures.test.sh` and excluded from
+`run.sh --live` as a calibration tool. For live use, run
+`bash tests/eval/drift-fixtures.sh --set all --judge gpt-6.1-sol --repeat 3`
+outside any sandbox that blocks Codex.
+
 [Post-review fix routing](eval/fix-routing-insession.md) is a small simulated
 continuation fixture. It records the frozen 5/5 direct-fix baseline and leaves
 post-change simulated probe outcomes; it is neither a live result nor a release
