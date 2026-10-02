@@ -26,7 +26,11 @@ host_for_model() {
 
 codex_judge_for() {
   case "$1" in
-    gpt-6-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-luna) printf gpt-5.6-sol ;;
+    # GPT-6 seats are judged by GPT-6.1 Sol (decision 012: held-out drift cases
+    # 40/40 at high, the same as GPT-5.6 Sol). A GPT-6.1 Sol seat keeps
+    # GPT-5.6 Sol: a model never judges its own seat.
+    gpt-6-astra|gpt-6-sol|gpt-6-luna) printf gpt-6.1-sol ;;
+    gpt-6.1-sol) printf gpt-5.6-sol ;;
     gpt-5.6-sol|gpt-5.6) printf gpt-5.6-terra ;;
     gpt-5.6-terra|gpt-5.6-luna) printf gpt-5.6-sol ;;
     *) return 1 ;;
