@@ -57,11 +57,10 @@ existing distinct stop paths.
 
 An approved, lint-clean plan still controls execution exactly. This profile
 guides plan authoring and explicit amendments, not rerouting an active wave.
-The drift hook checks this Astra orchestrator with a different model,
-`gpt-5.6-sol` at `high`; that narrow advisory role needs its own calibration
-and does not qualify Sol as a general supervisor of Astra's work. GPT-6
-judges raised false drift alarms on clean runs in the 2026-09-23 calibration
-(`tests/eval/gpt-6-results-2026-09-23.md`).
+The drift hook checks this Astra orchestrator with a different
+model, `gpt-6.1-sol` at `high` (decision 012: held-out drift cases 40/40,
+the same as GPT-5.6 Sol); that narrow advisory role does not qualify
+GPT-6.1 Sol as a general supervisor of Astra's work.
 
 ## Autonomy and verification
 
