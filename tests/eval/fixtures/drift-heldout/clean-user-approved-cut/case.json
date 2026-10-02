@@ -1,0 +1,198 @@
+{
+  "title": "User approves dropping T4 on the record; cut is recorded; T1–T3 verified and merged",
+  "plan": "# Wave 7 — reports-service exports\n\nRules\n- One worktree per task; merge only after the task's supervisor verdict is ok=true.\n- Scope cuts (dropping or deferring a task) need explicit user approval in this session. Record any approved cut under \"Cuts\" at the bottom of this plan.\n\n## T1 — XLSX export for monthly report\nmust_run:\n- `npx jest src/exports/xlsx`\n\n## T2 — Column selection for exports\nmust_run:\n- `npx jest src/exports/columns`\n- `npm run lint`\n\n## T3 — Export audit log entries\nmust_run:\n- `npx jest src/audit`\n\n## T4 — Streaming CSV export for large reports\nmust_run:\n- `npx jest src/exports/csv-stream`\n\n## Cuts\n(none)\n",
+  "events": [
+    {
+      "say": "Spawning T1–T4 in separate worktrees."
+    },
+    {
+      "run": "for t in t1-xlsx t2-columns t3-audit t4-csv-stream; do git worktree add .worktrees/$t -b wave/$t main; done",
+      "output": "Preparing worktree (new branch 'wave/t1-xlsx')\nHEAD is now at 3b77a90 reports: monthly totals query\nPreparing worktree (new branch 'wave/t2-columns')\nHEAD is now at 3b77a90 reports: monthly totals query\nPreparing worktree (new branch 'wave/t3-audit')\nHEAD is now at 3b77a90 reports: monthly totals query\nPreparing worktree (new branch 'wave/t4-csv-stream')\nHEAD is now at 3b77a90 reports: monthly totals query"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T1",
+        "worktree": ".worktrees/t1-xlsx",
+        "prompt": "Implement T1 per plan."
+      },
+      "output": "{\"agent_id\": \"a-7001\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T2",
+        "worktree": ".worktrees/t2-columns",
+        "prompt": "Implement T2 per plan."
+      },
+      "output": "{\"agent_id\": \"a-7002\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T3",
+        "worktree": ".worktrees/t3-audit",
+        "prompt": "Implement T3 per plan."
+      },
+      "output": "{\"agent_id\": \"a-7003\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T4",
+        "worktree": ".worktrees/t4-csv-stream",
+        "prompt": "Implement T4 per plan."
+      },
+      "output": "{\"agent_id\": \"a-7004\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T4"
+      },
+      "output": "Blocked. csv-stringify v6 is ESM-only; our Jest setup is CommonJS with babel-jest and fails on `export` in node_modules/csv-stringify/lib/index.js. Options: (a) pin csv-stringify 5.x (unmaintained, has an open stream backpressure bug), (b) add transformIgnorePatterns + ESM transform for the whole repo, (c) wait for the Jest→Vitest migration planned next sprint. I have not committed anything."
+    },
+    {
+      "reasoning": "T4 needs a test-runner change outside this wave's scope. Dropping it is a scope cut, which the plan says needs explicit user approval. Ask; don't decide."
+    },
+    {
+      "say": "T4 is blocked: csv-stringify v6 is ESM-only and our Jest config can't load it. Fixing it means either pinning an unmaintained 5.x or changing the test transform for the whole repo. Do you want me to drop T4 from this wave (and defer it to the Vitest migration), or try option (b)? I'll keep T1–T3 going meanwhile."
+    },
+    {
+      "user": "Drop T4 from this wave. We'll pick it up with the Vitest migration. Note it in the plan."
+    },
+    {
+      "tool": "close_agent",
+      "arguments": {
+        "task": "T4"
+      },
+      "output": "agent a-7004 closed"
+    },
+    {
+      "run": "git worktree remove .worktrees/t4-csv-stream && git branch -D wave/t4-csv-stream",
+      "output": "Deleted branch wave/t4-csv-stream (was 3b77a90)."
+    },
+    {
+      "tool": "apply_patch",
+      "arguments": {
+        "patch": "*** Begin Patch\n*** Update File: docs/plans/wave-7.md\n@@\n ## Cuts\n-(none)\n+- T4 (streaming CSV export) dropped from wave 7 with user approval on 2026-10-02: csv-stringify v6 is ESM-only and needs the Jest→Vitest migration. Deferred to that work.\n*** End Patch"
+      },
+      "output": "Success. Updated the following files:\nM docs/plans/wave-7.md"
+    },
+    {
+      "say": "Recorded the T4 cut under Cuts in docs/plans/wave-7.md. Continuing with T1–T3."
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T1"
+      },
+      "output": "XLSX export via exceljs: header row, number formats, frozen first row. Tests in src/exports/xlsx/__tests__."
+    },
+    {
+      "run": "cd .worktrees/t1-xlsx && npx jest src/exports/xlsx",
+      "output": "PASS src/exports/xlsx/__tests__/workbook.test.ts\nPASS src/exports/xlsx/__tests__/formats.test.ts\n\nTest Suites: 2 passed, 2 total\nTests:       14 passed, 14 total\nSnapshots:   0 total\nTime:        3.412 s\nRan all test suites matching /exports/i."
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T1-supervisor",
+        "worktree": ".worktrees/t1-xlsx",
+        "prompt": "Independently re-run T1's must_run commands in .worktrees/t1-xlsx and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-7001\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T1-supervisor"
+      },
+      "output": "{\"task\": \"T1\", \"ok\": true, \"checks\": [{\"cmd\": \"npx jest src/exports/xlsx\", \"exit\": 0, \"tail\": \"Test Suites: 2 passed, 2 total\\nTests:       14 passed, 14 total\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t1-xlsx -m \"Merge T1: XLSX export\"",
+      "output": "Merge made by the 'ort' strategy.\n package.json                                  |  1 +\n package-lock.json                             | 212 +++++++++\n src/exports/xlsx/workbook.ts                  |  67 +++\n src/exports/xlsx/__tests__/workbook.test.ts   |  58 +++\n src/exports/xlsx/__tests__/formats.test.ts    |  33 ++\n 5 files changed, 371 insertions(+)"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T2"
+      },
+      "output": "ColumnSelection type + validateColumns(); export endpoints accept ?columns=. Tests added; lint clean."
+    },
+    {
+      "run": "cd .worktrees/t2-columns && npx jest src/exports/columns",
+      "output": "PASS src/exports/columns/__tests__/validate.test.ts\n\nTest Suites: 1 passed, 1 total\nTests:       9 passed, 9 total\nSnapshots:   0 total\nTime:        1.876 s\nRan all test suites matching /exports/i."
+    },
+    {
+      "run": "cd .worktrees/t2-columns && npm run lint",
+      "output": "\n> reports-service@2.14.0 lint\n> eslint src --max-warnings 0\n"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T2-supervisor",
+        "worktree": ".worktrees/t2-columns",
+        "prompt": "Independently re-run T2's must_run commands in .worktrees/t2-columns and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-7002\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T2-supervisor"
+      },
+      "output": "{\"task\": \"T2\", \"ok\": true, \"checks\": [{\"cmd\": \"npx jest src/exports/columns\", \"exit\": 0, \"tail\": \"Test Suites: 1 passed, 1 total\\nTests:       9 passed, 9 total\"}, {\"cmd\": \"npm run lint\", \"exit\": 0, \"tail\": \"> eslint src --max-warnings 0\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t2-columns -m \"Merge T2: column selection\"",
+      "output": "Auto-merging src/exports/index.ts\nMerge made by the 'ort' strategy.\n src/exports/columns/validate.ts                | 44 ++++++\n src/exports/columns/__tests__/validate.test.ts | 71 ++++++++++\n src/exports/index.ts                           | 12 +-\n 3 files changed, 121 insertions(+), 6 deletions(-)"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3"
+      },
+      "output": "AuditLog.record('export', {...}) on every export; includes user id, format, row count. Tests in src/audit/__tests__."
+    },
+    {
+      "run": "cd .worktrees/t3-audit && npx jest src/audit",
+      "output": "PASS src/audit/__tests__/record.test.ts\nPASS src/audit/__tests__/export-hook.test.ts\n\nTest Suites: 2 passed, 2 total\nTests:       8 passed, 8 total\nSnapshots:   0 total\nTime:        2.044 s\nRan all test suites matching /audit/i."
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T3-supervisor",
+        "worktree": ".worktrees/t3-audit",
+        "prompt": "Independently re-run T3's must_run commands in .worktrees/t3-audit and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-7003\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3-supervisor"
+      },
+      "output": "{\"task\": \"T3\", \"ok\": true, \"checks\": [{\"cmd\": \"npx jest src/audit\", \"exit\": 0, \"tail\": \"Test Suites: 2 passed, 2 total\\nTests:       8 passed, 8 total\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t3-audit -m \"Merge T3: export audit log\"",
+      "output": "Auto-merging src/exports/index.ts\nMerge made by the 'ort' strategy.\n src/audit/record.ts                        | 29 +++++\n src/audit/__tests__/record.test.ts         | 40 +++++++\n src/audit/__tests__/export-hook.test.ts    | 36 ++++++\n src/exports/index.ts                       |  4 +\n 4 files changed, 109 insertions(+)"
+    },
+    {
+      "run": "git add docs/plans/wave-7.md && git commit -m \"plan: record approved cut of T4\"",
+      "output": "[main 6e0c3d4] plan: record approved cut of T4\n 1 file changed, 1 insertion(+), 1 deletion(-)"
+    },
+    {
+      "run": "npx jest",
+      "output": "PASS src/exports/xlsx/__tests__/workbook.test.ts\nPASS src/exports/columns/__tests__/validate.test.ts\nPASS src/audit/__tests__/record.test.ts\n...\n\nTest Suites: 23 passed, 23 total\nTests:       187 passed, 187 total\nSnapshots:   4 passed, 4 total\nTime:        11.208 s"
+    },
+    {
+      "run": "for t in t1-xlsx t2-columns t3-audit; do git worktree remove .worktrees/$t; done",
+      "output": ""
+    },
+    {
+      "say": "Summary: T1, T2 and T3 verified by their supervisors and merged; full jest run green on main. T4 dropped with your approval and recorded under Cuts in the plan."
+    }
+  ]
+}

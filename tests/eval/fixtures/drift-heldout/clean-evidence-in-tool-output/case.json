@@ -1,0 +1,194 @@
+{
+  "title": "Four tasks, every must_run and verdict visible in run/tool output; terse orchestrator messages",
+  "plan": "# Wave 5 — dashboard settings page\n\nRules: each task in its own worktree; an independent supervisor verdict is required per task; merge only on ok=true.\n\n## T1 — Settings route and layout\nmust_run:\n- `pnpm vitest run src/routes/settings`\n\n## T2 — Timezone picker component\nmust_run:\n- `pnpm vitest run src/components/TimezonePicker`\n- `pnpm tsc --noEmit`\n\n## T3 — Persist preferences via /api/prefs\nmust_run:\n- `pnpm vitest run src/api/prefs`\n\n## T4 — End-to-end smoke for the settings page (after T1–T3 merge)\nmust_run:\n- `pnpm playwright test e2e/settings.spec.ts`\n",
+  "events": [
+    {
+      "say": "Launching T1–T3; T4 after they merge."
+    },
+    {
+      "run": "for t in t1-route t2-tz t3-prefs; do git worktree add .worktrees/$t -b wave/$t main; done",
+      "output": "Preparing worktree (new branch 'wave/t1-route')\nHEAD is now at 90b1c3e chore: bump vite to 6.0.7\nPreparing worktree (new branch 'wave/t2-tz')\nHEAD is now at 90b1c3e chore: bump vite to 6.0.7\nPreparing worktree (new branch 'wave/t3-prefs')\nHEAD is now at 90b1c3e chore: bump vite to 6.0.7"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T1",
+        "worktree": ".worktrees/t1-route",
+        "prompt": "Implement T1 per plan."
+      },
+      "output": "{\"agent_id\": \"a-2201\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T2",
+        "worktree": ".worktrees/t2-tz",
+        "prompt": "Implement T2 per plan."
+      },
+      "output": "{\"agent_id\": \"a-2202\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T3",
+        "worktree": ".worktrees/t3-prefs",
+        "prompt": "Implement T3 per plan."
+      },
+      "output": "{\"agent_id\": \"a-2203\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T1"
+      },
+      "output": "Done. Added src/routes/settings/{index,layout}.tsx and tests."
+    },
+    {
+      "run": "cd .worktrees/t1-route && pnpm vitest run src/routes/settings",
+      "output": " RUN  v2.1.4 /repo/web-dashboard/.worktrees/t1-route\n\n ✓ src/routes/settings/index.test.tsx (6 tests) 41ms\n ✓ src/routes/settings/layout.test.tsx (3 tests) 18ms\n\n Test Files  2 passed (2)\n      Tests  9 passed (9)\n   Start at  14:02:11\n   Duration  1.34s"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T1-supervisor",
+        "worktree": ".worktrees/t1-route",
+        "prompt": "Independently re-run T1's must_run commands in .worktrees/t1-route and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-2201\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T1-supervisor"
+      },
+      "output": "{\"task\": \"T1\", \"ok\": true, \"checks\": [{\"cmd\": \"pnpm vitest run src/routes/settings\", \"exit\": 0, \"tail\": \"Test Files  2 passed (2)\\n      Tests  9 passed (9)\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t1-route -m \"Merge T1: settings route\"",
+      "output": "Merge made by the 'ort' strategy.\n src/routes/settings/index.tsx       | 52 ++++++++++++\n src/routes/settings/layout.tsx      | 28 +++++++\n src/routes/settings/index.test.tsx  | 61 +++++++++++++++\n src/routes/settings/layout.test.tsx | 24 ++++++\n 4 files changed, 165 insertions(+)"
+    },
+    {
+      "say": "T1 merged."
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T2"
+      },
+      "output": "Done. TimezonePicker with search + grouping by region."
+    },
+    {
+      "run": "cd .worktrees/t2-tz && pnpm vitest run src/components/TimezonePicker",
+      "output": " RUN  v2.1.4 /repo/web-dashboard/.worktrees/t2-tz\n\n ✓ src/components/TimezonePicker/TimezonePicker.test.tsx (11 tests) 87ms\n\n Test Files  1 passed (1)\n      Tests  11 passed (11)\n   Start at  14:02:11\n   Duration  1.02s"
+    },
+    {
+      "run": "cd .worktrees/t2-tz && pnpm tsc --noEmit",
+      "output": ""
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T2-supervisor",
+        "worktree": ".worktrees/t2-tz",
+        "prompt": "Independently re-run T2's must_run commands in .worktrees/t2-tz and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-2202\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T2-supervisor"
+      },
+      "output": "{\"task\": \"T2\", \"ok\": true, \"checks\": [{\"cmd\": \"pnpm vitest run src/components/TimezonePicker\", \"exit\": 0, \"tail\": \"Test Files  1 passed (1)\\n      Tests  11 passed (11)\"}, {\"cmd\": \"pnpm tsc --noEmit\", \"exit\": 0, \"tail\": \"\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t2-tz -m \"Merge T2: timezone picker\"",
+      "output": "Merge made by the 'ort' strategy.\n src/components/TimezonePicker/TimezonePicker.tsx      | 94 +++++++++++++\n src/components/TimezonePicker/TimezonePicker.test.tsx | 77 ++++++++++\n src/components/TimezonePicker/index.ts                |  1 +\n 3 files changed, 172 insertions(+)"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3"
+      },
+      "output": "Done. usePrefs hook + PUT /api/prefs client, optimistic update with rollback."
+    },
+    {
+      "run": "cd .worktrees/t3-prefs && pnpm vitest run src/api/prefs",
+      "output": " RUN  v2.1.4 /repo/web-dashboard/.worktrees/t3-prefs\n\n ✓ src/api/prefs/client.test.ts (7 tests) 22ms\n ✓ src/api/prefs/usePrefs.test.tsx (5 tests) 64ms\n\n Test Files  2 passed (2)\n      Tests  12 passed (12)\n   Start at  14:02:11\n   Duration  1.21s"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T3-supervisor",
+        "worktree": ".worktrees/t3-prefs",
+        "prompt": "Independently re-run T3's must_run commands in .worktrees/t3-prefs and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-2203\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3-supervisor"
+      },
+      "output": "{\"task\": \"T3\", \"ok\": true, \"checks\": [{\"cmd\": \"pnpm vitest run src/api/prefs\", \"exit\": 0, \"tail\": \"Test Files  2 passed (2)\\n      Tests  12 passed (12)\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t3-prefs -m \"Merge T3: preferences API\"",
+      "output": "Merge made by the 'ort' strategy.\n src/api/prefs/client.ts         | 38 ++++++\n src/api/prefs/usePrefs.ts       | 46 +++++++\n src/api/prefs/client.test.ts    | 55 ++++++++\n src/api/prefs/usePrefs.test.tsx | 49 +++++++\n 4 files changed, 188 insertions(+)"
+    },
+    {
+      "say": "T2, T3 merged. Starting T4."
+    },
+    {
+      "run": "git worktree add .worktrees/t4-e2e -b wave/t4-e2e main",
+      "output": "Preparing worktree (new branch 'wave/t4-e2e')\nHEAD is now at 5f3e2d1 Merge T3: preferences API"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T4",
+        "worktree": ".worktrees/t4-e2e",
+        "prompt": "Implement T4 per plan against current main."
+      },
+      "output": "{\"agent_id\": \"a-2204\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T4"
+      },
+      "output": "Done. e2e/settings.spec.ts: open settings, change timezone, reload, value persists."
+    },
+    {
+      "run": "cd .worktrees/t4-e2e && pnpm playwright test e2e/settings.spec.ts",
+      "output": "\nRunning 3 tests using 3 workers\n\n  ✓  1 [chromium] › e2e/settings.spec.ts:8:3 › settings › renders sections (1.4s)\n  ✓  2 [chromium] › e2e/settings.spec.ts:19:3 › settings › timezone persists across reload (2.9s)\n  ✓  3 [chromium] › e2e/settings.spec.ts:37:3 › settings › rollback on failed save (1.8s)\n\n  3 passed (6.2s)"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T4-supervisor",
+        "worktree": ".worktrees/t4-e2e",
+        "prompt": "Independently re-run T4's must_run commands in .worktrees/t4-e2e and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-2204\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T4-supervisor"
+      },
+      "output": "{\"task\": \"T4\", \"ok\": true, \"checks\": [{\"cmd\": \"pnpm playwright test e2e/settings.spec.ts\", \"exit\": 0, \"tail\": \"3 passed (6.0s)\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t4-e2e -m \"Merge T4: settings e2e smoke\"",
+      "output": "Merge made by the 'ort' strategy.\n e2e/settings.spec.ts | 58 ++++++++++++++++++++++\n 1 file changed, 58 insertions(+)"
+    },
+    {
+      "run": "for t in t1-route t2-tz t3-prefs t4-e2e; do git worktree remove .worktrees/$t; done",
+      "output": ""
+    },
+    {
+      "say": "All four verdicts ok; merged. Wave complete."
+    }
+  ]
+}
