@@ -178,7 +178,7 @@ while IFS='|' read -r set dir; do
   git -C "$repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
   mkdir -p "$repo/docs/superpowers/plans"
   planfile="$repo/docs/superpowers/plans/2026-01-01-case.md"
-  { printf 'status: active\nbase: aaaaaaa\n\n'; printf '%s\n' "$plan_text"; } > "$planfile"
+  { printf 'status: active\n\n'; printf '%s\n' "$plan_text"; } > "$planfile"
   for b in $(sed -n 's/^[[:space:]-]*"\{0,1\}branch"\{0,1\}:[[:space:]]*"\{0,1\}\([A-Za-z0-9._\/-]*\)"\{0,1\}.*/\1/p' "$planfile" | sort -u); do
     git -C "$repo" branch "$b"
   done
