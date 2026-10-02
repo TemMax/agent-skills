@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Sends drift cases through the real drift hook (plugins/orchestration/hooks/drift-check).
 # A calibration tool run by hand, not a per-release live tier.
+# In normal mode a case the hook would not send to a judge (dry-run not `would-call`) scores error, never a silent pass.
 #
 # Usage: bash tests/eval/drift-fixtures.sh [--set tuning|heldout|all] [--seat <model>]
 #                                          [--judge <model>] [--repeat N] [--check]
@@ -204,6 +205,20 @@ while IFS='|' read -r set dir; do
   fi
 
   expect="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["expect"])' "$dir/score.json")"
+  ready="$(hook_call "drift-$name-check-$$" DRIFT_CHECK_DRYRUN=1 2>&1)"
+  case "$ready" in
+    "would-call: host=codex judge="*) ;;
+    *)
+      row="$id	-	$expect	error	error	not-ready: $ready"
+      printf '%s\n' "$row"
+      ROWS="${ROWS}${row}
+"
+      E=$((E+1))
+      PERCASE="${PERCASE}${id}: 0/${REPEAT}
+"
+      continue
+      ;;
+  esac
   passes=0
   run=1
   while [ "$run" -le "$REPEAT" ]; do

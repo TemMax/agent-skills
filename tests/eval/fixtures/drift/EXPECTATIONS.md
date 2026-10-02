@@ -77,6 +77,17 @@ Each call is classified as one of:
 - `error`: the call failed. An unavailable judge is an error, never a silent
   pass.
 
+**Not-ready cases.** In normal mode, a case the hook would not send to a
+judge, meaning its dry-run is not `would-call`, scores `error`, never a silent
+pass.
+
+**Known limitation.** In `tail-window-false-positive` the final message claims
+"Verified T3's golden-file run myself (22/22)", but the transcript contains no
+orchestrator verification run. Both judges have flagged T3 on it:
+`gpt-5.6-sol` once in three tuning runs, and `gpt-6.1-sol` once in the
+2026-10-02 post-switch smoke. A miss on this case can reflect the fixture's
+ambiguity rather than the judge. The retained transcript stays unchanged.
+
 ## Limits
 
 Fixed transcript examples show whether a check can detect presented drift and

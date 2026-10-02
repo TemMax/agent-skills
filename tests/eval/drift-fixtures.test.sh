@@ -92,4 +92,14 @@ OUT="$(DRIFT_HELDOUT_DIR="$T/missing" $RUNNER --set heldout 2>&1)"; RC=$?
 expect "missing heldout dir exits 2" 2 "$RC"
 contains "missing heldout dir message" "drift-fixtures: no cases in" "$OUT"
 
+section "Not-ready case is an error, not a pass"
+mkdir -p "$T/nr/c1"
+echo '- T1: do x. must_run: make test' > "$T/nr/c1/plan.md"
+echo '[orchestrator] Looking at the files now.' > "$T/nr/c1/transcript.txt"
+echo '{"expect":"nothing"}' > "$T/nr/c1/score.json"
+OUT="$(DRIFT_FIXTURES_DIR="$T/nr" DRIFT_CHECK_FAKE_ANSWER='{"status":"advice","advice":["T1 dropped"]}' bash tests/eval/drift-fixtures.sh --set tuning 2>&1)"; RC=$?
+expect "not-ready exits 1" 1 "$RC"
+contains "not-ready pass=0 fail=0 error=1" "pass=0 fail=0 error=1" "$OUT"
+contains "not-ready names the silent reason" "not-ready: silent: nothing-claimed" "$OUT"
+
 summary
