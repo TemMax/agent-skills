@@ -289,6 +289,28 @@ expect "explicit Codex identity wins over a Claude environment signal" \
 expect "unknown explicit model never borrows the Claude environment" "silent: unknown-model" \
   "$(CLAUDE_PROJECT_DIR="$WORK/repo" run_hook "$ROUTING_CLAIM" future-model)"
 
+# 9d2. evaluation judge override
+expect "override names the GPT-6.1 Sol judge for an Astra seat" \
+  "would-call: host=codex judge=gpt-6.1-sol effort=high" \
+  "$(DRIFT_CHECK_JUDGE_MODEL=gpt-6.1-sol run_hook "$ROUTING_CLAIM" gpt-6-astra)"
+expect "override names the GPT-6.1 Sol judge for a Luna seat" \
+  "would-call: host=codex judge=gpt-6.1-sol effort=high" \
+  "$(DRIFT_CHECK_JUDGE_MODEL=gpt-6.1-sol run_hook "$ROUTING_CLAIM" gpt-6-luna)"
+expect "override names the GPT-5.6 Sol judge for a GPT-6.1 Sol seat" \
+  "would-call: host=codex judge=gpt-5.6-sol effort=high" \
+  "$(DRIFT_CHECK_JUDGE_MODEL=gpt-5.6-sol run_hook "$ROUTING_CLAIM" gpt-6.1-sol)"
+expect "override equal to the seat is refused as self-judge" "silent: self-judge" \
+  "$(DRIFT_CHECK_JUDGE_MODEL=gpt-6.1-sol run_hook "$ROUTING_CLAIM" gpt-6.1-sol)"
+expect "Claude ID as override is an unknown judge" "silent: unknown-judge" \
+  "$(DRIFT_CHECK_JUDGE_MODEL=claude-opus-5-5 run_hook "$ROUTING_CLAIM" gpt-6-astra)"
+expect "unlisted GPT ID as override is an unknown judge" "silent: unknown-judge" \
+  "$(DRIFT_CHECK_JUDGE_MODEL=gpt-7-sol run_hook "$ROUTING_CLAIM" gpt-6-astra)"
+expect "empty override keeps the mapped judge" \
+  "would-call: host=codex judge=gpt-5.6-sol effort=high" \
+  "$(DRIFT_CHECK_JUDGE_MODEL= run_hook "$ROUTING_CLAIM" gpt-6-astra)"
+expect "Claude host ignores the override" "would-call" \
+  "$(DRIFT_CHECK_JUDGE_MODEL=gpt-6.1-sol run_hook "$ROUTING_CLAIM" claude-opus-5-5)"
+
 # 9e. provider output adapters and host-independent repeat suppression.
 CODEX_ADVICE='{"status":"advice","advice":["Task gamma has no verifier evidence."]}'
 rm -f "${TMPDIR:-/tmp}"/claude-drift-memo-provider-* \

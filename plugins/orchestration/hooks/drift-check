@@ -264,6 +264,29 @@ case "$host" in
       audit_unavailable
       silent "unknown-model"
     fi
+    # Evaluation seam: DRIFT_CHECK_JUDGE_MODEL lets
+    # tests/eval/drift-fixtures.sh measure another Codex judge through the
+    # production path. Only listed Codex IDs are accepted, and a judge equal to
+    # the seat is refused.
+    if [ -n "${DRIFT_CHECK_JUDGE_MODEL:-}" ]; then
+      case "$DRIFT_CHECK_JUDGE_MODEL" in
+        gpt-6-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-luna|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna)
+          judge="$DRIFT_CHECK_JUDGE_MODEL"
+          ;;
+        *)
+          if [ -z "$DRYRUN" ]; then
+            audit_unavailable
+          fi
+          silent "unknown-judge"
+          ;;
+      esac
+    fi
+    if [ "$judge" = "$model" ]; then
+      if [ -z "$DRYRUN" ]; then
+        audit_unavailable
+      fi
+      silent "self-judge"
+    fi
     ;;
   *)
     if [ -n "$DRYRUN" ]; then
