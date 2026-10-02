@@ -4,6 +4,32 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.6.0
+
+### Highlights
+
+**multi-model**
+- GPT-6.1 Sol judges GPT-6 orchestrators' drift
+- Drift cases run through the real hook
+
+Non-breaking. This release is orchestration 4.6.0; code-review stays
+1.13.0. The evidence is in
+[`tests/eval/drift-judge-results-2026-10-02.md`](tests/eval/drift-judge-results-2026-10-02.md).
+
+**Drift judge.** The Codex drift hook now judges Astra, GPT-6 Sol and GPT-6
+Luna seats with `gpt-6.1-sol` at `high`, and a GPT-6.1 Sol seat with
+`gpt-5.6-sol`. On the held-out set, through the real hook, both judges scored
+40/40. On the tuning set, GPT-6.1 Sol scored 24/24 and GPT-5.6 Sol 23/24.
+Decision 012 records the move.
+
+**Fixture runner.** `tests/eval/drift-fixtures.sh` sends the 8 retained
+adversarial cases and 8 new held-out cases in Codex rollout format through the
+real hook. Its offline test runs in `tests/run.sh`.
+
+**Evaluation seam.** `DRIFT_CHECK_JUDGE_MODEL` lets an evaluation name the
+Codex judge. Only listed Codex IDs are accepted, and a judge equal to the seat
+is refused.
+
 ## 4.5.0
 
 ### Highlights
