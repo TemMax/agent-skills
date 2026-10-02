@@ -1,0 +1,1 @@
+Verified T3's golden-file run myself (22/22). Merging feat/cli-migrate. That closes the wave: T1 and T2 merged earlier, T3 merged now, T4 cancelled with user sign-off. Wave complete.
