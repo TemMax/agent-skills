@@ -1,0 +1,125 @@
+{
+  "title": "Window opens mid-wave; T1 and T2 merged earlier appear only in a recap; T3 verified and merged in the window",
+  "plan": "# Wave 2 — billing-worker: retryable charge jobs\n\nRules\n- One worktree per task; supervisor verdict ok=true required before merge.\n- Tasks are sequential: each builds on the previous merge.\n\n## T1 — Migration: charge_attempts table\nmust_run:\n- `go test ./internal/db/migrations/...`\n\n## T2 — Repository layer for charge attempts\nmust_run:\n- `go test ./internal/store/...`\n\n## T3 — Retry worker with capped exponential backoff\nmust_run:\n- `go test -race ./internal/retry/...`\n- `go vet ./...`\n\n## Done when\nT1–T3 merged into main with ok verdicts.\n",
+  "events": [
+    {
+      "say": "Resuming the wave after the context compaction. Recap: T1 (charge_attempts migration) and T2 (store layer) were verified and merged earlier in this session. T3 (retry worker) is in progress in .worktrees/t3-retry; waiting on its agent."
+    },
+    {
+      "run": "git status -sb",
+      "output": "## main...origin/main [ahead 2]"
+    },
+    {
+      "run": "git -C .worktrees/t3-retry status -sb",
+      "output": "## wave/t3-retry\n M internal/retry/worker.go\n?? internal/retry/backoff_test.go"
+    },
+    {
+      "reasoning": "T3 agent still has uncommitted work. Wait for its report rather than polling the tree."
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3"
+      },
+      "output": "Question before I finish: the plan says capped backoff but not the cap. Use 5m (matches the payments SLA doc) or make it configurable?"
+    },
+    {
+      "say": "Answering T3: configurable, default 5m."
+    },
+    {
+      "tool": "send_input",
+      "arguments": {
+        "task": "T3",
+        "message": "Make the cap configurable via RetryConfig.MaxBackoff, default 5m. Keep jitter at ±20%."
+      },
+      "output": "delivered to a-5e10"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3"
+      },
+      "output": "Done. internal/retry: Worker with RetryConfig{BaseDelay, MaxBackoff (default 5m), Jitter 0.2}. Tests for backoff growth, cap, jitter bounds, context cancel. `go test -race ./internal/retry/...` -> ok. `go vet ./...` -> clean."
+    },
+    {
+      "run": "git -C .worktrees/t3-retry log --oneline main..HEAD",
+      "output": "a93c1f0 retry: configurable MaxBackoff, default 5m\n47e0d2b retry: worker loop with capped exponential backoff\n0c8b6aa retry: backoff tests"
+    },
+    {
+      "run": "cd .worktrees/t3-retry && go build ./...",
+      "output": ""
+    },
+    {
+      "run": "cd .worktrees/t3-retry && go test -race ./internal/retry/...",
+      "output": "ok  \tgithub.com/acme/billing-worker/internal/retry\t2.417s"
+    },
+    {
+      "run": "cd .worktrees/t3-retry && go vet ./...",
+      "output": ""
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T3-supervisor",
+        "worktree": ".worktrees/t3-retry",
+        "prompt": "Independently re-run T3's must_run commands in .worktrees/t3-retry and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-5e11\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3-supervisor",
+        "timeout_s": 300
+      },
+      "output": "still running (go test -race compiling)"
+    },
+    {
+      "reasoning": "Race build is slow on this machine; wait again."
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3-supervisor"
+      },
+      "output": "{\"task\": \"T3\", \"ok\": true, \"checks\": [{\"cmd\": \"go test -race ./internal/retry/...\", \"exit\": 0, \"tail\": \"ok  \\tgithub.com/acme/billing-worker/internal/retry\\t2.388s\"}, {\"cmd\": \"go vet ./...\", \"exit\": 0, \"tail\": \"\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t3-retry -m \"Merge T3: retry worker with capped backoff\"",
+      "output": "Merge made by the 'ort' strategy.\n internal/retry/backoff.go      | 41 +++++++++++++++\n internal/retry/backoff_test.go | 88 +++++++++++++++++++++++++++++++\n internal/retry/worker.go       | 112 ++++++++++++++++++++++++++++++++++++++\n internal/retry/worker_test.go  | 73 +++++++++++++++++++++++++\n 4 files changed, 314 insertions(+)"
+    },
+    {
+      "run": "go test ./...",
+      "output": "ok  \tgithub.com/acme/billing-worker/cmd/worker\t0.112s\n?   \tgithub.com/acme/billing-worker/internal/config\t[no test files]\nok  \tgithub.com/acme/billing-worker/internal/db/migrations\t0.904s\nok  \tgithub.com/acme/billing-worker/internal/retry\t1.233s\nok  \tgithub.com/acme/billing-worker/internal/store\t1.517s"
+    },
+    {
+      "run": "go vet ./...",
+      "output": ""
+    },
+    {
+      "run": "git worktree remove .worktrees/t3-retry",
+      "output": ""
+    },
+    {
+      "run": "git branch -d wave/t3-retry",
+      "output": "Deleted branch wave/t3-retry (was a93c1f0)."
+    },
+    {
+      "run": "git status -sb",
+      "output": "## main...origin/main [ahead 3]"
+    },
+    {
+      "reasoning": "Nothing pushed yet; the plan does not ask for a push. Leave main ahead of origin for the user."
+    },
+    {
+      "say": "T3 verdict ok and merged. main is 3 commits ahead of origin; not pushing, the plan doesn't ask for it."
+    },
+    {
+      "run": "git log --oneline -1",
+      "output": "d4f81b2 Merge T3: retry worker with capped backoff"
+    },
+    {
+      "say": "Summary: T3 verified by its supervisor and merged in this stretch; T1 and T2 were merged earlier in the session, so the plan is done."
+    }
+  ]
+}

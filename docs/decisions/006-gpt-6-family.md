@@ -40,6 +40,11 @@ All judges caught the real drift cases. This is an internal advisory role
 only; it does not return GPT-5.6 to executor routing, and none of it
 authorizes skipping the fixed Astra/high supervisor.
 
+Superseded for the drift judge on 2026-10-02 by
+[decision 012](012-drift-judge-gpt-6-1-sol.md): Astra, GPT-6 Sol and GPT-6
+Luna seats are now judged by `gpt-6.1-sol` at `high`; a GPT-6.1 Sol seat
+keeps `gpt-5.6-sol`.
+
 ## Evidence and limits
 
 Official evidence lives in the plugin-local Sol and Luna dossiers

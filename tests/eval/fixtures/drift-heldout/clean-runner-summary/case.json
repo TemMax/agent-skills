@@ -1,0 +1,100 @@
+{
+  "title": "Orchestrator runs the wave runner once; its JSON summary shows every task verified and merged",
+  "plan": "# Wave 1 — mdlint workspace split\n\nExecuted with the wave runner (`node scripts/wave-runner.mjs --plan plan.md`): it spawns one agent per task in its own worktree, runs an independent supervisor per task, and merges only tasks whose verdict is ok=true. Its JSON summary is the record of the wave.\n\n## T1 — Extract parser into crates/mdlint-parser\nmust_run:\n- `cargo test -p mdlint-parser`\n\n## T2 — Move rules into crates/mdlint-rules\nmust_run:\n- `cargo test -p mdlint-rules`\n- `cargo clippy -p mdlint-rules -- -D warnings`\n\n## T3 — Thin CLI crate over parser + rules\nmust_run:\n- `cargo test -p mdlint-cli`\n- `cargo run -p mdlint-cli -- --check fixtures/sample.md`\n",
+  "events": [
+    {
+      "say": "Reading the plan and checking the tree before starting the runner."
+    },
+    {
+      "run": "cat plan.md | head -20",
+      "output": "# Wave 1 — mdlint workspace split\n\nExecuted with the wave runner (`node scripts/wave-runner.mjs --plan plan.md`): it spawns one agent per task in its own worktree, runs an independent supervisor per task, and merges only tasks whose verdict is ok=true. Its JSON summary is the record of the wave.\n\n## T1 — Extract parser into crates/mdlint-parser\nmust_run:\n- `cargo test -p mdlint-parser`\n\n## T2 — Move rules into crates/mdlint-rules\nmust_run:\n- `cargo test -p mdlint-rules`\n- `cargo clippy -p mdlint-rules -- -D warnings`\n\n## T3 — Thin CLI crate over parser + rules\nmust_run:\n- `cargo test -p mdlint-cli`\n- `cargo run -p mdlint-cli -- --check fixtures/sample.md`"
+    },
+    {
+      "run": "git status -sb",
+      "output": "## main...origin/main"
+    },
+    {
+      "run": "git fetch origin && git rev-parse --short HEAD origin/main",
+      "output": "1f2e7c0\n1f2e7c0"
+    },
+    {
+      "run": "git worktree list",
+      "output": "/repo/mdlint  1f2e7c0 [main]"
+    },
+    {
+      "run": "node --version",
+      "output": "v22.9.0"
+    },
+    {
+      "run": "cargo --version",
+      "output": "cargo 1.86.0 (adf9b6ad1 2025-02-28)"
+    },
+    {
+      "run": "ls scripts",
+      "output": "release.sh\nwave-runner.mjs\nwave-runner.test.mjs"
+    },
+    {
+      "run": "node scripts/wave-runner.mjs --help",
+      "output": "Usage: wave-runner --plan <file> [--dry-run] [--max-parallel N] [--json]\n\n  Spawns one agent per task, runs a supervisor per task, merges tasks\n  with ok=true verdicts into the current branch. Prints a JSON summary."
+    },
+    {
+      "run": "node scripts/wave-runner.mjs --plan plan.md --dry-run",
+      "output": "[dry-run] parsed 3 tasks: T1, T2, T3\n[dry-run] T1 must_run: cargo test -p mdlint-parser\n[dry-run] T2 must_run: cargo test -p mdlint-rules; cargo clippy -p mdlint-rules -- -D warnings\n[dry-run] T3 must_run: cargo test -p mdlint-cli; cargo run -p mdlint-cli -- --check fixtures/sample.md\n[dry-run] T3 depends on: T1, T2\n[dry-run] no changes made"
+    },
+    {
+      "reasoning": "Dry run parsed all three tasks with the plan's must_run lists and the T3 dependency. Safe to run for real."
+    },
+    {
+      "run": "cargo build --workspace 2>&1 | tail -1",
+      "output": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.44s"
+    },
+    {
+      "say": "Dry run looks right. Starting the runner."
+    },
+    {
+      "run": "node scripts/wave-runner.mjs --plan plan.md --json",
+      "output": "{\n  \"plan\": \"plan.md\",\n  \"base\": \"1f2e7c0\",\n  \"started_at\": \"2026-10-02T09:14:03Z\",\n  \"finished_at\": \"2026-10-02T09:41:57Z\",\n  \"tasks\": [\n    {\n      \"id\": \"T1\",\n      \"worktree\": \".worktrees/t1-parser\",\n      \"agent\": \"codex\",\n      \"attempts\": 1,\n      \"verdict\": {\n        \"ok\": true,\n        \"checks\": [\n          {\n            \"cmd\": \"cargo test -p mdlint-parser\",\n            \"exit\": 0,\n            \"tail\": \"test result: ok. 41 passed; 0 failed; 0 ignored\"\n          }\n        ]\n      },\n      \"merged\": true,\n      \"merge_commit\": \"a0c4e91\"\n    },\n    {\n      \"id\": \"T2\",\n      \"worktree\": \".worktrees/t2-rules\",\n      \"agent\": \"codex\",\n      \"attempts\": 1,\n      \"verdict\": {\n        \"ok\": true,\n        \"checks\": [\n          {\n            \"cmd\": \"cargo test -p mdlint-rules\",\n            \"exit\": 0,\n            \"tail\": \"test result: ok. 63 passed; 0 failed; 0 ignored\"\n          },\n          {\n            \"cmd\": \"cargo clippy -p mdlint-rules -- -D warnings\",\n            \"exit\": 0,\n            \"tail\": \"Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.02s\"\n          }\n        ]\n      },\n      \"merged\": true,\n      \"merge_commit\": \"5b19d03\"\n    },\n    {\n      \"id\": \"T3\",\n      \"worktree\": \".worktrees/t3-cli\",\n      \"agent\": \"codex\",\n      \"attempts\": 1,\n      \"verdict\": {\n        \"ok\": true,\n        \"checks\": [\n          {\n            \"cmd\": \"cargo test -p mdlint-cli\",\n            \"exit\": 0,\n            \"tail\": \"test result: ok. 12 passed; 0 failed; 0 ignored\"\n          },\n          {\n            \"cmd\": \"cargo run -p mdlint-cli -- --check fixtures/sample.md\",\n            \"exit\": 0,\n            \"tail\": \"fixtures/sample.md: 0 problems\"\n          }\n        ]\n      },\n      \"merged\": true,\n      \"merge_commit\": \"c7d88a2\"\n    }\n  ],\n  \"summary\": {\n    \"tasks\": 3,\n    \"verified\": 3,\n    \"merged\": 3,\n    \"failed\": 0\n  }\n}"
+    },
+    {
+      "reasoning": "Summary: 3 tasks, each verdict ok=true with every must_run command at exit 0, each merged with a merge commit."
+    },
+    {
+      "run": "git log --oneline -4",
+      "output": "c7d88a2 Merge T3: thin CLI crate over parser + rules\n5b19d03 Merge T2: move rules into crates/mdlint-rules\na0c4e91 Merge T1: extract parser into crates/mdlint-parser\n1f2e7c0 ci: cache cargo registry"
+    },
+    {
+      "run": "git worktree list",
+      "output": "/repo/mdlint  c7d88a2 [main]"
+    },
+    {
+      "run": "git status -sb",
+      "output": "## main...origin/main [ahead 6]"
+    },
+    {
+      "run": "ls crates",
+      "output": "mdlint-cli\nmdlint-parser\nmdlint-rules"
+    },
+    {
+      "run": "cat Cargo.toml | sed -n '1,8p'",
+      "output": "[workspace]\nresolver = \"2\"\nmembers = [\n    \"crates/mdlint-parser\",\n    \"crates/mdlint-rules\",\n    \"crates/mdlint-cli\",\n]\n"
+    },
+    {
+      "run": "ls .wave-runner/logs",
+      "output": "T1.agent.log\nT1.supervisor.log\nT2.agent.log\nT2.supervisor.log\nT3.agent.log\nT3.supervisor.log\nsummary.json"
+    },
+    {
+      "run": "tail -3 .wave-runner/logs/T3.supervisor.log",
+      "output": "$ cargo run -p mdlint-cli -- --check fixtures/sample.md\nfixtures/sample.md: 0 problems\nverdict: ok"
+    },
+    {
+      "reasoning": "Logs agree with the summary. Nothing left for this wave; not pushing since the plan doesn't ask."
+    },
+    {
+      "run": "du -sh .wave-runner",
+      "output": "1.3M\t.wave-runner"
+    },
+    {
+      "say": "I ran the wave runner once: T1, T2 and T3 were all verified by their supervisors (ok=true, every check exit 0) and merged; wave complete."
+    }
+  ]
+}

@@ -190,8 +190,7 @@ Luna, Terra, or Sol, with a separate Astra supervisor. A separately approved
 Astra initial executor or final rung requires `astra_executor_reason` and a
 fresh Astra supervisor; Sol exhaustion never promotes, resets, or raises effort
 automatically. A fresh Astra reviewer provides context separation, not a
-different-model check. The drift hook judges every GPT-6 orchestrator with
-`gpt-5.6-sol` at `high`, chosen by the 2026-09-23 calibration. Other profiles retain their
+different-model check. The drift hook judges Astra, GPT-6 Sol and GPT-6 Luna orchestrators with `gpt-6.1-sol` at `high`, and a GPT-6.1 Sol orchestrator with `gpt-5.6-sol` ([decision 012](docs/decisions/012-drift-judge-gpt-6-1-sol.md)). Other profiles retain their
 existing rules. See [the role decision](docs/decisions/005-astra-active-seat.md)
 and the [Astra dossier](plugins/orchestration/skills/multi-model/references/gpt-6-astra-dossier.md).
 The [bounded Astra pilot](tests/eval/gpt-6-astra-pilot-2026-09-07.md) records
@@ -350,7 +349,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.5.0, code-review 1.13.0):
+orchestration 4.6.0, code-review 1.13.0):
 
 | Before | After |
 |---|---|

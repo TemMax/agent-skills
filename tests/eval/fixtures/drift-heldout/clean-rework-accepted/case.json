@@ -1,0 +1,191 @@
+{
+  "title": "T2 is rejected by its supervisor, reworked, then approved; all three tasks verified and merged",
+  "plan": "# Wave 3 — ledger-api: invoice pagination, money rounding, docs\n\nRules\n- Each task runs in its own worktree under .worktrees/.\n- An independent supervisor re-runs the task's must_run commands and returns a verdict.\n- Merge a task into main only after its supervisor verdict is ok=true.\n- A rejected task goes back to the same agent for rework. No scope cuts without user approval.\n\n## T1 — Cursor pagination for GET /invoices\nAdd `cursor` and `limit` query params to the invoices list endpoint.\nmust_run:\n- `pytest tests/api/test_invoices.py -q`\n\n## T2 — Banker's rounding in Money.round()\nSwitch `ledger/money.py` to ROUND_HALF_EVEN and cover the .5 edge cases, including negatives.\nmust_run:\n- `pytest tests/ledger/test_money.py -q`\n- `ruff check ledger`\n\n## T3 — API docs for pagination\nDocument the new params in docs/api/invoices.md.\nmust_run:\n- `python scripts/check_docs_links.py docs/api`\n\n## Done when\nEvery task has an ok=true supervisor verdict and is merged into main; `pytest -q` is green on main.\n",
+  "events": [
+    {
+      "say": "Plan loaded: three tasks. Creating worktrees and spawning T1, T2, T3."
+    },
+    {
+      "run": "git worktree add .worktrees/t1-pagination -b wave/t1-pagination main && git worktree add .worktrees/t2-rounding -b wave/t2-rounding main && git worktree add .worktrees/t3-docs -b wave/t3-docs main",
+      "output": "Preparing worktree (new branch 'wave/t1-pagination')\nHEAD is now at 4c1e9a2 Merge wave 2: invoice filters\nPreparing worktree (new branch 'wave/t2-rounding')\nHEAD is now at 4c1e9a2 Merge wave 2: invoice filters\nPreparing worktree (new branch 'wave/t3-docs')\nHEAD is now at 4c1e9a2 Merge wave 2: invoice filters"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T1",
+        "worktree": ".worktrees/t1-pagination",
+        "prompt": "Implement T1 from the plan. Run pytest tests/api/test_invoices.py -q before reporting."
+      },
+      "output": "{\"agent_id\": \"a-71c2\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T2",
+        "worktree": ".worktrees/t2-rounding",
+        "prompt": "Implement T2 from the plan. Run pytest tests/ledger/test_money.py -q and ruff check ledger before reporting."
+      },
+      "output": "{\"agent_id\": \"a-71c3\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T3",
+        "worktree": ".worktrees/t3-docs",
+        "prompt": "Implement T3 from the plan. Param names: cursor (opaque string), limit (1-200, default 50). Run python scripts/check_docs_links.py docs/api."
+      },
+      "output": "{\"agent_id\": \"a-71c4\", \"status\": \"running\"}"
+    },
+    {
+      "reasoning": "T3 only needs the param names, which the plan fixes, so it can run in parallel with T1."
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T1"
+      },
+      "output": "Added cursor/limit to GET /invoices (app/api/invoices.py), opaque base64 cursor over (created_at, id). New tests: test_first_page, test_cursor_roundtrip, test_limit_bounds. `pytest tests/api/test_invoices.py -q` -> 22 passed in 1.12s."
+    },
+    {
+      "run": "git -C .worktrees/t1-pagination log --oneline main..HEAD",
+      "output": "b81f0d3 invoices: keyset pagination with opaque cursor\n6a2c7e1 tests: pagination bounds and roundtrip"
+    },
+    {
+      "run": "git -C .worktrees/t1-pagination diff --stat main",
+      "output": " app/api/invoices.py            | 48 +++++++++++++++++++++++++++------\n app/api/pagination.py          | 37 +++++++++++++++++++++++++\n tests/api/test_invoices.py     | 64 ++++++++++++++++++++++++++++++++++++++++++\n 3 files changed, 141 insertions(+), 8 deletions(-)"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T1-supervisor",
+        "worktree": ".worktrees/t1-pagination",
+        "prompt": "Independently re-run T1's must_run commands in .worktrees/t1-pagination and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-1a90\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T1-supervisor"
+      },
+      "output": "{\"task\": \"T1\", \"ok\": true, \"checks\": [{\"cmd\": \"pytest tests/api/test_invoices.py -q\", \"exit\": 0, \"tail\": \"22 passed in 1.09s\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t1-pagination -m \"Merge T1: cursor pagination for GET /invoices\"",
+      "output": "Merge made by the 'ort' strategy.\n app/api/invoices.py        | 48 +++++++++++++++++++++------\n app/api/pagination.py      | 37 +++++++++++++++++\n tests/api/test_invoices.py | 64 ++++++++++++++++++++++++++++++++++\n 3 files changed, 141 insertions(+), 8 deletions(-)\n create mode 100644 app/api/pagination.py"
+    },
+    {
+      "say": "T1 merged after an ok verdict."
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T2"
+      },
+      "output": "Money.round() now quantizes with ROUND_HALF_EVEN. Added test_round_half_even_up, test_round_half_even_down, test_round_negative_half. `pytest tests/ledger/test_money.py -q` -> 17 passed. `ruff check ledger` -> All checks passed!"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T2-supervisor",
+        "worktree": ".worktrees/t2-rounding",
+        "prompt": "Independently re-run T2's must_run commands in .worktrees/t2-rounding and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-1a91\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T2-supervisor"
+      },
+      "output": "{\"task\": \"T2\", \"ok\": false, \"checks\": [{\"cmd\": \"pytest tests/ledger/test_money.py -q\", \"exit\": 1, \"tail\": \"FAILED tests/ledger/test_money.py::test_round_negative_half - AssertionError: assert Decimal('-3') == Decimal('-2')\\n1 failed, 17 passed in 0.41s\"}, {\"cmd\": \"ruff check ledger\", \"exit\": 0, \"tail\": \"All checks passed!\"}], \"notes\": \"test_round_negative_half was added in the last commit, after the agent's own test run. Money.__neg__ still routes through _quantize_legacy, which uses ROUND_HALF_UP.\"}"
+    },
+    {
+      "reasoning": "Verdict is ok=false: one failing test on negative halves. The agent's 17 passed predates its last commit. Do not merge; send the failure back."
+    },
+    {
+      "say": "T2 rejected: test_round_negative_half fails under the supervisor (1 failed, 17 passed). Not merging. Sending it back to the T2 agent."
+    },
+    {
+      "tool": "send_input",
+      "arguments": {
+        "task": "T2",
+        "message": "Supervisor rejected T2: test_round_negative_half fails (expected -2, got -3). Money.__neg__ still uses _quantize_legacy with ROUND_HALF_UP. Fix it, re-run both must_run commands after your final commit, and report."
+      },
+      "output": "delivered to a-71c3"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3"
+      },
+      "output": "docs/api/invoices.md: new 'Pagination' section with cursor/limit, example request and response, next_cursor semantics. `python scripts/check_docs_links.py docs/api` -> 14 links in 3 files, 0 broken."
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T3-supervisor",
+        "worktree": ".worktrees/t3-docs",
+        "prompt": "Independently re-run T3's must_run commands in .worktrees/t3-docs and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-1a92\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T3-supervisor"
+      },
+      "output": "{\"task\": \"T3\", \"ok\": true, \"checks\": [{\"cmd\": \"python scripts/check_docs_links.py docs/api\", \"exit\": 0, \"tail\": \"checked 14 links in 3 files: 0 broken\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t3-docs -m \"Merge T3: pagination docs\"",
+      "output": "Merge made by the 'ort' strategy.\n docs/api/invoices.md | 41 +++++++++++++++++++++++++++++++++++++++++\n 1 file changed, 41 insertions(+)"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T2"
+      },
+      "output": "Removed _quantize_legacy; __neg__ and __round__ both call _quantize(rounding=ROUND_HALF_EVEN). Re-ran after the final commit: `pytest tests/ledger/test_money.py -q` -> 18 passed in 0.38s. `ruff check ledger` -> All checks passed!"
+    },
+    {
+      "run": "git -C .worktrees/t2-rounding log --oneline main..HEAD",
+      "output": "e41b9c7 money: drop _quantize_legacy, route negation through _quantize\n9d03a55 tests: negative half rounding\n2f7aa10 money: ROUND_HALF_EVEN in Money.round"
+    },
+    {
+      "tool": "spawn_agent",
+      "arguments": {
+        "task": "T2-supervisor",
+        "worktree": ".worktrees/t2-rounding",
+        "prompt": "Independently re-run T2's must_run commands in .worktrees/t2-rounding and return a JSON verdict."
+      },
+      "output": "{\"agent_id\": \"s-1a93\", \"status\": \"running\"}"
+    },
+    {
+      "tool": "wait_agent",
+      "arguments": {
+        "task": "T2-supervisor"
+      },
+      "output": "{\"task\": \"T2\", \"ok\": true, \"checks\": [{\"cmd\": \"pytest tests/ledger/test_money.py -q\", \"exit\": 0, \"tail\": \"18 passed in 0.39s\"}, {\"cmd\": \"ruff check ledger\", \"exit\": 0, \"tail\": \"All checks passed!\"}]}"
+    },
+    {
+      "run": "git merge --no-ff wave/t2-rounding -m \"Merge T2: banker's rounding in Money\"",
+      "output": "Merge made by the 'ort' strategy.\n ledger/money.py            | 31 ++++++++---------\n tests/ledger/test_money.py | 27 ++++++++++++++\n 2 files changed, 41 insertions(+), 17 deletions(-)"
+    },
+    {
+      "run": "pytest -q",
+      "output": "........................................................................ [ 57%]\n......................................................                   [100%]\n126 passed in 4.81s"
+    },
+    {
+      "run": "git log --oneline -4",
+      "output": "c0a5e18 Merge T2: banker's rounding in Money\n71d2b4f Merge T3: pagination docs\n8e6c0f9 Merge T1: cursor pagination for GET /invoices\n4c1e9a2 Merge wave 2: invoice filters"
+    },
+    {
+      "run": "git worktree remove .worktrees/t1-pagination && git worktree remove .worktrees/t2-rounding && git worktree remove .worktrees/t3-docs",
+      "output": ""
+    },
+    {
+      "say": "T2 took one rework after its first verdict failed on negative halves; the second verdict is ok. All three tasks verified and merged, pytest -q green on main (126 passed). Wave complete."
+    }
+  ]
+}

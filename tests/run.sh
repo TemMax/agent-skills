@@ -41,6 +41,7 @@ run "behaviour — gpt-live driver" bash tests/eval/gpt-live.test.sh
 run "behaviour — telemetry analyzer" node --test tests/eval/telemetry/telemetry.test.mjs tests/eval/telemetry/claude.test.mjs
 run "behaviour — ship-smoke Codex wave benchmark" bash tests/eval/ship-smoke.test.sh
 run "behaviour — seam-audit scorer" bash tests/eval/seam-audit.test.sh
+run "behaviour — drift fixture runner" bash tests/eval/drift-fixtures.test.sh
 
 for t in plugins/*/hooks/*.test.sh; do
   [ -e "$t" ] || continue
@@ -51,7 +52,7 @@ if [ -n "$LIVE" ]; then
   for e in tests/eval/*.sh; do
     [ -e "$e" ] || continue
     case "$(basename "$e")" in
-      model-cli.sh|gpt-5-6-matrix.sh|gpt-live.sh|gpt-matrix.sh|ship-smoke.sh|*.test.sh) continue ;;
+      model-cli.sh|gpt-5-6-matrix.sh|gpt-live.sh|gpt-matrix.sh|ship-smoke.sh|drift-fixtures.sh|*.test.sh) continue ;;
     esac
     run "evaluation (live model) — $(basename "$e" .sh)" bash "$e"
   done
