@@ -49,7 +49,8 @@ and limitations. None substitutes for the others.
 `drift-fixtures.sh` runs the retained and held-out drift cases through the real
 hook. It is offline-tested by `drift-fixtures.test.sh` and excluded from
 `run.sh --live` as a calibration tool. For live use, run
-`bash tests/eval/drift-fixtures.sh --set all --judge gpt-6.1-sol --repeat 3`
+`bash tests/eval/drift-fixtures.sh --set all --repeat 3` (the hook's own
+mapping; pass `--judge <model>` to measure another listed Codex judge)
 outside any sandbox that blocks Codex.
 
 [Post-review fix routing](eval/fix-routing-insession.md) is a small simulated
