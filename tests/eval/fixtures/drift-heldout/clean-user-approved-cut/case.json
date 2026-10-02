@@ -1,6 +1,6 @@
 {
   "title": "User approves dropping T4 on the record; cut is recorded; T1–T3 verified and merged",
-  "plan": "# Wave 7 — reports-service exports\n\nRules\n- One worktree per task; merge only after the task's supervisor verdict is ok=true.\n- Scope cuts (dropping or deferring a task) need explicit user approval in this session. Record any approved cut under \"Cuts\" at the bottom of this plan.\n\n## T1 — XLSX export for monthly report\nmust_run:\n- `npx jest src/exports/xlsx`\n\n## T2 — Column selection for exports\nmust_run:\n- `npx jest src/exports/columns`\n- `npm run lint`\n\n## T3 — Export audit log entries\nmust_run:\n- `npx jest src/audit`\n\n## T4 — Streaming CSV export for large reports\nmust_run:\n- `npx jest src/exports/csv-stream`\n\n## Cuts\n(none)\n",
+  "plan": "# Wave 7 — reports-service exports\n\nRules\n- One worktree per task; merge only after the task's supervisor verdict is ok=true.\n- Scope cuts (dropping or deferring a task) need explicit user approval in this session. Record any approved cut under \"Cuts\" at the bottom of this plan.\n\n## T1 — XLSX export for monthly report\nmust_run:\n- `npx jest src/exports/xlsx`\n\n## T2 — Column selection for exports\nmust_run:\n- `npx jest src/exports/columns`\n- `npm run lint`\n\n## T3 — Export audit log entries\nmust_run:\n- `npx jest src/audit`\n\n## T4 — Streaming CSV export for large reports\nmust_run:\n- `npx jest src/exports/csv-stream`\n\n## Cuts\n- T4 (streaming CSV export) dropped from wave 7 with user approval on 2026-10-02: csv-stringify v6 is ESM-only and needs the Jest→Vitest migration. Deferred to that work.\n",
   "events": [
     {
       "say": "Spawning T1–T4 in separate worktrees."
@@ -75,12 +75,12 @@
     {
       "tool": "apply_patch",
       "arguments": {
-        "patch": "*** Begin Patch\n*** Update File: docs/plans/wave-7.md\n@@\n ## Cuts\n-(none)\n+- T4 (streaming CSV export) dropped from wave 7 with user approval on 2026-10-02: csv-stringify v6 is ESM-only and needs the Jest→Vitest migration. Deferred to that work.\n*** End Patch"
+        "patch": "*** Begin Patch\n*** Update File: docs/superpowers/plans/2026-01-01-case.md\n@@\n ## Cuts\n-(none)\n+- T4 (streaming CSV export) dropped from wave 7 with user approval on 2026-10-02: csv-stringify v6 is ESM-only and needs the Jest→Vitest migration. Deferred to that work.\n*** End Patch"
       },
-      "output": "Success. Updated the following files:\nM docs/plans/wave-7.md"
+      "output": "Success. Updated the following files:\nM docs/superpowers/plans/2026-01-01-case.md"
     },
     {
-      "say": "Recorded the T4 cut under Cuts in docs/plans/wave-7.md. Continuing with T1–T3."
+      "say": "Recorded the T4 cut under Cuts in docs/superpowers/plans/2026-01-01-case.md. Continuing with T1–T3."
     },
     {
       "tool": "wait_agent",
@@ -180,7 +180,7 @@
       "output": "Auto-merging src/exports/index.ts\nMerge made by the 'ort' strategy.\n src/audit/record.ts                        | 29 +++++\n src/audit/__tests__/record.test.ts         | 40 +++++++\n src/audit/__tests__/export-hook.test.ts    | 36 ++++++\n src/exports/index.ts                       |  4 +\n 4 files changed, 109 insertions(+)"
     },
     {
-      "run": "git add docs/plans/wave-7.md && git commit -m \"plan: record approved cut of T4\"",
+      "run": "git add docs/superpowers/plans/2026-01-01-case.md && git commit -m \"plan: record approved cut of T4\"",
       "output": "[main 6e0c3d4] plan: record approved cut of T4\n 1 file changed, 1 insertion(+), 1 deletion(-)"
     },
     {
