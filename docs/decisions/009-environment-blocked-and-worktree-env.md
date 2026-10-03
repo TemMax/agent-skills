@@ -164,3 +164,35 @@ sandbox friction, but `-c mcp_servers.<name>.enabled=false` made `codex mcp
 list` fail outright (`Error: bootstrap`) in the 2026-09-25 reproduction, so
 the override itself is broken on the measured Codex CLI version. This stays
 out of scope until that is fixed upstream.
+
+## Amendment 2026-10-03
+
+Three decisions, made after Codex waves stopped on commit signing and on
+cleanup that the sandbox would not let the orchestrator run.
+
+**Unsigned executor commits plus squash integration.** The executor prompt
+tells executors to commit with `git -c commit.gpgsign=false commit …`, and
+integration (step 9 of `codex-wave-protocol.md`) merges each `ok` task branch
+in plan/task order with `git merge --squash wave/<id>` and one `git commit`
+per task, run outside the sandbox so the user's own git configuration signs
+it. Executor commits are never fast-forwarded or merged as-is. Why: a
+sandboxed executor cannot reach the SSH signing agent, so a signed commit
+from inside the sandbox fails, and the alternative, disabling signing in the
+user's configuration, is never acceptable.
+
+**`--reset`.** `codex-wave-runner.mjs --reset --plan … --wave … --repo …
+--base …` removes the wave's stopped worktrees, `wave/<id>` branches and
+state files, after refusing on a dirty worktree or a live status. It renames
+the run directory to `<dir>.reset-<k>`, prints each deleted branch tip with
+a restore command, and never runs a model. Why: the hand-run cleanup lines
+(`git worktree remove --force`, `git branch -D`, `rm -f`) are blocked by
+Codex command policy, so a stopped wave could not be cleared from inside a
+Codex session. The runner still never removes anything on its own when it
+stops.
+
+**The `signing-agent` signature.** `worktree-env.mjs` gains a `signing-agent`
+signature, and `summary.json` carries a `hint` for `signing-agent` and
+`commit-signing` stops and a `signature` field on marker-path stops. Why: a
+signing failure is a machine fact the executor cannot repair, and the stop
+should say that the plugin is older than the unsigned-commit behaviour or the
+executor ignored its prompt, instead of leaving the user to guess.
