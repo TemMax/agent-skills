@@ -406,3 +406,27 @@ test('checkDependsOn: a present path is not reported, a missing one is', () => {
   assert.equal(unmet[0].path, 'does-not-exist.txt')
   assert.ok(unmet[0].reason.includes('does-not-exist.txt is not present at'))
 })
+
+test('detectEnvironmentBlock: 1Password agent line is signing-agent', () => {
+  const line = 'error: 1Password: Could not connect to socket. Is the agent running?'
+  assert.deepEqual(detectEnvironmentBlock(line), { id: 'signing-agent', line })
+})
+
+test('detectEnvironmentBlock: failed to write commit object alone is commit-signing', () => {
+  const line = 'fatal: failed to write commit object'
+  assert.deepEqual(detectEnvironmentBlock(line), { id: 'commit-signing', line })
+})
+
+test('detectEnvironmentBlock: both signing lines resolve to signing-agent', () => {
+  const log = 'error: 1Password: Could not connect to socket. Is the agent running?\nfatal: failed to write commit object'
+  assert.equal(detectEnvironmentBlock(log).id, 'signing-agent')
+})
+
+test('reportEnvironmentBlock: inner-wrapped backticks are stripped', () => {
+  assert.deepEqual(reportEnvironmentBlock('environment-blocked: `error: x`'), { id: 'reported', line: 'error: x' })
+})
+
+test('reportEnvironmentBlock: whole-line-wrapped marker is stripped', () => {
+  assert.deepEqual(reportEnvironmentBlock('`environment-blocked: error: x`'), { id: 'reported', line: 'error: x' })
+  assert.deepEqual(reportEnvironmentBlock('environment-blocked: error: x'), { id: 'reported', line: 'error: x' })
+})

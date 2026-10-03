@@ -1653,6 +1653,8 @@ test('E9 a linked wave names its linked build files in the executor prompt', () 
     /Untracked build files linked into this worktree \(never open, print or copy them\): local\.properties/)
 })
 
+const SIGNING_HINT = `commit signing is unreachable from the executor sandbox: executors commit with git -c commit.gpgsign=false and integration re-commits signed (codex-wave-protocol.md step 9); update the plugin and re-run, never disable signing in the user's git configuration`
+
 test('E10 summary carries the marker-path environment block', () => {
   const env = init({ planText: (text) => withMustRun(text, [
     { cmd: 'printf executed > must-run-executed', evidence: 'required' },
@@ -1663,7 +1665,43 @@ test('E10 summary carries the marker-path environment block', () => {
   verify(env.statePath)
   const summary = ok(['summary', '--state', env.statePath])
   assert.equal(summary.tasks[0].status, 'environment-blocked')
-  assert.deepEqual(summary.tasks[0].environment, { id: 'reported', line: 'gpg failed to sign the data' })
+  assert.deepEqual(summary.tasks[0].environment, {
+    id: 'reported',
+    line: 'gpg failed to sign the data',
+    signature: 'commit-signing',
+    hint: SIGNING_HINT,
+  })
+})
+
+test('E10b executor prompt tells the executor to commit unsigned', () => {
+  const env = init()
+  const action = next(env.statePath)
+  assert.ok(action.prompt.includes('Commit with `git -c commit.gpgsign=false commit …`: executor commits are never signed, and the coordinator re-commits your work signed at integration. Never change git configuration.'))
+})
+
+test('E10c marker-path 1Password stop carries signing-agent signature and hint', () => {
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'printf executed > must-run-executed', evidence: 'required' },
+  ]) })
+  const line = 'error: 1Password: Could not connect to socket. Is the agent running?'
+  recordExecutor(env.statePath, { report: 'environment-blocked: ' + line + '\n\nCould not proceed.\n' })
+  verify(env.statePath)
+  const summary = ok(['summary', '--state', env.statePath])
+  assert.equal(summary.tasks[0].status, 'environment-blocked')
+  assert.deepEqual(summary.tasks[0].environment, {
+    id: 'reported', line, signature: 'signing-agent', hint: SIGNING_HINT,
+  })
+})
+
+test('E10d marker-path stop with an unrelated signature carries it and no hint', () => {
+  const env = init({ planText: (text) => withMustRun(text, [
+    { cmd: 'printf executed > must-run-executed', evidence: 'required' },
+  ]) })
+  const line = 'SDK location not found'
+  recordExecutor(env.statePath, { report: 'environment-blocked: ' + line + '\n\nCould not proceed.\n' })
+  verify(env.statePath)
+  const summary = ok(['summary', '--state', env.statePath])
+  assert.deepEqual(summary.tasks[0].environment, { id: 'reported', line, signature: 'android-sdk-missing' })
 })
 
 test('E11 summary carries the must_run-signature environment block, including the command', () => {
