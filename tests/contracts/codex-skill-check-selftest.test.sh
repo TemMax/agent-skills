@@ -3,6 +3,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
+export PYTHONDONTWRITEBYTECODE=1
 CHECK=tests/lib/codex-skill-check.py
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
