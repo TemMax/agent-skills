@@ -35,7 +35,7 @@
 
 import { spawn, spawnSync } from 'node:child_process'
 import {
-  existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -52,6 +52,8 @@ const USAGE = [
   'usage: node codex-wave-runner.mjs --plan <file> --wave <n> --repo <abs> --base <40-hex sha>',
   '         [--jobs 3] [--codex codex] [--timeout-min 45] [--out <dir>]',
   '         [--executor-network on|off] [--preflight on|off]',
+  '       node codex-wave-runner.mjs --reset --plan <file> --wave <n> --repo <abs> --base <40-hex sha>',
+  '         [--out <dir>]',
   '',
   'Runs the Codex-native wave protocol (codex-wave-protocol.md) for one',
   'wave, one state machine per task, executing tasks concurrently under a',
@@ -73,6 +75,7 @@ const USAGE = [
   '  --preflight on|off        probe every distinct must_run command in the wave\'s',
   '                            tasks, sandboxed at the base commit, before any',
   '                            model child starts (default on)',
+  '  --reset                   remove this wave\'s stopped worktrees, wave/<id> branches and state files, rename its run directory, then exit; never runs a model',
   '  --help                    print this text and exit 0',
   '',
   'Exit status: 0 merge-ready, 1 stop (including a lint failure on the plan),',
@@ -98,10 +101,20 @@ function parseArgv(argv) {
   const raw = {}
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]
+    if (flag === '--reset') {
+      if (Object.hasOwn(raw, flag)) usageError('duplicate option ' + flag)
+      raw[flag] = true
+      continue
+    }
     if (!FLAGS.includes(flag)) usageError('unknown option "' + flag + '"')
     if (i + 1 >= argv.length) usageError(flag + ' requires a value')
     if (Object.hasOwn(raw, flag)) usageError('duplicate option ' + flag)
     raw[flag] = argv[++i]
+  }
+  if (raw['--reset']) {
+    for (const flag of ['--jobs', '--codex', '--timeout-min', '--executor-network', '--preflight']) {
+      if (Object.hasOwn(raw, flag)) usageError(flag + ' cannot be used with --reset')
+    }
   }
   for (const required of ['--plan', '--wave', '--repo', '--base']) {
     if (!Object.hasOwn(raw, required)) usageError('missing required option ' + required)
@@ -134,6 +147,7 @@ function parseArgv(argv) {
     : join(repoPath, '.worktrees', 'codex-runner', String(waveNumber) + '-' + base.slice(0, 12))
 
   return {
+    reset: raw['--reset'] === true,
     planPath,
     waveNumber,
     repoPath,
@@ -521,10 +535,142 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
 // Main orchestration
 // ---------------------------------------------------------------------------
 
-async function main() {
-  if (sandboxNestingBlocked()) reportNestedSandboxAndExit()
+// ---------------------------------------------------------------------------
+// --reset: remove a stopped wave's worktrees, branches and state files and
+// move its run directory aside. Only git and file operations; no lint, no
+// codex, no sandbox probe.
+// ---------------------------------------------------------------------------
 
+const RESETTABLE_STATUSES = ['merge-ready', 'contract-unsatisfiable', 'failed', 'error', 'environment-blocked']
+
+function resetRefuse(taskId, reason) {
+  process.stderr.write('codex-wave-runner: reset refused for task "' + taskId + '": ' + reason + '\n')
+  process.exit(1)
+}
+
+function gitRun(args) {
+  return spawnSync('git', args, { encoding: 'utf8' })
+}
+
+function runReset(config) {
+  let text
+  try { text = readFileSync(config.planPath, 'utf8') } catch (error) {
+    process.stderr.write('codex-wave-runner: cannot read ' + config.planPath + ': ' + error.message + '\n')
+    process.exit(1)
+  }
+  const blockMatch = WAVE_PLAN_BLOCK.exec(text)
+  if (!blockMatch) {
+    process.stderr.write('codex-wave-runner: no ```json wave-plan block in ' + config.planPath + '\n')
+    process.exit(1)
+  }
+  let plan
+  try { plan = JSON.parse(blockMatch[1]) } catch (error) {
+    process.stderr.write('codex-wave-runner: wave-plan JSON does not parse: ' + error.message + '\n')
+    process.exit(1)
+  }
+  const wave = plan.waves && plan.waves[config.waveNumber - 1]
+  if (!wave || !Array.isArray(wave.tasks) || wave.tasks.length === 0) {
+    process.stderr.write('codex-wave-runner: wave ' + config.waveNumber + ' does not exist or has no tasks\n')
+    process.exit(1)
+  }
+  const planBasename = basename(config.planPath).replace(/\.[^.]+$/, '')
+  const repo = config.repoPath
+
+  const items = wave.tasks.map((task) => {
+    const id = task.id
+    return {
+      id,
+      worktree: join(repo, '.worktrees', 'wave-' + id),
+      branch: 'wave/' + id,
+      statePath: join(repo, '.worktrees', 'codex-wave',
+        planBasename + '--' + id + '-w' + config.waveNumber + '-' + config.base.slice(0, 12) + '.json'),
+    }
+  })
+
+  // All checks first; nothing is changed until every task has passed.
+  for (const item of items) {
+    if (existsSync(item.statePath)) {
+      let state
+      try { state = JSON.parse(readFileSync(item.statePath, 'utf8')) } catch (error) {
+        resetRefuse(item.id, 'state file ' + item.statePath + ' does not parse: ' + error.message)
+      }
+      const entry = state && state.tasks && state.tasks[item.id]
+      if (!entry || entry.branch !== item.branch || entry.worktree !== item.worktree) {
+        resetRefuse(item.id, 'state file ' + item.statePath + ' does not describe branch ' + item.branch
+          + ' and worktree ' + item.worktree)
+      }
+      if (!RESETTABLE_STATUSES.includes(entry.status)) {
+        resetRefuse(item.id, 'status ' + entry.status + ': a runner may still be running; '
+          + 'if none is, run the printed cleanup line by hand\n'
+          + cleanupLine(repo, item.id, item.statePath))
+      }
+    }
+    if (existsSync(item.worktree)) {
+      const inside = gitRun(['-C', item.worktree, 'rev-parse', '--is-inside-work-tree'])
+      let isRoot = false
+      if (inside.status === 0) {
+        const top = gitRun(['-C', item.worktree, 'rev-parse', '--show-toplevel'])
+        try { isRoot = top.status === 0 && realpathSync(top.stdout.trim()) === realpathSync(item.worktree) } catch { isRoot = false }
+      }
+      if (!isRoot) resetRefuse(item.id, 'not a git worktree: ' + item.worktree)
+      const status = gitRun(['-C', item.worktree, 'status', '--porcelain'])
+      if (status.status !== 0 || status.stdout.trim() !== '') {
+        resetRefuse(item.id, 'uncommitted changes in ' + item.worktree + '; commit, move or discard them first')
+      }
+    }
+  }
+
+  for (const item of items) {
+    const removed = []
+    let tip = null
+    const tipRun = gitRun(['-C', repo, 'rev-parse', '--verify', '-q', 'refs/heads/' + item.branch])
+    if (tipRun.status === 0) tip = tipRun.stdout.trim()
+    if (existsSync(item.worktree)) {
+      const run = gitRun(['-C', repo, 'worktree', 'remove', '--force', item.worktree])
+      if (run.status !== 0) {
+        process.stderr.write('codex-wave-runner: git worktree remove failed for task "' + item.id + '": '
+          + run.stderr + '\n')
+        process.exit(1)
+      }
+      removed.push('worktree')
+    }
+    if (tip !== null) {
+      const run = gitRun(['-C', repo, 'branch', '-D', item.branch])
+      if (run.status !== 0) {
+        process.stderr.write('codex-wave-runner: git branch -D failed for task "' + item.id + '": '
+          + run.stderr + '\n')
+        process.exit(1)
+      }
+      removed.push('branch')
+    }
+    if (existsSync(item.statePath)) {
+      rmSync(item.statePath)
+      removed.push('state')
+    }
+    if (removed.length === 0) {
+      process.stdout.write('reset ' + item.id + ': nothing to remove\n')
+    } else {
+      process.stdout.write('reset ' + item.id + ': removed ' + removed.join(', ')
+        + (tip !== null
+          ? '; branch tip was ' + tip + ' (restore: git -C ' + repo + ' branch ' + item.branch + ' ' + tip + ')'
+          : '') + '\n')
+    }
+  }
+
+  if (existsSync(config.outPath)) {
+    let k = 1
+    while (existsSync(config.outPath + '.reset-' + k)) k++
+    const moved = config.outPath + '.reset-' + k
+    renameSync(config.outPath, moved)
+    process.stdout.write('reset: moved run directory to ' + moved + '\n')
+  }
+  process.exit(0)
+}
+
+async function main() {
   const config = parseArgv(process.argv.slice(2))
+  if (config.reset) runReset(config)
+  if (sandboxNestingBlocked()) reportNestedSandboxAndExit()
 
   if (existsSync(config.outPath)) {
     process.stderr.write('codex-wave-runner: --out already exists: ' + config.outPath + '\n')
@@ -892,6 +1038,9 @@ async function main() {
     // cleanupLine), so once every printed line has been run, a fresh --out
     // is all a re-run needs.
     process.stderr.write('re-run with a fresh --out after cleanup\n')
+    process.stderr.write('codex-wave-runner: or re-run after: node ' + fileURLToPath(import.meta.url)
+      + ' --reset --plan ' + config.planPath + ' --wave ' + config.waveNumber
+      + ' --repo ' + config.repoPath + ' --base ' + config.base + '\n')
   }
   writeFileSync(join(config.outPath, 'summary.json'), JSON.stringify(summary, null, 2) + '\n')
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n')

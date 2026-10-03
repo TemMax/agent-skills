@@ -4,6 +4,65 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.7.0
+
+### Highlights
+
+**multi-model**
+- Codex reads its own entrypoint from skills-codex/
+- Codex loads the skill once and announces the profile once
+- Codex executors commit unsigned; squash integration signs
+
+**super-plan**
+- Codex single-task path: one gate, no seam audit
+
+**ship**
+- Codex ship follows the same session rules
+
+**critical-review**
+- Codex reads a critical-review entrypoint of its own
+
+Non-breaking for Claude Code. This release is orchestration 4.7.0, and
+code-review moves to 1.14.0. The evidence is a GPT-6.1 Sol Codex session
+recorded in
+[`docs/decisions/013-codex-skill-entrypoints.md`](docs/decisions/013-codex-skill-entrypoints.md).
+
+**Codex entrypoints.** Both plugins now carry `skills-codex/` next to
+`skills/`: multi-model, super-plan and ship in orchestration, and
+critical-review in code-review. The Codex manifests point at `skills-codex/`;
+Claude Code keeps reading `skills/`, unchanged. The runners, linter, profiles,
+dossiers and protocol stay in `skills/*/references`, and the Codex files
+reach them by relative path. `tests/lib/codex-skill-check.py` and
+`tests/contracts/codex-skill-split.test.sh` keep the two texts in step.
+
+**Codex session rules.** Each Codex entrypoint carries a `## Codex session
+rules` block. Load the skill once per session and do not re-read it. Announce
+the profile once, and again only when the model or effort changes. Applying a
+patch, `apply_patch` and editing a tracked file are authoring, so the
+coordinator never does them. On `environment-blocked`, diagnose with a
+side-effect-free probe before asking the user for anything.
+
+**Single-task path.** For one deliverable, one executor and one module,
+multi-model and super-plan on Codex use one gate instead of two and skip the
+seam audit. Lint, worktree, executor and separate supervisor stay.
+
+**Unsigned executor commits.** Codex executors commit with
+`git -c commit.gpgsign=false`, because the executor sandbox cannot reach the
+signing agent socket. The coordinator integrates each task with
+`git merge --squash` outside the sandbox, so the user's git configuration signs
+the result. Signing is never disabled in the user's configuration.
+
+**Runner `--reset`.** `codex-wave-runner.mjs --reset` clears a stopped wave for
+a plan, wave and base, replacing hand-written `rm`, `git worktree remove` and
+`git branch -D` cleanup that Codex policy blocks.
+
+**Signing diagnosis.** The `signing-agent` signature (1Password socket lines)
+stops the wave as `environment-blocked` with a hint, so the session names the
+cause instead of asking for a restart.
+
+**code-review 1.14.0.** code-review moves to 1.14.0 for its new Codex
+critical-review entrypoint; the Claude skill is unchanged.
+
 ## 4.6.0
 
 ### Highlights

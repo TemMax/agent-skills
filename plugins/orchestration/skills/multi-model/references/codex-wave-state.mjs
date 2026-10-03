@@ -608,6 +608,7 @@ function executorPrompt(state, id, task, spec) {
       ? 'Untracked build files linked into this worktree (never open, print or copy them): '
         + state.worktreeLinks.join(', ') : null,
     'Work and commit only inside the existing worktree above.',
+    'Commit with `git -c commit.gpgsign=false commit …`: executor commits are never signed, and the coordinator re-commits your work signed at integration. Never change git configuration.',
     '',
     '## Boundaries',
     'You may change only paths matching: ' + JSON.stringify(spec.contract.files_allowed),
@@ -1148,6 +1149,14 @@ export function recordVerdict(state, id, result) {
 // "executor reported environment-blocked" text (signature id "reported").
 // When no such violation exists — the task was blocked by a typed executor
 // or supervisor error instead of a verifier fact — report "child-error".
+const SIGNING_HINT = 'commit signing is unreachable from the executor sandbox: executors commit with git -c commit.gpgsign=false and integration re-commits signed (codex-wave-protocol.md step 9); update the plugin and re-run, never disable signing in the user\'s git configuration'
+
+function withSigningHint(summary) {
+  const ids = [summary.id, summary.signature]
+  if (ids.includes('signing-agent') || ids.includes('commit-signing')) summary.hint = SIGNING_HINT
+  return summary
+}
+
 function environmentSummary(task) {
   if (task.status !== 'environment-blocked') return null
   const facts = task.verifierFacts.at(-1)
@@ -1156,14 +1165,19 @@ function environmentSummary(task) {
     : null
   if (!violation) return { id: 'child-error' }
   const signature = /^environment: (.+)$/.exec(violation.rule)
-  if (!signature) return { id: 'reported', line: violation.evidence }
+  if (!signature) {
+    const reported = { id: 'reported', line: violation.evidence }
+    const detected = detectEnvironmentBlock(violation.evidence)
+    if (detected) reported.signature = detected.id
+    return withSigningHint(reported)
+  }
   const result = { id: signature[1], line: violation.evidence }
   const command = facts.mustRun.find((entry) => {
     const final = entry.attempts.at(-1)
     return final && final.exit !== 0 && detectEnvironmentBlock(final.stdout + '\n' + final.stderr)
   })
   if (command) result.cmd = command.cmd
-  return result
+  return withSigningHint(result)
 }
 
 export function summarize(state) {

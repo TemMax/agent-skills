@@ -27,6 +27,7 @@ export const ENVIRONMENT_SIGNATURES = [
   { id: 'git-lock', re: /Unable to create '[^']*\.lock'/ },
   { id: 'git-ref-lock', re: /cannot lock ref/ },
   { id: 'git-object-write', re: /unable to create directory|insufficient permission for adding an object/ },
+  { id: 'signing-agent', re: /1Password: Could not connect to socket|Could not connect to socket\. Is the agent running|agent refused operation|Could not open a connection to your authentication agent/ },
   { id: 'commit-signing', re: /failed to write commit object|gpg failed to sign the data/ },
   { id: 'read-only-fs', re: /Read-only file system/ },
   { id: 'permission-denied', re: /Operation not permitted/ },
@@ -52,9 +53,12 @@ export function reportEnvironmentBlock(report) {
   const lines = String(report ?? '').split(/\r?\n/)
   const firstNonEmpty = lines.find((l) => l.trim() !== '')
   if (firstNonEmpty === undefined) return null
-  const m = /^`?environment-blocked:[ \t]*(.*?)`?$/.exec(firstNonEmpty.trim())
+  const m = /^(`?)environment-blocked:[ \t]*(.*)$/.exec(firstNonEmpty.trim())
   if (!m) return null
-  const line = m[1].trim()
+  let line = m[2]
+  if (m[1] === '`' && line.endsWith('`')) line = line.slice(0, -1)
+  line = line.trim()
+  if (line.length > 2 && line.startsWith('`') && line.endsWith('`')) line = line.slice(1, -1).trim()
   if (line === '' || line.startsWith('<')) return null
   return { id: 'reported', line: line.slice(0, 300) }
 }

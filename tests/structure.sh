@@ -24,7 +24,17 @@ for p in plugins/*/; do
   check "Codex manifest exists: $c" "[ -f '$c' ]"
   check "Codex manifest parses: $c" "python3 -c 'import json;json.load(open(\"$c\"))'"
   skills="$(python3 -c "import json;print(json.load(open('$c'))['skills'])" 2>/dev/null)"
-  expect "Codex skills path: $(basename "$p")" "./skills/" "$skills"
+  expect "Codex skills path: $(basename "$p")" "./skills-codex/" "$skills"
+  for cf in "$p"skills-codex/*/SKILL.md; do
+    [ -e "$cf" ] || continue
+    n="$(basename "$(dirname "$cf")")"
+    check "Codex skill has Claude sibling: $(basename "$p")/$n" "[ -f '$p"skills/$n/SKILL.md"' ]"
+  done
+  for sf in "$p"skills/*/SKILL.md; do
+    [ -e "$sf" ] || continue
+    n="$(basename "$(dirname "$sf")")"
+    check "Claude skill has Codex sibling: $(basename "$p")/$n" "[ -f '$p"skills-codex/$n/SKILL.md"' ]"
+  done
   cv="$(python3 -c "import json;print(json.load(open('$c'))['version'])" 2>/dev/null)"
   av="$(python3 -c "import json;print(json.load(open('$p.claude-plugin/plugin.json'))['version'])" 2>/dev/null)"
   expect "Claude/Codex version: $(basename "$p")" "$av" "$cv"
@@ -44,7 +54,7 @@ for p in plugins/*/; do
 done
 
 section "Skill frontmatter parses and is complete"
-for f in plugins/*/skills/*/SKILL.md; do
+for f in plugins/*/skills/*/SKILL.md plugins/*/skills-codex/*/SKILL.md; do
   out="$(ruby -ryaml -e '
     s = File.read(ARGV[0])
     fm = s[/\A---\n(.*?)\n---\n/m, 1] or (puts "NO-FRONTMATTER"; exit)
@@ -62,7 +72,7 @@ done
 section "Skill version matches its plugin version"
 for p in plugins/*/; do
   pv="$(python3 -c "import json;print(json.load(open('$p.claude-plugin/plugin.json'))['version'])" 2>/dev/null)"
-  for f in "$p"skills/*/SKILL.md; do
+  for f in "$p"skills/*/SKILL.md "$p"skills-codex/*/SKILL.md; do
     [ -e "$f" ] || continue
     sv="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
     expect "version agrees: $(basename "$p") $pv" "$pv" "$sv"
@@ -74,21 +84,21 @@ for f in \
   plugins/orchestration/.claude-plugin/plugin.json \
   plugins/orchestration/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "orchestration release version: $f" "4.6.0" "$v"
+  expect "orchestration release version: $f" "4.7.0" "$v"
 done
-for f in plugins/orchestration/skills/*/SKILL.md; do
+for f in plugins/orchestration/skills/*/SKILL.md plugins/orchestration/skills-codex/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "orchestration skill release version: $f" "4.6.0" "$v"
+  expect "orchestration skill release version: $f" "4.7.0" "$v"
 done
 for f in \
   plugins/code-review/.claude-plugin/plugin.json \
   plugins/code-review/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "code-review release version: $f" "1.13.0" "$v"
+  expect "code-review release version: $f" "1.14.0" "$v"
 done
-for f in plugins/code-review/skills/*/SKILL.md; do
+for f in plugins/code-review/skills/*/SKILL.md plugins/code-review/skills-codex/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "code-review skill release version: $f" "1.13.0" "$v"
+  expect "code-review skill release version: $f" "1.14.0" "$v"
 done
 for marker in \
   "Claude Code installation" \

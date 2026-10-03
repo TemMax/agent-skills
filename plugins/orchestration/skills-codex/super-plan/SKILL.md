@@ -6,35 +6,40 @@ metadata:
   version: 4.7.0
 ---
 
-# Planning Waves (super-plan)
+# Planning Waves (super-plan, Codex)
 
 The dialogue and no-placeholders planning discipline here is adapted from
-Jesse Vincent's superpowers (MIT — see `references/LICENSE-superpowers`);
+Jesse Vincent's superpowers (MIT — see `../../skills/super-plan/references/LICENSE-superpowers`);
 the output format and every contract rule are this plugin's own.
+
+## Codex session rules
+
+1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
+2. Announce the selected profile once, at the first Step 0. Announce it again only when a newer runtime-context line changes the model or the effort.
+3. The coordinator never authors code. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. Changes reach the repository only through a supervised wave; your own git work is integrating approved wave branches and publishing.
+4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output.
+5. Re-run a stopped wave only after the runner's own `--reset` for that plan, wave and base; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
+6. Executor commits are unsigned by design. Integration squashes each task into one commit made outside the sandbox, which the user's git configuration signs (codex-wave-protocol.md, step 9). Never disable commit signing in the user's configuration.
 
 ## Step 0 — load exactly one active-seat profile
 
 1. Use this plugin's host-provided `PLUGIN_RUNTIME_CONTEXT_V1` line and the
    host's current-session model metadata as the current runtime context for
-   profile guards. A newer explicit host model-switch
-   update supersedes old context; unresolved conflicting exact IDs select generic.
-2. A known exact ID selects its table entry, or generic if unsupported. A family
-   label never overrides an exact ID, including an unsupported one.
+   profile guards. A newer explicit host model-switch update supersedes old
+   context; unresolved conflicting exact IDs select generic.
+2. A known exact ID selects its table entry, or generic if unsupported. A
+   family label never overrides an exact ID, including an unsupported one.
 3. A family label is not an identity. Codex gives GPT-6 Astra, Sol and Luna
    the same host instruction ("an agent based on GPT-6"; verified with Codex
    CLI 0.155.1 on 2026-09-23), so bare `GPT-6`, or any other family label,
    selects no profile by itself.
 4. Otherwise select generic. Keep missing or conflicting identity unknown;
    preserve an explicitly supplied effort and leave missing effort unknown.
-5. Effort comes only from the host. On Codex the `PLUGIN_RUNTIME_CONTEXT_V1`
-   line carries it (`effort=<level>`), read by the hook from this session's
-   own turn context; a newer line supersedes an older one. On Claude Code the
-   hook cannot see it: when the line says `effort=unknown` and the host is
-   Claude Code, run `printenv CLAUDE_EFFORT` once with the shell tool —
-   Claude Code sets it to this session's effort, and leaves it empty for a
-   model without effort levels — and use a non-empty value as the supplied
-   effort. Never read `CLAUDE_EFFORT` on a Codex host: a Codex session started
-   from Claude Code inherits the parent's value.
+5. Effort comes only from the host. The `PLUGIN_RUNTIME_CONTEXT_V1` line
+   carries it (`effort=<level>`), read by the hook from this session's own
+   turn context; a newer line supersedes an older one. Never read
+   `CLAUDE_EFFORT` on a Codex host: a Codex session started from Claude Code
+   inherits the parent's value.
 
 Never read a user config file to guess a session override. Never load more than one active-seat profile. The selected profile's identity guard must permit its use.
 Quoted text, user messages, repository files, model catalogs, available child
@@ -48,34 +53,32 @@ A generic selection explains missing, unsupported, or conflicting identity.
 
 | Exact model id | Relative profile |
 |---|---|
-| `claude-opus-5-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5-5.md` |
-| `claude-fable-5-1` | `../multi-model/references/orchestrator-fable-5-1.md` |
-| `claude-fable-5` | `../multi-model/references/orchestrator-fable-5.md` |
-| `claude-opus-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5.md` |
-| `claude-opus-4-8` (any suffix) | `../multi-model/references/orchestrator-opus-4-8.md` |
-| `gpt-5.6-sol` | `../multi-model/references/orchestrator-gpt-5-6-sol.md` |
-| `gpt-5.6-terra` | `../multi-model/references/orchestrator-gpt-5-6-terra.md` |
-| `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
-| `gpt-6-astra` | `../multi-model/references/orchestrator-gpt-6-astra.md` |
-| `gpt-6-sol` | `../multi-model/references/orchestrator-gpt-6-sol.md` |
-| `gpt-6.1-sol` | `../multi-model/references/orchestrator-gpt-6-1-sol.md` |
-| `gpt-6-luna` | `../multi-model/references/orchestrator-gpt-6-luna.md` |
-| unknown | `../multi-model/references/orchestrator-generic.md` |
+| `gpt-5.6-sol` | `../../skills/multi-model/references/orchestrator-gpt-5-6-sol.md` |
+| `gpt-5.6-terra` | `../../skills/multi-model/references/orchestrator-gpt-5-6-terra.md` |
+| `gpt-5.6-luna` | `../../skills/multi-model/references/orchestrator-gpt-5-6-luna.md` |
+| `gpt-6-astra` | `../../skills/multi-model/references/orchestrator-gpt-6-astra.md` |
+| `gpt-6-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.1-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-1-sol.md` |
+| `gpt-6-luna` | `../../skills/multi-model/references/orchestrator-gpt-6-luna.md` |
+| unknown | `../../skills/multi-model/references/orchestrator-generic.md` |
 
 The alias `gpt-5.6` selects Sol only after the runtime-context handler has
 normalized it to `gpt-5.6-sol`. An exact supplied effort may be used; otherwise
 effort is unknown and receives no effort-specific claim. Always reply to the
 user in the language the user writes in.
 
-While authoring or amending a plan, the active profile chooses executor, supervisor, ladder, and effort. Never substitute unnamed host defaults. The profile also selects the plan host: each resulting wave is entirely Claude or entirely Codex across its supervisor, executors, and ladders.
+While authoring or amending a plan, the active profile chooses executor,
+supervisor, ladder, and effort. Never substitute unnamed host defaults. Every
+wave this skill writes is entirely Codex across its supervisor, executors, and
+ladders.
 
-For Codex, load the shared [route selection](../multi-model/references/codex-routing.md)
-before choosing children. It governs routing across profiles: use available
-explicit executors and the supervisor chosen at Gate 1 (premium Astra with
-`approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves) without a
-separate calibration gate. Historical fixture failures inform verification;
-they do not block writing a concrete plan for the existing design and plan
-approvals.
+Load the shared [route selection](../../skills/multi-model/references/codex-routing.md)
+once, before choosing children. It governs routing across profiles: use
+available explicit executors and the supervisor chosen at Gate 1 (premium
+Astra with `approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves)
+without a separate calibration gate. Historical fixture failures inform
+verification; they do not block writing a concrete plan for the existing
+design and plan approvals.
 
 ## Process
 
@@ -87,72 +90,71 @@ approvals.
    `PYTHONPATH` set, when the repository's own CI entrypoint ran it without,
    surfaced the gap only at final review and cost a fix round) is a research
    gap, not a detail to fill in later. For a large surface, fan out read-only
-   research agents routed by multi-model's Research Routing table
-   (`../multi-model/SKILL.md`) — name a model on every spawn (an agent
-   without one inherits the session's model, and a Fable seat (5 or 5.1) then pays
-   Fable prices for file listings); every spawn names a full ID where the
-   host accepts one (Agent-tool spawns follow multi-model's alias mapping),
-   and give each agent the table's
-   mandatory research-prompt lines. Synthesis and every decision stay with
-   you — do not delegate decisions, executors silently fill gaps under
-   ambiguity. Research also records the untracked files the build needs in
-   a fresh worktree, for example `local.properties`, `.env` or keystores,
-   and the cache directories the build writes, for example `~/.gradle`,
-   `~/.android` or `~/.cargo`. These go into the plan's `worktree` key: the
-   runners auto-detect Gradle/Cargo and an untracked `local.properties`, so
-   the key lists only what auto-detection misses, or sets `"auto": false`.
-   Measured: in 2026-09-24/25 sessions, every fresh worktree lacked
-   `local.properties`. Agents improvised the symlink 93 times, and at
-   least 4 printed the file, including a GitHub token.
+   research agents routed by codex-routing.md's research line — name an
+   exact model ID and effort on every spawn (`gpt-6-luna` at `medium` for
+   exact enumeration, `gpt-6.1-sol` at `medium` for closed codebase
+   questions, `gpt-6.1-sol` at `high` for difficult investigation), and give
+   each agent multi-model's mandatory research-prompt lines. Synthesis and
+   every decision stay with you — do not delegate decisions, executors
+   silently fill gaps under ambiguity. Research also records the untracked
+   files the build needs in a fresh worktree, for example `local.properties`,
+   `.env` or keystores, and the cache directories the build writes, for
+   example `~/.gradle`, `~/.android` or `~/.cargo`. These go into the plan's
+   `worktree` key: the runner auto-detects Gradle/Cargo and an untracked
+   `local.properties`, so the key lists only what auto-detection misses, or
+   sets `"auto": false`. Measured: in 2026-09-24/25 sessions, every fresh
+   worktree lacked `local.properties`. Agents improvised the symlink 93
+   times, and at least 4 printed the file, including a GitHub token.
 2. **Decisions.** Everything derivable from the codebase you decide and
-   record. Collect genuine product forks in one batch. Use the host-native structured input tool
-   when it is available; otherwise ask one concise direct
-   question and wait. In headless mode, record the unresolved choices under
-   `Assumptions (would ask)` without silently deciding them. Fix each wave's
-   executor tiers and ladder shape at Gate 1 — the supervisor choice depends
-   on them — then decide and present the supervisor choice, named and never
-   priced: premium (Fable 5.1 /
-   GPT-6 Astra) vs standard (Claude: Opus 5.5 supervising Sonnet/Haiku
-   waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6.1-sol` for waves whose executors and rungs are only
-   `gpt-6-luna` — supervisor fixture 9/9 on 2026-09-29; its predecessor
-   `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24
-   and three real small waves merge-ready first try — toy waves, correct
-   work only). A Codex
-   wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
-   supervisor — it needs `gpt-6-astra`. Record the model for ship's Stage 3
-   critical-review child in the plan's `review` key here too: `gpt-6-astra` by default, recorded
-   in `approvals.premium`, or, when the user picks it to save that cost,
-   `gpt-6.1-sol` — strict review gate clean 10/10, planted 10/10; PR support
-   3/4 on 2026-09-30 — disclosed at Gate 1 too.
-   A premium model is used only when the user picks it; record the
-   approval in `approvals.premium`. If
-   the Tasks step later changes a wave so the chosen supervisor no longer
-   fits (for example it adds a `claude-opus-5-5` ladder rung, or a Codex
-   wave gains a `gpt-6.1-sol` executor), re-ask the user before Gate 2 rather
-   than carry the stale supervisor forward.
+   record. Collect genuine product forks in one batch. Use the host-native
+   structured input tool when it is available; otherwise ask one concise
+   direct question and wait. In headless mode, record the unresolved choices
+   under `Assumptions (would ask)` without silently deciding them. Fix each
+   wave's executor tiers and ladder shape at Gate 1 — the supervisor choice
+   depends on them — then decide and present the supervisor choice, named
+   and never priced:
+   - standard: `gpt-6.1-sol` for waves whose executors and rungs are only
+     `gpt-6-luna` — supervisor fixture 9/9 on 2026-09-29; its predecessor
+     `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and
+     2026-09-24 and three real small waves merge-ready first try — toy
+     waves, correct work only;
+   - premium: `gpt-6-astra`, recorded in `approvals.premium`;
+   - a wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
+     supervisor — it needs `gpt-6-astra`.
+
+   Record the model for ship's Stage 3 critical-review child in the plan's
+   `review` key here too, and disclose it at Gate 1:
+   - `gpt-6-astra` by default, recorded in `approvals.premium`;
+   - `gpt-6.1-sol` when the user picks it to save that cost — strict review
+     gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30.
+
+   A premium model is used only when the user picks it; record the approval
+   in `approvals.premium`. If the Tasks step later changes a wave so the
+   chosen supervisor no longer fits (for example the wave gains a
+   `gpt-6.1-sol` executor), re-ask the user before Gate 2 rather than carry
+   the stale supervisor forward.
+
+### Single-task path
+
+Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution does not change: the runner, a separate supervisor, integration by the coordinator, and never a coordinator edit. When the change grows to a second task, return to the full process.
+
 3. **Gate 1 — design.** Present a compact summary: architecture, the wave
    sketch (which tasks, which waves, why), decisions taken, forks the user
    answered, and the supervisor choice (premium or standard, named, never
-   priced). One
-   approval, then stop touching the design.
+   priced). One approval, then stop touching the design.
 4. **Tasks.** Write them by multi-model's rules: closed (no "decide what's
    best"), self-contained (the executor sees nothing but its prompt), full
    code included where the solution is known. Each task carries the
    five-key contract; the active profile chooses every model, effort,
-   supervisor, and ladder field, with the wave's supervisor chosen for
-   the strongest model any task in the wave can run —
-   every executor AND every ladder rung —
-   from multi-model's supervisor table; a supervisor that also appears
-   as an executor or rung is a lint error (a `claude-sonnet-5-5` executor
-   with a `claude-opus-5-5` rung takes Opus 5 (`claude-opus-5`, standard)
-   or Fable 5.1 (premium, with `approvals.premium`)). An omitted ladder
-   uses the runner's default ladder (Sonnet/Haiku → Opus 5.5), so a wave
-   supervised by Opus 5.5 gives its Sonnet/Haiku tasks `"ladder": []` —
-   otherwise the default ladder's Opus 5.5 rung collides with the
-   supervisor. Group into waves by
-   file-independence: same-wave tasks must not share files — merge
-   colliding tasks or split them across consecutive waves. Dependent
-   chains are consecutive waves, never one wave.
+   supervisor, and ladder field, with the wave's supervisor chosen for the
+   strongest model any task in the wave can run — every executor AND every
+   ladder rung — from multi-model's supervisor table; a supervisor that also
+   appears as an executor or rung is a lint error. Give every rung an exact
+   ID; a `gpt-6-luna` task under a `gpt-6.1-sol` supervisor takes
+   `"ladder": []`, since a `gpt-6.1-sol` rung would collide with the
+   supervisor. Group into waves by file-independence: same-wave tasks must
+   not share files — merge colliding tasks or split them across consecutive
+   waves. Dependent chains are consecutive waves, never one wave.
 
    **Design for width.** Waves exist to run tasks side by side; a plan
    whose waves each hold one task is a serial script that pays wave
@@ -199,14 +201,14 @@ approvals.
    task that runs the shipped fixtures through the real entrypoints end to
    end offline; name that task's id in the plan's `e2e` key. A feature that
    is not a pipeline gets `"not-applicable: <reason>"` instead — never a
-   silent omission. The e2e task sits in a wave after every task whose entrypoints or fixtures it runs.
-   Documentation of its fixtures or output goes into the e2e task or a
-   later documentation-only wave. For a UI or dependency-injection
-   feature, `not-applicable` must name how production wiring is proven:
-   either an integration task, or a `must_run` grep or test proving the
-   DI binding and the call site on the real screen or client. Measured: an
-   attachments feature passed every contract and was not wired into the
-   production client or the screen.
+   silent omission. The e2e task sits in a wave after every task whose
+   entrypoints or fixtures it runs. Documentation of its fixtures or output
+   goes into the e2e task or a later documentation-only wave. For a UI or
+   dependency-injection feature, `not-applicable` must name how production
+   wiring is proven: either an integration task, or a `must_run` grep or
+   test proving the DI binding and the call site on the real screen or
+   client. Measured: an attachments feature passed every contract and was
+   not wired into the production client or the screen.
 
    **Right-size every task.** The measured lever for wave success is task
    breadth, not model choice: two broad tasks failed for 717 and 139
@@ -244,22 +246,18 @@ approvals.
    preflights every command at the base and compares against this
    expectation; a mismatch is a contract defect caught before any executor
    is spawned.
-5. **Seam audit.** Between Tasks and Lint, one read-only audit agent on the
-   cheap route — Claude: `claude-sonnet-5-5` at `medium`, spawned as a
-   one-agent Workflow `agent()` with that full ID (the Agent tool's
-   `sonnet` alias still resolves to Sonnet 5); Codex: `gpt-6.1-sol`
-   at `medium` — checks every contract against the code: each `must_run`
-   command exists and runs the way CI runs it, every referenced path or API
-   exists, the interfaces passed between tasks agree, and every recorded
-   base expectation is plausible. If Workflow is unavailable in this host or session, run the audit
-   in-session on the current model and say so in the Gate 2 message. It also checks the same-task rule
-   explicitly: for every changed format, signature or fixture, find every
-   reader of it and require that reader be in the same task as the change.
-   For every task, it lists the artifacts that task reads that do not
-   exist at the wave's base, and fails the plan when a same-wave sibling
-   produces any of them. "No file-ownership conflicts" is not a pass on
-   its own — measured: the pilot's audit reported exactly that and missed
-   the dependency.
+5. **Seam audit.** Between Tasks and Lint, spawn one read-only audit agent
+   on `gpt-6.1-sol` at `medium`. It checks every contract against the code:
+   each `must_run` command exists and runs the way CI runs it, every
+   referenced path or API exists, the interfaces passed between tasks
+   agree, and every recorded base expectation is plausible. It also checks
+   the same-task rule explicitly: for every changed format, signature or
+   fixture, find every reader of it and require that reader be in the same
+   task as the change. For every task, it lists the artifacts that task
+   reads that do not exist at the wave's base, and fails the plan when a
+   same-wave sibling produces any of them. "No file-ownership conflicts" is
+   not a pass on its own — measured: the pilot's audit reported exactly
+   that and missed the dependency.
 
    The audit also runs four further checks:
    - **Implementers and fakes.** For every public interface, type or
@@ -283,22 +281,23 @@ approvals.
      artifact has one. Measured: an eval wave launched before the other
      repository's broker existed.
 
-   Give it the same secrets prohibition
-   every executor gets: never open, print, copy or transmit credentials,
-   tokens or configuration files that hold them (for example `~/.codex`,
-   `~/.claude`, app configs with Authorization headers); if it needs a
-   secret to audit a seam, stop and report. This is where seams between
-   tasks — discovered mid-execution otherwise — surface while they are
-   still cheap to fix. Fix what it finds before lint.
+   Give it the same secrets prohibition every executor gets: never open,
+   print, copy or transmit credentials, tokens or configuration files that
+   hold them (for example `~/.codex`, `~/.claude`, app configs with
+   Authorization headers); if it needs a secret to audit a seam, stop and
+   report. This is where seams between tasks — discovered mid-execution
+   otherwise — surface while they are still cheap to fix. Fix what it finds
+   before lint.
 6. **Lint.** Run the shipped linter and fix every error yourself — the
    user never edits the plan. Lint runs before Gate 2. A mixed-provider wave is a planning defect to fix before Gate 2; never ask the linter or runner to guess a provider:
 
    ```
-   node <this skill's base directory>/references/plan-lint.mjs <plan-file> --repo <repo>
+   node ../../skills/super-plan/references/plan-lint.mjs <plan-file> --repo <repo>
    ```
 
-   Warnings are judgment calls; errors are not negotiable. A plan that
-   fails lint is not presented to the user.
+   The linter path is relative to this file's directory; resolve it to an
+   absolute path before you run it. Warnings are judgment calls; errors are
+   not negotiable. A plan that fails lint is not presented to the user.
 7. **Gate 2 — plan.** Show the lint-clean plan file and its shape: the
    number of waves, which tasks run in parallel in each wave, and the
    critical path as a chain of waves with the tasks on it. Never a
@@ -347,12 +346,12 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    ```json wave-plan
    { "waves": [
      { "wave": 1,
-       "supervisor": { "model": "claude-fable-5-1", "effort": "high" },
+       "supervisor": { "model": "gpt-6.1-sol", "effort": "high" },
        "tasks": [
          { "id": "http-retry",
            "branch": "wave/http-retry",
-           "executor": { "model": "claude-sonnet-5-5", "effort": "medium" },
-           "ladder": ["claude-opus-5-5"],
+           "executor": { "model": "gpt-6-luna", "effort": "medium" },
+           "ladder": [],
            "contract": {
              "files_allowed": ["src/http/**"],
              "files_forbidden": [],
@@ -361,16 +360,10 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
              "report_must_answer": ["Which call sites now retry?"] } } ] }
    ],
    "ci": { "commands": ["pytest -q"], "workflows": [".github/workflows/ci.yml"] },
-   "e2e": "not-applicable: http-retry touches one call path, not a data-transforming pipeline",
-   "approvals": {
-     "premium": {
-       "models": ["claude-fable-5-1"],
-       "reason": "user chose the premium supervisor at Gate 1 for this wave's cross-file retry change",
-       "approved_by": "user",
-       "date": "2026-09-24" } } }
+   "e2e": "not-applicable: http-retry touches one call path, not a data-transforming pipeline" }
    ```
 
-   Three more top-level keys sit beside `waves`, siblings of it in the same
+   More top-level keys sit beside `waves`, siblings of it in the same
    object, never nested inside a wave or task:
 
    - `ci`: `{"commands": [...], "workflows": [...]}` naming the exact test
@@ -387,26 +380,25 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      `"not-applicable: <reason>"` when the feature is not a data-transforming
      pipeline.
    - `approvals.premium`: `{"models": [...], "reason": "...", "approved_by":
-     "...", "date": "..."}`, required whenever `claude-fable-5-1` or
-     `gpt-6-astra` appears in any role — supervisor, executor, or ladder
-     rung. The example above shows it for the `claude-fable-5-1` supervisor.
-   - `review`: optional, only on Codex plans that ship carry it — Claude
-     plans never carry it, since Claude's Stage 3 review runs in the
-     session. Names the model and effort for ship's Stage 3
-     critical-review child, as an object, e.g.:
-     `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,
+     "...", "date": "..."}`, required whenever `gpt-6-astra` appears in any
+     role — supervisor, executor, ladder rung, or `review`. The example
+     above has none: its standard `gpt-6.1-sol` supervisor needs no
+     approval.
+   - `review`: optional, carried by Codex plans that ship. Names the model
+     and effort for ship's Stage 3 critical-review child, as an object,
+     e.g.: `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,
      recorded in `approvals.premium`) or
      `"review": {"model": "gpt-6.1-sol", "effort": "high"}` (measured:
      strict review gate clean 10/10, planted 10/10; PR support 3/4 on
      2026-09-30; `gpt-6-sol` stays valid for approved plans).
 
-   The linter enforces all three: a plan missing `ci`, missing `e2e`, or
+   The linter enforces these: a plan missing `ci`, missing `e2e`, or
    missing a required `approvals.premium` fails lint. It also checks the
    optional `review` key's value and its `approvals.premium` pairing when
    present.
 
    Three more optional top-level keys also sit beside `waves`, read by the
-   runners and validated by the linter (shape errors fail lint):
+   runner and validated by the linter (shape errors fail lint):
 
    - `worktree`: `{"links": [...], "writable": [...], "auto": true}` —
      `links` are repository-relative paths (never absolute, never
@@ -414,45 +406,37 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      worktree and checkout gets as a symlink to `<repo>/<path>`; linked
      files are never opened, printed or copied. `writable` lists cache
      directories, absolute or `~/`-prefixed, a sandboxed Codex child may
-     write — this matters on Codex only. `auto` (default `true`) has the
-     runners add auto-detected entries: `gradlew` at the repo root adds
-     `$GRADLE_USER_HOME` or `~/.gradle` plus `~/.android` as writable, and
-     `local.properties` as a link when it exists and is untracked;
-     `Cargo.toml` adds `$CARGO_HOME` or `~/.cargo` as writable; writable
-     directories that do not exist are dropped. `worktree-env.mjs`'s
-     `resolveWorktreeEnv` and `applyLinks` act on this key when the
-     runners set up an executor's or the preflight's checkout.
+     write. `auto` (default `true`) has the runner add auto-detected
+     entries: `gradlew` at the repo root adds `$GRADLE_USER_HOME` or
+     `~/.gradle` plus `~/.android` as writable, and `local.properties` as a
+     link when it exists and is untracked; `Cargo.toml` adds `$CARGO_HOME`
+     or `~/.cargo` as writable; writable directories that do not exist are
+     dropped. `worktree-env.mjs`'s `resolveWorktreeEnv` and `applyLinks`
+     act on this key when the runner sets up an executor's or the
+     preflight's checkout.
    - `depends_on`: a list of `{"wave": <n>, "repo": "<path or \".\">",
-     "ref": "<git ref>", "path": "<repo-relative path>"}`. The launcher
-     (`wave-launch.mjs`) refuses to start wave `<n>` until
+     "ref": "<git ref>", "path": "<repo-relative path>"}`. The runner
+     refuses to start wave `<n>` until
      `git -C <repo> cat-file -e <ref>:<path>` succeeds; `"."` means the
      plan's own repository.
    - `inherits`: a repository-relative path of a parent plan. When the
      child plan omits `ci`, `e2e`, `worktree`, `approvals` or `review`,
      `effectivePlan` (`worktree-env.mjs`) takes them from the parent for
-     the runners and the linter. Only one level is followed;
-     this key is for recovery and amendment plans.
+     the runner and the linter. Only one level is followed; this key is
+     for recovery and amendment plans.
 
-   The model fields use the active profile's plan host and this exact table:
+   The model fields use this exact table:
 
    | Plan host | Allowed model fields |
    |---|---|
-   | Claude | `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
    | Codex | `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
-
-   New Claude plans route Sonnet work to `claude-sonnet-5-5`; `claude-sonnet-5`
-   remains valid only so that already approved plans still execute.
 
    New Codex plans route executors to `gpt-6.1-sol` and `gpt-6-luna` per
    shared Codex routing. `gpt-6-sol` remains valid so that already approved
-   plans still execute, and it stays a valid review model for approved plans; the lower-cost final-review
-   option is `gpt-6.1-sol` since 2026-09-30. The GPT-5.6 IDs remain valid only so that already approved plans
-   still execute.
-
-   Aliases (`haiku`, `sonnet`, `opus`, `fable`) are rejected by the linter
-   and the runner because they re-point silently when a model ships; the
-   probe-dated alias mapping lives in multi-model's "Model identifiers"
-   section.
+   plans still execute, and it stays a valid review model for approved
+   plans; the lower-cost final-review option is `gpt-6.1-sol` since
+   2026-09-30. The GPT-5.6 IDs remain valid only so that already approved
+   plans still execute.
 
    Codex also permits `gpt-6-astra` as supervisor and, only when separately
    approved with `astra_executor_reason: "<concrete reason>"`, as the initial
@@ -464,14 +448,18 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    limits; the Astra executor exception still needs approval.
 
    `gpt-5.6` is never a plan id. It is only an active-session alias after
-   runtime-context normalization, not a model field. Every Codex supervisor and executor names an explicit effort; the adapter never invents one. Every supervisor,
-   executor, and ladder entry in one wave uses the same row. A mixed-provider
-   wave is a planning defect to fix before Gate 2, not a request for the
-   linter or runner to guess a provider. `branch` is always `wave/<id>`. The
-   supervisor sits on the wave because execution is one runner invocation per
-   wave.
+   runtime-context normalization, not a model field. Every Codex supervisor
+   and executor names an explicit effort; the runner never invents one.
+   Every supervisor, executor, and ladder entry in one wave uses the same
+   row. A mixed-provider wave is a planning defect to fix before Gate 2, not
+   a request for the linter or runner to guess a provider. `branch` is
+   always `wave/<id>`. The supervisor sits on the wave because execution is
+   one runner invocation per wave.
 
-   The ladder lists model transitions only. The executor and every ladder rung are distinct model transitions: never repeat the executor or a later rung. For Codex, same-model raised-effort rework is state-machine behavior, so do not invent duplicate same-model ladder entries.
+   The ladder lists model transitions only. The executor and every ladder
+   rung are distinct model transitions: never repeat the executor or a
+   later rung. Same-model raised-effort rework is state-machine behavior,
+   so do not invent duplicate same-model ladder entries.
 
 3. **The prose half** — one `## Task <id>` section per task: the
    substantive description and context, with full code where the solution
@@ -522,10 +510,10 @@ When there is no user to answer gates (an eval harness runs you), skip both
 gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
 silently is the failure this mode exists to measure. A headless run uses
-standard supervisors only — Opus 5.5 (or Opus 5 for Opus 5.5 executors) for
-Claude waves, `gpt-6.1-sol` for all-Luna Codex waves; a premium choice it
-would have asked the user for goes under `Assumptions (would ask)` instead,
-and the plan carries no `approvals.premium` invented by the model.
+standard supervisors only — `gpt-6.1-sol` for all-Luna waves; a wave that
+would need `gpt-6-astra`, and any premium choice it would have asked the
+user for, goes under `Assumptions (would ask)` instead, and the plan
+carries no `approvals.premium` invented by the model.
 
 ## Common Mistakes
 

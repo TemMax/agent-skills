@@ -215,7 +215,7 @@ check "runner-summary.json is absent in native mode" "[ ! -e '$RESULTS_NATIVE/na
 
 section "orchestrator prompt names this repository's own skill, not an installed plugin"
 check "prompt names the repo's SKILL.md by absolute path" \
-  "grep -qxF -- '  $REPO_ROOT/plugins/orchestration/skills/multi-model/SKILL.md' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
+  "grep -qxF -- '  $REPO_ROOT/plugins/orchestration/skills-codex/multi-model/SKILL.md' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
 check "prompt names the repo's references/ directory by absolute path" \
   "grep -qxF -- '  $REPO_ROOT/plugins/orchestration/skills/multi-model/references/' '$RESULTS_NATIVE/native/orchestrator.prompt.md'"
 check "prompt instructs not to follow an installed-plugin copy" \

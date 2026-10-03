@@ -1161,3 +1161,124 @@ test('(w2) running the printed cleanup line and re-running with a fresh --out le
     + rerun.stdout + rerun.stderr)
   assert.equal(rerun.json.status, 'merge-ready')
 })
+
+// ---------------------------------------------------------------------------
+// --reset
+// ---------------------------------------------------------------------------
+
+function stopWave(taskIds) {
+  const made = makeRepo()
+  const planPath = writePlan(made.root, taskIds)
+  const out = join(made.repo, '.worktrees', 'codex-runner', '1-' + made.base.slice(0, 12))
+  const args = ['--plan', planPath, '--wave', '1', '--repo', made.repo, '--base', made.base,
+    '--codex', STUB]
+  const stopped = runRunner(args, {
+    CODEX_STUB_LOG: join(made.root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'fail',
+  })
+  assert.equal(stopped.status, 1, stopped.stdout + stopped.stderr)
+  const resetArgs = ['--reset', '--plan', planPath, '--wave', '1', '--repo', made.repo,
+    '--base', made.base]
+  return { ...made, planPath, out, args, resetArgs, stopped }
+}
+
+test('(r1) --reset after a stopped two-task wave removes everything, renames the run dir, and a normal re-run works', () => {
+  const w = stopWave(['task-a', 'task-b'])
+  const tipA = git(w.repo, 'rev-parse', 'refs/heads/wave/task-a')
+  const tipB = git(w.repo, 'rev-parse', 'refs/heads/wave/task-b')
+  assert.ok(existsSync(w.out))
+  const again = runRunner(w.args, { CODEX_STUB_LOG: join(w.root, 'codex.log') })
+  assert.equal(again.status, 73)
+
+  const result = runRunner(w.resetArgs)
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  for (const [id, tip] of [['task-a', tipA], ['task-b', tipB]]) {
+    assert.ok(result.stdout.includes('reset ' + id + ': removed worktree, branch, state; branch tip was '
+      + tip + ' (restore: git -C ' + w.repo + ' branch wave/' + id + ' ' + tip + ')'), result.stdout)
+    assert.equal(existsSync(join(w.repo, '.worktrees', 'wave-' + id)), false)
+    assert.equal(git(w.repo, 'branch', '--list', 'wave/' + id), '')
+  }
+  assert.equal(existsSync(w.out), false)
+  assert.ok(existsSync(w.out + '.reset-1'))
+  assert.ok(result.stdout.includes('reset: moved run directory to ' + w.out + '.reset-1'), result.stdout)
+  for (const state of w.stopped.json.states) assert.equal(existsSync(state), false)
+
+  const rerun = runRunner(w.args, {
+    CODEX_STUB_LOG: join(w.root, 'codex2.log'), CODEX_STUB_EXECUTOR_MODE: 'good',
+  })
+  assert.equal(rerun.status, 0, rerun.stdout + rerun.stderr)
+})
+
+test('(r2) --reset refuses on a dirty worktree and changes nothing', () => {
+  const w = stopWave(['task-a', 'task-b'])
+  writeFileSync(join(w.repo, '.worktrees', 'wave-task-b', 'scratch.txt'), 'dirty\n')
+  const result = runRunner(w.resetArgs)
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.match(result.stderr, /reset refused for task "task-b": uncommitted changes in /)
+  assert.equal(result.stdout, '')
+  for (const id of ['task-a', 'task-b']) {
+    assert.ok(existsSync(join(w.repo, '.worktrees', 'wave-' + id)))
+    assert.notEqual(git(w.repo, 'branch', '--list', 'wave/' + id), '')
+  }
+  for (const state of w.stopped.json.states) assert.ok(existsSync(state))
+  assert.ok(existsSync(w.out))
+})
+
+test('(r3) --reset refuses on a state status that may still be live, with the cleanup line', () => {
+  const w = stopWave(['task-a'])
+  const statePath = w.stopped.json.states[0]
+  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  state.tasks['task-a'].status = 'reported'
+  writeFileSync(statePath, JSON.stringify(state))
+  const result = runRunner(w.resetArgs)
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.match(result.stderr, /reset refused for task "task-a": status reported: a runner may still be running/)
+  assert.ok(result.stderr.includes(w.stopped.json.cleanup[0]), result.stderr)
+  assert.ok(existsSync(statePath))
+  assert.ok(existsSync(join(w.repo, '.worktrees', 'wave-task-a')))
+})
+
+test('(r4) --reset with --jobs is a usage error', () => {
+  const w = stopWave(['task-a'])
+  const result = runRunner([...w.resetArgs, '--jobs', '2'])
+  assert.equal(result.status, 2, result.stdout + result.stderr)
+  assert.match(result.stderr, /--jobs/)
+  assert.ok(existsSync(join(w.repo, '.worktrees', 'wave-task-a')))
+})
+
+test('(r5) --reset skips the sandbox probe, a normal run keeps it', () => {
+  const w = stopWave(['task-a'])
+  const reset = runRunner(w.resetArgs, { CODEX_WAVE_RUNNER_SANDBOX_PROBE: 'fail' })
+  assert.equal(reset.status, 0, reset.stdout + reset.stderr)
+  const normal = runRunner([...w.args, '--out', join(w.root, 'fresh-out')],
+    { CODEX_WAVE_RUNNER_SANDBOX_PROBE: 'fail' })
+  assert.equal(normal.status, 2)
+  assert.equal(normal.json.error, 'nested-sandbox')
+})
+
+test('(r6) --reset refuses when the worktree path exists but is not a git worktree', () => {
+  const made = makeRepo()
+  const planPath = writePlan(made.root, ['task-a'])
+  mkdirSync(join(made.repo, '.worktrees', 'wave-task-a'), { recursive: true })
+  const result = runRunner(['--reset', '--plan', planPath, '--wave', '1', '--repo', made.repo,
+    '--base', made.base])
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.match(result.stderr, /reset refused for task "task-a": not a git worktree: /)
+  assert.ok(existsSync(join(made.repo, '.worktrees', 'wave-task-a')))
+})
+
+test('(r7) --reset with nothing to remove prints nothing-to-remove and exits 0', () => {
+  const made = makeRepo()
+  const planPath = writePlan(made.root, ['task-a', 'task-b'])
+  const result = runRunner(['--reset', '--plan', planPath, '--wave', '1', '--repo', made.repo,
+    '--base', made.base])
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.ok(result.stdout.includes('reset task-a: nothing to remove'))
+  assert.ok(result.stdout.includes('reset task-b: nothing to remove'))
+})
+
+test('(r8) the stop output carries the --reset hint right after the re-run line', () => {
+  const w = stopWave(['task-a'])
+  const hint = 'codex-wave-runner: or re-run after: node ' + RUNNER + ' --reset --plan ' + w.planPath
+    + ' --wave 1 --repo ' + w.repo + ' --base ' + w.base + '\n'
+  assert.ok(w.stopped.stderr.includes('re-run with a fresh --out after cleanup\n' + hint), w.stopped.stderr)
+})
