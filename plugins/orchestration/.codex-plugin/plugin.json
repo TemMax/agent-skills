@@ -15,6 +15,6 @@
     "delegation",
     "model-routing"
   ],
-  "skills": "./skills/",
+  "skills": "./skills-codex/",
   "hooks": "./hooks/hooks.json"
 }
