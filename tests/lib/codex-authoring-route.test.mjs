@@ -13,6 +13,7 @@ const read = path => readFileSync(path, 'utf8')
 test('all entrypoints and Codex profiles resolve the packaged route', () => {
   for (const name of ['multi-model', 'super-plan', 'ship']) {
     assert.match(read(skills + name + '/SKILL.md'), /codex-routing\.md/)
+    assert.match(read('plugins/orchestration/skills-codex/' + name + '/SKILL.md'), /codex-routing\.md/)
   }
   for (const name of ['gpt-5-6-sol', 'gpt-5-6-terra', 'gpt-5-6-luna', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-1-sol', 'gpt-6-luna', 'generic']) {
     const profile = read(refs + 'orchestrator-' + name + '.md')
