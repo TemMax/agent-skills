@@ -197,6 +197,27 @@ contains "read-only sandbox"   "read-only" "$cargv"
 contains "ephemeral"           "--ephemeral" "$cargv"
 contains "effort passed through -c" 'model_reasoning_effort="medium"' "$cargv"
 
+section "codex default entrypoint (stub codex, no model call)"
+NAV_ROOT="$(pwd)"
+CODEX_SKILL="$NAV_ROOT/plugins/orchestration/skills-codex/multi-model"
+CODEX_REFS="$NAV_ROOT/plugins/orchestration/skills/multi-model"
+cat > "$CBIN/codex" <<'SH'
+#!/usr/bin/env bash
+cat > /dev/null
+printf '{"type":"item.completed","item":{"id":"cmd1","type":"command_execution","command":"cat %s/SKILL.md","exit_code":0,"status":"completed"}}\n' "$NAV_STUB_SKILL"
+printf '{"type":"item.completed","item":{"id":"cmd2","type":"command_execution","command":"cat %s/references/codex-wave-protocol.md","exit_code":0,"status":"completed"}}\n' "$NAV_STUB_REFS"
+SH
+chmod +x "$CBIN/codex"
+dout="$(
+  unset SKILL_DIR REF_ROOT
+  PATH="$CBIN:$PATH" NAV_STUB_SKILL="$CODEX_SKILL" NAV_STUB_REFS="$CODEX_REFS" \
+  EVAL_PROVIDER=codex EVAL_MODEL=stub-model EVAL_REPEAT=1 nav_main 2>&1
+)"
+contains "codex default prints skills-codex skill dir" "  skill: $CODEX_SKILL" "$dout"
+contains "codex default prints shared ref root" "  ref root: $CODEX_REFS" "$dout"
+contains "reference read under REF_ROOT is reported as read" "read references/codex-wave-protocol.md (1/1)" "$dout"
+case "$dout" in *"SKIP read-check (references/codex-wave-protocol.md absent)"*) fail "reference is not skipped" "$dout" ;; *) pass "reference is not skipped" ;; esac
+
 section "unknown EVAL_PROVIDER"
 pout="$( (EVAL_PROVIDER=bogus nav_main) 2>&1 )"; pec=$?
 expect "nav_main exits 2" "2" "$pec"

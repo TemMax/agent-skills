@@ -372,7 +372,7 @@ nav_probe() {
   local id="$1" title="$2" ref="$3" scenario="$4" shape="$5"
   shift 5
   local n="${EVAL_REPEAT:-1}" rep dir parsed answer a kind rest field want got i
-  local skill_k=0 ref_k=0
+  local skill_k=0 ref_k=0 ref_root="${REF_ROOT:-$SKILL_DIR}"
   local counts=()
   for i in $(seq 0 $(($# - 1))); do counts[$i]=0; done
 
@@ -395,7 +395,7 @@ EOF
     else
       (cd "$dir" && timeout "${EVAL_TIMEOUT:-600}" claude -p --model "$EVAL_MODEL" \
         --permission-mode dontAsk --permission-prompts none \
-        --allowedTools 'Read,Glob,Grep' --add-dir "$SKILL_DIR" \
+        --allowedTools 'Read,Glob,Grep' --add-dir "$SKILL_DIR" ${ref_root:+--add-dir "$ref_root"} \
         --output-format stream-json --verbose \
         --no-session-persistence < prompt.md > events.jsonl) \
         || printf '        (%s run %s: claude exited non-zero)\n' "$id" "$rep"
@@ -406,7 +406,7 @@ EOF
     printf '        run %s: %s\n' "$rep" "${answer:-<no JSON object in result>}"
 
     [ "$(nav_read_status "$SKILL_DIR" SKILL.md "$dir/reads.txt" "$dir")" = yes ] && skill_k=$((skill_k+1))
-    if [ -n "$ref" ] && [ "$(nav_read_status "$SKILL_DIR" "${ref#optional:}" "$dir/reads.txt" "$dir")" = yes ]; then
+    if [ -n "$ref" ] && [ "$(nav_read_status "$ref_root" "${ref#optional:}" "$dir/reads.txt" "$dir")" = yes ]; then
       ref_k=$((ref_k+1))
     fi
 
@@ -423,7 +423,7 @@ EOF
   done
 
   expect "read SKILL.md ($skill_k/$n)" "$n" "$skill_k"
-  [ -n "$ref" ] && nav_report_read "$SKILL_DIR" "$ref" "$ref_k" "$n"
+  [ -n "$ref" ] && nav_report_read "$ref_root" "$ref" "$ref_k" "$n"
   i=0
   for a in "$@"; do
     kind="${a%%:*}"; rest="${a#*:}"; field="${rest%%:*}"; want="${rest#*:}"
@@ -462,9 +462,18 @@ nav_main() {
     *) printf 'unknown EVAL_PROVIDER: %s\n' "$EVAL_PROVIDER" >&2; exit 2 ;;
   esac
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" || exit 1
-  requested="${SKILL_DIR:-$root/plugins/orchestration/skills/multi-model}"
+  if [ "$EVAL_PROVIDER" = codex ]; then
+    requested="${SKILL_DIR:-$root/plugins/orchestration/skills-codex/multi-model}"
+  else
+    requested="${SKILL_DIR:-$root/plugins/orchestration/skills/multi-model}"
+  fi
   SKILL_DIR="$(cd "$requested" 2>/dev/null && pwd)" \
     || { printf 'SKILL_DIR does not exist: %s\n' "$requested" >&2; exit 2; }
+  if [ -d "$SKILL_DIR/references" ]; then
+    REF_ROOT="$SKILL_DIR"
+  else
+    REF_ROOT="$root/plugins/orchestration/skills/multi-model"
+  fi
   cd "$root" || exit 1
   . tests/lib.sh
   if [ "$EVAL_PROVIDER" = codex ]; then
@@ -474,7 +483,7 @@ nav_main() {
   fi
   EVAL_EFFORT="${EVAL_EFFORT:-medium}"
   NAV_WORK="$(mktemp -d)"; trap 'rm -rf "$NAV_WORK"' EXIT
-  printf '  skill: %s\n  model: %s\n  provider: %s\n' "$SKILL_DIR" "$EVAL_MODEL" "$EVAL_PROVIDER"
+  printf '  skill: %s\n  ref root: %s\n  model: %s\n  provider: %s\n' "$SKILL_DIR" "$REF_ROOT" "$EVAL_MODEL" "$EVAL_PROVIDER"
   [ "$EVAL_PROVIDER" = codex ] && printf '  effort: %s\n' "$EVAL_EFFORT"
   if [ ! -f "$SKILL_DIR/SKILL.md" ]; then
     fail "SKILL_DIR holds SKILL.md" "$SKILL_DIR"

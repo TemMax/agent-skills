@@ -39,7 +39,7 @@ cd "$(dirname "$0")/../.." || exit 1
 ROOT="$(pwd)"
 
 SKILL_DIR="$ROOT/plugins/orchestration/skills/multi-model"
-SKILL_MD="$SKILL_DIR/SKILL.md"
+SKILL_MD="$ROOT/plugins/orchestration/skills-codex/multi-model/SKILL.md"
 REFERENCES_DIR="$SKILL_DIR/references"
 PROTOCOL="$SKILL_DIR/references/codex-wave-protocol.md"
 RUNNER="$SKILL_DIR/references/codex-wave-runner.mjs"
