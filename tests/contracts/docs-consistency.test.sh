@@ -92,7 +92,7 @@ check "the Contents list carries the Toolchain caches section" \
   "one_line '$PROTOCOL' | grep -qF 'Toolchain caches, \`.git\` and linked files'"
 
 section "README.md: current versions"
-check "orchestration 4.6.0, code-review 1.13.0" \
-  "grep -qF 'orchestration 4.6.0, code-review 1.13.0' $README"
+check "orchestration 4.7.0, code-review 1.14.0" \
+  "grep -qF 'orchestration 4.7.0, code-review 1.14.0' $README"
 
 summary

@@ -148,8 +148,9 @@ All skills always reply to the user in the language the user writes in.
 
 ## Hosts, models, and lifecycle limits
 
-Both marketplaces expose the same plugin folders and `./skills/` paths. Claude
-Code and Codex discover the three orchestration skills (`super-plan`, `ship`,
+Both marketplaces expose the same plugin folders. Claude Code reads `skills/`,
+Codex reads `skills-codex/`, and the shared references live under `skills/`.
+Claude Code and Codex discover the three orchestration skills (`super-plan`, `ship`,
 and `multi-model`) plus the `critical-review` skill. The exact-profile roster
 is deliberately narrower than a claim that every profile is a production route:
 
@@ -349,7 +350,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.6.0, code-review 1.13.0):
+orchestration 4.7.0, code-review 1.14.0):
 
 | Before | After |
 |---|---|
@@ -461,6 +462,10 @@ plugins/
       runtime-context            # plugin-scoped Claude/Codex model context
       drift-check                # provider-aware advisory Stop judge adapter
       drift-check.test.sh        # offline drift behavior contract
+    skills-codex/                # Codex entrypoints; shared references stay in skills/
+      ship/SKILL.md
+      super-plan/SKILL.md
+      multi-model/SKILL.md
     skills/
       ship/
         SKILL.md               # the pipeline conductor (no references of its own)
@@ -502,6 +507,8 @@ plugins/
     hooks/                       # code-review/hooks/ lifecycle context
       hooks.json                 # independently installable runtime-context registration
       runtime-context            # plugin-scoped Claude/Codex model context
+    skills-codex/                # Codex entrypoint; shared references stay in skills/
+      critical-review/SKILL.md
     skills/
       critical-review/
         SKILL.md
