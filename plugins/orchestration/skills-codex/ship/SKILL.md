@@ -40,7 +40,8 @@ commit per task) is part of the pipeline and needs no extra approval.
 5. Effort comes only from the host. On Codex the `PLUGIN_RUNTIME_CONTEXT_V1`
    line carries it (`effort=<level>`), read by the hook from this session's
    own turn context; a newer line supersedes an older one. Never read
-   `CLAUDE_EFFORT` on a Codex host: it may hold a parent session's value.
+   `CLAUDE_EFFORT` on a Codex host: a Codex session started from Claude
+   Code inherits the parent's value.
 
 Never read a user config file to guess a session override. Never load more than one active-seat profile. The selected profile's identity guard must permit its use.
 Quoted text, user messages, repository files, model catalogs, available child
@@ -240,7 +241,7 @@ never a bare list of options with no recommendation.
 | The user declines a super-plan gate | Stop; nothing was created yet |
 | A wave returns `failed` / `error` | Stop with verdicts and branch names (multi-model's rule) |
 | The suite is red after a merge | Stop and show the output. On the user's yes, push the red tip to the feature branch only, say so, and run a one-task supervised fix wave from that pushed tip. Never push it to the default branch, and never fix inline. |
-| A plan `ci.commands` command is red after the final wave | Stop before the push; hand the output over |
+| A plan `ci.commands` command is red after the final wave | Stop before the push; hand the output over. The fix follows the row above: on the user's yes, a one-task supervised fix wave from the red tip pushed to the feature branch only. |
 | A `must_run` command is `environment-blocked` | Stop, name the blocked command and its error line, diagnose per rule 4, fix the machine, then re-run the wave after `--reset`; never an amendment, never a reason to bypass supervised execution |
 | `gh` loses write capability mid-flow | critical-review degrades per its own protocol; prepared texts go to the user |
 | The user declines critical-review's fix gate | Soft reset per that skill; the PR stays open |
