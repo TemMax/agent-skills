@@ -262,6 +262,50 @@ fixtures in `tests/eval/fixtures/skill-session-ab/`. Neither calls a model.
 
 Recorded measurement: [skill-session-ab-results-2026-10-03.md](eval/skill-session-ab-results-2026-10-03.md).
 
+## seam-audit fixtures
+
+`tests/eval/seam-audit-fixtures.sh [--provider claude|codex] [--model ID]
+[--effort LEVEL] [--repeat N] [--only FIXTURE] [--check]` measures the audit
+step itself: the read-only seam-audit agent of the super-plan skill is handed
+a ready plan and a mini repository, and the script scores the defects it
+reports. The existing seam-audit tier (`seam-audit.sh`) measures planning, that
+is whether a planner writes a plan that survives the audit; this one holds the
+plan fixed and measures whether the audit catches the planted defect and stays
+quiet on a sound plan.
+
+Fixture format: each directory under `tests/eval/fixtures/seam-audit/` holds
+`plan.md` (a lint-clean wave plan), `repo/` (a mini repository, committed by
+the runner as the plan's base) and `score.json`:
+`{"expect": "defect"|"clean", "check": "...", "must_name": [...],
+"must_not_name": [...]}`. The agent's prompt is the provider's Seam audit step
+text from the super-plan entrypoint plus the plan and repo paths, and it must
+end its answer with one fenced block whose info string is `json seam-verdict`:
+`{"blocking": [{"check": "...", "summary": "...", "evidence": "..."}],
+"notes": ["..."]}`. A `clean` fixture passes on `"blocking": []`; a `defect`
+fixture passes when the blocking entries name every `must_name` string and
+none of `must_not_name` (case-insensitive; notes are not scored). A missing or
+unparseable verdict block scores `error`.
+
+Usage and defaults: `--provider claude` (default) uses `claude-sonnet-5-5`,
+`--provider codex` uses `gpt-6.1-sol`; `--effort` defaults to `medium`,
+`--repeat` to 1. Each row is `fixture, provider, model, rep, verdict, detail`;
+the last line is `pass=N fail=N error=N`. A completed run exits 0 whatever the
+verdicts, because fails are data. `--check` validates every fixture (score.json
+shape, non-empty repo, plan passes `plan-lint.mjs`) without a model call.
+Optional env: `SEAM_FIXTURES_RESULTS` appends the rows to a file,
+`SEAM_FIXTURES_KEEP_DIR` keeps each prompt and answer.
+
+It is a by-hand calibration run: every live run is a real model call per
+fixture, so `tests/run.sh` excludes it from every automatic tier, including
+`--live`.
+
+Offline test, run by `tests/run.sh`: `seam-audit-fixtures.test.sh` drives the
+real runner with `SEAM_FIXTURES_FAKE_ANSWER` (a canned answer in place of the
+model) and checks the scoring and `--check`. No model is called.
+
+What each fixture plants, and what the audit must name:
+[EXPECTATIONS.md](eval/fixtures/seam-audit/EXPECTATIONS.md).
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
