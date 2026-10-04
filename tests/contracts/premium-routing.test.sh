@@ -55,7 +55,7 @@ check "ship Stage 2 step 4 runs ci.commands after the final wave, before push" \
 section "ship: Failure map covers a red ci.commands command after the final wave"
 
 check "ship Failure map stops before the push when a plan ci.commands command is red" \
-  "grep -qF '| A plan \`ci.commands\` command is red after the final wave | Stop before the push; hand the output over |' '$SH'"
+  "grep -qF '| A plan \`ci.commands\` command is red after the final wave | Stop before the push; hand the output over. The fix follows the row above: on the user'\''s yes, a one-task supervised fix wave from the red tip pushed to the feature branch only. |' '$SH'"
 
 section "Sol 6.1 standard supervisor: review route is gpt-6.1-sol"
 
