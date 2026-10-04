@@ -306,6 +306,8 @@ model) and checks the scoring and `--check`. No model is called.
 What each fixture plants, and what the audit must name:
 [EXPECTATIONS.md](eval/fixtures/seam-audit/EXPECTATIONS.md).
 
+Baseline measured 2026-10-04: [seam-audit-fixtures-results-2026-10-04.md](eval/seam-audit-fixtures-results-2026-10-04.md).
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
