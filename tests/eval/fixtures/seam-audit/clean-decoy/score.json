@@ -1,0 +1,1 @@
+{"expect": "clean", "check": "none", "must_name": [], "must_not_name": ["constants.py", "shop/__init__.py"]}
