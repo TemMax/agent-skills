@@ -227,6 +227,41 @@ the same git-level merge a real orchestrator would and writes a real,
 synthetic rollout, so the shipped `telemetry.mjs` parses it for real without
 ever calling a model.
 
+## skill-session-ab
+
+`tests/eval/skill-session-ab.sh --arm old|new|real --out DIR [--rep N]
+[--old-ref REF] [--new-ref REF] [--model ID] [--effort LEVEL] [--turns N]
+[--turn-timeout SECONDS]` runs one scripted 8-turn Codex orchestrator session
+on a disposable repo with 5 planted duplicate tests and saves every turn's
+`codex exec --json` stream, the session rollout and the final repo state. It
+measures how a skill entrypoint behaves (skill re-reads, profile
+announcements, coordinator edits, runner and seam-audit use, tokens), not
+whether the result is correct. The arms: `old` is the skill tree of
+`--old-ref` (default d118fff, 4.6.0) read from `skills/`, `new` is the tree of
+`--new-ref` (default HEAD) read from `skills-codex/`, both with
+`--disable plugins`; `real` invokes the installed plugin by name with plugins
+and hooks enabled. Cost warning: every run is a real model session of many
+turns with sub-agents (about 14M input tokens per run, roughly 95% of them cached, at the recorded
+settings), so it never runs in any automatic tier; `tests/run.sh` excludes
+it even under `--live`. `--out` is part of the evidence contract: absent or
+empty, else exit 73.
+
+Usage: run each arm into its own directory, then
+`python3 tests/eval/skill-session-ab-analyze.py RUN_DIR [RUN_DIR ...]`,
+which writes `metrics.json` into each run directory and prints per-run
+tables and a per-arm comparison.
+
+Testing hooks: `SKILL_SESSION_AB_CODEX_BIN` replaces the `codex` executable
+and `SKILL_SESSION_AB_SESSIONS_DIR` points at the directory where rollouts
+are searched (default `${CODEX_HOME:-$HOME/.codex}/sessions`).
+
+Offline tests, both run by `tests/run.sh`: `skill-session-ab.test.sh` runs
+the real driver end to end against a codex stub, and
+`skill-session-ab-analyze.test.sh` runs the analyzer over the committed
+fixtures in `tests/eval/fixtures/skill-session-ab/`. Neither calls a model.
+
+Recorded measurement: [skill-session-ab-results-2026-10-03.md](eval/skill-session-ab-results-2026-10-03.md).
+
 ## GPT-5.6 all-skills matrix
 
 The separate [Astra pilot](eval/gpt-6-astra-pilot-2026-09-07.md) records a
