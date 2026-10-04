@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.1
+  version: 4.7.2
 ---
 
 # Planning Waves (super-plan, Codex)
@@ -124,9 +124,10 @@ design and plan approvals.
 
    Record the model for ship's Stage 3 critical-review child in the plan's
    `review` key here too, and disclose it at Gate 1:
-   - `gpt-6-astra` by default, recorded in `approvals.premium`;
+   - `gpt-6-astra` as the recommended option, recorded in `approvals.premium` only when the user picks it;
    - `gpt-6.1-sol` when the user picks it to save that cost — strict review
      gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30.
+     Only the user's choice is recorded; ship never picks one.
 
    A premium model is used only when the user picks it; record the approval
    in `approvals.premium`. If the Tasks step later changes a wave so the
@@ -384,7 +385,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      role — supervisor, executor, ladder rung, or `review`. The example
      above has none: its standard `gpt-6.1-sol` supervisor needs no
      approval.
-   - `review`: optional, carried by Codex plans that ship. Names the model
+   - `review`: required for a Codex plan that goes through ship (ship stops and asks without it), optional otherwise. Names the model
      and effort for ship's Stage 3 critical-review child, as an object,
      e.g.: `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,
      recorded in `approvals.premium`) or
@@ -513,7 +514,7 @@ silently is the failure this mode exists to measure. A headless run uses
 standard supervisors only — `gpt-6.1-sol` for all-Luna waves; a wave that
 would need `gpt-6-astra`, and any premium choice it would have asked the
 user for, goes under `Assumptions (would ask)` instead, and the plan
-carries no `approvals.premium` invented by the model.
+carries no `approvals.premium` invented by the model. It also leaves the `review` key unset and records the review choice under `## Assumptions (would ask)`.
 
 ## Common Mistakes
 

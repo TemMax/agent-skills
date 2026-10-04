@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.1
+  version: 4.7.2
 ---
 
 # Planning Waves (super-plan)
@@ -120,10 +120,9 @@ approvals.
    work only). A Codex
    wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
    supervisor — it needs `gpt-6-astra`. Record the model for ship's Stage 3
-   critical-review child in the plan's `review` key here too: `gpt-6-astra` by default, recorded
-   in `approvals.premium`, or, when the user picks it to save that cost,
+   critical-review child in the plan's `review` key here too: `gpt-6-astra` as the recommended option, recorded in `approvals.premium` only when the user picks it, or, when the user instead chooses the cheaper option,
    `gpt-6.1-sol` — strict review gate clean 10/10, planted 10/10; PR support
-   3/4 on 2026-09-30 — disclosed at Gate 1 too.
+   3/4 on 2026-09-30 — disclosed at Gate 1 too. Only the user's choice is recorded; ship never picks one.
    A premium model is used only when the user picks it; record the
    approval in `approvals.premium`. If
    the Tasks step later changes a wave so the chosen supervisor no longer
@@ -390,8 +389,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      "...", "date": "..."}`, required whenever `claude-fable-5-1` or
      `gpt-6-astra` appears in any role — supervisor, executor, or ladder
      rung. The example above shows it for the `claude-fable-5-1` supervisor.
-   - `review`: optional, only on Codex plans that ship carry it — Claude
-     plans never carry it, since Claude's Stage 3 review runs in the
+   - `review`: required for a Codex plan that goes through ship (ship stops and asks without it), optional otherwise — Claude plans never carry it, since Claude's Stage 3 review runs in the
      session. Names the model and effort for ship's Stage 3
      critical-review child, as an object, e.g.:
      `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,
@@ -524,8 +522,7 @@ gates and record every fork you would have asked under a section titled
 silently is the failure this mode exists to measure. A headless run uses
 standard supervisors only — Opus 5.5 (or Opus 5 for Opus 5.5 executors) for
 Claude waves, `gpt-6.1-sol` for all-Luna Codex waves; a premium choice it
-would have asked the user for goes under `Assumptions (would ask)` instead,
-and the plan carries no `approvals.premium` invented by the model.
+would have asked the user for goes under `Assumptions (would ask)` instead, and the plan carries no `approvals.premium` invented by the model. A headless run also leaves the `review` key unset and records the review choice under `## Assumptions (would ask)`.
 
 ## Common Mistakes
 

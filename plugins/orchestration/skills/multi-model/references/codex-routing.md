@@ -37,9 +37,7 @@ ordinary means a closed implementation across call sites; difficult means a
 bounded bug or implementation requiring substantial reasoning. Resolve product
 ambiguity before dispatch. Select the initial tier by task needs, not by the
 coordinator's model. If it is unavailable, choose an available higher tier before
-plan approval and record why; use that model's initial effort from the table
-(GPT-6.1 Sol/medium or GPT-6.1 Sol/high), since this is initial selection, not runtime
-escalation. Omit unavailable optional rungs. If no suitable
+plan approval and record why; the task takes the initial effort of the row it moves to — a mechanical task moved to `gpt-6.1-sol` takes the ordinary row's `medium`; `high` only with a recorded task-needs reason — since this is initial selection, not runtime escalation. Omit unavailable optional rungs. If no suitable
 executor exists, report that capability gap. Every rung is an exact model ID;
 escalated rungs use `high`. Never default to `max`.
 

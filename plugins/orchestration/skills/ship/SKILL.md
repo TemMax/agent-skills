@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.1
+  version: 4.7.2
 ---
 
 # Shipping a Feature (ship)
@@ -243,7 +243,7 @@ never a bare list of options with no recommendation.
 | The user declines a super-plan gate | Stop; nothing was created yet |
 | A wave returns `failed` / `error` | Stop with verdicts and branch names (multi-model's rule) |
 | The suite is red after a merge | Stop and show the output. On the user's yes, push the red tip to the feature branch only, say so, and run a one-task supervised fix wave from that pushed tip. Never push it to the default branch, and never fix inline. |
-| A plan `ci.commands` command is red after the final wave | Stop before the push; hand the output over |
+| A plan `ci.commands` command is red after the final wave | Stop before the push; hand the output over. The fix follows the row above: on the user's yes, a one-task supervised fix wave from the red tip pushed to the feature branch only. |
 | A `must_run` command is `environment-blocked` | Stop, name the blocked command and its error line, fix the machine, then re-run the wave; never an amendment, never a reason to bypass supervised execution |
 | `gh` loses write capability mid-flow | critical-review degrades per its own protocol; prepared texts go to the user |
 | The user declines critical-review's fix gate | Soft reset per that skill; the PR stays open |

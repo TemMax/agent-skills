@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.1
+  version: 4.7.2
 ---
 
 # Orchestrating Multi-Model Development (Codex)
@@ -125,7 +125,8 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    completion summary (super-plan: "No time or cost estimates"). A premium
    model (GPT-6 Astra, any role) is used only when the user picks it here and
    the plan records `approvals.premium` with that choice — never filled in by
-   the orchestrator for a choice the user did not make.
+   the orchestrator for a choice the user did not make. When the plan comes
+   from super-plan, this choice is its Gate 1.
 5. **Write the wave plan file** (see Wave plan artifact) with `status: active`,
    and record the base SHA. You do this, not the user. Once it is lint-clean and
    explicitly approved, preserve its exact provider/model/effort fields through
@@ -147,9 +148,12 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    `ci.commands` exactly (in addition to the offline suite) before the final
    wave's push, not after — with `ci: "none: <reason>"` there is nothing extra
    to run. A red `ci.commands` entry stops completion exactly like a red
-   offline suite: fix it, don't push through it. At the end a summary: done /
-   verified / remaining. **Set the wave plan's `status: done`** in the same
-   breath — an open plan keeps the drift hook paying for a wave that ended.
+   offline suite: fix it, don't push through it. The only push while red is
+   the one the user approves to the feature branch as the base of a one-task
+   supervised fix wave (ship's failure map) — never to the default branch,
+   never a PR. At the end a summary: done / verified / remaining.
+   **Set the wave plan's `status: done`** in the same breath — an open plan
+   keeps the drift hook paying for a wave that ended.
 
 **Scope of a bypass.** When supervised execution fails and the user approves
 "implement directly," record the scope in the plan — which waves the approval
