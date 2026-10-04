@@ -4,6 +4,34 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.7.2
+
+### Highlights
+
+**multi-model**
+- Ten skill-text tensions found by the scenario check fixed
+
+The ten source tensions recorded by the Codex authoring scenario check are
+resolved in the Claude and Codex skill text; behaviour of the Claude skills
+does not change. (1) The Astra profile applies only to the exact
+`gpt-6-astra` ID. (2) The Astra profile names `gpt-6.1-sol` and
+`gpt-6-luna` executors, and neither Sol supervises a Sol executor. (3)
+`--reset` is the way to clear a stopped wave, printed cleanup lines are for
+a runner older than `--reset`, and a `--reset` refusal is a stop for the
+user. (4) The only push while red is the user-approved feature-branch push
+as a one-task fix wave's base. (5) Premium is picked at the Table step,
+which is super-plan's Gate 1 when the plan comes from super-plan. (6) A
+tier bump takes the moved-to row's effort. (7) Astra is the recommended
+review option, only the user's choice is recorded, the `review` key is
+required for Codex plans that go through ship, and headless leaves it
+unset. (8) `git commit-tree -S` is the signing probe, `ssh-add -l` only
+lists agent keys. (9) The Sol profile uses `high` for hard decomposition
+and decisions and `medium` for ordinary coordination. (10) ship's
+`CLAUDE_EFFORT` sentence matches the other skills. The scenario record
+`tests/eval/codex-authoring-routing-insession.md` is refreshed: 16
+scenarios recorded, 15 run (N1 covered by the skill-session A/B), GPT-6.1
+Sol x3, 43 pass / 2 partial / 0 fail. code-review stays 1.14.1.
+
 ## 4.7.1
 
 ### Highlights
