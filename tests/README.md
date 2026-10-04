@@ -241,7 +241,7 @@ whether the result is correct. The arms: `old` is the skill tree of
 `--new-ref` (default HEAD) read from `skills-codex/`, both with
 `--disable plugins`; `real` invokes the installed plugin by name with plugins
 and hooks enabled. Cost warning: every run is a real model session of many
-turns with sub-agents (about 2M input tokens per run at the recorded
+turns with sub-agents (about 14M input tokens per run, roughly 95% of them cached, at the recorded
 settings), so it never runs in any automatic tier; `tests/run.sh` excludes
 it even under `--live`. `--out` is part of the evidence contract: absent or
 empty, else exit 73.
