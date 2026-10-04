@@ -127,12 +127,12 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 R="$W/repo"; mkdir -p "$R"
 printf 'Disposable profile-routing fixture.\n' > "$R/README.md"
 git -C "$R" init -q; git -C "$R" add -A; git -C "$R" commit -q -m base
-record_cell super-plan plugins/orchestration/skills/super-plan/SKILL.md orchestration orchestration:orchestrator context || rc=1
-record_cell super-plan plugins/orchestration/skills/super-plan/SKILL.md orchestration orchestration:orchestrator generic-fallback || rc=1
-record_cell wave plugins/orchestration/skills/multi-model/SKILL.md orchestration orchestration:orchestrator context || rc=1
-record_cell wave plugins/orchestration/skills/multi-model/SKILL.md orchestration orchestration:orchestrator generic-fallback || rc=1
-record_cell critical-review plugins/code-review/skills/critical-review/SKILL.md code-review code-review:reviewer context || rc=1
-record_cell critical-review plugins/code-review/skills/critical-review/SKILL.md code-review code-review:reviewer generic-fallback || rc=1
-record_cell ship plugins/orchestration/skills/ship/SKILL.md orchestration orchestration:orchestrator context || rc=1
-record_cell ship plugins/orchestration/skills/ship/SKILL.md orchestration orchestration:orchestrator generic-fallback || rc=1
+record_cell super-plan plugins/orchestration/skills-codex/super-plan/SKILL.md orchestration orchestration:orchestrator context || rc=1
+record_cell super-plan plugins/orchestration/skills-codex/super-plan/SKILL.md orchestration orchestration:orchestrator generic-fallback || rc=1
+record_cell wave plugins/orchestration/skills-codex/multi-model/SKILL.md orchestration orchestration:orchestrator context || rc=1
+record_cell wave plugins/orchestration/skills-codex/multi-model/SKILL.md orchestration orchestration:orchestrator generic-fallback || rc=1
+record_cell critical-review plugins/code-review/skills-codex/critical-review/SKILL.md code-review code-review:reviewer context || rc=1
+record_cell critical-review plugins/code-review/skills-codex/critical-review/SKILL.md code-review code-review:reviewer generic-fallback || rc=1
+record_cell ship plugins/orchestration/skills-codex/ship/SKILL.md orchestration orchestration:orchestrator context || rc=1
+record_cell ship plugins/orchestration/skills-codex/ship/SKILL.md orchestration orchestration:orchestrator generic-fallback || rc=1
 exit "$rc"
