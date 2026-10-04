@@ -8,6 +8,7 @@ SP=tests/eval/super-plan.sh
 SH=tests/eval/ship.sh
 CR=tests/eval/critical-review.sh
 WV=tests/eval/wave.sh
+SA=tests/eval/seam-audit.sh
 
 section "profile-routing.sh (Codex-only) names the skills-codex entrypoints"
 
@@ -48,9 +49,22 @@ section "wave.sh has no unused MULTI_SKILL"
 
 check "wave.sh no longer contains MULTI_SKILL" "! grep -qF 'MULTI_SKILL' '$WV'"
 
+section "seam-audit.sh picks the super-plan entrypoint per provider"
+
+check "seam-audit.sh names the skills-codex super-plan SKILL.md" \
+  "grep -qF 'plugins/orchestration/skills-codex/super-plan/SKILL.md' '$SA'"
+check "seam-audit.sh names the Claude super-plan SKILL.md" \
+  "grep -qF 'plugins/orchestration/skills/super-plan/SKILL.md' '$SA'"
+check "seam-audit.sh switches on the codex provider" \
+  "grep -qF 'if [ \"\${EVAL_PROVIDER:-claude}\" = codex ]; then' '$SA'"
+check "skills-codex SKILL_REL sits inside the codex branch" \
+  "awk '/^if \[ \"\\\${EVAL_PROVIDER:-claude}\" = codex \]; then\$/{i=1;next} /^else\$/{i=0} i' '$SA' | grep -qF 'SKILL_REL=plugins/orchestration/skills-codex/super-plan/SKILL.md'"
+check "Claude SKILL_REL sits outside the codex branch" \
+  "awk '/^else\$/{i=1;next} /^fi\$/{i=0} i' '$SA' | grep -qF 'SKILL_REL=plugins/orchestration/skills/super-plan/SKILL.md'"
+
 section "every skills-codex SKILL.md named in these scripts exists"
 
-for p in $(grep -ohE 'plugins/[a-z-]+/skills-codex/[a-z-]+/SKILL\.md' $PR $SP $SH $CR $WV | sort -u); do
+for p in $(grep -ohE 'plugins/[a-z-]+/skills-codex/[a-z-]+/SKILL\.md' $PR $SP $SH $CR $WV $SA | sort -u); do
   check "$p exists" "test -f '$p'"
 done
 

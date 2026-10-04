@@ -4,9 +4,10 @@
 # Gate 2 message shows the wave shape and no time or cost estimate.
 #
 # SEAM_SKILL_ROOT points the whole tier at a skill checkout: the prompt uses
-# ITS SKILL.md and the Lint step uses ITS plan-lint.mjs, so an older skill is
-# linted by its own linter and this tier can compare before/after by pointing
-# it at an older copy of the skill. Default: this repository's root.
+# ITS SKILL.md (skills-codex/ when EVAL_PROVIDER=codex, skills/ otherwise) and
+# the Lint step uses ITS plan-lint.mjs, so an older skill is linted by its own
+# linter and this tier can compare before/after by pointing it at an older
+# copy of the skill. Default: this repository's root.
 #
 # Usage:
 #   bash tests/eval/seam-audit.sh
@@ -23,11 +24,16 @@ cd "$(dirname "$0")/../.." || exit 1
 . tests/eval/model-cli.sh
 
 SEAM_SKILL_ROOT="${SEAM_SKILL_ROOT:-$(pwd)}"
-SKILL="$SEAM_SKILL_ROOT/plugins/orchestration/skills/super-plan/SKILL.md"
+if [ "${EVAL_PROVIDER:-claude}" = codex ]; then
+  SKILL_REL=plugins/orchestration/skills-codex/super-plan/SKILL.md
+else
+  SKILL_REL=plugins/orchestration/skills/super-plan/SKILL.md
+fi
+SKILL="$SEAM_SKILL_ROOT/$SKILL_REL"
 LINT="$SEAM_SKILL_ROOT/plugins/orchestration/skills/super-plan/references/plan-lint.mjs"
 
 if [ ! -f "$SKILL" ]; then
-  printf 'seam-audit: SEAM_SKILL_ROOT (%s) has no plugins/orchestration/skills/super-plan/SKILL.md\n' "$SEAM_SKILL_ROOT" >&2
+  printf 'seam-audit: SEAM_SKILL_ROOT (%s) has no %s\n' "$SEAM_SKILL_ROOT" "$SKILL_REL" >&2
   exit 64
 fi
 if [ ! -f "$LINT" ]; then
