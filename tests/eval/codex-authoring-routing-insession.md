@@ -90,37 +90,37 @@ simply ended without the question. Rep 2 did end with the question.
 
 ## Source tensions found while verifying
 
-Recorded for follow-up, not fixed here.
+Resolved in 4.7.2 (orchestration): every tension below was fixed as noted.
 
 - Astra identity guard vs Step 0: the Astra active-seat profile applies on
   host-family compatibility with bare `GPT-6`, while multi-model, super-plan
-  and ship say bare `GPT-6` selects no profile by itself.
+  and ship say bare `GPT-6` selects no profile by itself. — resolved: the Astra profile applies only to the exact `gpt-6-astra` ID
 - Stale Astra executor wording: the Astra profile says to delegate to named
   GPT-6 Sol and Luna executors, while the routing reference says GPT-6 Sol is
   no longer chosen for new executor routes; "Sol never supervises" does not
-  say which Sol.
+  say which Sol. — resolved: the Astra profile names `gpt-6.1-sol`/`gpt-6-luna` executors and neither Sol supervises a Sol executor
 - Cleanup paths: multi-model rule 5 allows only `--reset`, while the wave
   protocol also sanctions running the runner's printed `cleanup` lines
-  (`git worktree remove --force`, `git branch -D`, `rm -f`).
+  (`git worktree remove --force`, `git branch -D`, `rm -f`). — resolved: `--reset` clears a stopped wave, printed cleanup lines are for a runner older than `--reset`, and a `--reset` refusal is a stop for the user
 - Pushing a red tip: ship allows pushing the red tip to the feature branch on
   the user's yes, while ship and multi-model also say to stop before the push
-  and not push through a red suite; both can apply to a red final wave.
+  and not push through a red suite; both can apply to a red final wave. — resolved: the only push while red is the user-approved feature-branch push as a one-task fix wave's base
 - Where premium is picked: multi-model says at the Table step, while it, the
   routing reference and the review text say "recorded at Gate 1"; standalone
-  multi-model has no step named Gate 1.
+  multi-model has no step named Gate 1. — resolved: premium is picked at the Table step, which is super-plan's Gate 1 when the plan comes from super-plan
 - Effort after a tier bump: the routing reference gives Sol/medium or
-  Sol/high without a rule for an escalated mechanical task.
+  Sol/high without a rule for an escalated mechanical task. — resolved: a tier bump takes the moved-to row's effort
 - `review` default vs never pick: super-plan says `review` is gpt-6-astra by
   default and optional, while ship says never pick a model and stops without
   it; headless mode forbids invented premium approvals and is silent on
-  `review`.
+  `review`. — resolved: Astra is the recommended review option, only the user's choice is recorded, the `review` key is required for Codex plans that go through ship, and headless leaves it unset
 - Signing probe examples: multi-model suggests `git commit-tree -S`, the wave
   protocol suggests `ssh-add -l`; the latter does not exercise the
-  commit-signing program path.
+  commit-signing program path. — resolved: `git commit-tree -S` is the signing probe and `ssh-add -l` only lists agent keys
 - Sol-seat effort: the Sol profile says `medium` for ordinary coordination
-  and also "Use `high` for decisions" (minor; no scenario depends on it).
+  and also "Use `high` for decisions" (minor; no scenario depends on it). — resolved: the Sol profile uses `high` for hard decomposition and decisions and `medium` for ordinary coordination
 - Effort-inheritance wording: ship says "may hold a parent session's value",
-  multi-model and super-plan say "inherits the parent's value" (wording only).
+  multi-model and super-plan say "inherits the parent's value" (wording only). — resolved: ship's `CLAUDE_EFFORT` sentence now matches the other skills
 
 ## Limits and re-running
 
