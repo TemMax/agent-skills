@@ -25,10 +25,11 @@ cd "$(dirname "$0")/../.." || exit 1
 # Default moved to Sonnet 5.5 on 2026-09-28 (Sonnet 5 retired as a route); re-measure before relying on the old counts.
 if [ "${EVAL_PROVIDER:-claude}" = codex ]; then
   MODEL="${EVAL_MODEL:-gpt-5.6-sol}"
+  SKILL=plugins/orchestration/skills-codex/super-plan/SKILL.md
 else
   MODEL="${EVAL_MODEL:-claude-sonnet-5-5}"
+  SKILL=plugins/orchestration/skills/super-plan/SKILL.md
 fi
-SKILL=plugins/orchestration/skills/super-plan/SKILL.md
 LINT=plugins/orchestration/skills/super-plan/references/plan-lint.mjs
 ROOT_ABS="$(pwd)"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT

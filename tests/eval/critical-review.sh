@@ -1222,7 +1222,7 @@ git -C "$R" commit -q -m 'accept padded role input'
 
 CONTEXT="$(runtime_context code-review "$MODEL")"
 SESSION_METADATA="$(evaluation_metadata "$PROVIDER" "$MODEL" "$EFFORT")"
-SKILL=plugins/code-review/skills/critical-review/SKILL.md
+SKILL=plugins/code-review/skills-codex/critical-review/SKILL.md
 PROFILE="$(reviewer_profile_path "$MODEL")"
 cat > "$W/clean-prompt.md" <<EOF
 $(cat "$SKILL")

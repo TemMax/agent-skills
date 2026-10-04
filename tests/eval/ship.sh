@@ -457,7 +457,7 @@ EOF
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 CONTEXT="$(runtime_context orchestration "$MODEL")"
 SESSION_METADATA="$(evaluation_metadata "$PROVIDER" "$MODEL" "$EFFORT")"
-SKILL=plugins/orchestration/skills/ship/SKILL.md
+SKILL=plugins/orchestration/skills-codex/ship/SKILL.md
 PROFILE="$(orchestrator_profile_path "$MODEL")"
 rc=0
 
