@@ -25,11 +25,8 @@ lint and user approval.
 The state helper is the only state machine. Never hand-edit its state, bypass a
 helper action, write a fresh runner, force-remove a worktree, or substitute a
 missing model with a default or alias. It accepts only the exact GPT model IDs
-and effort values already linted in the plan. The sanctioned ways to clear a stopped
-wave are the runner's `--reset` (preferred) and its own printed `cleanup`
-lines (see "`summary.json` diagnostics" below); the runner never removes
-anything on its own when it stops — it preserves every state file, worktree and branch for
-inspection — and `--reset` and those lines exist only for the orchestrator to run deliberately, after fixing the machine or deciding to
+and effort values already linted in the plan. The sanctioned way to clear a stopped wave is the runner's `--reset`; its own printed `cleanup` lines (see "`summary.json` diagnostics" below) are a fallback only when the installed runner predates `--reset`. When `--reset` refuses (a dirty worktree or a live status), stop and ask the user — never run the printed lines to get past a refusal, since they force-remove. The runner never removes anything on its own when it stops — it preserves every state file, worktree and branch for
+inspection — and `--reset` exists only for the orchestrator to run deliberately, after fixing the machine or deciding to
 re-run, to re-run the wave. `--reset` refuses on a dirty worktree or a live
 status, renames the run directory to `<dir>.reset-<k>`, prints each deleted
 branch tip with a restore command, and never runs a model; the printed lines
@@ -203,7 +200,7 @@ than this behaviour or the executor ignored the prompt: the task's
 `id: reported`, also carries the matched `signature`). Update the plugin and
 re-run; never disable signing in the user's configuration. Diagnose first:
 reproduce the failing step outside the sandbox with a side-effect-free probe
-(for example `ssh-add -l`, or the failing command's dry-run form) before
+(for commit signing `git commit-tree -S -m probe "HEAD^{tree}"`, which exercises the signing program itself — `ssh-add -l` only lists the agent's keys; otherwise the failing command's dry-run form) before
 asking the user to change anything.
 
 Where to read the blocked line: in `summary.json`, a task's own record under
@@ -241,8 +238,7 @@ after `init` had already created its worktree, branch and state file), a
 and state file (`buildCleanup`/`cleanupLine`, `codex-wave-runner.mjs:407-416`,
 surfaced at `:1032` and `:1036`). The runner itself never runs these lines —
 it preserves every state file, worktree and branch when it stops, exactly as
-step 8 below says. Run the printed cleanup only to re-run after fixing the
-machine: once every line has been run, the next invocation needs a fresh
+step 8 below says. The printed cleanup is the fallback for a runner older than `--reset`; run it only to re-run after fixing the machine: once every line has been run, the next invocation needs a fresh
 `--out` (the old one is now stale). The preferred route is `--reset`, which
 does the same teardown, refuses on a dirty worktree or a live status, and
 moves the old run directory aside itself; a stop prints its exact `--reset`
