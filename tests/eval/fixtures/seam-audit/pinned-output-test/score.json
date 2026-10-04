@@ -1,0 +1,1 @@
+{"expect": "defect", "check": "same-task-readers", "must_name": ["test_summary"], "must_not_name": []}
