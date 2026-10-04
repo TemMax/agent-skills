@@ -2,10 +2,11 @@
 
 ## Identity guard
 
-Apply when Step 0 selects this profile from exact `gpt-6-astra` identity or
-host-family compatibility with bare `GPT-6`. Compatibility leaves the exact
-runtime ID unknown; it does not establish model-specific measured reliability
-or prove that a child uses a different model from its parent.
+Apply only when Step 0 selects this profile from the exact `gpt-6-astra`
+identity. A bare `GPT-6` family label selects no profile by itself (Step 0), so
+it never selects this one; identity alone does not establish model-specific
+measured reliability or prove that a child uses a different model from its
+parent.
 Otherwise stop
 using this profile and load the matching profile or `orchestrator-generic.md`.
 Loading a skill does not switch the session model. Preserve an explicitly
@@ -16,7 +17,8 @@ the model name or configuration defaults.
 
 Astra owns research synthesis, task decomposition, contracts, coordination,
 and integrated review in `super-plan`, `multi-model`, and `ship`. Delegate
-implementation to named GPT-6 Sol and Luna executors in isolated worktrees. Reading code,
+implementation to named `gpt-6.1-sol` and `gpt-6-luna` executors (approved
+older plans may still name `gpt-6-sol`) in isolated worktrees. Reading code,
 running checks, and preparing task contracts are still the orchestrator's work.
 Do not turn an executor failure into an inline implementation by Astra. A
 separately approved Astra executor exception may be initial or final-rung only,
@@ -41,7 +43,8 @@ Every wave uses a fresh, separate supervisor at explicit `high` effort,
 chosen at Gate 1 per shared Codex routing: the premium `gpt-6-astra` (plan
 records `approvals.premium`), or — only for a wave whose executors and rungs
 are all `gpt-6-luna` — the standard `gpt-6.1-sol`. A wave with a Sol executor
-needs Astra. Sol never supervises its own or another Sol executor's work.
+needs Astra. Neither `gpt-6.1-sol` nor `gpt-6-sol` ever supervises its own or
+any Sol executor's work.
 Write full exact IDs in the plan; escalated rungs use `high`. Pick the initial
 tier from the task, not an obligation to try Luna first. The same fixed
 supervisor can supervise all three executors because it is absent from their

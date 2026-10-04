@@ -82,7 +82,9 @@ The model page lists no `none` effort for this model.
 ## Seat economy
 
 Drive Codex waves through `codex-wave-runner.mjs` as one command and read
-only its summary, not the per-task transcripts. Use `high` for decisions.
+only its summary, not the per-task transcripts. Use `high` for hard
+decomposition and decisions and `medium` for ordinary coordination (Session
+effort above).
 Delegate reading to an executor or the runner's summary instead of loading
 whole files or diffs into this context. Do not keep a journal that
 duplicates state already held in the wave runner or task contracts. Prefer
