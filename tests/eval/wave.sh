@@ -17,7 +17,6 @@ ROOT="$PWD"
 CODEX_STATE="$ROOT/plugins/orchestration/skills/multi-model/references/codex-wave-state.mjs"
 CODEX_RUNNER="$ROOT/plugins/orchestration/skills/multi-model/references/codex-wave-runner.mjs"
 CODEX_PROTOCOL="$ROOT/plugins/orchestration/skills/multi-model/references/codex-wave-protocol.md"
-MULTI_SKILL="$ROOT/plugins/orchestration/skills/multi-model/SKILL.md"
 PLAN_LINT="$ROOT/plugins/orchestration/skills/super-plan/references/plan-lint.mjs"
 
 find_state() {
