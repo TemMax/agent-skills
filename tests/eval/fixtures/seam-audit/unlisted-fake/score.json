@@ -1,0 +1,1 @@
+{"expect": "defect", "check": "implementers-and-fakes", "must_name": ["FakeStore"], "must_not_name": []}
