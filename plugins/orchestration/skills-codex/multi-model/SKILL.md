@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.0
+  version: 4.7.1
 ---
 
 # Orchestrating Multi-Model Development (Codex)
@@ -12,7 +12,7 @@ metadata:
 
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
 2. Announce the selected profile once, at the first Step 0. Announce it again only when a newer runtime-context line changes the model or the effort.
-3. The coordinator never authors code. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. Changes reach the repository only through a supervised wave; your own git work is integrating approved wave branches and publishing.
+3. The coordinator never authors code. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. Changes reach the repository only through a supervised wave; your own git work is integrating approved wave branches and publishing. Exception: a small standalone edit the user asks for directly, outside any active wave plan — one file, a few lines, nothing beyond what the user named (a config value, a typo, a version string) — you may make yourself and show the diff. The exception never covers a fix for a defect that a review, a supervisor or the final review found, nor any part of an approved plan's tasks.
 4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output.
 5. Re-run a stopped wave only after the runner's own `--reset` for that plan, wave and base; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
 6. Executor commits are unsigned by design. Integration squashes each task into one commit made outside the sandbox, which the user's git configuration signs (codex-wave-protocol.md, step 9). Never disable commit signing in the user's configuration.
@@ -117,7 +117,7 @@ English does not mean English replies.
 
 ### Single-task path
 
-Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution does not change: the runner, a separate supervisor, integration by the coordinator, and never a coordinator edit. When the change grows to a second task, return to the full process.
+Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution does not change: the runner, a separate supervisor, integration by the coordinator, and never a coordinator edit. When the change grows to a second task, return to the full process. A small standalone edit that rule 3's exception covers needs no plan at all.
 
 4. **Table.** Before launching, show the user: task | model | effort | rationale.
    The table also shows, per wave, the supervisor and whether it is premium.

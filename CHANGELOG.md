@@ -4,6 +4,23 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.7.1
+
+### Highlights
+
+**multi-model**
+- Codex skills allow a small user-requested edit without a wave
+
+Codex session rule 3 gains an exception for a small standalone edit the user
+asks for directly: one file, a few lines, only what the user named.
+Review-found defects and plan tasks still go through supervised waves. The
+reason is a GPT-6.1 Sol A/B measurement (old vs new Codex skills x3 plus one
+run on the installed 4.7.0, 8 scripted turns each), which found the
+orchestrator making a follow-up one-file `ci.yml` edit itself in 6 of 7
+sessions, and the user accepts that. Claude skills are unchanged. code-review
+moves to 1.14.1 because critical-review's Codex entrypoint carries the same
+rule.
+
 ## 4.7.0
 
 ### Highlights
