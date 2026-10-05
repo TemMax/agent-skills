@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import { validateCodexWave, makeState, nextAction } from '../../plugins/orchestration/skills/multi-model/references/codex-wave-state.mjs'
@@ -9,11 +9,16 @@ import { validateCodexWave, makeState, nextAction } from '../../plugins/orchestr
 const skills = 'plugins/orchestration/skills/'
 const refs = skills + 'multi-model/references/'
 const read = path => readFileSync(path, 'utf8')
+const readSkill = path => {
+  const entry = read(path)
+  return entry.includes('[WORKFLOW.md](WORKFLOW.md)')
+    ? entry + '\n' + read(join(dirname(path), 'WORKFLOW.md')) : entry
+}
 
 test('all entrypoints and Codex profiles resolve the packaged route', () => {
   for (const name of ['multi-model', 'super-plan', 'ship']) {
-    assert.match(read(skills + name + '/SKILL.md'), /codex-routing\.md/)
-    assert.match(read('plugins/orchestration/skills-codex/' + name + '/SKILL.md'), /codex-routing\.md/)
+    assert.match(readSkill(skills + name + '/SKILL.md'), /codex-routing\.md/)
+    assert.match(readSkill('plugins/orchestration/skills-codex/' + name + '/SKILL.md'), /codex-routing\.md/)
   }
   for (const name of ['gpt-5-6-sol', 'gpt-5-6-terra', 'gpt-5-6-luna', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-1-sol', 'gpt-6-luna', 'generic']) {
     const profile = read(refs + 'orchestrator-' + name + '.md')

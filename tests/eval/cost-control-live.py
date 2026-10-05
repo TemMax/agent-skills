@@ -119,6 +119,69 @@ def fixture(out, case, provider):
     return repo, base
 
 
+def register_workspace_skills(repo, pkg):
+    registry = repo / '.agents/skills'
+    registry.mkdir(parents=True)
+    for plugin, kind in [('orchestration', 'multi-model'), ('code-review', 'critical-review')]:
+        source = pkg / 'plugins' / plugin / 'skills-codex' / kind
+        (registry / kind).symlink_to(source, target_is_directory=True)
+
+
+def candidate_read_matches(paths, expected, repo):
+    expected = expected.resolve()
+    digest = hashlib.sha256(expected.read_bytes()).hexdigest()
+    for raw in paths:
+        path = Path(raw)
+        if not path.is_absolute():
+            path = repo / path
+        if (path.is_file() and path.resolve() == expected
+                and hashlib.sha256(path.read_bytes()).hexdigest() == digest):
+            return True
+    return False
+
+
+def workflow_reads(out):
+    reads = []
+    for path in sorted(out.glob('turn-*.jsonl')):
+        for row in read_events(path):
+            item = row.get('item') or {}
+            if row.get('type') == 'item.completed' and item.get('type') == 'command_execution':
+                command = item.get('command', '')
+                if 'WORKFLOW.md' in command:
+                    reads.append(command)
+            if row.get('type') == 'assistant':
+                for block in (row.get('message') or {}).get('content', []):
+                    if isinstance(block, dict) and block.get('type') == 'tool_use':
+                        args = block.get('input') or {}
+                        target = args.get('file_path', '') if block.get('name') == 'Read' else args.get('command', '')
+                        if 'WORKFLOW.md' in target:
+                            reads.append(target)
+    return reads
+
+
+def workflow_body_loaded(out, expected, provider):
+    body = expected.read_text().strip()
+    read_ids = set()
+    for path in sorted(out.glob('turn-*.jsonl')):
+        for row in read_events(path):
+            item = row.get('item') or {}
+            if provider == 'codex' and row.get('type') == 'item.completed' and item.get('type') == 'command_execution':
+                if body in item.get('aggregated_output', ''):
+                    return True
+            for block in (row.get('message') or {}).get('content', []):
+                if not isinstance(block, dict):
+                    continue
+                if block.get('type') == 'tool_use' and block.get('name') == 'Read':
+                    target = Path((block.get('input') or {}).get('file_path', ''))
+                    if target.resolve() == expected.resolve():
+                        read_ids.add(block.get('id'))
+                if block.get('type') == 'tool_result' and block.get('tool_use_id') in read_ids and not block.get('is_error'):
+                    content = block.get('content', '')
+                    if isinstance(content, str) and body in re.sub(r'(?m)^\s*\d+\t', '', content):
+                        return True
+    return False
+
+
 def navigation(out, repo, base, pkg, marketplace, versions, provider, cli):
     # Same continuation decisions and fixture for both hosts. Only invocation syntax differs.
     skill = 'orchestration:multi-model' if provider == 'claude' else '$multi-model'
@@ -129,7 +192,7 @@ def navigation(out, repo, base, pkg, marketplace, versions, provider, cli):
                'в .github/workflows/ci.yml замени timeout-minutes с 10 на 15. Сделай сам и проверь результат. Не коммить и не открывай PR.',
                'Да, продолжай в том же согласованном объёме.']
     original = {str(p.relative_to(repo)): p.read_bytes() for p in repo.rglob('*')
-                if p.is_file() and '.git' not in p.parts and '__pycache__' not in p.parts}
+                if p.is_file() and not any(x in p.parts for x in ('.git', '__pycache__', '.agents'))}
     head = git(repo, 'rev-parse', 'HEAD')
     sid = str(uuid.uuid4()) if provider == 'claude' else None
     if provider == 'claude':
@@ -138,26 +201,11 @@ def navigation(out, repo, base, pkg, marketplace, versions, provider, cli):
                   '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
                   '--add-dir', str(out), '--plugin-dir', str(pkg / 'plugins/orchestration'), '--plugin-dir', str(pkg / 'plugins/code-review')]
     else:
-        # Enabling an uninstalled entry alone does not load it. Temporarily install
-        # unique test IDs, retain install evidence, and remove only those IDs in finally.
-        config = ['-c', f'marketplaces.{marketplace}.source_type="local"',
-                  '-c', f'marketplaces.{marketplace}.source='+json.dumps(str(pkg))]
-        for name in ('orchestration', 'code-review'):
-            rc = run_logged([cli, 'plugin', 'add', name+'@'+marketplace, '--json', *config],
-                            out, 'install-'+name, cwd=repo, timeout=45)
-            if rc != 0:
-                raise RuntimeError('Temporary plugin installation failed: '+name)
-        enabled = [*config, '-c', f'plugins.orchestration@{marketplace}.enabled=true',
-                   '-c', f'plugins.code-review@{marketplace}.enabled=true']
-        rc = run_logged([cli, 'plugin', 'list', '--json', '-m', marketplace, *enabled],
-                        out, 'discovery', cwd=repo, timeout=45)
-        discovery = json.loads((out / 'discovery.stdout').read_text()) if rc == 0 else {}
-        if {r['name'] for r in discovery.get('installed', []) if r.get('enabled')} != {'orchestration', 'code-review'}:
-            raise RuntimeError('Candidate plugins are not installed and enabled; no model calls started')
-        common = [cli, '--ignore-user-config', '--json', '--skip-git-repo-check', '--model', 'gpt-6.1-sol', '-c', 'model_reasoning_effort="medium"',
-                  '-c', f'marketplaces.{marketplace}.source_type="local"', '-c', f'marketplaces.{marketplace}.source='+json.dumps(str(pkg)),
-                  '-c', f'plugins.orchestration@{marketplace}.enabled=true', '-c', f'plugins.code-review@{marketplace}.enabled=true',
-                  '-c', 'plugins.orchestration@temmax.enabled=false', '-c', 'plugins.code-review@temmax.enabled=false',
+        # Native workspace skill discovery: a disposable registry, no plugin add,
+        # remove, marketplace switch, installed cache writes or configuration edits.
+        register_workspace_skills(repo, pkg)
+        common = [cli, '--ignore-user-config', '--json', '--skip-git-repo-check',
+                  '--disable', 'plugins', '--model', 'gpt-6.1-sol', '-c', 'model_reasoning_effort="medium"',
                   '-c', 'memories.use_memories=false', '-c', 'memories.generate_memories=false']
     completed, costs = True, 0.0
     for k, prompt in enumerate(prompts, 1):
@@ -210,12 +258,11 @@ def navigation(out, repo, base, pkg, marketplace, versions, provider, cli):
         analyzer = module_from_spec(spec); spec.loader.exec_module(analyzer)
         metrics = analyzer.analyze_run(str(out))
         load_paths = [p for t in metrics['per_turn'] for p in t['lists'].get('skill_reads_full', [])]
-        expected_hash = hashlib.sha256((pkg / 'plugins/orchestration/skills-codex/multi-model/SKILL.md').read_bytes()).hexdigest()
-        candidate_loaded = any(Path(p).exists() and hashlib.sha256(Path(p).read_bytes()).hexdigest() == expected_hash and marketplace in p for p in load_paths)
+        candidate_loaded = candidate_read_matches(load_paths, pkg / 'plugins/orchestration/skills-codex/multi-model/SKILL.md', repo)
         loads_after_first = sum(t.get('skill_reads_full_mm', 0)+t.get('skill_reads_ranged_mm', 0) for t in metrics['per_turn'] if t['turn'] >= 3)
     expected_ci = original['.github/workflows/ci.yml'].replace(b'timeout-minutes: 10', b'timeout-minutes: 15')
     final_paths = {str(p.relative_to(repo)) for p in repo.rglob('*') if p.is_file()
-                   and not any(x in p.parts for x in ('.git', '__pycache__', '.worktrees'))}
+                   and not any(x in p.parts for x in ('.git', '__pycache__', '.worktrees', '.agents'))}
     s = metrics['summary']
     checks = {'dialog_completed': completed, 'candidate_loaded_normally': candidate_loaded,
               'one_line_ci_edit': (repo / '.github/workflows/ci.yml').read_bytes() == expected_ci,
@@ -225,6 +272,8 @@ def navigation(out, repo, base, pkg, marketplace, versions, provider, cli):
               'no_reapproval': s['gates'] == 0,
               'no_skill_reload_on_continuation': loads_after_first == 0,
               'no_native_children': s['native_spawns'] == 0}
+    if json.loads((out / 'meta.json').read_text())['arm'] == 'new':
+        checks['no_delegation_workflow_for_standalone_edit'] = not workflow_reads(out)
     # Old announcements/read behavior is a measured baseline, not a product pass criterion for that arm.
     old = json.loads((out / 'meta.json').read_text())['arm'] == 'old'
     required = [value for key, value in checks.items() if not (old and key in ['no_profile_announcements', 'no_reapproval', 'no_skill_reload_on_continuation'])]
@@ -232,7 +281,7 @@ def navigation(out, repo, base, pkg, marketplace, versions, provider, cli):
     return {'passed': all(required), 'checks': checks, 'metrics': s, 'skill_loads_after_first': loads_after_first}
 
 
-def adapter(out, cli, provider, pkg, max_calls=6):
+def adapter(out, cli, provider, pkg, max_calls=6, inject_fault=True):
     """Transparent real-CLI transport plus deterministic post-executor fault."""
     path = out / 'real-cli-adapter'
     path.write_text('''#!/usr/bin/env python3
@@ -240,6 +289,10 @@ import json, os, pathlib, subprocess, sys, time
 config=json.loads(pathlib.Path(__file__).with_name('adapter.json').read_text())
 a=sys.argv[1:]
 root=pathlib.Path(__file__).parent
+if config['provider']=='codex' and a and a[0]=='sandbox':
+    # Preflight runs a local command through sandbox, not a model. Pass it
+    # unchanged and keep it outside the paid-call cap and role accounting.
+    sys.exit(subprocess.run([config['cli'], *a]).returncode)
 role='judge' if '--json-schema' in a or '--output-schema' in a else 'exec'
 log=root/'calls.jsonl'
 rows=log.read_text().splitlines() if log.exists() else []
@@ -255,14 +308,14 @@ record={'role':role,'argv':argv,'cwd':os.getcwd(),'started':start}
 with log.open('a') as f:f.write(json.dumps(record)+'\\n')
 env=dict(os.environ);env.pop('CLAUDECODE',None)
 r=subprocess.run(argv,env=env)
-if role=='exec' and r.returncode==0 and not (root/'fault-fired').exists():
+if config['inject_fault'] and role=='exec' and r.returncode==0 and not (root/'fault-fired').exists():
     (root/'machine-ready').unlink(missing_ok=True)
     (root/'fault-fired').write_text('fault after real executor exit\\n')
 with (root/'transport-results.jsonl').open('a') as f:f.write(json.dumps({'role':role,'exit':r.returncode,'seconds':time.time()-start})+'\\n')
 sys.exit(r.returncode)
 ''')
     path.chmod(0o700)
-    dump(out / 'adapter.json', {'cli': cli, 'provider': provider, 'max_calls': max_calls,
+    dump(out / 'adapter.json', {'cli': cli, 'provider': provider, 'max_calls': max_calls, 'inject_fault': inject_fault,
          'plugin': str(pkg / 'plugins/orchestration')})
     return path
 
@@ -289,6 +342,53 @@ def run_logged(cmd, out, name, cwd=None, prompt=None, timeout=420):
             proc.wait(); rc = 124
     dump(out / (name+'.status.json'), {'exit': rc, 'seconds': time.monotonic()-started})
     return rc
+
+
+def handoff(out, repo, base, pkg, provider, cli):
+    """Real coordinator discovers the skill and runs one approved supervised task."""
+    transport = adapter(out, cli, provider, pkg, max_calls=2, inject_fault=False)
+    plan = out / 'plan.md'
+    plan.write_text(plan.read_text().replace('status: draft\nbase: pending', 'status: active\nbase: '+base))
+    if provider == 'codex':
+        register_workspace_skills(repo, pkg)
+        with (repo / '.git/info/exclude').open('a') as f:
+            f.write('\n.agents/\n')
+    skill = 'orchestration:multi-model' if provider == 'claude' else '$multi-model'
+    prompt = (f'Используй скилл {skill} для выполнения уже согласованной единственной волны: '
+        f'план {plan}, wave=1, repo={repo}, base={base}, default-branch=main. '
+        'Точные роли, effort, контракт, доступ к этой одноразовой фикстуре и лимит два дочерних вызова уже одобрены. '
+        'План не меняй, новых согласований не нужно. Используй штатный native runner из загруженного кандидата, '
+        f'с параметрами --{provider} {transport}, --out {out}/wave, --jobs 1, --timeout-min 2. '
+        'Не пиши код задачи сам, не запускай дополнительные агенты и не меняй настройки git. '
+        'Остановись после summary runner: без интеграции, публикации, PR или повторного запуска. '
+        'Запуск координатора находится вне sandbox; дочерние CLI сохраняют собственные sandbox. '
+        'Фикстура не содержит секретов. Дай короткий результат по-русски.')
+    if provider == 'claude':
+        cmd = [cli, '-p', '--verbose', '--output-format', 'stream-json', '--model', 'claude-sonnet-5-5', '--effort', 'medium',
+            '--permission-mode', 'acceptEdits', '--permission-prompts', 'none', '--allowedTools', 'Read,Glob,Grep,Bash,Skill',
+            '--max-budget-usd', '2', '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+            '--add-dir', str(out), '--plugin-dir', str(pkg / 'plugins/orchestration')]
+    else:
+        # Match the existing ship-smoke coordinator transport: macOS Seatbelt
+        # cannot nest. The native runner still sandboxes each actual child.
+        cmd = [cli, 'exec', '--ignore-user-config', '--disable', 'plugins', '--json', '--skip-git-repo-check',
+            '-C', str(repo), '--sandbox', 'danger-full-access', '--model', 'gpt-6.1-sol',
+            '-c', 'model_reasoning_effort="medium"', '-c', 'memories.use_memories=false', '-']
+    rc = run_logged(cmd, out, 'turn-1', cwd=repo, prompt=prompt, timeout=360)
+    shutil.copyfile(out / 'turn-1.stdout', out / 'turn-1.jsonl')
+    summary_path = out / 'wave/summary.json'
+    summary = json.loads(summary_path.read_text()) if summary_path.exists() else {}
+    calls = read_events(out / 'calls.jsonl') if (out / 'calls.jsonl').exists() else []
+    workflow = pkg / 'plugins/orchestration' / ('skills' if provider == 'claude' else 'skills-codex') / 'multi-model/WORKFLOW.md'
+    checks = {'coordinator_completed': rc == 0, 'mandatory_workflow_loaded': workflow_body_loaded(out, workflow, provider),
+        'one_executor_one_reviewer': [c['role'] for c in calls] == ['exec', 'judge'],
+        'native_wave_accepted': summary.get('status') == ('done' if provider == 'claude' else 'merge-ready'),
+        'main_unchanged': git(repo, 'rev-parse', 'HEAD') == base,
+        'signing_config_unchanged': git(repo, 'config', 'commit.gpgsign') == 'false'}
+    branch = git(repo, 'show', 'wave/one:src/calc.py') if calls else ''
+    checks['task_guard_present'] = 'return None' in branch
+    dump(out / 'loaded-workflow.json', {'reads': workflow_reads(out), 'snapshot': str(out / 'snapshot.json')})
+    return {'passed': all(checks.values()), 'checks': checks, 'summary': str(summary_path), 'calls': len(calls)}
 
 
 def recovery(out, repo, base, pkg, provider, arm, cli):
@@ -477,13 +577,36 @@ def semantic(out, repo, base, pkg, provider, cli):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--provider', required=True, choices=['claude', 'codex'])
-    parser.add_argument('--case', required=True, choices=['recovery', 'semantic', 'navigation'])
+    parser.add_argument('--case', required=True, choices=['recovery', 'semantic', 'navigation', 'handoff'])
     parser.add_argument('--arm', required=True, choices=['old', 'new'])
     parser.add_argument('--out', required=True, type=Path)
     parser.add_argument('--old-ref', default='HEAD')
     parser.add_argument('--prepare-only', action='store_true')
+    parser.add_argument('--recheck-loading', action='store_true', help='Reassess retained navigation path evidence without model calls')
     args = parser.parse_args()
+    if args.case == 'handoff' and args.arm != 'new':
+        parser.error('handoff checks the candidate loading path; use --arm new')
     out = args.out.resolve()
+    if args.recheck_loading:
+        meta = json.loads((out / 'meta.json').read_text())
+        if args.case != 'navigation' or args.provider != 'codex' or any(meta[k] != getattr(args, k) for k in ['case', 'provider', 'arm']):
+            parser.error('--recheck-loading requires the matching retained Codex navigation run')
+        pkg = out / 'package'
+        expected = pkg / 'plugins/orchestration/skills-codex/multi-model/SKILL.md'
+        frozen = json.loads((out / 'snapshot.json').read_text())
+        if frozen[str(expected.relative_to(pkg))] != hashlib.sha256(expected.read_bytes()).hexdigest():
+            parser.error('Retained candidate differs from its frozen snapshot')
+        result = json.loads((out / 'outcomes.json').read_text())
+        paths = json.loads((out / 'loaded-candidate.json').read_text())['paths']
+        result['checks']['candidate_loaded_normally'] = candidate_read_matches(paths, expected, out / 'repo')
+        if args.arm == 'new':
+            result['checks']['no_delegation_workflow_for_standalone_edit'] = not workflow_reads(out)
+        optional = {'no_profile_announcements', 'no_reapproval', 'no_skill_reload_on_continuation'} if args.arm == 'old' else set()
+        result['passed'] = all(value for key, value in result['checks'].items() if key not in optional)
+        result['assessment'] = 'relative paths resolved against retained fixture; zero new model calls'
+        dump(out / 'assessment-v2.json', result)
+        print(json.dumps(result['checks'], ensure_ascii=False))
+        return 0 if result['passed'] else 1
     if out.exists() and (not out.is_dir() or any(out.iterdir())):
         print('Refusing nonempty result directory', file=sys.stderr); return 73
     if out.is_relative_to(ROOT / 'plugins'):
@@ -502,9 +625,13 @@ def main():
         expected = {'case': 'navigation', 'turns': 4, 'allowed_edit': '.github/workflows/ci.yml: timeout-minutes 10 to 15',
                     'other_files_unchanged': True, 'no_commit': True, 'normal_candidate_loading': True,
                     'no_reapproval_or_reload_after_first_skill_use': args.arm == 'new', 'no_children': True}
+    elif args.case == 'handoff':
+        expected = {'case': 'handoff', 'mandatory_workflow_loaded': True, 'executor_calls': 1, 'reviewer_calls': 1,
+                    'native_wave_accepted': True, 'main_unchanged': True, 'signing_config_unchanged': True}
     dump(out / 'expected.json', expected)
     dump(out / 'meta.json', {'provider': args.provider, 'case': args.case, 'arm': args.arm, 'base': base,
          'versions': versions, 'marketplace': marketplace, 'source': 'working tree' if args.arm == 'new' else args.old_ref,
+         'loading': 'workspace skills, plugins disabled' if args.provider == 'codex' and args.case == 'navigation' else 'disposable plugin directory / direct runner',
          'cli_version': call([cli, '--version'], timeout=15), 'started': time.time()})
     if args.prepare_only:
         return 0
@@ -513,19 +640,12 @@ def main():
             result = recovery(out, repo, base, pkg, args.provider, args.arm, cli)
         elif args.case == 'navigation':
             result = navigation(out, repo, base, pkg, marketplace, versions, args.provider, cli)
+        elif args.case == 'handoff':
+            result = handoff(out, repo, base, pkg, args.provider, cli)
         else:
             result = semantic(out, repo, base, pkg, args.provider, cli)
     except Exception as e:
         result = {'passed': False, 'error': str(e)}
-    finally:
-        if args.provider == 'codex' and args.case == 'navigation':
-            for name in ('orchestration', 'code-review'):
-                if (out / ('install-'+name+'.stdout')).exists():
-                    rc = run_logged([cli, 'plugin', 'remove', name+'@'+marketplace, '--json'],
-                                    out, 'remove-'+name, cwd=repo, timeout=45)
-                    if rc != 0:
-                        result['passed'] = False
-                        result.setdefault('cleanup_errors', []).append(name)
     dump(out / 'outcomes.json', result)
     print(json.dumps({k: v for k, v in result.items() if k != 'metrics'}, ensure_ascii=False))
     print('Evidence: '+str(out))

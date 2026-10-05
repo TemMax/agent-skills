@@ -22,7 +22,9 @@ skill path. It does not change the installed marketplace source.
 The [first-package cases](eval/first-package-regressions.md) describe the current
 mandatory cost-control scenarios. Their new end-to-end live checks have not yet
 been fully completed. The first three scenarios and native early guards have
-recorded [real dual-host results](eval/cost-control-live-results-2026-10-05.md).
+recorded [real dual-host results](eval/cost-control-live-results-2026-10-05.md). The next
+[progressive-loading results](eval/progressive-loading-results-2026-10-05.md) compare
+short entrypoints against the pushed baseline without changing installed plugins.
 Prior dated measurements apply to their recorded versions only.
 
 ## Available test bench
@@ -60,11 +62,21 @@ python3 tests/eval/cost-control-guards.py --run /tmp/cost-claude-new
 calling a model. New means current working files, old means `--old-ref HEAD`.
 Recovery uses actual child CLIs; old Claude invokes the actual Workflow tool.
 Old recovery explicitly measures a full rerun strategy, not optimal old resume.
-Navigation uses normal plugins: Claude `--plugin-dir`; Codex temporarily installs
-unique test plugin IDs via `codex plugin add`, then removes only those IDs in
-`finally`. It does not replace `temmax` or change its source. Codex arguments use
-literal CLI override paths without TOML key quotes. Discovery is checked before
-model calls, and actual loaded skill hashes/host-injected bodies are checked after.
+Navigation loads candidates without changing installed plugins: Claude uses
+`--plugin-dir`; Codex discovers symlinked candidate skills through the disposable
+fixture's `.agents/skills` with plugins disabled. This checks native skill
+loading and instructions, not Codex plugin discovery or hooks. The same transport
+is used for both arms. Exact loaded paths/hashes or host-injected bodies are
+checked after the calls. No `plugin add/remove`, cache edits or marketplace switch.
+`--recheck-loading` reassesses retained Codex navigation path evidence without
+new model calls, keeping the original outcome and writing `assessment-v2.json`.
+
+`--case handoff --arm new` checks the delegated path with a real coordinator,
+one executor and one independent reviewer. It must load `WORKFLOW.md` and invoke
+the shipped runner; it stops before integration/publication. The Codex coordinator
+runs outside a sandbox, as in ship-smoke, because macOS Seatbelt cannot nest;
+the native runner still sandboxes its children. Child calls are capped at two.
+Expectations and candidate hashes are frozen before calls, including failures.
 Codex launchers need to run outside the enclosing macOS sandbox; children retain
 their own sandboxes. Claude navigation is capped at $3/four turns; each semantic
 probe has one bounded reviewer call; recovery has a two-call wave cap and child

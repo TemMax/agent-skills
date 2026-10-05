@@ -12,7 +12,7 @@ all-`gpt-6-luna` wave. An Astra executor or rung needs
 never authorizes it by itself.
 This is the host adapter for the
 shared wave contract, mechanical verifier, supervisor verdict schema,
-escalation ladder, and result review in `SKILL.md`; it does not redefine any of
+escalation ladder, and result review in the host-specific `WORKFLOW.md`; it does not redefine any of
 them. Claude-only waves use `wave-runner.workflow.mjs` instead. A mixed or
 unknown-provider wave stops before any agent is spawned.
 

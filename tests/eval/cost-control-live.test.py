@@ -12,6 +12,61 @@ SCRIPT = Path(__file__).with_name('cost-control-live.py')
 
 
 class Fixtures(unittest.TestCase):
+    def test_preflight_transport_does_not_spend_model_call_cap(self):
+        spec = importlib.util.spec_from_file_location('live_transport', SCRIPT)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            cli = out / 'fake-cli'; cli.write_text('#!/bin/sh\nexit 0\n'); cli.chmod(0o700)
+            transport = module.adapter(out, str(cli), 'codex', out, max_calls=2, inject_fault=False)
+            self.assertEqual(subprocess.run([str(transport), 'sandbox', '--', 'true']).returncode, 0)
+            self.assertFalse((out / 'calls.jsonl').exists())
+            self.assertEqual(subprocess.run([str(transport), 'exec', '-']).returncode, 0)
+            self.assertEqual(subprocess.run([str(transport), 'exec', '--output-schema', 'verdict.json', '-']).returncode, 0)
+            rows = [json.loads(line) for line in (out / 'calls.jsonl').read_text().splitlines()]
+            self.assertEqual([r['role'] for r in rows], ['exec', 'judge'])
+            self.assertEqual(subprocess.run([str(transport), 'exec', '-'], capture_output=True).returncode, 75)
+
+    def test_candidate_proof_resolves_fixture_paths_and_rejects_identical_other_file(self):
+        spec = importlib.util.spec_from_file_location('live', SCRIPT)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); repo = root / 'repo'; repo.mkdir()
+            pkg = root / 'package'
+            for plugin, kind in [('orchestration', 'multi-model'), ('code-review', 'critical-review')]:
+                source = pkg / 'plugins' / plugin / 'skills-codex' / kind
+                source.mkdir(parents=True)
+                (source / 'SKILL.md').write_text('Frozen candidate')
+            module.register_workspace_skills(repo, pkg)
+            expected = pkg / 'plugins/orchestration/skills-codex/multi-model/SKILL.md'
+            self.assertTrue(module.candidate_read_matches(['.agents/skills/multi-model/SKILL.md'], expected, repo))
+            self.assertTrue(module.candidate_read_matches([str(expected)], expected, repo))
+            other = repo / 'SKILL.md'; other.write_bytes(expected.read_bytes())
+            self.assertFalse(module.candidate_read_matches(['SKILL.md'], expected, repo))
+
+    def test_handoff_accounting_includes_coordinator_and_both_children(self):
+        spec = importlib.util.spec_from_file_location('handoff_accounting', SCRIPT.with_name('cost-control-live-analyze.py'))
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        for provider in ['claude', 'codex']:
+            with self.subTest(provider=provider), tempfile.TemporaryDirectory() as tmp:
+                out = Path(tmp)
+                (out / 'meta.json').write_text(json.dumps({'provider': provider, 'case': 'handoff', 'arm': 'new', 'versions': {}}))
+                (out / 'wave/one').mkdir(parents=True)
+                if provider == 'codex':
+                    raw = {'input_tokens': 100, 'cached_input_tokens': 80, 'output_tokens': 3}
+                    for role in ['executor', 'supervisor']:
+                        (out / f'wave/one/{role}-1.events.jsonl').write_text('\n'.join(map(json.dumps, [
+                            {'type': 'thread.started', 'thread_id': role}, {'type': 'turn.completed', 'usage': raw}])))
+                    (out / 'turn-1.jsonl').write_text(json.dumps({'type': 'turn.completed', 'usage': raw}))
+                else:
+                    raw = {'input_tokens': 100, 'cache_creation_input_tokens': 0, 'cache_read_input_tokens': 0, 'output_tokens': 3}
+                    (out / 'wave/summary.json').write_text(json.dumps({'children': [
+                        {'role': role, 'result': role+'.json', 'usage': raw} for role in ['exec', 'judge']]}))
+                    (out / 'turn-1.jsonl').write_text(json.dumps({'type': 'assistant', 'message': {'id': 'root', 'usage': raw}}))
+                total = module.analyze(out)['whole_captured_task']
+                self.assertEqual(total['captured_invocations'], 3)
+                self.assertEqual(total['total_tokens'], 309)
+
     def test_preparation_freezes_expectations_and_uses_current_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / 'run'

@@ -11,6 +11,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from importlib.util import spec_from_file_location, module_from_spec
+
+_spec = spec_from_file_location("skill_source", os.path.join(os.path.dirname(__file__), "skill-source.py"))
+_source = module_from_spec(_spec); _spec.loader.exec_module(_source)
+skill_text = _source.skill_text
 
 KINDS = ("multi-model", "super-plan", "ship", "critical-review")
 
@@ -254,10 +259,8 @@ def main(argv):
         if not os.path.isfile(p):
             sys.stderr.write("missing file: %s\n" % p)
             return 2
-    with open(claude_path, encoding="utf-8") as f:
-        claude = f.read()
-    with open(codex_path, encoding="utf-8") as f:
-        codex = f.read()
+    claude = skill_text(claude_path)
+    codex = skill_text(codex_path)
 
     fails = []
     if os.path.realpath(claude_path) == os.path.realpath(codex_path):

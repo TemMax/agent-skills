@@ -3,7 +3,9 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
-MM=plugins/orchestration/skills/multi-model/SKILL.md
+MM="$(mktemp)"
+trap 'rm -f "$MM"' EXIT
+python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL.md > "$MM"
 
 check "identifiers table has the Sonnet 5.5 row with no alias and the probe date" \
   "grep -qF '| Sonnet 5.5 | \`claude-sonnet-5-5\` | none (probed 2026-09-28: \`sonnet\` still resolves to \`claude-sonnet-5\`) |' '$MM'"

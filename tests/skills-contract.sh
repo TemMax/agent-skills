@@ -12,7 +12,9 @@ cd "$(dirname "$0")/.." || exit 1
 . tests/lib.sh
 
 CR=plugins/code-review/skills/critical-review/SKILL.md
-MM=plugins/orchestration/skills/multi-model/SKILL.md
+MM="$(mktemp)"
+trap 'rm -f "$MM"' EXIT
+python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL.md > "$MM"
 CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
 CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
 VD=plugins/orchestration/skills/multi-model/references/verdicts.md

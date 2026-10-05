@@ -4,10 +4,12 @@ cd "$(dirname "$0")/../.."
 
 python3 - <<'PY'
 from pathlib import Path
+import runpy
+skill_text = runpy.run_path("tests/lib/skill-source.py")["skill_text"]
 
 for tree in ['skills', 'skills-codex']:
     path = Path(f'plugins/orchestration/{tree}/multi-model/SKILL.md')
-    text = path.read_text()
+    text = skill_text(path)
     for phrase in ['### Cost discipline', 'remarks alone do not launch rework',
                    'affected checks', 'fresh child context', 'measured usage']:
         assert phrase in text, f'{path}: missing {phrase!r}'

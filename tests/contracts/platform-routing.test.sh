@@ -3,7 +3,9 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
-MM=plugins/orchestration/skills/multi-model/SKILL.md
+MM="$(mktemp)"
+trap 'rm -f "$MM"' EXIT
+python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL.md > "$MM"
 CP_ROUTING=plugins/orchestration/skills/multi-model/references/codex-routing.md
 CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
 CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md

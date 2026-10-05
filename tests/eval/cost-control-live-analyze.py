@@ -48,6 +48,9 @@ def analyze(root):
     root = Path(root).resolve()
     meta = json.loads((root / 'meta.json').read_text())
     outcome = json.loads((root / 'outcomes.json').read_text()) if (root / 'outcomes.json').exists() else {}
+    assessment = root / 'assessment-v2.json'
+    if assessment.exists():
+        outcome = json.loads(assessment.read_text())
     provider, case = meta['provider'], meta['case']
     entries, coordinator, seen = [], [], set()
     if provider == 'codex' and case != 'navigation':
@@ -63,7 +66,11 @@ def analyze(root):
                    if turns and all(k in t for t in turns)}
             entries.append({'role': 'executor' if 'executor' in path.name else 'supervisor',
                             'id': sid, 'artifact': str(path), 'usage': normalized(raw, provider)})
-    elif provider == 'claude' and case == 'recovery':
+        if case == 'handoff':
+            path = root / 'turn-1.jsonl'
+            raw = next((r['usage'] for r in reversed(read_events(path)) if r.get('type') == 'turn.completed'), None)
+            coordinator.append({'role': 'coordinator', 'artifact': str(path), 'usage': normalized(raw, provider)})
+    elif provider == 'claude' and case in ['recovery', 'handoff']:
         children = root / 'workflow-children.json'
         if children.exists():
             for c in json.loads(children.read_text()):
@@ -83,6 +90,9 @@ def analyze(root):
             rows = [r for p in root.glob('workflow-*.stdout') for r in read_events(p)]
             if rows:
                 coordinator.append({'role': 'coordinator', 'usage': normalized(usage(rows), provider)})
+            if case == 'handoff':
+                path = root / 'turn-1.jsonl'
+                coordinator.append({'role': 'coordinator', 'artifact': str(path), 'usage': normalized(usage(read_events(path)), provider)})
     elif case == 'semantic':
         envelope = json.loads((root / 'judge.stdout').read_text())
         entries.append({'role': 'supervisor', 'artifact': str(root / 'judge.stdout'), 'usage': normalized(envelope.get('usage'), provider)})
