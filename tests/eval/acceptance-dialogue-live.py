@@ -37,7 +37,7 @@ def register(repo, pkg):
 
 def observed(rows, expected, marker=None):
     text = expected.read_text()
-    body = text.split('---', 2)[2].strip()
+    body = (text.split('---', 2)[2] if text.startswith('---\n') else text).strip()
     ids = set()
     for row in rows:
         item = row.get('item') or {}
@@ -77,7 +77,7 @@ def messages(rows):
 
 
 def quiet(text):
-    return not re.search(r'(?i)PLUGIN_RUNTIME_CONTEXT|active-seat|профиль\s*[:—]|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b', text)
+    return not re.search(r'(?i)PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:PROFILE|WORKFLOW)\.md\b|модель вне таблицы калибровки', text)
 
 
 def instructions_seen(rows, expected, rollouts):
@@ -89,9 +89,13 @@ def instructions_seen(rows, expected, rollouts):
             if body in item.get('aggregated_output', ''): return True
         for block in (row.get('message') or {}).get('content', []):
             if not isinstance(block, dict): continue
-            if block.get('type') == 'tool_use' and block.get('name') == 'Read':
-                path = (block.get('input') or {}).get('file_path')
-                if path and Path(path).resolve() == expected.resolve(): ids.add(block.get('id'))
+            if block.get('type') == 'tool_use':
+                args = block.get('input') or {}
+                if block.get('name') == 'Read':
+                    path = args.get('file_path')
+                    if path and Path(path).resolve() == expected.resolve(): ids.add(block.get('id'))
+                if block.get('name') == 'Bash' and expected.name in args.get('command', ''):
+                    ids.add(block.get('id'))
             if block.get('type') == 'tool_result' and block.get('tool_use_id') in ids and not block.get('is_error'):
                 content = block.get('content', '')
                 if isinstance(content, str) and body in re.sub(r'(?m)^\s*\d+\t', '', content): return True
@@ -112,20 +116,20 @@ def product_files(repo):
 
 
 class Session:
-    def __init__(self, out, repo, provider):
+    def __init__(self, out, repo, provider, budget_usd=3):
         self.out, self.repo, self.provider = out, repo, provider
         self.cli = shutil.which(provider)
-        self.sid = None; self.spent = 0; self.turns = []
+        self.sid = None; self.spent = 0; self.turns = []; self.budget_usd = budget_usd
 
     def invoke(self, k, prompt, pkg, fresh=False):
         if fresh: self.sid = None
         if self.provider == 'claude':
-            if self.spent >= 3: raise RuntimeError('Three-dollar dialogue cap reached')
+            if self.spent >= self.budget_usd: raise RuntimeError('Dialogue USD cap reached')
             common = [self.cli, '-p', '--verbose', '--output-format', 'stream-json', '--model', 'claude-sonnet-5-5', '--effort', 'medium',
                 '--permission-mode', 'acceptEdits', '--permission-prompts', 'none', '--allowedTools', 'Read,Glob,Grep,Bash,Skill',
                 '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--add-dir', str(self.out),
                 '--plugin-dir', str(pkg / 'plugins/orchestration'), '--plugin-dir', str(pkg / 'plugins/code-review'),
-                '--max-budget-usd', str(3-self.spent)]
+                '--max-budget-usd', str(self.budget_usd-self.spent)]
             if self.sid: cmd = common+['--resume', self.sid]
             else:
                 self.sid = str(uuid.uuid4()); cmd = common+['--session-id', self.sid]
@@ -161,18 +165,20 @@ class Session:
 def probe_versions(out, pkg, provider):
     later = out / 'package-v2'; shutil.copytree(pkg, later)
     a, b = ['checkpoint-'+uuid.uuid4().hex for _ in range(2)]
-    for package, version, marker in [(pkg, '4.8.0', a), (later, '4.8.1', b)]:
+    initial = json.loads((pkg / 'plugins/orchestration/.claude-plugin/plugin.json').read_text())['version']
+    parts = initial.split('.'); parts[-1] = str(int(parts[-1])+1); updated = '.'.join(parts)
+    for package, version, marker in [(pkg, initial, a), (later, updated, b)]:
         path = skill_path(package, provider, 'multi-model')
-        text = path.read_text().replace('  version: 4.8.0', '  version: '+version, 1)
+        text = path.read_text().replace('  version: '+initial, '  version: '+version, 1)
         text += '\n## Disposable checkpoint probe\n\nFor this test fixture only: a checkpoint verification checks the current CI timeout without edits, then includes `'+marker+'` in the answer. No implementation, planning gate or child is needed.\n'
         path.write_text(text)
         for sibling in (package / 'plugins/orchestration').glob('skills*/**/SKILL.md'):
             if sibling != path:
-                sibling.write_text(sibling.read_text().replace('  version: 4.8.0', '  version: '+version, 1))
+                sibling.write_text(sibling.read_text().replace('  version: '+initial, '  version: '+version, 1))
         for f in ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json']:
             manifest = package / 'plugins/orchestration' / f
             data = json.loads(manifest.read_text()); data['version'] = version; bench.dump(manifest, data)
-    bench.dump(out / 'probe-versions.json', {'v1': {'version': '4.8.0', 'marker': a}, 'v2': {'version': '4.8.1', 'marker': b},
+    bench.dump(out / 'probe-versions.json', {'v1': {'version': initial, 'marker': a}, 'v2': {'version': updated, 'marker': b},
         'policy_change': 'none; only declared test version and checkpoint marker differ'})
     return later, a, b
 

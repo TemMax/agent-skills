@@ -1,4 +1,13 @@
 # Shared helpers. Every tier reports the same way so one runner can aggregate.
+CONTRACT_SOURCE_DIR="$(mktemp -d)"
+
+# Prose contracts inspect the complete linked policy, not just the hot entrypoint.
+contract_source() {
+  local target="$CONTRACT_SOURCE_DIR/$(printf '%s' "$1" | shasum | cut -d ' ' -f 1).md"
+  python3 tests/lib/skill-source.py "$1" > "$target" || return
+  printf '%s\n' "$target"
+}
+
 FAILED=0
 PASSED=0
 
@@ -16,6 +25,7 @@ contains() { case "$3" in *"$2"*) pass "$1";; *) fail "$1" "'$2' not found in: $
 
 section() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 summary() {
+  rm -rf "$CONTRACT_SOURCE_DIR"
   printf '\n  %s passed, %s failed\n' "$PASSED" "$FAILED"
   [ "$FAILED" -eq 0 ]
 }

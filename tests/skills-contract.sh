@@ -11,7 +11,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 . tests/lib.sh
 
-CR=plugins/code-review/skills/critical-review/SKILL.md
+CR="$(contract_source plugins/code-review/skills/critical-review/SKILL.md)"
 MM="$(mktemp)"
 trap 'rm -f "$MM"' EXIT
 python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL.md > "$MM"
@@ -19,8 +19,8 @@ CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
 CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
 VD=plugins/orchestration/skills/multi-model/references/verdicts.md
 ODH=plugins/orchestration/skills/multi-model/references/orchestrator-drift-hook.md
-SP=plugins/orchestration/skills/super-plan/SKILL.md
-SH=plugins/orchestration/skills/ship/SKILL.md
+SP="$(contract_source plugins/orchestration/skills/super-plan/SKILL.md)"
+SH="$(contract_source plugins/orchestration/skills/ship/SKILL.md)"
 
 section "critical-review: the PR read must be able to answer what it promises"
 # REST exposes no thread id and no resolution state, so a REST-based read makes

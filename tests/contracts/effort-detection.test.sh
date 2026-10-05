@@ -3,8 +3,8 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
-SHIP="plugins/orchestration/skills/ship/SKILL.md"
-CR="plugins/code-review/skills/critical-review/SKILL.md"
+SHIP="$(contract_source plugins/orchestration/skills/ship/SKILL.md)"
+CR="$(contract_source plugins/code-review/skills/critical-review/SKILL.md)"
 
 step0() { sed -n '/^## Step 0/,/^| Exact model id/p' "$1"; }
 

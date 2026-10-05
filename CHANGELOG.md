@@ -4,6 +4,30 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.9.0
+
+### Highlights
+
+**super-plan**
+- Keep assigned research on a short entrypoint
+- Load planning rules before authoring or validating a plan
+
+**ship**
+- Keep assigned verification on a short entrypoint
+- Load the complete delivery rules before entering another stage
+- Carry artifact identity, check evidence and unresolved requirements
+
+**critical-review**
+- Load the reviewer profile and review method for every review
+- Load PR discussion and fix rules only for their respective phases
+- Preserve all existing calibration, approval and verification gates
+
+Orchestration 4.9.0 and code-review 1.16.0 apply to Claude Code and Codex.
+Existing policy paragraphs move beside the entrypoints so relative links retain
+their base. The live phase bench freezes paired fixtures and expected outcomes,
+charges failed attempts and shares a persistent aggregate budget across hosts.
+Token thresholds stop subsequent calls; they are not server-enforced ceilings.
+
 ## 4.8.0
 
 ### Highlights

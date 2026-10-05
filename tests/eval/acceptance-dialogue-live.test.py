@@ -39,6 +39,11 @@ class Evidence(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr)
             versions = json.loads((out / 'probe-versions.json').read_text())
             self.assertNotEqual(versions['v1']['marker'], versions['v2']['marker'])
+            current = json.loads((module.ROOT / 'plugins/orchestration/.claude-plugin/plugin.json').read_text())['version']
+            self.assertEqual(versions['v1']['version'], current)
+            for sub, key in [('package', 'v1'), ('package-v2', 'v2')]:
+                body = module.skill_path(out / sub, 'codex', 'multi-model').read_text()
+                self.assertIn('  version: '+versions[key]['version'], body)
             frozen = json.loads((out / 'frozen-snapshots.json').read_text())
             self.assertTrue(any(p.startswith('package-v2/') for p in frozen))
             self.assertFalse(list(out.glob('turn-*.jsonl')))

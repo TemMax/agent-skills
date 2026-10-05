@@ -114,7 +114,7 @@ if [ "$PROVIDER" = codex ]; then
 else
   SKILL=plugins/orchestration/skills/super-plan/SKILL.md
 fi
-STEP="$(awk '/^5\. \*\*Seam audit\.\*\*/ {on=1} /^6\. \*\*Lint\.\*\*/ {on=0} on' "$SKILL" 2>/dev/null)"
+STEP="$(python3 tests/lib/skill-source.py "$SKILL" | awk '/^5\. \*\*Seam audit\.\*\*/ {on=1} /^6\. \*\*Lint\.\*\*/ {on=0} on')"
 if [ -z "$STEP" ]; then
   echo "seam-audit-fixtures: Seam audit step not found in $SKILL" >&2
   exit 2

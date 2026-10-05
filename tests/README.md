@@ -40,6 +40,7 @@ Prior dated measurements apply to their recorded versions only.
 | `skill-session-ab.sh` | Scripted multi-turn task removing duplicate tests, then a narrow CI edit | Codex session behavior and before/after comparison |
 | `claude-skill-session-ab.py` | Same duplicate-test fixture and eight turns; a cheaper two-turn smoke | Claude Code sessions, normal plugin loading, resume and before/after comparison |
 | `cost-control-live.py` | Ready candidate with a verification fault, lost invariant, PR/CI continuation, delegated handoff, authorized signing amendment | Real dual-host, bounded calls; candidate snapshots and retained failures |
+| `phase-context-live.py` | Paired assigned phases, two semantic defects with green tests, plan lint, paginated PR review, blocked fix/delivery preflight | [Frozen matrix and aggregate budget](eval/phase-context-regressions.md); 14 candidate calls; A/B baselines opt-in; select affected cases; no children or installed upgrade |
 | `acceptance-dialogue-live.py` | New product fork, actual skill version change and fresh native context, bounded planning/verification/review phases | Two or three turns per run; exact loaded body and repository-rule evidence, no installed upgrade |
 | `cost-control-guards.py` | Continue the owned recovery fixture; missing links/lock, amended commands, cap and stale HEAD | Native early guard paths intentionally launch no new models |
 | `telemetry/`, `skill-session-ab-analyze.py` | Captured real runs | Offline analysis of reads, launches, usage and retained outcomes |

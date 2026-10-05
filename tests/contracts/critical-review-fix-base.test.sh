@@ -3,7 +3,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
-SKILL="plugins/code-review/skills/critical-review/SKILL.md"
+SKILL="$(contract_source plugins/code-review/skills/critical-review/SKILL.md)"
 
 one_line() { tr '\n' ' ' < "$1" | tr -s ' '; }
 

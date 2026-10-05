@@ -1,0 +1,540 @@
+{
+  "baseline": "9c90cf17d76452828dd2d4beff19781bb841cd01",
+  "candidate_versions": {
+    "orchestration": "4.9.0",
+    "code-review": "1.16.0"
+  },
+  "aggregate": {
+    "calls": 24,
+    "inclusive_tokens": 2789109,
+    "reported_claude_usd": 1.785399,
+    "limits": {
+      "calls": 24,
+      "tokens": 3000000,
+      "claude_usd": 6,
+      "seconds_per_call": 150
+    },
+    "all_attempts_charged": true
+  },
+  "evidence_root": "/private/tmp/phase-context-4.9.0-1.16.0",
+  "final_cases": {
+    "codex-new-assigned": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "1-unneeded-phases-skipped": true,
+        "exact-ci-facts": true,
+        "2-skill-body": true,
+        "2-unneeded-phases-skipped": true,
+        "verification-evidence": true,
+        "3-skill-body": true,
+        "3-profile-body": true,
+        "3-review-body": true,
+        "3-unneeded-phases-skipped": true,
+        "timeout-defect": true,
+        "validator-defect": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "repository-instructions": true,
+        "no-extra-edit-offer": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-assigned/outcomes.json",
+      "accounting": {
+        "provider": "codex",
+        "root_usage": {
+          "input_tokens": 289123,
+          "cached_input_tokens": 269824,
+          "output_tokens": 1899
+        },
+        "cumulative_rollout_verified": true,
+        "total": 291022,
+        "logical_turns": 3
+      }
+    },
+    "claude-new-research-guard": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "1-unneeded-phases-skipped": true,
+        "exact-ci-facts": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "repository-instructions": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-research-guard/outcomes.json",
+      "accounting": {
+        "provider": "claude",
+        "root_usage": {
+          "input_tokens": 6,
+          "cache_creation_input_tokens": 10168,
+          "cache_read_input_tokens": 51452,
+          "output_tokens": 1192,
+          "requests": 3,
+          "total": 62818
+        },
+        "logical_turns": 1
+      }
+    },
+    "claude-new-review-order": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "1-profile-body": true,
+        "1-review-body": true,
+        "1-one-profile-before-code": true,
+        "1-phase-rules-before-code": true,
+        "1-unneeded-phases-skipped": true,
+        "timeout-defect": true,
+        "validator-defect": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "repository-instructions": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-review-order/outcomes.json",
+      "accounting": {
+        "provider": "claude",
+        "root_usage": {
+          "input_tokens": 12,
+          "cache_creation_input_tokens": 20956,
+          "cache_read_input_tokens": 134001,
+          "output_tokens": 1793,
+          "requests": 6,
+          "total": 156762
+        },
+        "logical_turns": 1
+      }
+    },
+    "claude-new-ship-preflight": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "combined-plan-skill": true,
+        "combined-plan-workflow": true,
+        "combined-plan-lint": true,
+        "workflow-loaded": true,
+        "dirty-tree-stop": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "frozen_inputs_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "no-publication-attempt": true,
+        "repository-instructions": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-ship-preflight/outcomes-evidence-corrected.json",
+      "accounting": {
+        "provider": "claude",
+        "root_usage": {
+          "input_tokens": 8,
+          "cache_creation_input_tokens": 32298,
+          "cache_read_input_tokens": 95483,
+          "output_tokens": 1431,
+          "requests": 4,
+          "total": 129220
+        },
+        "logical_turns": 1
+      }
+    },
+    "codex-new-plan-lint": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "workflow-loaded": true,
+        "actual-lint": true,
+        "lint-success": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "frozen_inputs_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "no-publication-attempt": true,
+        "repository-instructions": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-plan-lint/outcomes-evidence-corrected.json",
+      "accounting": {
+        "provider": "codex",
+        "root_usage": {
+          "input_tokens": 83134,
+          "cached_input_tokens": 67712,
+          "output_tokens": 583
+        },
+        "cumulative_rollout_verified": true,
+        "total": 83717,
+        "logical_turns": 1
+      }
+    },
+    "codex-new-ship-preflight": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "workflow-loaded": true,
+        "dirty-tree-stop": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "frozen_inputs_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "no-publication-attempt": true,
+        "repository-instructions": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-ship-preflight/outcomes.json",
+      "accounting": {
+        "provider": "codex",
+        "root_usage": {
+          "input_tokens": 75258,
+          "cached_input_tokens": 63104,
+          "output_tokens": 454
+        },
+        "cumulative_rollout_verified": true,
+        "total": 75712,
+        "logical_turns": 1
+      }
+    },
+    "claude-new-fix-blocked": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "fixes-loaded": true,
+        "route-blocked": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "frozen_inputs_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "no-publication-attempt": true,
+        "safe-stop-before-repository": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-fix-blocked/outcomes-evidence-corrected.json",
+      "accounting": {
+        "provider": "claude",
+        "root_usage": {
+          "input_tokens": 6,
+          "cache_creation_input_tokens": 16252,
+          "cache_read_input_tokens": 50654,
+          "output_tokens": 943,
+          "requests": 3,
+          "total": 67855
+        },
+        "logical_turns": 1
+      }
+    },
+    "codex-new-fix-blocked": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "fixes-loaded": true,
+        "route-blocked": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "frozen_inputs_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "no-publication-attempt": true,
+        "repository-instructions": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-fix-blocked/outcomes.json",
+      "accounting": {
+        "provider": "codex",
+        "root_usage": {
+          "input_tokens": 50483,
+          "cached_input_tokens": 43008,
+          "output_tokens": 330
+        },
+        "cumulative_rollout_verified": true,
+        "total": 50813,
+        "logical_turns": 1
+      }
+    },
+    "claude-new-pr-review": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "1-profile-body": true,
+        "1-review-body": true,
+        "1-one-profile-before-code": true,
+        "1-phase-rules-before-code": true,
+        "pr-loaded": true,
+        "fixes-skipped": true,
+        "thread-ledger": true,
+        "paginated-read-before-diff": true,
+        "no-gh-write": true,
+        "no-real-gh": true,
+        "timeout-defect": true,
+        "validator-defect": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "frozen_inputs_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "no-publication-attempt": true,
+        "repository-instructions": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-pr-review/outcomes.json",
+      "accounting": {
+        "provider": "claude",
+        "root_usage": {
+          "input_tokens": 18,
+          "cache_creation_input_tokens": 23799,
+          "cache_read_input_tokens": 240848,
+          "output_tokens": 3138,
+          "requests": 9,
+          "total": 267803
+        },
+        "logical_turns": 1
+      }
+    },
+    "codex-new-pr-review": {
+      "passed": true,
+      "checks": {
+        "1-skill-body": true,
+        "1-profile-body": true,
+        "1-review-body": true,
+        "1-one-profile-before-code": true,
+        "1-phase-rules-before-code": true,
+        "pr-loaded": true,
+        "fixes-skipped": true,
+        "thread-ledger": true,
+        "paginated-read-before-diff": true,
+        "no-gh-write": true,
+        "no-real-gh": true,
+        "timeout-defect": true,
+        "validator-defect": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "frozen_inputs_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "no-publication-attempt": true,
+        "repository-instructions": true
+      },
+      "outcome": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-pr-review/outcomes.json",
+      "accounting": {
+        "provider": "codex",
+        "root_usage": {
+          "input_tokens": 294757,
+          "cached_input_tokens": 259840,
+          "output_tokens": 2710
+        },
+        "cumulative_rollout_verified": true,
+        "total": 297467,
+        "logical_turns": 1
+      }
+    }
+  },
+  "failures_preserved": {
+    "claude-new-ship-preflight": {
+      "original": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-ship-preflight/outcomes.json",
+      "failed_checks": [
+        "combined-plan-lint",
+        "repository-instructions"
+      ],
+      "error": null
+    },
+    "codex-new-plan-lint": {
+      "original": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-plan-lint/outcomes.json",
+      "failed_checks": [
+        "lint-success"
+      ],
+      "error": null
+    },
+    "claude-old-assigned": {
+      "original": "/private/tmp/phase-context-4.9.0-1.16.0/claude-old-assigned/outcomes.json",
+      "failed_checks": [
+        "repository-instructions"
+      ],
+      "error": null
+    },
+    "claude-new-fix-blocked": {
+      "original": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-fix-blocked/outcomes.json",
+      "failed_checks": [
+        "repository-instructions"
+      ],
+      "error": null
+    },
+    "claude-new-plan-lint-quiet": {
+      "original": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-plan-lint-quiet/outcomes.json",
+      "failed_checks": [
+        "quiet"
+      ],
+      "error": null
+    },
+    "claude-new-plan-lint": {
+      "original": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-plan-lint/outcomes.json",
+      "failed_checks": [
+        "quiet"
+      ],
+      "error": null
+    },
+    "claude-new-assigned": {
+      "original": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-assigned/outcomes.json",
+      "failed_checks": [
+        "repository-instructions"
+      ],
+      "error": null
+    },
+    "claude-new-review-quiet": {
+      "original": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-review-quiet/outcomes.json",
+      "failed_checks": [
+        "timeout-defect"
+      ],
+      "error": null
+    }
+  },
+  "final_source_proof": {
+    "claude/super-plan": {
+      "case": "claude-new-ship-preflight",
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "sha256": "e7e30f671662766a85cfed79b346bce11498bfacf204e9263027275a839afdbd",
+      "loaded_body": true,
+      "final_bytes_match": true
+    },
+    "claude/ship": {
+      "case": "claude-new-ship-preflight",
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "sha256": "014b71425cbc8fc52d38a8eed656fb5491a3a02390f7d934b34e5978e878a700",
+      "loaded_body": true,
+      "final_bytes_match": true
+    },
+    "claude/critical-review": {
+      "case": "claude-new-pr-review",
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "sha256": "ce73f64211d6302d590bbc514054fc8192bd49955a4cfa6546d9e0fee8358a75",
+      "loaded_body": true,
+      "final_bytes_match": true
+    },
+    "codex/super-plan": {
+      "case": "codex-new-plan-lint",
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "sha256": "103c1356a237498ee04b48121d1419e2f7169db92b34eac9f64d6f38e9ec9567",
+      "loaded_body": true,
+      "final_bytes_match": true
+    },
+    "codex/ship": {
+      "case": "codex-new-ship-preflight",
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "sha256": "c2de1c0ff6f3f2720e545345c8928b04e862480be497c44e7447dfbf22bf0366",
+      "loaded_body": true,
+      "final_bytes_match": true
+    },
+    "codex/critical-review": {
+      "case": "codex-new-pr-review",
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "sha256": "fc820521969c53ad82e6666a31b045857d0d588af2db4319e79f9e5bd2909371",
+      "loaded_body": true,
+      "final_bytes_match": true
+    }
+  },
+  "exploratory_ab": {
+    "claude": {
+      "old": 349803,
+      "early_candidate": 257861,
+      "reduction_percent": 26.3,
+      "scope": "Single paired dialogue before final instruction/communication clarifications; not a final release or quota forecast"
+    },
+    "codex": {
+      "old": 348311,
+      "early_candidate": 291022,
+      "reduction_percent": 16.4,
+      "scope": "Single paired dialogue before final instruction/communication clarifications; not a final release or quota forecast"
+    }
+  },
+  "limitations": [
+    "No positive full ship or fix execution rerun: runtime kernels unchanged; blocked boundary cases only.",
+    "PR GitHub service fixture; real native hosts/models, no live GitHub writes.",
+    "No installed update/normal postmerge smoke until explicitly authorized merge.",
+    "Early A/B dialogue had baseline/candidate failures; final clarification sources proven separately, not a fresh paired savings claim."
+  ],
+  "cli_versions": {
+    "claude": "2.1.289 (Claude Code)",
+    "codex": "codex-cli 0.160.0"
+  },
+  "final_phase_resource_proof": {
+    "claude/super-plan/WORKFLOW.md": {
+      "case": "claude-new-ship-preflight",
+      "sha256": "cb1d57df0b380fce63b8ca7cfcbec4e4bc9f440e8228133620c2b1547458889f",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "claude/ship/WORKFLOW.md": {
+      "case": "claude-new-ship-preflight",
+      "sha256": "ec2b4fdbe5f79bba394e5992630dedf64ab2c7237681bc3ebac07e0329c995cf",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "claude/critical-review/PROFILE.md": {
+      "case": "claude-new-pr-review",
+      "sha256": "7902fa95139050034d31e847b97dd68900e02617c9b14140cdcfc26a866771e3",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "claude/critical-review/REVIEW.md": {
+      "case": "claude-new-pr-review",
+      "sha256": "10b67c49c4cbc80955c051dbc71ff194a3ebf93e5d52abe9cfcbc79e647383ef",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "claude/critical-review/PR.md": {
+      "case": "claude-new-pr-review",
+      "sha256": "57d77b5325e9a8b46574aa45504a548998c7e44f4de6420e84b5a7701e934893",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "claude/critical-review/FIXES.md": {
+      "case": "claude-new-fix-blocked",
+      "sha256": "0648abe5956352409eedeccdd2f987258171c58bf898d7574f85100ae512faf0",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "codex/super-plan/WORKFLOW.md": {
+      "case": "codex-new-plan-lint",
+      "sha256": "92f25187a6e0750af15a6bfcdf449d794457fd4777f6207372be88800a549b08",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "codex/ship/WORKFLOW.md": {
+      "case": "codex-new-ship-preflight",
+      "sha256": "5c8e9e31d0b9d78d469e96f9c432bfd50c3b24beab5c7ba9e33d84309b440f10",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "codex/critical-review/PROFILE.md": {
+      "case": "codex-new-pr-review",
+      "sha256": "bb5e0bc6919649f8d921d6eb8fa772ac7881efd36fe8773a23ae8feaa00e68de",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "codex/critical-review/REVIEW.md": {
+      "case": "codex-new-pr-review",
+      "sha256": "85b31f7f59f1033f15abe52b5cb8ba3ab73d8e14e1aa74710e8bac702644b985",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "codex/critical-review/PR.md": {
+      "case": "codex-new-pr-review",
+      "sha256": "93ed6c796db9d5cbd55b2d9d72f69688b379bcf46e3ac346f390b96aec3d7916",
+      "final_bytes_match_and_loaded_body": true
+    },
+    "codex/critical-review/FIXES.md": {
+      "case": "codex-new-fix-blocked",
+      "sha256": "4515a0e0ebb1b1d744602ba1e30e176c0ae9175a01f9441d68a804b8a9efd17b",
+      "final_bytes_match_and_loaded_body": true
+    }
+  },
+  "authoring_conversation_usage": "not available; aggregate covers native bench only"
+}

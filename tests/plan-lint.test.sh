@@ -43,7 +43,8 @@ expect "clean plan exits 0" "0" "$rc"
 contains "clean summary line" "OK: 0 error(s)" "$out"
 
 section "documented canonical plan"
-if node --input-type=module - plugins/orchestration/skills/super-plan/SKILL.md "$W/documented.md" <<'JS'
+python3 tests/lib/skill-source.py plugins/orchestration/skills/super-plan/SKILL.md > "$W/source.md"
+if node --input-type=module - "$W/source.md" "$W/documented.md" <<'JS'
 import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync } from 'node:fs'
 const [source, target] = process.argv.slice(2)
