@@ -93,8 +93,8 @@ No wave, supervisor pairing, drift-hook role, or end-to-end route has been
 run with Sol in this plugin. The System Card does not measure this
 orchestrator seat, cross-model self-preference, or a best-effort curve for
 coordination. Model positioning and System Card scores do not certify
-routing reliability; read `gpt-6-sol-dossier.md` for the underlying evidence
-and its limits.
+routing reliability. Read `gpt-6-sol-dossier.md` when checking model-selection or
+calibration claims; ordinary coordination uses this profile and shared routing.
 
 ## Common mistakes
 

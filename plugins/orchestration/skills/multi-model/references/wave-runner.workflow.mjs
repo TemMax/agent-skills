@@ -65,6 +65,13 @@ if (typeof wave !== 'object' || wave === null || Array.isArray(wave)) {
 }
 
 const errors = []
+if (wave.limits !== undefined) {
+  if (!wave.limits || typeof wave.limits !== 'object' || Array.isArray(wave.limits)) errors.push('limits: object required')
+  else for (const [key, value] of Object.entries(wave.limits)) {
+    const max = { max_attempts: 6, max_model_calls: 24 }[key]
+    if (!max || !Number.isInteger(value) || value < 1 || value > max) errors.push('limits.' + key + ': invalid bound')
+  }
+}
 if (typeof wave.base !== 'string' || !/^[0-9a-f]{7,40}$/.test(wave.base)) {
   errors.push('base: a 7-40 char lowercase hex sha is required')
 }
@@ -125,6 +132,12 @@ if (!Array.isArray(wave.tasks) || wave.tasks.length === 0) {
       errors.push(at + '.description: required')
     }
     const c = t.contract
+    if (t.supervision !== undefined && !['model', 'mechanical'].includes(t.supervision)) errors.push(at + '.supervision: model|mechanical')
+    if (t.supervision === 'mechanical' && (typeof verify !== 'function' || !c || !Array.isArray(c.must_run)
+      || c.must_run.length === 0 || !Array.isArray(c.forbidden_moves) || c.forbidden_moves.length
+      || !Array.isArray(c.report_must_answer) || c.report_must_answer.length)) {
+      errors.push(at + '.supervision: mechanical needs native verification and a purely mechanical contract')
+    }
     if (!c || typeof c !== 'object') {
       errors.push(at + '.contract: required, with all five keys')
     } else {
@@ -141,6 +154,7 @@ if (!Array.isArray(wave.tasks) || wave.tasks.length === 0) {
           if (!m || typeof m.evidence !== 'string') {
             errors.push(at + '.contract.must_run[' + j + '].evidence: required')
           }
+          if (m && m.cache !== undefined && m.cache !== 'artifact') errors.push(at + '.contract.must_run[' + j + '].cache: artifact or absent')
         })
       }
     }
@@ -539,27 +553,56 @@ async function runTask(t) {
   }
   let pasteStrikes = 0
   let verdictCount = 0
+  let modelCalls = wave.recovery?.[t.id]?.modelCalls ?? 0
+  let budgetStopped = false
+  const attemptCap = wave.limits?.max_attempts ?? MAX_ATTEMPTS_PER_TASK
+  const callCap = wave.limits?.max_model_calls ?? (wave.recovery ? 24 : Infinity)
   let prevVerdict = null
   const mechSeen = new Set()
 
   // One API death is retried once and recorded; a second is a task error —
   // never a wave error.
   async function call(prompt, opts, rung) {
+    if (modelCalls >= callCap) { budgetStopped = true; return null }
+    modelCalls++
     let r = await agent(prompt, opts)
     if (r === null) {
       attempts.push({ rung, model: opts.model, effort: opts.effort,
                       kind: 'agent-error', verdict: null, escalation: null })
       log(t.id + ': ' + opts.label.split(':')[0] + ' died (' + opts.model + ') — retrying once')
+      if (modelCalls >= callCap) { budgetStopped = true; return null }
+      modelCalls++
       r = await agent(prompt, opts)
     }
     return r
+  }
+
+  // Recovery reviews the pinned candidate exactly once. Rejection stops;
+  // it cannot silently turn into another implementation attempt.
+  if (wave.recovery?.[t.id]) {
+    if (typeof verify !== 'function') return finish('error')
+    const saved = wave.recovery[t.id]
+    const facts = await verify(t, saved.report, wave)
+    if (!facts) return finish('error')
+    if (facts.environmentBlocked) return finish('environment-blocked', environmentInfo('verifier', facts.environmentBlocked))
+    const violations = mechanicalViolations(t, facts)
+    let verdict
+    if (violations.length) verdict = { ok: false, violations, remarks: [] }
+    else if (t.supervision === 'mechanical') verdict = { ok: true, violations: [], remarks: [] }
+    else verdict = await call(supervisorPrompt(t, saved.report, facts),
+      { model: wave.supervisor.model, effort: wave.supervisor.effort ?? 'high',
+        label: 'judge:' + t.id, phase: 'Wave', schema: VERDICT_SCHEMA }, 0)
+    if (!verdict) return finish(budgetStopped ? 'budget-exhausted' : 'error')
+    attempts.push({ rung: 0, model: rungs[0], effort: t.executor.effort ?? 'medium',
+      kind: 'recovery', verdict, escalation: null })
+    return finish(verdict.ok === true ? 'ok' : 'candidate-rejected')
   }
 
   for (let rung = 0; rung < rungs.length; rung++) {
     const model = rungs[rung]
     const effort = rung === 0 ? (t.executor.effort ?? 'medium') : 'high'
     for (let attemptOnRung = 1; attemptOnRung <= MAX_ATTEMPTS_PER_RUNG; attemptOnRung++) {
-      if (verdictCount >= MAX_ATTEMPTS_PER_TASK) return finish('failed')
+      if (verdictCount >= attemptCap) return finish(wave.limits?.max_attempts ? 'budget-exhausted' : 'failed')
       verdictCount++
 
       const prompt = prevVerdict ? reworkPrompt(t, prevVerdict) : executorPrompt(t)
@@ -568,7 +611,7 @@ async function runTask(t) {
         + ', attempt ' + verdictCount + '/' + MAX_ATTEMPTS_PER_TASK)
       const report = await call(prompt,
         { model, effort, label: 'exec:' + t.id, phase: 'Wave' }, rung)
-      if (report === null) return finish('error')
+      if (report === null) return finish(budgetStopped ? 'budget-exhausted' : 'error')
 
       // (a) The executor itself hit the machine, not the work: stop at once,
       // never spend a verifier or a judge call on it.
@@ -584,7 +627,7 @@ async function runTask(t) {
       // a dead verifier skips the stage and the judge runs everything itself;
       // this stage can only save a judge call, never remove supervision.
       log(t.id + ': report received — verifying (' + verifier.model + ')')
-      const facts = await call(verifierPrompt(t, report),
+      const facts = typeof verify === 'function' ? await verify(t, report, wave) : await call(verifierPrompt(t, report),
         { model: verifier.model, effort: verifier.effort,
           label: 'verify:' + t.id, phase: 'Wave', schema: VERIFY_SCHEMA }, rung)
 
@@ -623,11 +666,18 @@ async function runTask(t) {
         }
       }
       if (verdict === null) {
+        if (t.supervision === 'mechanical' && !blockedOnSibling && facts !== null
+          && mechanicalViolations(t, facts).length === 0) {
+          verdict = { ok: true, violations: [], remarks: ['independent mechanical contract checks passed'] }
+          kind = 'mechanical'
+        }
+      }
+      if (verdict === null) {
         log(t.id + ': judging (' + wave.supervisor.model + ')')
         verdict = await call(supervisorPrompt(t, report, facts),
           { model: wave.supervisor.model, effort: wave.supervisor.effort ?? 'high',
             label: 'judge:' + t.id, phase: 'Wave', schema: VERDICT_SCHEMA }, rung)
-        if (verdict === null) return finish('error')
+        if (verdict === null) return finish(budgetStopped ? 'budget-exhausted' : 'error')
       }
 
       const attempt = { rung, model, effort, kind, verdict, escalation: null }

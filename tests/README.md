@@ -1,5 +1,87 @@
 # Tests
 
+## Required live validation
+
+The repository's [main rule](../AGENTS.md) requires live validation for changes
+to plugin behavior. Check affected scenarios through real Claude Code and Codex
+sessions for shared changes; offline results alone do not make a change verified
+or release-ready. Run a small relevant set first, with bounded calls/time, then
+expand when a failure or uncertainty justifies it. Preserve all failed runs.
+
+Verify the actual candidate version and loaded paths. The Codex `skill-session-ab --arm
+new` defaults to archiving **HEAD**, so it misses uncommitted changes; `--arm
+real` uses whichever plugin is installed, which may also be old. Isolated prompt
+probes and normal plugin-loading sessions establish different facts. Choose the
+one that exercises the changed behavior; an execution/recovery change also needs
+an actual execution/recovery scenario.
+
+The Claude `claude-skill-session-ab.py --arm new` snapshots current files,
+including uncommitted edits, and checks host plugin metadata plus the injected
+skill path. It does not change the installed marketplace source.
+
+The [first-package cases](eval/first-package-regressions.md) describe the current
+mandatory cost-control scenarios. Their new end-to-end live checks have not yet
+been fully completed. The first three scenarios and native early guards have
+recorded [real dual-host results](eval/cost-control-live-results-2026-10-05.md).
+Prior dated measurements apply to their recorded versions only.
+
+## Available test bench
+
+| Component | Fixture/task | Scope |
+| --- | --- | --- |
+| `critical-review.sh` | Clean code and deliberately planted defects; gated PR thread flow | Live semantic review through either provider |
+| `supervisor.sh` | Real small repository: correct change, missing guard, unsatisfiable contract | Live independent supervision through either provider |
+| `super-plan.sh`, `seam-audit*.sh` | File overlap, product fork, broken cross-task seams and clean decoys | Live planning and audit; several fixed mini repositories |
+| `skill-navigation.sh` | Five process decision points and required reference reads | Live skill application through either provider |
+| `ship-smoke.sh` | Two tasks in a disposable repository with a local bare origin | Codex execution, correctness and telemetry |
+| `skill-session-ab.sh` | Scripted multi-turn task removing duplicate tests, then a narrow CI edit | Codex session behavior and before/after comparison |
+| `claude-skill-session-ab.py` | Same duplicate-test fixture and eight turns; a cheaper two-turn smoke | Claude Code sessions, normal plugin loading, resume and before/after comparison |
+| `cost-control-live.py` | Ready candidate with a verification fault, green tests with a lost invariant, four-turn PR/skill/CI continuation | Real dual-host, bounded old/new comparison; candidate snapshots and retained failures |
+| `cost-control-guards.py` | Continue the owned recovery fixture; missing links/lock, amended commands, cap and stale HEAD | Native early guard paths intentionally launch no new models |
+| `telemetry/`, `skill-session-ab-analyze.py` | Captured real runs | Offline analysis of reads, launches, usage and retained outcomes |
+
+Both hosts now have multi-turn A/B drivers sharing the disposable fixture.
+The cost-control driver covers the first three cases on either host; the entire
+acceptance matrix is not yet automated or live-verified.
+A list of scenarios or an offline test of a live driver must not be reported
+as a completed live run.
+
+Run the bounded probes manually, once per provider/arm, with fresh directories:
+
+```bash
+python3 tests/eval/cost-control-live.py --provider claude --case recovery --arm new --out /tmp/cost-claude-new
+python3 tests/eval/cost-control-live.py --provider codex --case semantic --arm new --out /tmp/cost-codex-semantic
+python3 tests/eval/cost-control-live.py --provider codex --case navigation --arm new --out /tmp/cost-codex-navigation
+python3 tests/eval/cost-control-live-analyze.py /tmp/cost-claude-new /tmp/cost-codex-semantic
+python3 tests/eval/cost-control-guards.py --run /tmp/cost-claude-new
+```
+
+`--prepare-only` snapshots files, creates the fixture and freezes outcomes without
+calling a model. New means current working files, old means `--old-ref HEAD`.
+Recovery uses actual child CLIs; old Claude invokes the actual Workflow tool.
+Old recovery explicitly measures a full rerun strategy, not optimal old resume.
+Navigation uses normal plugins: Claude `--plugin-dir`; Codex temporarily installs
+unique test plugin IDs via `codex plugin add`, then removes only those IDs in
+`finally`. It does not replace `temmax` or change its source. Codex arguments use
+literal CLI override paths without TOML key quotes. Discovery is checked before
+model calls, and actual loaded skill hashes/host-injected bodies are checked after.
+Codex launchers need to run outside the enclosing macOS sandbox; children retain
+their own sandboxes. Claude navigation is capped at $3/four turns; each semantic
+probe has one bounded reviewer call; recovery has a two-call wave cap and child
+timeouts. These are invocation caps, not API request or token caps.
+
+The guard driver advances only its disposable candidate after preserving an
+evidence branch. Do not reuse that fixture as unchanged proof afterwards. The
+original summaries and measured HEADs remain retained. Signing correction is
+reverified at an exhausted cap; that is not a positive live signing review.
+
+Usage analysis counts all owned roles and retained failures. Resumed Codex CLI
+usage is cumulative when it matches `total_token_usage` in the owned rollout;
+subtract the previous counter rather than summing it again. Without that evidence
+the analyzer keeps the stream's original per-turn interpretation. Claude cache
+creation and reads are separate additive buckets; Codex cached input is already
+included in input. The offline suite covers both the fixture and this accounting.
+
 ```
 ./tests/run.sh          structure + contracts + behaviour   — offline, seconds
 ./tests/run.sh --live   the above plus the evaluation tiers — ~a dozen model
@@ -261,6 +343,61 @@ the real driver end to end against a codex stub, and
 fixtures in `tests/eval/fixtures/skill-session-ab/`. Neither calls a model.
 
 Recorded measurement: [skill-session-ab-results-2026-10-03.md](eval/skill-session-ab-results-2026-10-03.md).
+
+## Claude skill-session A/B
+
+`python3 tests/eval/claude-skill-session-ab.py --arm old|new|real --out DIR`
+runs one resumable Claude Code session (Python 3.12 or later).
+Default `--scenario smoke` has two turns: load the skill and inspect the
+repository; then change CI timeout from
+10 to 15 without delegation. `--scenario duplicates` uses the same eight
+messages and shared 19-test fixture as the Codex driver. Five redundant tests
+must be removed while preserving all distinct cases, then CI must be changed.
+It is manual-only, including under `tests/run.sh --live`.
+
+Arms: `old` archives `--old-ref` (default HEAD); `new` copies the current
+`plugins/orchestration` files, including uncommitted changes, or accepts
+`--candidate-root PLUGIN_DIR` / `--new-ref REF`; `real` uses installed plugins.
+Both snapshot arms load normally through `--plugin-dir`, with their hooks,
+user/project settings excluded and external MCP configurations disabled.
+The installed arm retains user settings. These setups differ from the Codex
+snapshot arms, which read instructions explicitly with plugins disabled;
+compare old/new within one host, not raw totals across those setups.
+
+Every run requires a fresh output directory and retains prompts, CLI arguments,
+streams, stderr, elapsed time and exit status per turn, the exact session UUID,
+candidate version/file hashes, host loading evidence, its owned transcript and
+native child transcripts, final Git state and fixture test output. Expected
+outcomes are frozen before the first model call. A successful CLI result does
+not make a wrong fixture result pass. Failure, missing result, identity mismatch,
+timeout or exhausted budget stops the dialogue. A shortened run is `partial`.
+
+Defaults: one repetition label, medium effort, 300-second timeout per turn and
+`--max-budget-usd 5` cumulative print-mode CLI budget. This is reported API cost,
+not a measurement of subscription quota; it does not cap independent CLIs
+launched through shell tools. Choose authorized routes and task budgets for
+the full delegated scenario. Start with the smoke:
+
+```bash
+python3 tests/eval/claude-skill-session-ab.py --arm old --scenario smoke --out /tmp/claude-ab-old
+python3 tests/eval/claude-skill-session-ab.py --arm new --scenario smoke --out /tmp/claude-ab-new
+python3 tests/eval/claude-skill-session-ab-analyze.py /tmp/claude-ab-old /tmp/claude-ab-new
+```
+
+The analyzer writes each `metrics.json`, prints individual runs and per-arm
+means including failures, and refuses to compare different scenarios/models/
+efforts/turn counts. It reuses the Codex command/text classifier and counts automatic host
+skill loads separately from file reads. Coordinator input is uncached input +
+cache creation + cache reads, with both cache pools also reported separately;
+streamed blocks are deduplicated by message ID. Child text is excluded from
+coordinator behavior; captured child usage is separate. Uncaptured child/model
+usage stays unknown. Reads/writes inferred from shell commands remain heuristic.
+
+Offline coverage is in `claude-skill-session-ab.test.py`, registered in
+`tests/run.sh`. Testing hooks: `SKILL_SESSION_AB_CLAUDE_BIN` and
+`SKILL_SESSION_AB_CLAUDE_PROJECTS`; synthetic runs never read personal sessions.
+Live smoke evidence and its limits:
+[Claude A/B smoke, 2026-10-05](eval/claude-skill-session-ab-results-2026-10-05.md).
 
 ## seam-audit fixtures
 

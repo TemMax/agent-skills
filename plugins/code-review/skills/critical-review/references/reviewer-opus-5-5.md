@@ -15,12 +15,9 @@ Run this review at `high`; `medium` is acceptable for a small diff. Avoid
 third-party text, so higher effort buys you more exposure, not a better
 review.
 
-**Effort self-check.** Step 0 reports this session's current effort. If it is
-`max`, note in one line that the pasted-text risk is higher at this level,
-read every PR text through tools (see below), and proceed. `high`/`medium`:
-proceed. `low`: note depth may suffer and proceed. If Step 0 shows no
-recognizable level (for example an unexpanded `${CLAUDE_EFFORT}` placeholder),
-ignore it and proceed.
+**Effort self-check.** At `max`, read PR text through tools and hold findings
+to artifact evidence. At `low`, check that required evidence is complete.
+Unknown effort does not block review. Apply these checks internally and proceed.
 
 ---
 

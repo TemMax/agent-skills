@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
-import { timeBucketsMsClaude } from './telemetry.mjs'
+import { buildClaudeReport, timeBucketsMsClaude } from './telemetry.mjs'
 
 const CLI = fileURLToPath(new URL('./telemetry.mjs', import.meta.url))
 
@@ -35,6 +35,26 @@ const usage = (input, cacheCreation, cacheRead, output) =>
 function jsonl(rows) {
   return rows.map(r => JSON.stringify(r)).join('\n') + '\n'
 }
+
+test('usage: streamed blocks count once per message and include the cached context', () => {
+  const first = assistant(1, 'claude-sonnet-5-5', usage(2, 100, 900, 10), [{ type: 'text', text: 'checking' }])
+  first.message.id = 'msg-1'
+  const final = assistant(2, 'claude-sonnet-5-5', usage(2, 100, 900, 40), [toolUse('one', 'Bash')])
+  final.message.id = 'msg-1'
+  const report = buildClaudeReport({
+    root: { id: SESSION, rows: [userText(0, 'check'), first, final] },
+    children: [{ id: EXEC, meta: { description: 'exec:test' }, rows: [first, final] }],
+  }, {})
+  assert.equal(report.orchestrator.requests, 1)
+  assert.equal(report.orchestrator.meanInputTokens, 1002)
+  assert.equal(report.orchestrator.medianInputTokens, 1002)
+  assert.deepEqual(report.children[0].tokens, {
+    input: 2, cacheCreation: 100, cacheRead: 900, output: 40, total: 1042,
+  })
+  assert.equal(report.children[0].requests, 1)
+  // IDs are scoped to each transcript, not deduplicated across agents.
+  assert.equal(report.cost.unpriced.reduce((n, group) => n + group.tokens.total, 0), 2084)
+})
 
 function buildFixture() {
   const dir = mktempDir()
@@ -155,7 +175,7 @@ test('report: orchestrator time split, requests, token stats', t => {
   })
   assert.equal(report.orchestrator.requests, 4)
   assert.equal(report.orchestrator.medianInputTokens, 1250)
-  assert.equal(report.orchestrator.meanInputTokens, 1275)
+  assert.equal(report.orchestrator.meanInputTokens, 1325)
   assert.equal(report.orchestrator.compactions, 0)
 })
 

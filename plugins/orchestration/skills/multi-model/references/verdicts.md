@@ -54,9 +54,12 @@ then abandoned supervision entirely.
 ## The supervisor's verdict
 
 **The supervisor trusts artifacts only.** It checks out `wave/<task-id>` into
-its own worktree, runs the diff itself, executes each `must_run` command itself,
-and greps for the forbidden moves itself. The report is a set of claims to
-check, never a source of facts.
+its own worktree, runs the diff itself, and checks the forbidden moves itself.
+For `must_run`, use attached independent verifier facts for the same branch and
+ordered pipeline; execute the pipeline when facts are absent or a concrete
+uncertainty requires a re-run. The executor's report is a set of claims to
+check, never a source of facts. See supervisor-prompt.md's Scope and verification
+cost section for the limits on extra probes.
 
 **A paste that does not reproduce is a fact, not an accusation.** The executor
 pastes command output; the supervisor re-runs the command and compares. When they

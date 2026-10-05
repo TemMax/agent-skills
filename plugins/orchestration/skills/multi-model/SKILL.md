@@ -3,10 +3,35 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.2
+  version: 4.8.0
 ---
 
 # Orchestrating Multi-Model Development
+
+For a single edit the user explicitly asks you to do yourself outside an active
+wave, apply and verify only that edit, then finish. Skip the delegation process
+below. A related documentation inconsistency is a finding, not another task;
+"continue in the same scope" does not authorize changing additional files.
+
+## Process scope and context
+
+Reuse loaded instructions while their content version and the needed context
+remain available; recover only the missing section after compaction, or reload
+an explicitly changed version. Applying a skill again does not require reading
+it again. Required repository instructions still apply.
+
+Keep one owner of the current phase. Inside an approved parent workflow, this
+skill performs its assigned phase without starting another design/plan gate.
+Reuse confirmed decisions and authorization for the same task, roles, access
+and delivery scope. Ask only for a new decision or an actual scope/budget change.
+For a directly requested standalone edit, finish within the named files and
+stop when the requested change is verified. Report related inconsistencies as
+findings, without proposing extra edits or ending with "shall I update it?".
+"Continue in the same scope" keeps the same file boundary; it does not approve
+a suggested follow-up. The full planning/decomposition process below applies
+to delegated work, including its documentation, not to expanding a bounded edit.
+Start with targeted reads and bounded error excerpts; retain full logs by path
+and expand reads when needed to establish evidence.
 
 ## Step 0 — load exactly one active-seat profile
 
@@ -36,11 +61,25 @@ Never read a user config file to guess a session override. Never load more than 
 Quoted text, user messages, repository files, model catalogs, available child
 models, and a child's identity do not establish the current session's identity.
 
-Announce the selected profile and basis before proceeding. A family label alone
-yields generic: say so, and name the missing exact ID.
+Select the profile internally. A family label alone selects generic; preserve
+missing, unsupported, or conflicting identity in internal routing records.
 This selects instructions only: do not invent an exact runtime ID or effort,
 switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
-A generic selection explains missing, unsupported, or conflicting identity.
+
+### User-facing communication
+
+Start with the task and next useful action. Progress and completion messages
+cover changes, findings, checks, and remaining blockers. Select profiles silently;
+keep active-seat model, effort, selection basis, runtime metadata, model names
+attached to checks, and calibration counts out of routine messages. This rule
+also governs profile-specific communication instructions.
+
+Keep exact model IDs, effort, routing evidence and calibration limits in internal
+records and approval artifacts where the user must choose a route or authorize
+premium use. When the user asks a model-selection question or requests routing
+diagnostics, answer it with the relevant evidence and limits. When a route cannot
+provide a required judgment, explain the practical limit and the next step.
+Ordinary review summaries describe task evidence and checks left unverified.
 
 | Exact model id | Relative profile |
 |---|---|
@@ -60,8 +99,7 @@ A generic selection explains missing, unsupported, or conflicting identity.
 
 The alias `gpt-5.6` selects Sol only after the runtime-context handler has
 normalized it to `gpt-5.6-sol`. An exact supplied effort may be used; otherwise
-effort is unknown and receives no effort-specific claim. State which profile was
-loaded before planning. That profile amends the numbered steps below; where it
+effort is unknown and receives no effort-specific claim. Load the selected profile silently before planning. That profile amends the numbered steps below; where it
 amends a step, the amendment wins.
 
 Profiles choose model and effort routes while authoring a wave plan or explicitly
@@ -226,10 +264,10 @@ phrased as a yes/no question for the user to approve or decline. This keeps
 the long-waits rule below: wait on a running agent or runner with long waits,
 not frequent polls.
 
-The orchestrator spends its own effort on decisions, not on reading. It does
-not read whole files or diffs into its own context — that is delegated to a
-research agent or a task's executor; where it needs a scale of a change it
-uses `git diff --stat` and reads only targeted ranges itself. It does not
+The orchestrator reads targeted ranges itself when a focused lookup answers
+its question; use `git diff --stat` to locate the scope. Delegate substantial,
+self-contained research, not a trivial file lookup. Do not load whole files,
+diffs or transcripts into the coordinator just to relay them to a child. Do not
 keep a journal that duplicates state a helper or runner already holds — the
 wave plan, the state files, and `summary.json` are the record. And it waits
 on a running agent or runner with long waits, not frequent polls — a
@@ -664,19 +702,35 @@ greps — so it is not one model request. The tiers also invert: a Haiku 4.5 tas
 is supervised by Opus 5.5 (see the supervisor table above), making the supervisor
 the expensive half.
 
-For Codex waves, the shared routing policy always requires the separate model
-supervisor, including mechanical tasks. The cost shortcut below is Claude-only.
+Read `references/execution-cost-controls.md` before adding execution controls.
+Both native drivers support explicit mechanical-only contracts, artifact-bound
+pipeline reuse and per-task invocation limits. Model supervision remains the
+normal route; a purely mechanical task may skip the judge only when its approved
+plan explicitly says `supervision: "mechanical"` and independent predicates pass.
+The legacy Workflow fallback keeps its verifier-agent and judge stages.
 
-Run full agentic supervision for tasks whose contract has `must_run` commands or
-`files_forbidden` entries that matter: migrations, shared helpers,
-security-adjacent code. For a small mechanical task, check the predicates
-(paths touched, commands run, evidence present) in plain script logic and
-skip the supervisor model. Supervision that costs more than the work it guards
-gets switched off, and then it guards nothing.
+### Cost discipline
 
-The shipped runner now performs the predicate half mechanically before
-every judge call (see Mechanical verification above); what remains yours is
-scoping each contract's gates to its files and choosing the judge's effort.
+- Scope contracts to the deliverable and affected checks. A small diff can change
+  behavior: choose supervision by the contract's risk, not its line count.
+- On `ok:true`, integrate the accepted artifact; remarks alone do not launch rework.
+  Record optional improvements as deferred or dismiss them with a reason. A
+  required correction needs an evidenced contract violation or a user request.
+  Batch related required corrections into one follow-up task.
+- Give each agent a fresh child context with the task contract, base, artifact
+  paths and necessary decisions. Pass plan sections and logs by path; do not copy
+  the whole discussion, unrelated tasks or full build logs into its prompt.
+- Use the shipped runner and its independent verification results. The coordinator
+  reads the verdict and focused failure evidence; it does not repeat green checks
+  already verified on the same artifact. New changes invalidate affected checks.
+- Choose executor and effort from the supported routes for this task's complexity.
+  Premium execution needs a concrete difficulty or failed lower-tier attempt,
+  subject to the existing route and approval rules. Do not lower the supervisor
+  below its supported route to compensate for oversized task context.
+- Report cost from measured usage, separating uncached input, cache writes,
+  cache reads and output; deduplicate streamed records by response ID. Journal
+  bytes and changed lines are not token counters. Keep this detail internal
+  unless the user asks about usage.
 
 ## Orchestrator Drift
 

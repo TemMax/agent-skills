@@ -10,6 +10,22 @@ stay in SKILL.md.
 
 ## Claude-only wave — invoke the shipped runner
 
+**Default: native CLI runner.** Read `execution-cost-controls.md` and launch:
+
+```
+node <this skill's base directory>/references/claude-wave-runner.mjs \
+  --plan <plan> --wave <n> --base <pushed sha> --repo <abs repo> --default-branch <branch>
+```
+
+It uses the same launcher and Workflow policy, supplies independent facts without
+a verifier model, and saves full evidence under the returned `summary.json` path.
+Read verdicts there before integration. A budget stop requires a strategy decision.
+A failed native run cannot use Workflow's `resumeFromRunId`.
+
+The steps below are the **Workflow fallback** when the local CLI is unavailable.
+Never switch to it automatically after a native budget stop. Mechanical-only tasks
+require native execution.
+
 For a Claude-only wave, the ladder in multi-model SKILL.md (Escalation ladder) is implemented once, in
 `references/wave-runner.workflow.mjs`, and covered by the deterministic
 simulator tier in `tests/`. Your job is to assemble its inputs, not to
@@ -120,6 +136,13 @@ return the resulting local feature-branch commit(s), task branches, and verdict
 evidence, and do no push. The Claude adapter keeps the shipped Workflow
 implementation unchanged; publication stays at this composition boundary, not
 in the Workflow arguments or script.
+
+Native recovery: when the local runner returns a clean committed candidate,
+repair the environment or apply the authorized contract amendment, then use
+`--resume-from <summary.json> --out <new-dir>` per `execution-cost-controls.md`.
+It performs verification/review with preserved counters and no executor. The
+status handling below describes the legacy Workflow fallback, whose cached
+reports use different recovery semantics.
 
 4. Act on the returned statuses, task by task:
    - `ok` — merge `wave/<id>` per the wave plan.

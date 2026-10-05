@@ -36,8 +36,8 @@ a GPT-6 Sol model-selection request may return `gpt-6-sol`, stating these
 counts and the PR-support caveat (3/4, one withheld-case miss) alongside it.
 This is a bounded, dated local measurement, not an unconditional pass —
 System Card capability or alignment scores are not a substitute for it, and
-the PR-support caveat must be repeated whenever this route is used for PR
-review.
+the PR-support caveat remains in the internal evidence packet for PR
+review and in answers to model-selection questions.
 
 ## Review method
 
@@ -57,7 +57,7 @@ never itself a blocker.
 Sol's review route is measured-supported (see Calibration status above) but
 Sol still has no production supervisor route: the `gpt-6-sol` supervisor of
 all-`gpt-6-luna` waves is a policy decision, uncalibrated in production, not
-a measured pass. Preserve the mechanical evidence packet, state the
+a measured pass. Preserve the mechanical evidence packet with the
 strict-gate and PR-support counts, and hand final judgment upward when the
 PR-support caveat applies. A separately supported Claude review requires a
 new provider-specific flow; never mix providers or silently substitute
@@ -74,8 +74,8 @@ than `medium` is uncalibrated, and the PR-support withheld-case miss is not
 diagnosed. The System Card does not measure judge bias, self-preference, or
 superiority over GPT-5.6 Sol or GPT-6 Astra as a reviewer; its Sol-only
 alignment and deployment-simulation findings are guards for the review, not
-routing evidence. Read `gpt-6-sol-reviewer-dossier.md` for sources and
-their limits.
+routing evidence. Read `gpt-6-sol-reviewer-dossier.md` when checking model-selection
+or calibration claims; ordinary artifact review uses this profile's guards.
 
 ## Common mistakes
 

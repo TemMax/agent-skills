@@ -25,7 +25,7 @@ model identity and loads the matching profile from `references/`. There is no
 |---|---|---|
 | `orchestration` | `super-plan` | Wave-native planning: research to decomposition depth, one batched round of user questions, tasks carrying machine-checkable contracts grouped into waves by file-independence, validated by the shipped `plan-lint.mjs` before the plan gate. Planning discipline adapted from Jesse Vincent's superpowers (MIT, attribution shipped). |
 | `orchestration` | `ship` | The pipeline conductor: one command from request to reviewed PR — super-plan → supervised waves on a feature branch → critical-review of the PR and its threads. Adds no machinery of its own: one up-front gate, fixes routed by behavior change, and the merge always stays with the user. |
-| `orchestration` | `multi-model` | Model routing, effort selection, task-prompt template, review checklist, and supervised waves executed by the shipped `wave-runner.workflow.mjs` — isolated executors judged against a machine-checkable contract by a different model, with the escalation ladder as tested code — plus an orchestrator-drift advisory hook that watches the orchestrator session itself. |
+| `orchestration` | `multi-model` | Model routing, effort selection, task-prompt template, review checklist, and supervised waves executed by native Claude/Codex drivers using the shipped policy — isolated executors judged against a machine-checkable contract by a different model, with the escalation ladder as tested code — plus an orchestrator-drift advisory hook that watches the orchestrator session itself. |
 | `code-review` | `critical-review` | Scope detection, PR description+threads protocol, tiered findings table (Blocker → Nit), and a post-review fix phase that answers and resolves the PR threads its findings came from. |
 
 ## How the model routing works
@@ -249,6 +249,17 @@ codex plugin list --marketplace temmax --json
 
 Do not use a personal marketplace for this repository.
 
+### Local validation before publishing
+
+For local development, register this checkout as the `temmax` marketplace using
+`codex plugin marketplace add /absolute/path/to/agent-skills --json` or
+`claude plugin marketplace add /absolute/path/to/agent-skills --json`, then install
+both plugins with that host's commands above. This changes the source for this
+marketplace; use its original GitHub source again when returning to released
+versions. Check the installed versions and open a new session. Do not copy files
+into a plugin cache manually. Installing and validating packages calls no model;
+behavioral evaluations are separate and require explicit authorization.
+
 ### Migrating from the old names
 
 The repository was `TemMax/claude-skills` and the marketplace `temmax-skills`.
@@ -350,7 +361,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.7.2, code-review 1.14.1):
+orchestration 4.8.0, code-review 1.15.0):
 
 | Before | After |
 |---|---|
@@ -427,12 +438,19 @@ Run the offline release suite before changing a plugin:
 bash tests/eval/gpt-5-6-matrix.sh --self-test
 ```
 
+Changes to plugin behavior also require live validation of the affected
+scenarios in real Claude Code and Codex sessions before being called verified
+or release-ready. Start with a bounded, relevant fixture set; offline tests do
+not replace it. See [AGENTS.md](AGENTS.md) and the
+[test bench](tests/README.md#available-test-bench). Record actual loaded versions,
+outcomes and usage, including failures and any blocked checks.
+
 The semantic matrix requires a fresh caller-owned result directory and calls
 the provider it configures; for example,
 `bash tests/eval/gpt-5-6-matrix.sh --critical --results /absolute/path/to/new-critical-run`.
 The bare `--critical` command intentionally exits before calls when no results
-directory is supplied. Do not supply a results directory, live flags, or
-provider credentials for routine release checks. Model calls, when expressly
+directory is supplied. The large semantic matrix is a separate calibration,
+not a default expansion of the targeted live validation above. Model calls, when expressly
 authorized for a fresh calibration, can be expensive: inspect the dated
 results' measured usage and cost caveats first.
 The final merge and any real PR/push remain user-authorized boundaries.

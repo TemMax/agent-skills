@@ -30,8 +30,8 @@ check "the upstream Codex issue #23661 is cited" \
 section "contract-amendment.md: the Codex path and the environment-blocked exclusion"
 check "environment-blocked is never an amendment" \
   "one_line '$AMEND' | grep -qF 'is never an amendment'"
-check "the Codex path uses inherits" \
-  "grep -q 'inherits' $AMEND"
+check "native recovery preserves the candidate" \
+  "grep -qF -- '--resume-from' $AMEND"
 
 section "verdicts.md: the environment violation class"
 check "environment is listed as a violation class" \

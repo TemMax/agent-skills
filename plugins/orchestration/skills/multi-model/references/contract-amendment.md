@@ -4,7 +4,7 @@
 contract, failed — see ADR 009
 (`docs/decisions/009-environment-blocked-and-worktree-env.md`) and
 `codex-wave-protocol.md`'s "Toolchain caches, `.git`
-and linked files". Fix the machine and re-run the wave; do not touch the
+and linked files". Fix the machine and continue a committed candidate with the native recovery route; do not touch the
 contract in response to it.
 
 Read from multi-model SKILL.md when a task returns
@@ -59,7 +59,8 @@ decision — whether they accept losing that check — not a file to open. Askin
 someone to hand-edit a config is how a safeguard ends up switched off.
 
 **An amendment exists only when the plan file is edited and the runner is
-re-invoked with `resumeFromRunId` carrying the amended task.** A mid-wave
+re-invoked with the amended task: `--resume-from` for native recovery,
+or `resumeFromRunId` for the legacy Workflow fallback.** A mid-wave
 "I authorize X" in conversation reaches nobody: the runner rebuilds every
 rework prompt from the task object it was given, so an amendment that never
 re-enters the runner never reaches an executor. Measured 2026-08: a
@@ -71,29 +72,22 @@ One amendment per task. A second `satisfiable:false` on the same task goes to th
 user whatever kind it is: each loosening looks reasonable alone, and the loop
 that ends in a contract checking nothing is built out of reasonable steps.
 
-## The Codex path
+## Native Claude and Codex recovery
 
-For a Codex-native wave (`codex-wave-protocol.md`) there is no
-`resumeFromRunId`: write a single-task recovery plan instead. It:
+Both native drivers accept `--resume-from <summary.json>` with the amended,
+lint-clean plan and a new `--out`. Keep task ids, base, product prose, roles,
+approvals and limits. A receipt pins the clean committed candidate; the driver
+reruns verification and independent review under the amended contract, with no
+executor call and no inherited positive verdict. Earlier calls still count.
+See `execution-cost-controls.md` for exact scope and limitations.
 
-- sets top-level `"inherits": "<parent plan path>"` (a repository-relative
-  path of the parent plan; see the Plan Format section in
-  `super-plan/SKILL.md` and `worktree-env.mjs`'s
-  `effectivePlan`/`INHERITED_KEYS`), so `ci`, `e2e`,
-  `worktree`, `approvals` and `review` carry over without being retyped;
-- gives the recovery task a new id `<id>-r<N>` (`<N>` starting at 1, bumped
-  on every further recovery of the same task) rather than reusing the
-  original task id;
-- carries the amended contract — the one edit this flow exists to make;
-- sets the wave's base to the pushed feature tip the failed task's branch
-  was rejected against, i.e. the current `origin/<default-branch>`, not the
-  original wave's `--base`;
-- when the inherited `e2e` names a task id from the parent plan (the
-  recovery plan's own single task rarely is it), `effectivePlan` marks it
-  `"not-applicable: inherited e2e task <id> is not part of this recovery
-  plan"` automatically — the recovery plan does not need to override `e2e`
-  itself to avoid a dangling reference.
+An environment repair does not amend the contract. A genuine new requirement,
+a changed base or role, or work that still needs implementation is not this
+recovery mode. Prepare an authorized implementation plan, record previous costs,
+and preserve the old candidate/evidence. Do not rename a task merely to reset
+its history or budget. A legacy summary without a receipt cannot be silently
+converted into a native recovery receipt.
 
-Lint the recovery plan, then run `codex-wave-runner.mjs` on it exactly as for
-any other wave — its own `init`, `--preflight`, and verification apply
-unchanged; nothing here bypasses them.
+For the legacy Claude Workflow fallback, retain the `resumeFromRunId` amendment
+flow above. Its environment-blocked cached report requires a fresh invocation,
+as explained in `claude-wave-adapter.md`; native receipts are not Workflow ids.

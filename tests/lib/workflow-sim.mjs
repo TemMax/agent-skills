@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises'
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 
-export async function runWorkflow(scriptPath, { args, agentStub }) {
+export async function runWorkflow(scriptPath, { args, agentStub, verifyStub }) {
   let src = await readFile(scriptPath, 'utf8')
   src = src.replace(/^export const meta/m, 'const meta')
 
@@ -32,7 +32,7 @@ export async function runWorkflow(scriptPath, { args, agentStub }) {
   const budget = { total: null, spent: () => 0, remaining: () => Infinity }
   const workflow = async () => { throw new Error('nested workflow() is not simulated') }
 
-  const fn = new AsyncFunction('agent', 'pipeline', 'parallel', 'phase', 'log', 'args', 'budget', 'workflow', src)
-  const result = await fn(agent, pipeline, parallel, phase, log, args, budget, workflow)
+  const fn = new AsyncFunction('agent', 'pipeline', 'parallel', 'phase', 'log', 'args', 'budget', 'workflow', 'verify', src)
+  const result = await fn(agent, pipeline, parallel, phase, log, args, budget, workflow, verifyStub)
   return { result, calls }
 }

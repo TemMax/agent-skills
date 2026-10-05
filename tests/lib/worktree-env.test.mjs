@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  executionPolicyErrors,
   TASK_HEADING_SOURCE,
   taskHeadingIds,
   malformedTaskHeadings,
@@ -364,7 +365,7 @@ test('applyLinks: skips a destination that already exists, reports a missing sou
   const checkout = join(root, 'checkout2')
   mkdirSync(checkout, { recursive: true })
   writeFileSync(join(checkout, 'present.txt'), 'already here\n')
-  const out = applyLinks(repo, checkout, ['present.txt', 'missing.txt'])
+  const out = applyLinks(repo, checkout, ['present.txt', 'missing.txt'], ['missing.txt'])
   assert.deepEqual(out.linked, [])
   assert.deepEqual(out.present, ['present.txt'])
   assert.deepEqual(out.missing, ['missing.txt'])
@@ -429,4 +430,25 @@ test('reportEnvironmentBlock: inner-wrapped backticks are stripped', () => {
 test('reportEnvironmentBlock: whole-line-wrapped marker is stripped', () => {
   assert.deepEqual(reportEnvironmentBlock('`environment-blocked: error: x`'), { id: 'reported', line: 'error: x' })
   assert.deepEqual(reportEnvironmentBlock('environment-blocked: error: x'), { id: 'reported', line: 'error: x' })
+})
+
+
+test('explicit missing links and transient file writable roots fail together before execution', () => {
+  const { root, repo } = makeRepo()
+  const lock = join(root, 'robolectric.lock'); writeFileSync(lock, '')
+  assert.throws(() => resolveWorktreeEnv(repo, { worktree: { links: ['missing.md'], writable: [lock] } }),
+    error => error.message.includes('required link missing') && error.message.includes('stable directory'))
+  assert.deepEqual(resolveWorktreeEnv(repo, { worktree: { auto: false, optional_links: ['missing.md'] } }).links, [])
+  rmSync(lock)
+  assert.deepEqual(resolveWorktreeEnv(repo, { worktree: { auto: false, writable: [root] } }).writable, [root])
+  assert.throws(() => applyLinks(repo, join(root, 'checkout'), ['missing.md']), /required worktree link/)
+})
+
+
+test('Codex semantic lint catches unsigned/signing and squash contradictions, preserving config protection', () => {
+  const task = moves => ({ contract: { forbidden_moves: moves } })
+  assert.equal(executionPolicyErrors(task(['No GitHub writes, push, signing change.']), 'codex').length, 1)
+  assert.equal(executionPolicyErrors(task(['No unsigned commits', 'Executor commits must be signed', 'Do not squash']), 'codex').length, 3)
+  assert.deepEqual(executionPolicyErrors(task(['Never change persistent signing configuration']), 'codex'), [])
+  assert.deepEqual(executionPolicyErrors(task(['No unsigned commits']), 'claude'), [])
 })

@@ -1,5 +1,10 @@
 # Codex-native supervised wave protocol
 
+Execution controls are defined in [execution-cost-controls.md](execution-cost-controls.md):
+explicit `supervision: "mechanical"` permits a deterministic green verdict;
+other tasks retain the selected model supervisor. Artifact-cache opt-in and
+per-task limits do not change model routes or premium authorization.
+
 Use this protocol only for a Codex-only wave. The supervisor is the one chosen
 at Gate 1 — the premium `gpt-6-astra`, or the standard `gpt-6.1-sol` for an
 all-`gpt-6-luna` wave. An Astra executor or rung needs
@@ -25,9 +30,8 @@ lint and user approval.
 The state helper is the only state machine. Never hand-edit its state, bypass a
 helper action, write a fresh runner, force-remove a worktree, or substitute a
 missing model with a default or alias. It accepts only the exact GPT model IDs
-and effort values already linted in the plan. The sanctioned way to clear a stopped wave is the runner's `--reset`; its own printed `cleanup` lines (see "`summary.json` diagnostics" below) are a fallback only when the installed runner predates `--reset`. When `--reset` refuses (a dirty worktree or a live status), stop and ask the user — never run the printed lines to get past a refusal, since they force-remove. The runner never removes anything on its own when it stops — it preserves every state file, worktree and branch for
-inspection — and `--reset` exists only for the orchestrator to run deliberately, after fixing the machine or deciding to
-re-run, to re-run the wave. `--reset` refuses on a dirty worktree or a live
+and effort values already linted in the plan. First use native `--resume-from <summary.json>` with a new `--out` to verify and review a clean pinned candidate without an executor. See `execution-cost-controls.md`. The sanctioned way to deliberately discard a stopped wave is the runner's `--reset`; its own printed `cleanup` lines (see "`summary.json` diagnostics" below) are a fallback only when the installed runner predates `--reset`. When `--reset` refuses (a dirty worktree or a live status), stop and ask the user — never run the printed lines to get past a refusal, since they force-remove. The runner never removes anything on its own when it stops — it preserves every state file, worktree and branch for
+inspection — and `--reset` exists only for the orchestrator to run deliberately, after deciding the candidate must be discarded for a newly authorized implementation. `--reset` refuses on a dirty worktree or a live
 status, renames the run directory to `<dir>.reset-<k>`, prints each deleted
 branch tip with a restore command, and never runs a model; the printed lines
 still need a fresh `--out`.
@@ -35,7 +39,8 @@ still need a fresh `--out`.
 At `init`, the helper stores an initialized plan digest over the canonical
 selected wave and each matching task's approved prose. A later status transition
 is the only plan mutation excluded from that digest; changing prose, contracts,
-models, efforts, or ladder rungs requires a new initialization.
+models, efforts, or ladder rungs requires a new initialization. Native candidate recovery creates a new bound
+state for an amended contract, retaining the earlier run artifacts and spent calls.
 
 Mechanical verification is authoritative. A clean supervisor verdict cannot override blocking mechanical facts such as a failed `must_run`, an out-of-scope path, missing required evidence, an unsafe worktree, or an invalid base. Only a final attempt with clean verifier facts and a clean verdict can become merge-ready.
 
@@ -239,7 +244,7 @@ and state file (`buildCleanup`/`cleanupLine`, `codex-wave-runner.mjs:407-416`,
 surfaced at `:1032` and `:1036`). The runner itself never runs these lines —
 it preserves every state file, worktree and branch when it stops, exactly as
 step 8 below says. The printed cleanup is the fallback for a runner older than `--reset`; run it only to re-run after fixing the machine: once every line has been run, the next invocation needs a fresh
-`--out` (the old one is now stale). The preferred route is `--reset`, which
+`--out` (the old one is now stale). For deliberate candidate disposal the route is `--reset`, which
 does the same teardown, refuses on a dirty worktree or a live status, and
 moves the old run directory aside itself; a stop prints its exact `--reset`
 command to stderr (`codex-wave-runner.mjs:1041-1043`). The two pre-init stops above

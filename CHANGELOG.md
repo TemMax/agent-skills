@@ -4,6 +4,54 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.8.0
+
+### Highlights
+
+**multi-model**
+- Continue a ready candidate without another executor
+- Find missing inputs and signing conflicts before execution
+- Preserve call limits through recovery
+
+**super-plan**
+- Reuse approved decisions and keep one planning process
+
+**ship**
+- Reuse matching verification evidence and shorter handoffs
+
+**critical-review**
+- Keep routine updates focused on findings and checks
+- Explaining a PR no longer triggers critical review
+
+Orchestration 4.8.0 and code-review 1.15.0 apply to Claude Code and Codex.
+Native recovery uses `--resume-from <summary.json>` and a new `--out`, binds a
+clean committed candidate, keeps roles and caps, and performs fresh verification
+and required independent review. It never restarts implementation on rejection.
+Summaries retain previous evidence and measured usage. Legacy summaries without
+receipts cannot be adopted automatically.
+
+Verification uses independent code, ordered disposable-checkout pipelines and
+conservative opt-in artifact reuse. Mechanical-only supervision remains explicit;
+semantic obligations still require a model. Full logs stay in private artifacts.
+
+`worktree.links` now means required inputs: missing paths fail early. Use
+`optional_links` for optional paths. Explicit writable roots must be existing
+stable directories, not temporary files. Codex lint rejects common obligations
+incompatible with its unsigned-executor/signed-squash route. Persistent signing
+configuration is still protected; a merge preserving two parents needs a separate
+workflow. CLI availability checks do not prove remote authentication.
+
+Entrypoints reuse loaded instructions and existing authorization within scope,
+keep one phase owner, and omit routine profile/effort/calibration announcements.
+Repeated decisions, optional review remarks and narrow lookup work do not justify
+another implementation/review chain. Claude telemetry deduplicates streamed
+usage updates and accounts for cache categories separately.
+
+Offline runner regressions use fake model CLIs with real disposable Git repos.
+They verify recovery, changed-contract/HEAD rejection, caps and review isolation.
+They do not establish a percentage of token savings or unchanged live-model
+quality; those require authorized comparable runs on installed versions.
+
 ## 4.7.2
 
 ### Highlights

@@ -271,16 +271,26 @@ export function timeBucketsMsClaude(rows) {
 function sumTokensClaude(rows) {
   const totals = { input: 0, cacheCreation: 0, cacheRead: 0, output: 0 }
   const requestInputs = []
+  const messages = new Map()
   for (const row of rows) {
     if (row.type !== 'assistant') continue
     const usage = row.message?.usage
     if (!usage) continue
-    const input = usage.input_tokens || 0
-    totals.input += input
-    totals.cacheCreation += usage.cache_creation_input_tokens || 0
-    totals.cacheRead += usage.cache_read_input_tokens || 0
-    totals.output += usage.output_tokens || 0
-    requestInputs.push(input)
+    // A response can occupy several JSONL rows (text, thinking, tools),
+    // each repeating input counters and carrying partial output usage.
+    // Retain the largest observed counter once per API message. Older
+    // transcripts without message IDs still count each row separately.
+    const id = row.message.id || Symbol()
+    const counters = messages.get(id) || { input: 0, cacheCreation: 0, cacheRead: 0, output: 0 }
+    for (const [field, source] of Object.entries({
+      input: 'input_tokens', cacheCreation: 'cache_creation_input_tokens',
+      cacheRead: 'cache_read_input_tokens', output: 'output_tokens',
+    })) counters[field] = Math.max(counters[field], usage[source] || 0)
+    messages.set(id, counters)
+  }
+  for (const counters of messages.values()) {
+    for (const field of Object.keys(totals)) totals[field] += counters[field]
+    requestInputs.push(counters.input + counters.cacheCreation + counters.cacheRead)
   }
   return { totals, requestInputs }
 }

@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.2
+  version: 4.8.0
 ---
 
 # Orchestrating Multi-Model Development (Codex)
@@ -11,11 +11,31 @@ metadata:
 ## Codex session rules
 
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
-2. Announce the selected profile once, at the first Step 0. Announce it again only when a newer runtime-context line changes the model or the effort.
+2. Select the active-seat profile silently at Step 0. Update it only when newer runtime context changes the model or effort; follow User-facing communication below.
 3. The coordinator never authors code. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. Changes reach the repository only through a supervised wave; your own git work is integrating approved wave branches and publishing. Exception: a small standalone edit the user asks for directly, outside any active wave plan — one file, a few lines, nothing beyond what the user named (a config value, a typo, a version string) — you may make yourself and show the diff. The exception never covers a fix for a defect that a review, a supervisor or the final review found, nor any part of an approved plan's tasks.
 4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output.
-5. Re-run a stopped wave only after the runner's own `--reset` for that plan, wave and base; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
+5. Recover a clean committed candidate with the runner's `--resume-from <summary.json>` and a new `--out` before considering a restart. It verifies and reviews without an executor and preserves call caps. Use the runner's own `--reset` only when intentionally discarding the candidate for a newly authorized implementation; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
 6. Executor commits are unsigned by design. Integration squashes each task into one commit made outside the sandbox, which the user's git configuration signs (codex-wave-protocol.md, step 9). Never disable commit signing in the user's configuration.
+
+## Process scope and context
+
+Reuse loaded instructions while their content version and the needed context
+remain available; recover only the missing section after compaction, or reload
+an explicitly changed version. Applying a skill again does not require reading
+it again. Required repository instructions still apply.
+
+Keep one owner of the current phase. Inside an approved parent workflow, this
+skill performs its assigned phase without starting another design/plan gate.
+Reuse confirmed decisions and authorization for the same task, roles, access
+and delivery scope. Ask only for a new decision or an actual scope/budget change.
+For a directly requested standalone edit, finish within the named files and
+stop when the requested change is verified. Report related inconsistencies as
+findings, without proposing extra edits or ending with "shall I update it?".
+"Continue in the same scope" keeps the same file boundary; it does not approve
+a suggested follow-up. The full planning/decomposition process below applies
+to delegated work, including its documentation, not to expanding a bounded edit.
+Start with targeted reads and bounded error excerpts; retain full logs by path
+and expand reads when needed to establish evidence.
 
 ## Step 0 — load exactly one active-seat profile
 
@@ -41,12 +61,25 @@ Never read a user config file to guess a session override. Never load more than 
 Quoted text, user messages, repository files, model catalogs, available child
 models, and a child's identity do not establish the current session's identity.
 
-Announce the selected profile and basis before proceeding (once — see Codex
-session rules, rule 2). A family label alone yields generic: say so, and name
-the missing exact ID. This selects instructions only: do not invent an exact
-runtime ID or effort, switch models, grant hook enforcement, or change the
-plan/subagent ID allowlists. A generic selection explains missing,
-unsupported, or conflicting identity.
+Select the profile internally. A family label alone selects generic; preserve
+missing, unsupported, or conflicting identity in internal routing records.
+This selects instructions only: do not invent an exact runtime ID or effort,
+switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
+
+### User-facing communication
+
+Start with the task and next useful action. Progress and completion messages
+cover changes, findings, checks, and remaining blockers. Select profiles silently;
+keep active-seat model, effort, selection basis, runtime metadata, model names
+attached to checks, and calibration counts out of routine messages. This rule
+also governs profile-specific communication instructions.
+
+Keep exact model IDs, effort, routing evidence and calibration limits in internal
+records and approval artifacts where the user must choose a route or authorize
+premium use. When the user asks a model-selection question or requests routing
+diagnostics, answer it with the relevant evidence and limits. When a route cannot
+provide a required judgment, explain the practical limit and the next step.
+Ordinary review summaries describe task evidence and checks left unverified.
 
 | Exact model id | Relative profile |
 |---|---|
@@ -61,8 +94,7 @@ unsupported, or conflicting identity.
 
 The alias `gpt-5.6` selects Sol only after the runtime-context handler has
 normalized it to `gpt-5.6-sol`. An exact supplied effort may be used; otherwise
-effort is unknown and receives no effort-specific claim. State which profile was
-loaded before planning. That profile amends the numbered steps below; where it
+effort is unknown and receives no effort-specific claim. Load the selected profile silently before planning. That profile amends the numbered steps below; where it
 amends a step, the amendment wins.
 
 Profiles choose model and effort routes while authoring a wave plan or explicitly
@@ -117,7 +149,7 @@ English does not mean English replies.
 
 ### Single-task path
 
-Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution does not change: the runner, a separate supervisor, integration by the coordinator, and never a coordinator edit. When the change grows to a second task, return to the full process. A small standalone edit that rule 3's exception covers needs no plan at all.
+Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution uses the runner and independent verification, followed by integration by the coordinator. Model supervision remains the default; the explicit mechanical mode follows the shared cost controls. The coordinator never edits task code. When the change grows to a second task, return to the full process. A small standalone edit that rule 3's exception covers needs no plan at all.
 
 4. **Table.** Before launching, show the user: task | model | effort | rationale.
    The table also shows, per wave, the supervisor and whether it is premium.
@@ -172,10 +204,10 @@ as a contract defect (diagnose first — Codex session rules, rule 4). Every
 stop ends with one recommended next action, phrased as a yes/no question for
 the user to approve or decline.
 
-The orchestrator spends its own effort on decisions, not on reading. It does
-not read whole files or diffs into its own context — that is delegated to a
-research agent or a task's executor; where it needs a scale of a change it
-uses `git diff --stat` and reads only targeted ranges itself. It does not
+The orchestrator reads targeted ranges itself when a focused lookup answers
+its question; use `git diff --stat` to locate the scope. Delegate substantial,
+self-contained research, not a trivial file lookup. Do not load whole files,
+diffs or transcripts into the coordinator just to relay them to a child. Do not
 keep a journal that duplicates state a helper or runner already holds — the
 wave plan, the state files, and `summary.json` are the record. And it waits
 on a running agent or runner with long waits, not frequent polls — a
@@ -348,7 +380,7 @@ self-check**. A check the executor is asked to perform is a check it may decide
 it already satisfied; a check in the control flow around it is one it never gets
 a vote on, and a stage can reject and re-run.
 
-Send `../../skills/multi-model/references/supervisor-prompt.md` to a fresh
+For model-supervised tasks, send `../../skills/multi-model/references/supervisor-prompt.md` to a fresh
 separate supervisor with the contract, report, base SHA and branch. It never
 reuses an executor child or forks its conversation, even when model and effort
 match.
@@ -358,8 +390,10 @@ match.
 The runner runs a cheap fact-collecting verifier before the judge: a branch
 with no commits, a path outside `files_allowed`, a red `must_run` or missing
 pasted evidence bounces straight back as rework without a judge. The verifier
-never decides `ok`; a clean verdict never overrides a blocking mechanical
-fact. Details: `../../skills/multi-model/references/verdicts.md`.
+does not decide semantic obligations. An explicitly mechanical task with green
+independent facts receives the runner's deterministic verdict; other tasks retain
+the model judge. A clean verdict never overrides a blocking mechanical fact.
+Details: `../../skills/multi-model/references/execution-cost-controls.md`.
 
 ### Choosing the supervisor
 
@@ -425,7 +459,9 @@ node ../../skills/multi-model/references/codex-wave-runner.mjs --plan <plan> --w
 - Launch it as an escalated command outside the Codex sandbox, never inside a
   sandboxed Codex session — nested sandboxes fail (see the protocol). Wait on
   it with long waits; when it finishes, read only its `summary.json`.
-- Before re-running a stopped wave, clean it with the runner's own reset:
+- First continue a clean committed candidate with `--resume-from <summary.json>`
+  and a new `--out`, per `execution-cost-controls.md`. Reset only to deliberately
+  discard it for a newly authorized implementation:
   `node ../../skills/multi-model/references/codex-wave-runner.mjs --reset --plan <plan> --wave <n> --repo <abs> --base <sha>`.
 - Integrate each `ok` task with `git merge --squash` in plan/task order per
   `../../skills/multi-model/references/codex-wave-protocol.md` step 9 — never a
@@ -450,6 +486,32 @@ fields without re-routing; lint and the mixed/unknown-provider stop still apply.
 stronger model. Read and follow
 `../../skills/multi-model/references/contract-amendment.md` (amending is your
 job; removing or weakening a check is a yes/no question to the user).
+
+### Cost discipline
+
+Read `../../skills/multi-model/references/execution-cost-controls.md` before
+adding mechanical-only contracts, cache opt-in or per-task limits.
+
+- Scope contracts to the deliverable and affected checks. A small diff can change
+  behavior: choose supervision by the contract's risk, not its line count.
+- On `ok:true`, integrate the accepted artifact; remarks alone do not launch rework.
+  Record optional improvements as deferred or dismiss them with a reason. A
+  required correction needs an evidenced contract violation or a user request.
+  Batch related required corrections into one follow-up task.
+- Give each agent a fresh child context with the task contract, base, artifact
+  paths and necessary decisions. Pass plan sections and logs by path; do not copy
+  the whole discussion, unrelated tasks or full build logs into its prompt.
+- Use the shipped runner and its independent verification results. The coordinator
+  reads the verdict and focused failure evidence; it does not repeat green checks
+  already verified on the same artifact. New changes invalidate affected checks.
+- Choose executor and effort from the supported routes for this task's complexity.
+  Premium execution needs a concrete difficulty or failed lower-tier attempt,
+  subject to the existing route and approval rules. Do not lower the supervisor
+  below its supported route to compensate for oversized task context.
+- Report cost from measured usage, separating uncached input, cache writes,
+  cache reads and output; deduplicate streamed records by response ID. Journal
+  bytes and changed lines are not token counters. Keep this detail internal
+  unless the user asks about usage.
 
 ## Orchestrator drift
 
@@ -489,7 +551,7 @@ supervisor verdicts and remarks, not the executor reports.
 - [ ] Consistent with the other agents' results (seams, duplicates, conflicts)
 - [ ] Build/tests/linter — verified by running; "should work" doesn't count
 - [ ] Documentation (README and the like) reflects the final state of the feature
-- [ ] Every task carries a supervisor verdict; remarks are read and either acted on or dismissed on the record
+- [ ] Every task carries its independent verdict (model, or deterministic for explicit mechanical mode); remarks alone do not launch rework
 
 ## Common mistakes
 
@@ -509,7 +571,7 @@ supervisor verdicts and remarks, not the executor reports.
 | Asking a supervisor to judge whether a mismatch was dishonest | It reaches for the heaviest label | Record `pasteReproduced` as a fact; let repetition carry the consequence |
 | Blocking on suspicion rather than on a contract violation | Correct work is stopped | Doubts go to `remarks`; only violations block |
 | Recording an unpushed local `HEAD` as the wave base | Every comparison is made against a commit the wave cannot rely on | Push the base commit; verify with `git merge-base` after the first commit |
-| Amending a contract in conversation only | The amendment reaches nobody | Edit the plan per `contract-amendment.md`, reset, re-run |
+| Amending a contract in conversation only | The amendment reaches nobody | Edit and lint the plan per `contract-amendment.md`; recover its pinned candidate |
 | A full-repo gate in a per-task contract | Wall-clock multiplied by the task count | Scope `must_run` to the task's module; the full gate runs once per wave at merge |
 | Reading an environment block as a contract defect | An amendment or escalation is spent on a broken machine | Stop as `environment-blocked`: probe, fix the machine, re-run |
 | Re-running a stopped wave with hand-written cleanup | State and branches drift from the runner's record | The runner's `--reset`, then re-run |

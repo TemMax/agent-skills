@@ -30,6 +30,8 @@ run "behaviour — wave-runner reference implementation (simulated)" bash tests/
 run "behaviour — wave launcher generator" bash tests/wave-launch.test.sh
 run "behaviour — plan linter on fixture mutants"                   bash tests/plan-lint.test.sh
 run "behaviour — Codex native wave state" bash tests/codex-wave-state.test.sh
+run "behaviour — mechanical verification and artifact reuse" node --test tests/lib/mechanical-verify.test.mjs
+run "behaviour — native Claude wave runner" node --test tests/lib/claude-wave-runner.test.mjs
 run "behaviour — codex wave runner" node --test tests/lib/codex-wave-runner.test.mjs
 run "behaviour — worktree environment helper" node --test tests/lib/worktree-env.test.mjs
 run "behaviour — Telegram release announcement" bash tests/telegram-notify.test.sh
@@ -42,6 +44,8 @@ run "behaviour — telemetry analyzer" node --test tests/eval/telemetry/telemetr
 run "behaviour — ship-smoke Codex wave benchmark" bash tests/eval/ship-smoke.test.sh
 run "behaviour — skill-session A/B driver" bash tests/eval/skill-session-ab.test.sh
 run "behaviour — skill-session A/B analyzer" bash tests/eval/skill-session-ab-analyze.test.sh
+run "behaviour — Claude multi-turn A/B bench (offline)" python3 tests/eval/claude-skill-session-ab.test.py
+run "behaviour — dual-host cost-control fixtures (offline)" python3 tests/eval/cost-control-live.test.py
 run "behaviour — seam-audit scorer" bash tests/eval/seam-audit.test.sh
 run "behaviour — seam-audit fixture runner" bash tests/eval/seam-audit-fixtures.test.sh
 run "behaviour — drift fixture runner" bash tests/eval/drift-fixtures.test.sh

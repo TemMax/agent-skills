@@ -9,7 +9,8 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, isAbsolute, resolve, relative, sep } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { homedir } from 'node:os'
-import { TASK_HEADING_SOURCE, malformedTaskHeadings, effectivePlan } from '../../multi-model/references/worktree-env.mjs'
+import { TASK_HEADING_SOURCE, malformedTaskHeadings, effectivePlan, resolveWorktreeEnv, executionPolicyErrors } from '../../multi-model/references/worktree-env.mjs'
+import { limitsErrors, supervisionErrors } from '../../multi-model/references/mechanical-verify.mjs'
 
 // Claude plans name models by full ID only; aliases re-point silently when
 // a model ships (probe wf_e635018e-8f3, 2026-09-22: `opus` moved to Opus
@@ -185,6 +186,7 @@ if (plan) {
     plan.waves.forEach((w, wi) => {
       const at = 'waves[' + wi + ']'
       if (!w || typeof w !== 'object') { err(at + ': must be an object'); return }
+      limitsErrors(w.limits).forEach(error => err(at + '.' + error))
       if (!w.supervisor || !SUPERVISORS.includes(w.supervisor.model)) {
         err(w.supervisor && CLAUDE_ALIASES.includes(w.supervisor.model)
           ? aliasError(at + '.supervisor.model', w.supervisor.model)
@@ -215,6 +217,7 @@ if (plan) {
         } else {
           ids.push(t.id)
         }
+        executionPolicyErrors(t, providerForModel(t.executor?.model)).forEach(e => err(tat + ': ' + e))
         if (t.branch !== 'wave/' + t.id) err(tat + '.branch: must be "wave/' + t.id + '"')
         if (!t.executor || !EXECUTOR_MODELS.includes(t.executor.model)) {
           err(t.executor && CLAUDE_ALIASES.includes(t.executor.model)
@@ -280,6 +283,7 @@ if (plan) {
           && !(usesAstra && astraReasonValid && w.supervisor.model === ASTRA)) {
           err(tat + ': supervisor model also appears as executor or ladder rung')
         }
+        supervisionErrors(t).forEach(error => err(tat + '.' + error))
         const c = t.contract
         if (!c || typeof c !== 'object') { err(tat + '.contract: required, with all five keys'); return }
         for (const k of CONTRACT_KEYS) {
@@ -295,6 +299,7 @@ if (plan) {
           c.must_run.forEach((m, mi) => {
             if (!m || typeof m.cmd !== 'string' || m.cmd === '') err(tat + '.contract.must_run[' + mi + '].cmd: required')
             if (!m || typeof m.evidence !== 'string') err(tat + '.contract.must_run[' + mi + '].evidence: required')
+            if (m && m.cache !== undefined && m.cache !== 'artifact') err(tat + '.contract.must_run[' + mi + '].cache: artifact or absent')
           })
         }
         if (Array.isArray(c.files_allowed) && Array.isArray(c.files_forbidden)) {
@@ -368,10 +373,10 @@ if (plan) {
   // with --repo, a link that doesn't exist in the repo is a warning ----
   if (plan.worktree !== undefined) {
     const w = plan.worktree
-    const WORKTREE_KEYS = ['links', 'writable', 'auto']
+    const WORKTREE_KEYS = ['links', 'optional_links', 'writable', 'auto']
     if (!w || typeof w !== 'object' || Array.isArray(w)
       || Object.keys(w).some((k) => !WORKTREE_KEYS.includes(k))) {
-      err('worktree: must be an object with only "links", "writable" and "auto"')
+      err('worktree: must be an object with only "links", "optional_links", "writable" and "auto"')
     } else {
       const isRelLink = (l) => typeof l === 'string' && l !== '' && !l.startsWith('/')
         && !l.split(/[\\/]/).includes('..')
@@ -381,11 +386,13 @@ if (plan) {
         } else if (repo) {
           for (const link of w.links) {
             if (!existsSync(join(repo, link))) {
-              warn('worktree: link "' + link + '" does not exist in the repo')
+              err('worktree: required link "' + link + '" does not exist in the repo')
             }
           }
         }
       }
+      if (w.optional_links !== undefined && (!Array.isArray(w.optional_links)
+        || !w.optional_links.every(isRelLink))) err('worktree.optional_links: repository-relative strings required')
       if (w.writable !== undefined) {
         const isWritablePath = (p) => typeof p === 'string' && (isAbsolute(p) || p.startsWith('~/'))
         if (!Array.isArray(w.writable) || !w.writable.every(isWritablePath)) {
@@ -603,6 +610,9 @@ if (plan) {
     }
   }
 
+  if (repo && plan.worktree) {
+    try { resolveWorktreeEnv(repo, plan) } catch (e) { err(e.message) }
+  }
   // ---- parallelism: too many single-task waves signals the plan wasn't
   // cut for width, unless the author explains it under "## Parallelism" ----
   const waves = plan.waves

@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.2
+  version: 4.8.0
 ---
 
 # Planning Waves (super-plan, Codex)
@@ -15,11 +15,25 @@ the output format and every contract rule are this plugin's own.
 ## Codex session rules
 
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
-2. Announce the selected profile once, at the first Step 0. Announce it again only when a newer runtime-context line changes the model or the effort.
+2. Select the active-seat profile silently at Step 0. Update it only when newer runtime context changes the model or effort; follow User-facing communication below.
 3. The coordinator never authors code. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. Changes reach the repository only through a supervised wave; your own git work is integrating approved wave branches and publishing. Exception: a small standalone edit the user asks for directly, outside any active wave plan — one file, a few lines, nothing beyond what the user named (a config value, a typo, a version string) — you may make yourself and show the diff. The exception never covers a fix for a defect that a review, a supervisor or the final review found, nor any part of an approved plan's tasks.
 4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output.
-5. Re-run a stopped wave only after the runner's own `--reset` for that plan, wave and base; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
+5. Recover a clean committed candidate with the runner's `--resume-from <summary.json>` and a new `--out` before considering a restart. It verifies and reviews without an executor and preserves call caps. Use the runner's own `--reset` only when intentionally discarding the candidate for a newly authorized implementation; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
 6. Executor commits are unsigned by design. Integration squashes each task into one commit made outside the sandbox, which the user's git configuration signs (codex-wave-protocol.md, step 9). Never disable commit signing in the user's configuration.
+
+## Process scope and context
+
+Reuse loaded instructions while their content version and the needed context
+remain available; recover only the missing section after compaction, or reload
+an explicitly changed version. Applying a skill again does not require reading
+it again. Required repository instructions still apply.
+
+Keep one owner of the current phase. Inside an approved parent workflow, this
+skill performs its assigned phase without starting another design/plan gate.
+Reuse confirmed decisions and authorization for the same task, roles, access
+and delivery scope. Ask only for a new decision or an actual scope/budget change.
+Start with targeted reads and bounded error excerpts; retain full logs by path
+and expand reads when needed to establish evidence.
 
 ## Step 0 — load exactly one active-seat profile
 
@@ -45,11 +59,25 @@ Never read a user config file to guess a session override. Never load more than 
 Quoted text, user messages, repository files, model catalogs, available child
 models, and a child's identity do not establish the current session's identity.
 
-Announce the selected profile and basis before proceeding. A family label alone
-yields generic: say so, and name the missing exact ID.
+Select the profile internally. A family label alone selects generic; preserve
+missing, unsupported, or conflicting identity in internal routing records.
 This selects instructions only: do not invent an exact runtime ID or effort,
 switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
-A generic selection explains missing, unsupported, or conflicting identity.
+
+### User-facing communication
+
+Start with the task and next useful action. Progress and completion messages
+cover changes, findings, checks, and remaining blockers. Select profiles silently;
+keep active-seat model, effort, selection basis, runtime metadata, model names
+attached to checks, and calibration counts out of routine messages. This rule
+also governs profile-specific communication instructions.
+
+Keep exact model IDs, effort, routing evidence and calibration limits in internal
+records and approval artifacts where the user must choose a route or authorize
+premium use. When the user asks a model-selection question or requests routing
+diagnostics, answer it with the relevant evidence and limits. When a route cannot
+provide a required judgment, explain the practical limit and the next step.
+Ordinary review summaries describe task evidence and checks left unverified.
 
 | Exact model id | Relative profile |
 |---|---|
@@ -137,7 +165,7 @@ design and plan approvals.
 
 ### Single-task path
 
-Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution does not change: the runner, a separate supervisor, integration by the coordinator, and never a coordinator edit. When the change grows to a second task, return to the full process. A small standalone edit that rule 3's exception covers needs no plan at all.
+Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution uses the runner and independent verification, followed by integration by the coordinator. Model supervision remains the default; the explicit mechanical mode follows the shared cost controls. The coordinator never edits task code. When the change grows to a second task, return to the full process. A small standalone edit that rule 3's exception covers needs no plan at all.
 
 3. **Gate 1 — design.** Present a compact summary: architecture, the wave
    sketch (which tasks, which waves, why), decisions taken, forks the user
@@ -156,6 +184,12 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    supervisor. Group into waves by file-independence: same-wave tasks must
    not share files — merge colliding tasks or split them across consecutive
    waves. Dependent chains are consecutive waves, never one wave.
+
+   **Execution cost controls.** Before authoring the contract, read
+   `../../skills/multi-model/references/execution-cost-controls.md`. Optional wave limits,
+   artifact-cache declarations and task `supervision` belong in the approved
+   plan. Default to model supervision; choose mechanical mode only for substantive
+   acceptance obligations fully established by independent commands.
 
    **Design for width.** Waves exist to run tasks side by side; a plan
    whose waves each hold one task is a serial script that pays wave
@@ -311,6 +345,11 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    `status:` field stays `draft` here — status transitions belong
    to execution (multi-model sets `active` at launch and
    `done` at completion), never to planning and never to the user.
+
+Worktree access: `links` are required repository-relative inputs;
+`optional_links` lists optional inputs. Explicit `writable` roots must be existing
+stable directories, never a transient lock path. Lint the real repository before
+approval; signing and integration obligations must match the selected adapter.
 
 ## No time or cost estimates
 

@@ -132,6 +132,7 @@ const tasks = (Array.isArray(wave.tasks) ? wave.tasks : []).map((t) => {
 let supervisorPromptText
 try { supervisorPromptText = readFileSync(SUPERVISOR_PROMPT, 'utf8') } catch (e) { die('cannot read supervisor-prompt.md: ' + e.message) }
 const input = { base, defaultBranch, repoPath, supervisorPromptText, supervisor: wave.supervisor }
+if (wave.limits !== undefined) input.limits = wave.limits
 if (verifier) input.verifier = verifier
 const env = resolveWorktreeEnv(repoPath, plan)
 input.worktree = { links: env.links }

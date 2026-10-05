@@ -58,6 +58,19 @@ your diff, and comparing the report's pasted output against the verifier's
 captured output for `pasteReproduced`. When no facts are attached, run
 everything yourself exactly as this prompt directs.
 
+## Scope and verification cost
+
+When independent verifier facts match the branch and ordered pipeline, use those
+results for `must_run` and inspect the diff and semantic obligations yourself.
+A re-run needs a concrete reason: missing or inconsistent facts, a changed
+artifact, or a suspected defect the existing checks do not resolve. Record that
+reason. When facts are absent, execute the contract's pipeline as directed above.
+
+Do not expand the contract into a general review or a full repository build.
+Extra probes, including mutation tests, answer a specific unresolved contract
+question. Stop probing when that question has evidence. Optional improvements
+belong in `remarks`; they do not block acceptance or request another pass.
+
 ## Violation classes
 
 - `files` — touched a path outside `files_allowed`, or inside `files_forbidden`.

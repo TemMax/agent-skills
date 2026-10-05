@@ -26,7 +26,7 @@ expect "ship discovery description" \
   "description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'" \
   "$(sed -n '3p' "$SH")"
 expect "critical-review discovery description" \
-  "description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor.'" \
+  "description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR.'" \
   "$(sed -n '3p' "$CR")"
 
 section "all skills resolve one active-seat profile from runtime context"
