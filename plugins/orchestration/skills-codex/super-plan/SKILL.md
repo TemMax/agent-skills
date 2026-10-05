@@ -8,6 +8,10 @@ metadata:
 
 # Planning Waves (super-plan, Codex)
 
+Resolve relative resource paths from this SKILL.md's physical directory.
+Resolve a symlinked skill directory to its target first; repository cwd is not
+the base for the profile and reference paths below.
+
 The dialogue and no-placeholders planning discipline here is adapted from
 Jesse Vincent's superpowers (MIT — see `../../skills/super-plan/references/LICENSE-superpowers`);
 the output format and every contract rule are this plugin's own.
@@ -34,6 +38,13 @@ Reuse confirmed decisions and authorization for the same task, roles, access
 and delivery scope. Ask only for a new decision or an actual scope/budget change.
 Start with targeted reads and bounded error excerpts; retain full logs by path
 and expand reads when needed to establish evidence.
+
+Load applicable repository instructions once if they are not already in context;
+a narrow artifact or phase scope does not exclude those instructions.
+For an explicitly bounded read-only or verification phase, report related
+inconsistencies as findings and finish after its assigned checks. Do not end with
+an offer to start another phase or make extra edits, or a question reopening that
+agreed scope. Unresolved new product choices still follow the planning rules.
 
 ## Step 0 — load exactly one active-seat profile
 
@@ -134,10 +145,17 @@ design and plan approvals.
    worktree lacked `local.properties`. Agents improvised the symlink 93
    times, and at least 4 printed the file, including a GitHub token.
 2. **Decisions.** Everything derivable from the codebase you decide and
-   record. Collect genuine product forks in one batch. Use the host-native
+   record. A new explicit planning request authorizes its stated planning scope;
+   do not ask the user to authorize that scope again because the preceding task
+   was different. Clarify unresolved requirements or work beyond the new request.
+   Collect genuine product forks in one batch. Use the host-native
    structured input tool when it is available; otherwise ask one concise
    direct question and wait. In headless mode, record the unresolved choices
-   under `Assumptions (would ask)` without silently deciding them. Fix each
+   under `Assumptions (would ask)` without silently deciding them. Resolve those
+   product forks before choosing executor tiers or asking about supervisor and
+   review routes. While a product fork remains unresolved (including headless
+   assumptions), ask or record only the product questions; defer route choices
+   and model names until the scope supports a concrete wave sketch. Then fix each
    wave's executor tiers and ladder shape at Gate 1 — the supervisor choice
    depends on them — then decide and present the supervisor choice, named
    and never priced:

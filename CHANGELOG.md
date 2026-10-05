@@ -9,12 +9,13 @@ orchestration version; a code-review bump is stated inside it.
 ### Highlights
 
 **multi-model**
-- Continue a ready candidate without another executor
+- Load the full delegated workflow only when delegation is needed
+- Continue ready candidates without another executor or cap reset
 - Find missing inputs and signing conflicts before execution
-- Preserve call limits through recovery
 
 **super-plan**
 - Reuse approved decisions and keep one planning process
+- Resolve product forks before asking about execution routes
 
 **ship**
 - Reuse matching verification evidence and shorter handoffs
@@ -22,6 +23,12 @@ orchestration version; a code-review bump is stated inside it.
 **critical-review**
 - Keep routine updates focused on findings and checks
 - Explaining a PR no longer triggers critical review
+
+Bounded phases finish after their assigned checks without offering extra edits.
+Repository instructions still apply to narrow artifact scopes. Codex resource
+paths resolve from the physical skill directory, including workspace symlinks.
+Dual-host disposable benches cover version/context reload and positive signing
+amendments as well as recovery, semantic rejection and continuation.
 
 Orchestration 4.8.0 and code-review 1.15.0 apply to Claude Code and Codex.
 Native recovery uses `--resume-from <summary.json>` and a new `--out`, binds a
@@ -699,4 +706,3 @@ Claude aliases (`opus`, `sonnet`, `fable`, `haiku`) are no longer accepted in
 plans or runner args — name the full Claude ID instead (see Full model IDs
 above). The linter and the runner reject an alias by name rather than
 resolving it, because an alias can re-point to a different model silently.
-

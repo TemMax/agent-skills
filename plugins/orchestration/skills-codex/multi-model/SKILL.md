@@ -8,6 +8,10 @@ metadata:
 
 # Orchestrating Multi-Model Development (Codex)
 
+Resolve relative resource paths from this SKILL.md's physical directory.
+Resolve a symlinked skill directory to its target first; repository cwd is not
+the base for the profile and reference paths below.
+
 ## Codex session rules
 
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.

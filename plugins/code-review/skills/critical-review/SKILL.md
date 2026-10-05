@@ -22,6 +22,13 @@ and delivery scope. Ask only for a new decision or an actual scope/budget change
 Start with targeted reads and bounded error excerpts; retain full logs by path
 and expand reads when needed to establish evidence.
 
+Load applicable repository instructions once if they are not already in context;
+a narrow artifact or phase scope does not exclude those instructions.
+For an explicitly bounded read-only or verification phase, report related
+inconsistencies as findings and finish after its assigned checks. Do not end with
+an offer to start another phase or make extra edits, or a question reopening that
+agreed scope. Unresolved new product choices still follow the planning rules.
+
 ## Step 0 — load exactly one active-seat profile
 
 1. Use this plugin's host-provided `PLUGIN_RUNTIME_CONTEXT_V1` line and the

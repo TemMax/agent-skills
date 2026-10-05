@@ -445,6 +445,54 @@ def recovery(out, repo, base, pkg, provider, arm, cli):
             'summaries': [str(first_path), str(second_path)]}
 
 
+def signing(out, repo, base, pkg, provider, cli):
+    """Positive authorized contract correction with real review and signing on."""
+    refs = pkg / 'plugins/orchestration/skills/multi-model/references'
+    transport = adapter(out, cli, provider, pkg, max_calls=2)
+    plan_path = out / 'plan.md'
+    original = plan_path.read_text()
+    match = re.search(r'```json wave-plan\n(.*?)\n```', original, re.S)
+    plan = json.loads(match[1])
+    def write_plan(path, body):
+        path.write_text(original[:match.start(1)]+json.dumps(body, indent=2)+original[match.end(1):])
+    common = ['node', str(refs / (provider+'-wave-runner.mjs')), '--wave', '1', '--repo', str(repo), '--base', base,
+              '--'+provider, str(transport), '--jobs', '1', '--timeout-min', '2', '--preflight', 'off']
+    if provider == 'claude': common += ['--default-branch', 'main']
+    first_rc = run_logged(common+['--plan', str(plan_path), '--out', str(out / 'first')], out, 'first-run')
+    receipt = out / 'first/summary.json'
+    if not receipt.exists(): return {'passed': False, 'error': 'Missing native receipt', 'exit': first_rc}
+    head = git(repo, 'rev-parse', 'wave/one')
+    checks = {'committed_environment_block': first_rc != 0 and head != base}
+    (out / 'machine-ready').write_text('repaired\n')
+    broken = json.loads(json.dumps(plan))
+    broken['waves'][0]['tasks'][0]['contract']['forbidden_moves'].append('All executor commits must be signed')
+    broken_path = out / 'broken-signing.plan.md'; write_plan(broken_path, broken)
+    # This early semantic lint is specific to the shipped Codex unsigned/squash
+    # protocol. Claude's fallback can sign executor commits, so do not invent
+    # the same early policy guarantee for that host.
+    if provider == 'codex':
+        before = len((out / 'calls.jsonl').read_text().splitlines())
+        rc = run_logged(common+['--plan', str(broken_path), '--out', str(out / 'contradiction'), '--resume-from', str(receipt)], out, 'contradiction')
+        text = (out / 'contradiction.stdout').read_text()+(out / 'contradiction.stderr').read_text()
+        checks['contradiction_rejected_before_models'] = rc != 0 and 'unsigned executor' in text and len((out / 'calls.jsonl').read_text().splitlines()) == before
+    corrected = json.loads(json.dumps(plan))
+    corrected['waves'][0]['tasks'][0]['contract']['forbidden_moves'].append('Do not change persistent signing configuration')
+    (out / 'amendment-authorization.md').write_text('Authorized disposable-fixture correction: replace the impossible signed-executor obligation with protection of persistent signing configuration. Executor commits may use -c commit.gpgsign=false; integration remains outside this probe. Keep candidate, task prose, roles, checks and two-call cap.\n')
+    amended = out / 'amended.plan.md'; write_plan(amended, corrected)
+    rc = run_logged(['node', str(pkg / 'plugins/orchestration/skills/super-plan/references/plan-lint.mjs'), str(amended), '--repo', str(repo), '--base', base], out, 'amendment-lint', timeout=30)
+    checks['amended_plan_lint_clean'] = rc == 0
+    second_rc = run_logged(common+['--plan', str(amended), '--out', str(out / 'resumed'), '--resume-from', str(receipt)], out, 'resume-run')
+    second = out / 'resumed/summary.json'
+    checks['corrected_contract_accepted'] = second_rc == 0 and second.exists()
+    calls = read_events(out / 'calls.jsonl')
+    checks.update(one_executor_one_reviewer=[c['role'] for c in calls] == ['exec', 'judge'],
+                  same_candidate=git(repo, 'rev-parse', 'wave/one') == head,
+                  persistent_signing_still_enabled=git(repo, 'config', '--local', '--get', 'commit.gpgsign') == 'true')
+    prompts = [p.read_text() for p in (out / 'resumed').rglob('*prompt.md')]
+    checks['reviewer_received_corrected_contract'] = any('Do not change persistent signing configuration' in p for p in prompts)
+    return {'passed': all(checks.values()), 'checks': checks, 'summaries': [str(receipt), str(second)], 'calls': len(calls)}
+
+
 def old_claude_recovery(out, repo, base, pkg, cli):
     refs = pkg / 'plugins/orchestration/skills/multi-model/references'
     script = repo / '.worktrees/launch/old-wave.workflow.mjs'
@@ -577,15 +625,15 @@ def semantic(out, repo, base, pkg, provider, cli):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--provider', required=True, choices=['claude', 'codex'])
-    parser.add_argument('--case', required=True, choices=['recovery', 'semantic', 'navigation', 'handoff'])
+    parser.add_argument('--case', required=True, choices=['recovery', 'semantic', 'navigation', 'handoff', 'signing'])
     parser.add_argument('--arm', required=True, choices=['old', 'new'])
     parser.add_argument('--out', required=True, type=Path)
     parser.add_argument('--old-ref', default='HEAD')
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--recheck-loading', action='store_true', help='Reassess retained navigation path evidence without model calls')
     args = parser.parse_args()
-    if args.case == 'handoff' and args.arm != 'new':
-        parser.error('handoff checks the candidate loading path; use --arm new')
+    if args.case in ['handoff', 'signing'] and args.arm != 'new':
+        parser.error(args.case+' checks the candidate path; use --arm new')
     out = args.out.resolve()
     if args.recheck_loading:
         meta = json.loads((out / 'meta.json').read_text())
@@ -618,6 +666,10 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     pkg, marketplace, versions = snapshot(out, args.arm, args.old_ref)
     repo, base = fixture(out, args.case, args.provider)
+    if args.case == 'signing':
+        git(repo, 'config', '--local', 'commit.gpgsign', 'true')
+        with (out / 'plan.md').open('a') as f:
+            f.write('\nFixture execution requires an unsigned executor commit: use git -c commit.gpgsign=false commit. Never change persistent git signing configuration. This command flag is authorized for this disposable task only.\n')
     expected = {'case': args.case, 'first_outcome': 'environment-blocked' if args.case == 'recovery' else 'green tests, semantic rejection',
          'executor_calls_after_recovery': 1 if args.arm == 'new' else 2, 'candidate_head_must_remain': args.arm == 'new',
          'semantic_defect': 'negative-input guard removed; 39 tests cover only nonnegative inputs'}
@@ -628,6 +680,10 @@ def main():
     elif args.case == 'handoff':
         expected = {'case': 'handoff', 'mandatory_workflow_loaded': True, 'executor_calls': 1, 'reviewer_calls': 1,
                     'native_wave_accepted': True, 'main_unchanged': True, 'signing_config_unchanged': True}
+    elif args.case == 'signing':
+        expected = {'case': 'signing', 'persistent_signing_before': True, 'persistent_signing_after': True,
+                    'executor_calls': 1, 'reviewer_calls': 1, 'same_candidate': True,
+                    'amendment_authorization_required': True, 'corrected_contract_accepted': True}
     dump(out / 'expected.json', expected)
     dump(out / 'meta.json', {'provider': args.provider, 'case': args.case, 'arm': args.arm, 'base': base,
          'versions': versions, 'marketplace': marketplace, 'source': 'working tree' if args.arm == 'new' else args.old_ref,
@@ -642,6 +698,8 @@ def main():
             result = navigation(out, repo, base, pkg, marketplace, versions, args.provider, cli)
         elif args.case == 'handoff':
             result = handoff(out, repo, base, pkg, args.provider, cli)
+        elif args.case == 'signing':
+            result = signing(out, repo, base, pkg, args.provider, cli)
         else:
             result = semantic(out, repo, base, pkg, args.provider, cli)
     except Exception as e:

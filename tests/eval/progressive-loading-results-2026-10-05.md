@@ -31,14 +31,14 @@ discovery и инструкции, но не Codex plugin discovery/hooks; их 
 
 | Host | Вход + выход, база | Вход + выход, кандидат | Изменение |
 | --- | ---: | ---: | ---: |
-| Claude Code | 224 887 | 147 748 | −34,3% |
+| Claude Code | 225 832 | 148 650 | −34,2% |
 | Codex | 171 256 | 137 261 | −19,9% |
 
 Обе стороны обеих пар прошли: одна строка CI изменена, прочие файлы сохранены,
 коммитов и дочерних агентов нет, профиль не объявлен, повторного согласования
 и перечитывания скилла на продолжении нет. Кандидаты не читали `WORKFLOW.md`.
 
-Claude: input 224 109 → 147 158, output 778 → 590; cache creation
+Claude: input 224 109 → 147 158, output 1 723 → 1 492; cache creation
 53 199 → 14 702, cache read 170 896 → 132 442, обычный input по 14.
 Codex: input 170 423 → 136 439, output 833 → 822; cache read
 155 776 → 128 640, uncached input 14 647 → 7 799. Codex input включает cache.
@@ -74,11 +74,11 @@ Resume usage подтверждён cumulative-счётчиками собств
 
 | Дополнительный probe | Все роли, input + output | Результат |
 | --- | ---: | --- |
-| Claude handoff | 424 285 | Прошёл, coordinator + executor + reviewer |
+| Claude handoff | 425 329 | Прошёл, coordinator + executor + reviewer |
 | Codex handoff, первая попытка | 401 943 | Не прошёл; coordinator + executor, reviewer не вызван |
 | Codex handoff, исправленный стенд | 371 479 | Прошёл, coordinator + executor + reviewer |
 
-Суммарный захваченный usage этого этапа — 1 878 859 токенов, включая cache
+Суммарный захваченный usage этого этапа — 1 881 750 токенов, включая cache
 и неудачный прогон. Это цена данной проверки, не расход одной пользовательской
 задачи. `cost-control-live-analyze.py` включает coordinator и детей handoff;
 навигационные пары сравниваются отдельно, без исключения ошибок из журнала.
@@ -99,6 +99,7 @@ child events/verdicts и дополнительное `workflow-body-proof.json`
 contract и восемь тестов fixtures/usage прошли. Валидаторы проверяют обязательный
 workflow вместе с entrypoint; проверки контрактов не удалены.
 
-Весь пакет остаётся draft до завершения
-[общей acceptance matrix](first-package-regressions.md). Локальное обновление
-плагинов допускается только из Git после merge.
+Claude output уточнён по сохранённым final result usage, без новых вызовов;
+исходные cost-accounting сохранены рядом с corrected. Дальнейшее
+[закрытие общей matrix](acceptance-results-2026-10-05.md) описано отдельно.
+Локальное обновление плагинов допускается только из Git после merge.

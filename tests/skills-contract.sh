@@ -273,7 +273,7 @@ check "measurements record their price source"         "grep -qF 'tests/eval/tel
 check "measurements record Opus 5"                     "grep -qF '| \`claude-opus-5\` | 5 | 0.5 | 25 |' $WCM"
 check "measurements record Haiku 4.5"                  "grep -qF '| \`claude-haiku-4-5-20251001\` | 1 | 0.1 | 5 |' $WCM"
 check "Gate 1 fixes wave shape before the supervisor choice" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF \"Fix each wave's executor tiers and ladder shape at Gate 1\""
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qiF \"fix each wave's executor tiers and ladder shape at Gate 1\""
 check "a changed wave shape re-asks the supervisor choice before Gate 2" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 're-ask the user before Gate 2'"
 check "a Codex Sol executor forces the Astra supervisor" \

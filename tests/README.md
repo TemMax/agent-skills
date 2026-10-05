@@ -20,8 +20,9 @@ including uncommitted edits, and checks host plugin metadata plus the injected
 skill path. It does not change the installed marketplace source.
 
 The [first-package cases](eval/first-package-regressions.md) describe the current
-mandatory cost-control scenarios. Their new end-to-end live checks have not yet
-been fully completed. The first three scenarios and native early guards have
+mandatory cost-control scenarios. Their pre-merge outcomes and retained failures
+are in [the final acceptance report](eval/acceptance-results-2026-10-05.md).
+The first three scenarios and native early guards have
 recorded [real dual-host results](eval/cost-control-live-results-2026-10-05.md). The next
 [progressive-loading results](eval/progressive-loading-results-2026-10-05.md) compare
 short entrypoints against the pushed baseline without changing installed plugins.
@@ -38,13 +39,14 @@ Prior dated measurements apply to their recorded versions only.
 | `ship-smoke.sh` | Two tasks in a disposable repository with a local bare origin | Codex execution, correctness and telemetry |
 | `skill-session-ab.sh` | Scripted multi-turn task removing duplicate tests, then a narrow CI edit | Codex session behavior and before/after comparison |
 | `claude-skill-session-ab.py` | Same duplicate-test fixture and eight turns; a cheaper two-turn smoke | Claude Code sessions, normal plugin loading, resume and before/after comparison |
-| `cost-control-live.py` | Ready candidate with a verification fault, green tests with a lost invariant, four-turn PR/skill/CI continuation | Real dual-host, bounded old/new comparison; candidate snapshots and retained failures |
+| `cost-control-live.py` | Ready candidate with a verification fault, lost invariant, PR/CI continuation, delegated handoff, authorized signing amendment | Real dual-host, bounded calls; candidate snapshots and retained failures |
+| `acceptance-dialogue-live.py` | New product fork, actual skill version change and fresh native context, bounded planning/verification/review phases | Two or three turns per run; exact loaded body and repository-rule evidence, no installed upgrade |
 | `cost-control-guards.py` | Continue the owned recovery fixture; missing links/lock, amended commands, cap and stale HEAD | Native early guard paths intentionally launch no new models |
 | `telemetry/`, `skill-session-ab-analyze.py` | Captured real runs | Offline analysis of reads, launches, usage and retained outcomes |
 
 Both hosts now have multi-turn A/B drivers sharing the disposable fixture.
-The cost-control driver covers the first three cases on either host; the entire
-acceptance matrix is not yet automated or live-verified.
+The cost-control, native guard and acceptance-dialogue drivers cover the current
+pre-merge matrix on either host. Installed Git upgrades are checked after merge.
 A list of scenarios or an offline test of a live driver must not be reported
 as a completed live run.
 
@@ -56,6 +58,10 @@ python3 tests/eval/cost-control-live.py --provider codex --case semantic --arm n
 python3 tests/eval/cost-control-live.py --provider codex --case navigation --arm new --out /tmp/cost-codex-navigation
 python3 tests/eval/cost-control-live-analyze.py /tmp/cost-claude-new /tmp/cost-codex-semantic
 python3 tests/eval/cost-control-guards.py --run /tmp/cost-claude-new
+python3 tests/eval/cost-control-live.py --provider claude --case signing --arm new --out /tmp/signing-claude
+python3 tests/eval/acceptance-dialogue-live.py --provider codex --case decision --out /tmp/decision-codex
+python3 tests/eval/acceptance-dialogue-live.py --provider claude --case reload --out /tmp/reload-claude
+python3 tests/eval/acceptance-dialogue-live.py --provider codex --case entrypoints --out /tmp/entrypoints-codex
 ```
 
 `--prepare-only` snapshots files, creates the fixture and freezes outcomes without
@@ -70,6 +76,19 @@ is used for both arms. Exact loaded paths/hashes or host-injected bodies are
 checked after the calls. No `plugin add/remove`, cache edits or marketplace switch.
 `--recheck-loading` reassesses retained Codex navigation path evidence without
 new model calls, keeping the original outcome and writing `assessment-v2.json`.
+
+Acceptance dialogue runs freeze snapshots and expected outcomes before calls;
+`--prepare-only` prepares without models. Claude has a $3 aggregate dialogue cap,
+each turn has a 150-second timeout, and children are forbidden. Codex uses the
+same bounded turn count, without an API token cap. Reload changes declared
+version and a hidden checkpoint marker in the fixture only, then starts a real
+fresh session. It does not force host compaction. Dialogue accounting matches
+Codex cumulative counters against owned rollouts and resets the baseline for a
+fresh session; use its `cost-accounting.json`, not navigation's single-session
+analyzer. Missing rollout proof leaves the total unclaimed. Signing uses a
+two-child cap, keeps `commit.gpgsign=true`, saves the amendment authorization,
+and must obtain fresh positive review without another executor. Signing and
+handoff support `--arm new` only.
 
 `--case handoff --arm new` checks the delegated path with a real coordinator,
 one executor and one independent reviewer. It must load `WORKFLOW.md` and invoke

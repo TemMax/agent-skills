@@ -8,6 +8,10 @@ metadata:
 
 # Critical Review (Codex)
 
+Resolve relative resource paths from this SKILL.md's physical directory.
+Resolve a symlinked skill directory to its target first; repository cwd is not
+the base for the profile and reference paths below.
+
 ## Codex session rules
 
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
@@ -28,6 +32,13 @@ Reuse confirmed decisions and authorization for the same task, roles, access
 and delivery scope. Ask only for a new decision or an actual scope/budget change.
 Start with targeted reads and bounded error excerpts; retain full logs by path
 and expand reads when needed to establish evidence.
+
+Load applicable repository instructions once if they are not already in context;
+a narrow artifact or phase scope does not exclude those instructions.
+For an explicitly bounded read-only or verification phase, report related
+inconsistencies as findings and finish after its assigned checks. Do not end with
+an offer to start another phase or make extra edits, or a question reopening that
+agreed scope. Unresolved new product choices still follow the planning rules.
 
 ## Step 0 — load exactly one active-seat profile
 

@@ -70,7 +70,7 @@ def analyze(root):
             path = root / 'turn-1.jsonl'
             raw = next((r['usage'] for r in reversed(read_events(path)) if r.get('type') == 'turn.completed'), None)
             coordinator.append({'role': 'coordinator', 'artifact': str(path), 'usage': normalized(raw, provider)})
-    elif provider == 'claude' and case in ['recovery', 'handoff']:
+    elif provider == 'claude' and case in ['recovery', 'handoff', 'signing']:
         children = root / 'workflow-children.json'
         if children.exists():
             for c in json.loads(children.read_text()):

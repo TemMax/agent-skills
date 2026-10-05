@@ -8,6 +8,8 @@ metadata:
 
 # Ship (Codex)
 
+Resolve relative resource paths from this SKILL.md's physical directory. Resolve a symlinked skill directory to its target first; repository cwd is not the base for the profile and reference paths below.
+
 One command, three shipped stages, one promise: what leaves this skill is a
 pushed feature branch with a reviewed pull request — never a touched default
 branch. **The merge stays with the user** — the PR merge into the default
@@ -36,6 +38,13 @@ Reuse confirmed decisions and authorization for the same task, roles, access
 and delivery scope. Ask only for a new decision or an actual scope/budget change.
 Start with targeted reads and bounded error excerpts; retain full logs by path
 and expand reads when needed to establish evidence.
+
+Load applicable repository instructions once if they are not already in context;
+a narrow artifact or phase scope does not exclude those instructions.
+For an explicitly bounded read-only or verification phase, report related
+inconsistencies as findings and finish after its assigned checks. Do not end with
+an offer to start another phase or make extra edits, or a question reopening that
+agreed scope. Unresolved new product choices still follow the planning rules.
 
 ## Step 0 — load exactly one active-seat profile
 

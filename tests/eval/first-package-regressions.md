@@ -1,8 +1,10 @@
 # First cost-control package: live acceptance cases
 
-Current evidence is recorded in [the dual-host live report](cost-control-live-results-2026-10-05.md).
-Three selected scenarios and native early guards have run; the complete matrix
-and its positive quality conditions are not yet release-ready.
+The pre-merge cases below are recorded in the [final acceptance report](acceptance-results-2026-10-05.md),
+alongside the [initial dual-host report](cost-control-live-results-2026-10-05.md)
+and [progressive-loading comparison](progressive-loading-results-2026-10-05.md).
+Installed-plugin upgrade and new-session smoke happen only from Git after merge;
+disposable candidate validation does not establish an installed upgrade.
 
 These cases are required by [the repository rule](../../AGENTS.md) before the
 package is called live-verified or release-ready. Use the authorized model routes
@@ -31,6 +33,23 @@ reads, repeated approval questions and initial request size. For available usage
 records, separate uncached input, cache creation, cache reads and output. Report
 all repetitions and uncertainty; do not convert invocation counts into a promised
 percentage of token savings or subscription-limit reduction.
+
+| Case above | Claude evidence | Codex evidence |
+| --- | --- | --- |
+| Explain / approved continuation / unchanged repeated skill | `lazy-skill-claude-new-1` | `lazy-skill-codex-new-1` |
+| New product fork | `final-acceptance-claude-decision-4` | `final-acceptance-codex-decision-4` |
+| Actual changed version / fresh context | `final-acceptance-claude-reload-1` | `final-acceptance-codex-reload-2` |
+| Ready candidate / environment failure | `cost-live-claude-recovery-new-1` | `cost-live-codex-recovery-new-2` |
+| Positive authorized signing amendment | `final-acceptance-claude-signing-1` | `final-acceptance-codex-signing-1` |
+| Links / lock / HEAD / red command / exhausted cap | recovery `guards` | recovery `guards-2/assessment-v2.json` |
+| Lost invariant despite green tests | `cost-live-claude-semantic-new-1` | `cost-live-codex-semantic-new-1` |
+| Other bounded entrypoints and repository rules | `final-acceptance-claude-entrypoints-3` | `final-acceptance-codex-entrypoints-3` |
+
+Directories are under `/private/tmp`. Context loss is a fresh native session
+recovering a checkpoint; automatic host compaction is not tested. The 4.8.1
+version is confined to the reload fixture; release candidate remains 4.8.0.
+Early unsigned/squash signing contradiction lint is Codex-specific; both hosts
+pass positive recovery while persistent signing stays enabled.
 
 Offline tests cover transport/state transitions, real Git artifact binding,
 command execution, caps and isolation. Stub rejection checks establish that the

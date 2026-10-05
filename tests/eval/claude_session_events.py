@@ -31,6 +31,17 @@ def usage(rows):
                 values[field] = max(values.get(field, 0), value)
     sums = {field: sum(v.get(field, 0) for v in messages.values()) for field in
             ('input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens')}
+    # Native streaming assistant events can expose only initial output counts.
+    # A final CLI result has completed output usage. Use it only when all root
+    # input buckets match the deduplicated messages, so child/cumulative totals
+    # cannot silently replace a different token scope. Transcript-only traces
+    # and incomplete/mismatched result envelopes retain message evidence.
+    fields = tuple(sums)
+    results = [r.get('usage') or {} for r in rows if r.get('type') == 'result' and not r.get('parent_tool_use_id')]
+    if results and all(all(isinstance(u.get(k), (int, float)) and u[k] >= 0 for k in fields) for u in results):
+        totals = {k: sum(u[k] for u in results) for k in fields}
+        if all(totals[k] == sums[k] for k in fields if k != 'output_tokens'):
+            sums['output_tokens'] = max(sums['output_tokens'], totals['output_tokens'])
     return {**sums, 'requests': len(messages), 'total': sum(sums.values())}
 
 
