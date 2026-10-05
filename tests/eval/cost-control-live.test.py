@@ -79,7 +79,8 @@ class Fixtures(unittest.TestCase):
             self.assertTrue((out / 'machine-ready').exists())
             self.assertFalse((out / 'calls.jsonl').exists())
             meta = json.loads((out / 'meta.json').read_text())
-            self.assertEqual(meta['versions']['orchestration'], '4.8.0')
+            current = json.loads((SCRIPT.resolve().parents[2] / 'plugins/orchestration/.claude-plugin/plugin.json').read_text())['version']
+            self.assertEqual(meta['versions']['orchestration'], current)
             self.assertEqual(subprocess.run([sys.executable, str(SCRIPT), '--provider', 'claude',
                 '--case', 'recovery', '--arm', 'new', '--out', str(out), '--prepare-only'],
                 capture_output=True).returncode, 73)

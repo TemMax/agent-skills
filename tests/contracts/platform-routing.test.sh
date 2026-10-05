@@ -9,9 +9,9 @@ python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL
 CP_ROUTING=plugins/orchestration/skills/multi-model/references/codex-routing.md
 CWA=plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md
 CAM=plugins/orchestration/skills/multi-model/references/contract-amendment.md
-SP=plugins/orchestration/skills/super-plan/SKILL.md
-SH=plugins/orchestration/skills/ship/SKILL.md
-CR=plugins/code-review/skills/critical-review/SKILL.md
+SP="$(contract_source plugins/orchestration/skills/super-plan/SKILL.md)"
+SH="$(contract_source plugins/orchestration/skills/ship/SKILL.md)"
+CR="$(contract_source plugins/code-review/skills/critical-review/SKILL.md)"
 DH=plugins/orchestration/hooks/drift-check
 DS=plugins/orchestration/hooks/drift-verdict.schema.json
 HJ=plugins/orchestration/hooks/hooks.json
@@ -330,10 +330,19 @@ check "process step 4 table gates premium on the user's Gate 1 choice and approv
 check "process step 3 groups for width by super-plan's Design for width rule" \
   "sed -n '/^3\. \*\*Plan\.\*\*/,/^4\. \*\*Table\.\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Group for width'"
 
-section "Step 0 is byte-identical in all four skills"
-
-check "Step 0 is byte-identical in all four skills" \
-  "[ \$(for f in \"$SH\" \"$MM\" \"$SP\" \"$CR\"; do sed -n '/^## Step 0/,/^| Exact model id/p' \"\$f\" | shasum; done | sort -u | wc -l | tr -d ' ') -eq 1 ]"
+section "Step 0 identity guards stay byte-identical across phase files"
+python3 - "$SH" "$MM" "$SP" "$CR" <<'PYGUARD'
+from pathlib import Path
+import sys
+blocks=[]
+for source in sys.argv[1:]:
+    text=Path(source).read_text()
+    start=text.index('## Step 0')
+    ends=[text.index(x,start) for x in ['### User-facing communication','| Exact model id'] if x in text[start:]]
+    blocks.append(text[start:min(ends)].strip())
+assert len(set(blocks)) == 1, 'Active-seat identity guards drifted'
+PYGUARD
+expect "Step 0 identity guards stay byte-identical" "0" "$?"
 check "multi-model's Step 0 range contains the CLAUDE_EFFORT read" \
   "sed -n '/^## Step 0/,/^| Exact model id/p' '$MM' | grep -qF 'printenv CLAUDE_EFFORT'"
 

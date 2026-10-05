@@ -33,3 +33,45 @@ with tempfile.TemporaryDirectory() as tmp:
         raise AssertionError('Missing mandatory workflow silently accepted')
 print('PASS: bounded entrypoints, mandatory delegated contracts, missing-resource rejection')
 PY
+
+python3 - <<'PY'
+from pathlib import Path
+import re
+import runpy
+import json
+import hashlib
+import tempfile
+skill_text=runpy.run_path('tests/lib/skill-source.py')['skill_text']
+norm=lambda s: re.sub(r'\s+', ' ', s).strip()
+baseline=json.loads(Path('tests/fixtures/phase-policy-baseline.json').read_text())
+for tree in ['skills','skills-codex']:
+    for plugin,name in [('orchestration','super-plan'),('orchestration','ship'),('code-review','critical-review')]:
+        p=Path('plugins')/plugin/tree/name/'SKILL.md'
+        entry=p.read_text(); combined=skill_text(p)
+        # Bounded at 7 KB including the explicit no-repository early-stop guard.
+        assert len(entry.encode()) < 7000, f'{p}: entrypoint grew'
+        # Fingerprints of pre-split paragraphs work in shallow clones/archives too.
+        actual={hashlib.sha256(norm(block).encode()).hexdigest()
+                for block in re.split(r'\n\s*\n',combined) if norm(block)}
+        for expected in baseline['policy_paragraph_sha256'][str(p)]:
+            assert expected in actual, f'{p}: lost pre-split policy paragraph {expected}'
+        if name=='critical-review':
+            for phase in ['PROFILE.md','REVIEW.md','PR.md','FIXES.md']:
+                assert f']({phase})' in entry
+            assert 'Before every review' in entry and 'Only then inspect code or a diff' in entry
+            assert 'before reading any code or diff' in entry
+            assert 'explicitly asks' in entry
+            assert '## Post-Review Fix Protocol' not in entry
+        else:
+            assert ']('+'WORKFLOW.md)' in entry
+            assert '## Plan Format' not in entry
+        with tempfile.TemporaryDirectory() as tmp:
+            d=Path(tmp)
+            for src in p.parent.glob('*.md'): (d/src.name).write_bytes(src.read_bytes())
+            phase='PROFILE.md' if name=='critical-review' else 'WORKFLOW.md'
+            (d/phase).unlink()
+            try: skill_text(d/'SKILL.md')
+            except FileNotFoundError: pass
+            else: raise AssertionError(f'{p}: missing {phase} accepted')
+print('PASS: six bounded entrypoints; every pre-split policy paragraph reachable; missing phases fail')
+PY

@@ -6,7 +6,7 @@ cd "$(dirname "$0")/../.." || exit 1
 REFS="plugins/code-review/skills/critical-review/references"
 f="$REFS/reviewer-gpt-6-1-sol.md"
 d="$REFS/gpt-6-1-sol-reviewer-dossier.md"
-CR="plugins/code-review/skills/critical-review/SKILL.md"
+CR="$(contract_source plugins/code-review/skills/critical-review/SKILL.md)"
 
 check "gpt-6.1-sol reviewer profile exists" "[ -f '$f' ]"
 check "gpt-6.1-sol reviewer dossier exists" "[ -f '$d' ]"

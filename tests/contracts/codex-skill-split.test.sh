@@ -28,7 +28,8 @@ if ! command -v node >/dev/null 2>&1; then
   fail "node is required for this test and was not found on PATH"
   summary; exit 1
 fi
-if node --input-type=module - plugins/orchestration/skills-codex/super-plan/SKILL.md "$W/documented.md" <<'JS'
+python3 tests/lib/skill-source.py plugins/orchestration/skills-codex/super-plan/SKILL.md > "$W/source.md"
+if node --input-type=module - "$W/source.md" "$W/documented.md" <<'JS'
 import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync } from 'node:fs'
 const [source, target] = process.argv.slice(2)

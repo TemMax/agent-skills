@@ -3,7 +3,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
-SP=plugins/orchestration/skills/super-plan/SKILL.md
+SP="$(contract_source plugins/orchestration/skills/super-plan/SKILL.md)"
 
 section "GPT-6.1 Sol is the standard Codex supervisor in super-plan"
 

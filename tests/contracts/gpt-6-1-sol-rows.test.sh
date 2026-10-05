@@ -6,7 +6,7 @@ cd "$(dirname "$0")/../.." || exit 1
 MM="$(mktemp)"
 trap 'rm -f "$MM"' EXIT
 python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL.md > "$MM"
-SH=plugins/orchestration/skills/ship/SKILL.md
+SH="$(contract_source plugins/orchestration/skills/ship/SKILL.md)"
 REF=plugins/orchestration/skills/multi-model/references/orchestrator-gpt-6-1-sol.md
 
 section "GPT-6.1 Sol rows"

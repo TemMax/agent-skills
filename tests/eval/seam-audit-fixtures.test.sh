@@ -131,7 +131,7 @@ section "Skill text per provider"
 rm -rf "$KEEP"
 SEAM_FIXTURES_DIR="$FX" SEAM_FIXTURES_FAKE_ANSWER="$T/a-empty" SEAM_FIXTURES_KEEP_DIR="$KEEP/claude" $RUNNER --only clean-one >/dev/null 2>&1
 SEAM_FIXTURES_DIR="$FX" SEAM_FIXTURES_FAKE_ANSWER="$T/a-empty" SEAM_FIXTURES_KEEP_DIR="$KEEP/codex" $RUNNER --provider codex --only clean-one >/dev/null 2>&1
-step() { awk '/^5\. \*\*Seam audit\.\*\*/ {on=1} /^6\. \*\*Lint\.\*\*/ {on=0} on' "$1"; }
+step() { python3 tests/lib/skill-source.py "$1" | awk '/^5\. \*\*Seam audit\.\*\*/ {on=1} /^6\. \*\*Lint\.\*\*/ {on=0} on'; }
 CL_STEP="$(step plugins/orchestration/skills/super-plan/SKILL.md)"
 CX_STEP="$(step plugins/orchestration/skills-codex/super-plan/SKILL.md)"
 if [ -n "$CL_STEP" ] && [ "$CL_STEP" != "$CX_STEP" ]; then pass "the two skill steps are non-empty and differ"; else fail "the two skill steps are non-empty and differ"; fi

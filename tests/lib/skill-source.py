@@ -1,19 +1,31 @@
 #!/usr/bin/env python3
-"""Contract text: entrypoint plus its explicitly linked mandatory workflow.
+"""Offline policy graph: entrypoint and explicitly linked phase files.
 
-References stay beside the entrypoint so their relative links retain their base.
-This does not make the host load them; live checks verify that task decision.
+This validates all policies; it does not make a runtime load every phase.
+Phase files stay beside SKILL.md to preserve the base of relative links.
 """
 from pathlib import Path
+import re
 import sys
+
+PHASE_FILES = frozenset({'WORKFLOW.md', 'PROFILE.md', 'REVIEW.md', 'PR.md', 'FIXES.md'})
 
 
 def skill_text(path):
-    path = Path(path)
-    text = path.read_text(encoding='utf-8')
-    if '[WORKFLOW.md](WORKFLOW.md)' in text:
-        text += '\n' + (path.parent / 'WORKFLOW.md').read_text(encoding='utf-8')
-    return text
+    seen = set()
+
+    def visit(source):
+        source = Path(source).resolve()
+        if source in seen:
+            return ''
+        seen.add(source)
+        text = source.read_text(encoding='utf-8')
+        for target in re.findall(r'\]\(([^)#]+)(?:#[^)]*)?\)', text):
+            if target in PHASE_FILES:
+                text += '\n' + visit(source.parent / target)
+        return text
+
+    return visit(path)
 
 
 if __name__ == '__main__':

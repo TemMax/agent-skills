@@ -46,6 +46,8 @@ run "behaviour — skill-session A/B driver" bash tests/eval/skill-session-ab.te
 run "behaviour — skill-session A/B analyzer" bash tests/eval/skill-session-ab-analyze.test.sh
 run "behaviour — Claude multi-turn A/B bench (offline)" python3 tests/eval/claude-skill-session-ab.test.py
 run "behaviour — dual-host cost-control fixtures (offline)" python3 tests/eval/cost-control-live.test.py
+run "behaviour — aggregate live budget (offline)" python3 tests/eval/live-budget.test.py
+run "behaviour — phase-context fixtures (offline)" python3 tests/eval/phase-context-live.test.py
 run "behaviour — acceptance dialogue evidence (offline)" python3 tests/eval/acceptance-dialogue-live.test.py
 run "behaviour — seam-audit scorer" bash tests/eval/seam-audit.test.sh
 run "behaviour — seam-audit fixture runner" bash tests/eval/seam-audit-fixtures.test.sh
