@@ -535,6 +535,14 @@ test('C6 supervisor prompt carries artifacts but redacts every executor id occur
   assert.doesNotMatch(out.prompt, /gpt-5\.6-luna/)
   assert.match(out.prompt, /Never open, print, copy or transmit credentials/)
   assert.match(out.prompt, /blocked-on-sibling/)
+  const promptFacts = JSON.parse(out.prompt.split('VERIFIER FACTS:\n')[1].split('\nREPORT:')[0])
+  const savedFacts = state(env.statePath).tasks['divide-guard'].verifierFacts.at(-1)
+  assert.ok(savedFacts.diff.includes('diff --git'))
+  assert.equal(out.prompt.includes(savedFacts.diff), false, 'even a small diff is read from Git, not injected twice')
+  const { diff, git: gitFacts, ...otherFacts } = savedFacts
+  const { stdout, ...diffResult } = gitFacts.diff
+  assert.deepEqual(promptFacts, { ...otherFacts, git: { ...gitFacts, diff: diffResult },
+    diff: '[omitted: ' + diff.length + ' characters; read it with git diff ' + env.base + '..wave/divide-guard]' })
 })
 
 test('C7 clean verdict yields merge-ready and done summary', () => {

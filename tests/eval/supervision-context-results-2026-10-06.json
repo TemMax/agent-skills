@@ -1,0 +1,328 @@
+{
+  "candidate": "orchestration 4.10.0; code-review unchanged 1.16.0",
+  "base_commit": "87103c425c65d0f835216678571b9dc5a6abf94b",
+  "cases": {
+    "claude-mismatched": {
+      "passed": true,
+      "checks": {
+        "cli_completed": true,
+        "expected_verdict": true,
+        "candidate_unchanged": true,
+        "pipeline_evidence": true,
+        "main_unchanged": true,
+        "snapshot_unchanged": true,
+        "full_diff_read": true,
+        "real_pipeline_rerun": true
+      },
+      "evidence": "/private/tmp/supervision-context-4.10.0-v2/claude-mismatched",
+      "frozen": {
+        "provider": "claude",
+        "case": "mismatched",
+        "repo": "/private/tmp/supervision-context-4.10.0-v2/claude-mismatched/repo",
+        "base": "13c31d2797bf225087eb24d1d32fa0e1557a736d",
+        "versions": {
+          "orchestration": "4.10.0",
+          "code-review": "1.16.0"
+        },
+        "expected": {
+          "accepted": true,
+          "pipeline_rerun": true
+        },
+        "plan_sha": "5ba44191052318bde4c823f4bc79a99cc9f5033aef31e4cbf3b8224238ce5328",
+        "prompt_sha": "370ba0dabec6589cf1878d70faad3b713779e970673410798da14a9619d4db69"
+      }
+    },
+    "claude-positive": {
+      "passed": true,
+      "checks": {
+        "native_accepted": true,
+        "two_children": true,
+        "zero_guard": true,
+        "no_supervisor_pipeline_rerun": true,
+        "shipped_prompt": true,
+        "main_unchanged": true,
+        "snapshot_unchanged": true,
+        "full_diff_read": true
+      },
+      "evidence": "/private/tmp/supervision-context-4.10.0-v2/claude-positive",
+      "frozen": {
+        "provider": "claude",
+        "case": "positive",
+        "repo": "/private/tmp/supervision-context-4.10.0-v2/claude-positive/repo",
+        "base": "5476cc6de87c5e3cb4a9c1fb2056f7601115b019",
+        "versions": {
+          "orchestration": "4.10.0",
+          "code-review": "1.16.0"
+        },
+        "expected": {
+          "accepted": true,
+          "pipeline_rerun": false
+        },
+        "plan_sha": "1fde6fe2bb13d4a67f5a6428b6d3857845b2e526716df44b5bb59e5bcc28a065",
+        "prompt_sha": null
+      }
+    },
+    "claude-semantic": {
+      "passed": true,
+      "checks": {
+        "cli_completed": true,
+        "expected_verdict": true,
+        "candidate_unchanged": true,
+        "pipeline_evidence": true,
+        "invariant_finding": true,
+        "main_unchanged": true,
+        "snapshot_unchanged": true,
+        "full_diff_read": true
+      },
+      "evidence": "/private/tmp/supervision-context-4.10.0-v2/claude-semantic",
+      "frozen": {
+        "provider": "claude",
+        "case": "semantic",
+        "repo": "/private/tmp/supervision-context-4.10.0-v2/claude-semantic/repo",
+        "base": "934ebf81c9d57d9bc18dfcd4201a79224a144b49",
+        "versions": {
+          "orchestration": "4.10.0",
+          "code-review": "1.16.0"
+        },
+        "expected": {
+          "accepted": false,
+          "pipeline_rerun": false
+        },
+        "plan_sha": "5ba44191052318bde4c823f4bc79a99cc9f5033aef31e4cbf3b8224238ce5328",
+        "prompt_sha": "8a2aa4da0abab1fab634bf2bb475530cc0fcd56a4b888ed83f98b18a49606a2f"
+      }
+    },
+    "codex-mismatched": {
+      "passed": true,
+      "checks": {
+        "cli_completed": true,
+        "expected_verdict": true,
+        "candidate_unchanged": true,
+        "pipeline_evidence": true,
+        "main_unchanged": true,
+        "snapshot_unchanged": true,
+        "full_diff_read": true,
+        "real_pipeline_rerun": true
+      },
+      "evidence": "/private/tmp/supervision-context-4.10.0-v2/codex-mismatched",
+      "frozen": {
+        "provider": "codex",
+        "case": "mismatched",
+        "repo": "/private/tmp/supervision-context-4.10.0-v2/codex-mismatched/repo",
+        "base": "f7f9f7f48e41dbf7c8384eee7c48dcdc51e111e5",
+        "versions": {
+          "orchestration": "4.10.0",
+          "code-review": "1.16.0"
+        },
+        "expected": {
+          "accepted": true,
+          "pipeline_rerun": true
+        },
+        "plan_sha": "5ba44191052318bde4c823f4bc79a99cc9f5033aef31e4cbf3b8224238ce5328",
+        "prompt_sha": "34d83dfd817960ba1476fe53d5d0c9c3275a047d015aa4174b6ab7c706c497fa"
+      }
+    },
+    "codex-positive": {
+      "passed": true,
+      "checks": {
+        "native_accepted": true,
+        "two_children": true,
+        "zero_guard": true,
+        "no_supervisor_pipeline_rerun": true,
+        "shipped_prompt": true,
+        "main_unchanged": true,
+        "snapshot_unchanged": true,
+        "full_diff_read": true
+      },
+      "evidence": "/private/tmp/supervision-context-4.10.0-v2/codex-positive",
+      "frozen": {
+        "provider": "codex",
+        "case": "positive",
+        "repo": "/private/tmp/supervision-context-4.10.0-v2/codex-positive/repo",
+        "base": "66ed3992015b47bab094ea544ab4da0bf266c736",
+        "versions": {
+          "orchestration": "4.10.0",
+          "code-review": "1.16.0"
+        },
+        "expected": {
+          "accepted": true,
+          "pipeline_rerun": false
+        },
+        "plan_sha": "6eacbc914b9b42cb5b8c8bdcceedad80ed3bc73fb41d7250c3fafad936996dbf",
+        "prompt_sha": null
+      }
+    },
+    "codex-semantic": {
+      "passed": true,
+      "checks": {
+        "cli_completed": true,
+        "expected_verdict": true,
+        "candidate_unchanged": true,
+        "pipeline_evidence": true,
+        "invariant_finding": true,
+        "main_unchanged": true,
+        "snapshot_unchanged": true,
+        "full_diff_read": true
+      },
+      "evidence": "/private/tmp/supervision-context-4.10.0-v2/codex-semantic",
+      "frozen": {
+        "provider": "codex",
+        "case": "semantic",
+        "repo": "/private/tmp/supervision-context-4.10.0-v2/codex-semantic/repo",
+        "base": "c257035f206e0a909749b2614949ee3f58b2d083",
+        "versions": {
+          "orchestration": "4.10.0",
+          "code-review": "1.16.0"
+        },
+        "expected": {
+          "accepted": false,
+          "pipeline_rerun": false
+        },
+        "plan_sha": "5ba44191052318bde4c823f4bc79a99cc9f5033aef31e4cbf3b8224238ce5328",
+        "prompt_sha": "bfb3ebbd07dbe4b974a40af633f599bc99b854becfb7f352377ea98450fc7205"
+      }
+    }
+  },
+  "ledger": {
+    "limits": {
+      "calls": 10,
+      "tokens": 1200000,
+      "claude_usd": 4
+    },
+    "attempts": [
+      {
+        "label": "claude-positive-executor",
+        "tokens": 234332,
+        "claude_usd": 0.055695900000000007,
+        "complete": true,
+        "evidence": "/private/tmp/supervision-context-4.10.0-v2/claude-positive/call-0"
+      },
+      {
+        "label": "claude-positive-judge",
+        "tokens": 28034,
+        "claude_usd": 0.1283904,
+        "complete": true,
+        "evidence": "/private/tmp/supervision-context-4.10.0-v2/claude-positive/call-1"
+      },
+      {
+        "label": "codex-positive-executor",
+        "tokens": 92349,
+        "claude_usd": 0,
+        "complete": true,
+        "evidence": "/private/tmp/supervision-context-4.10.0-v2/codex-positive/call-2"
+      },
+      {
+        "label": "codex-positive-judge",
+        "tokens": 58555,
+        "claude_usd": 0,
+        "complete": true,
+        "evidence": "/private/tmp/supervision-context-4.10.0-v2/codex-positive/call-3"
+      },
+      {
+        "label": "claude-semantic-judge",
+        "tokens": 29459,
+        "claude_usd": 0.1459224,
+        "complete": true,
+        "evidence": "/private/tmp/supervision-context-4.10.0-v2/claude-semantic/call-4"
+      },
+      {
+        "label": "codex-semantic-judge",
+        "tokens": 38012,
+        "claude_usd": 0,
+        "complete": true,
+        "evidence": "/private/tmp/supervision-context-4.10.0-v2/codex-semantic/call-5"
+      },
+      {
+        "label": "claude-mismatched-judge",
+        "tokens": 84515,
+        "claude_usd": 0.20881380000000002,
+        "complete": true,
+        "evidence": "/private/tmp/supervision-context-4.10.0-v2/claude-mismatched/call-6"
+      },
+      {
+        "label": "/private/tmp/supervision-context-4.10.0-v2/codex-mismatched-judge",
+        "tokens": 78939,
+        "claude_usd": 0,
+        "complete": true,
+        "evidence": "/private/tmp/supervision-context-4.10.0-v2/codex-mismatched/call-7"
+      }
+    ]
+  },
+  "native_cli_calls": 8,
+  "inclusive_tokens": 644195,
+  "claude_cli_reported_usd": 0.5388225,
+  "final_source_hashes": {
+    "plugins/orchestration/hooks/drift-verdict.schema.json": "56c5bb472ba4dca0f123266c2cfeec18e01985cea4c0503c242a8e7835a0d58b",
+    "plugins/orchestration/hooks/drift-check": "7451be5364c215130169b517f2d691bcb0f6f47ddcf375a240b8be09ef0fe2a8",
+    "plugins/orchestration/hooks/drift-check.test.sh": "bcd5d9b6b73d66ed2547acdb9ae349131263ee953d02cc09a3aefcd670265379",
+    "plugins/orchestration/hooks/hooks.json": "b3e0821a8b1f0134aac9a6d9ae31b0b710347dab7105972f1c843be280a841c6",
+    "plugins/orchestration/hooks/runtime-context": "c546c3d6b9549775152f64146a4e0b1fb4fcfdada8e8e27c4f782a9131a279fc",
+    "plugins/orchestration/.claude-plugin/plugin.json": "c56149763127284b8defb30a38d969f1243f9dbd8d59792235034438a96db54a",
+    "plugins/orchestration/.codex-plugin/plugin.json": "b37fe76ac50e325da8a65019a1c81e66074f77fbe2cfbafdd148297ab42dd374",
+    "plugins/orchestration/skills/super-plan/WORKFLOW.md": "cb1d57df0b380fce63b8ca7cfcbec4e4bc9f440e8228133620c2b1547458889f",
+    "plugins/orchestration/skills/super-plan/SKILL.md": "101c1d351f0730b07147398a36f86a9c44f2630f955e244aa095e6dd62e2921d",
+    "plugins/orchestration/skills/multi-model/WORKFLOW.md": "92d77bc04a3cc21ecceb9a9476ef6fe869d79c192ada9cb8353064e9436b300c",
+    "plugins/orchestration/skills/multi-model/SKILL.md": "b71fe4cb5a7018112448f52efe5cda123500511e72f4bb95ebda1359eae0042c",
+    "plugins/orchestration/skills/ship/WORKFLOW.md": "ec2b4fdbe5f79bba394e5992630dedf64ab2c7237681bc3ebac07e0329c995cf",
+    "plugins/orchestration/skills/ship/SKILL.md": "eff7ffb56d1ca9a46ccfc26dca92e6d4d60ae0abab02f3e11fdde727d0c7df69",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-opus-4-8.md": "3b1b6d488a3a4793023e499087f0c1b71e367dfd1cb982208bf1822b043f19f8",
+    "plugins/orchestration/skills/multi-model/references/claude-wave-adapter.md": "d8a379e61ad133e24ea22c151f7b1c65c190b163d768c28917d099a390f101dd",
+    "plugins/orchestration/skills/multi-model/references/verdicts.md": "f69fc3286b16da214f8b6b5b3e112dd0642286ebc63c8b8c5c17fb192ad758b7",
+    "plugins/orchestration/skills/multi-model/references/mechanical-verify.mjs": "0ff9cd76b493282aff65a8e04c6fb84e5ee04a4325b8e05da4a8d2b0258bed26",
+    "plugins/orchestration/skills/multi-model/references/gpt-calibration-evidence.md": "d538e59c06a70e9251c39a74848366c8dae6213a0b3e1691d3d98a98cd303bd2",
+    "plugins/orchestration/skills/multi-model/references/worktree-env.mjs": "5c405e4e593576a06b8ed3c71736316952e2248666ec1bab6ea31086c591597e",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-fable-5.md": "190e0244936c9ae32e81b31b0a9ffb2662bfe9f232fb92aa499a20ad353f4902",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-gpt-5-6-terra.md": "299287b4930eb89926c0834f6f9fc7c2560aeabd9661d8cd076ba60c95a8d065",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-drift-hook.md": "fedf2715f0f87fc7d3520530ba663b06def57edb124720d38f11ff5ef0688f17",
+    "plugins/orchestration/skills/multi-model/references/gpt-5-6-dossier.md": "e3932a71d6df932bdbc6a5d31a5cef03bdab15a77332ba333a162b68ed975fda",
+    "plugins/orchestration/skills/multi-model/references/contract-amendment.md": "144ebccbbe5b198938ca34b3d91ec35b9dcac1e8b7e472c5b639607e97d43d29",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-gpt-5-6-luna.md": "a6f1204ef153dd640122efd4d8385142732144f31896841c89778191dac17474",
+    "plugins/orchestration/skills/multi-model/references/gpt-6-1-sol-dossier.md": "8fb850a14b23069370920710a6cde0e67238372fdaa1d23019cd7e07dc9e690a",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-opus-5.md": "2036170731f7bc1e7ece21c9248a531052134a6e3d0366b4c30d659e471f7ea6",
+    "plugins/orchestration/skills/multi-model/references/codex-wave-protocol.md": "a92d1c79285cc732ef00a26bf563d5ffa4e2cf0758142f75c1930c9c34c13b74",
+    "plugins/orchestration/skills/multi-model/references/supervisor-prompt.md": "ee15473337af2d3be6f4a136b0dee301845309f2593b0b4c499f1d51e69a5a67",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-opus-5-5.md": "eade2a99eebe35df419afe74a4512c2744c4900a52e21634dd4c0a3b33f59e7c",
+    "plugins/orchestration/skills/multi-model/references/codex-wave-runner.mjs": "f3d1581e6ecbdae71e574075ba9336061d2f79246b8f443b1cbd4ebbe02f9e20",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-gpt-6-sol.md": "e5312ac5f7c3ec000f7e9c44bcaf1579ccc9cca4b57826d1c7a1d1ec99d2870b",
+    "plugins/orchestration/skills/multi-model/references/candidate-recovery.mjs": "f73dc91105c1242c4e8314651bc7381e5b7c1b03739371b118ab03ca99fd726e",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-fable-5-1.md": "6729d7cd900d72d0c03b0cb5a0a57d9f6d0a73a8dab263ebd85f2e145c317bb4",
+    "plugins/orchestration/skills/multi-model/references/codex-wave-state.mjs": "5316f865b5a1b7e367e6be557471a7cf0486e167ca5ccf3e6f85c6f279723433",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-gpt-6-1-sol.md": "5e02522d960e3932c69dec59c4393c07d35d8dd09cd0ed658101e7f1a5e4ef22",
+    "plugins/orchestration/skills/multi-model/references/gpt-6-luna-dossier.md": "26c5470f5500de161742b6d40650de7244c8670179e974d7a68ab8a499b8c72a",
+    "plugins/orchestration/skills/multi-model/references/claude-wave-runner.mjs": "0c36c03a15ebada1b91bfc345d68ab6bc73c9f65b61ba23e297cc4822ec48f73",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-generic.md": "73dadc12f3d001b99ceece88bb68eb475176aa105150e0b5ac0f1f21de11664f",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-drift-prompt.md": "36085ff591a9f52a52c12adeb9f082c7c4179a43926e14e4bc122118d8128a03",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-gpt-6-luna.md": "1fc24df2205137140f9710113f557fd2e0371e6c5a90be86a1827e4818c2a626",
+    "plugins/orchestration/skills/multi-model/references/gpt-6-sol-dossier.md": "bdcf5534a977ca355827a2cc14a3b1ba0545cfe76bbe72dd7344b9172f210d30",
+    "plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs": "38ab4d929a531d0de721e7e5638d6cbc4c25b3a7ddda769c79c2705663bb3a47",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-gpt-5-6-sol.md": "e4ac570198e77d7a36abf47eb22dc8612dc51cb7943c0d59c9e4aecd34daed90",
+    "plugins/orchestration/skills/multi-model/references/orchestrator-gpt-6-astra.md": "b48e565c781ce91298addd267e46ed78009fe96f1ebe515c597bf62ead4073fc",
+    "plugins/orchestration/skills/multi-model/references/wave-launch.mjs": "943664ea9ae389092a80e1f14873738a330b5bfce215da577a5bdc0f67265408",
+    "plugins/orchestration/skills/multi-model/references/codex-routing.md": "6193c308406444b2679726e08e0e9b8b7aa1ff0f74796025c6527ff821fb2351",
+    "plugins/orchestration/skills/multi-model/references/execution-cost-controls.md": "2359dce227527fb769a950901598ef359a1af110514a69bf0ed0aae6fe7de8da",
+    "plugins/orchestration/skills/multi-model/references/gpt-6-astra-dossier.md": "4bcdbb04f7b9fca354c7f567064025cc97a59562f711d908f63af01a537523bb",
+    "plugins/orchestration/skills/multi-model/references/model-dossiers.md": "016b60da74e90719e44e8ae93c020eee552d6fbf005cff708d4809e22be53b49",
+    "plugins/orchestration/skills/super-plan/references/LICENSE-superpowers": "8b0995201c10034d65efc08348ae0e791771b873d991efb8a89095b5ee90e23f",
+    "plugins/orchestration/skills/super-plan/references/plan-lint.mjs": "3d8bc55334db063030dbfe40820e9381265483da3978170939eb97b286bb36f6",
+    "plugins/orchestration/skills-codex/super-plan/WORKFLOW.md": "92f25187a6e0750af15a6bfcdf449d794457fd4777f6207372be88800a549b08",
+    "plugins/orchestration/skills-codex/super-plan/SKILL.md": "50be69c4076f1083dfa7337f2344b9cfeec26c00289ec6a63ee9795862651ae3",
+    "plugins/orchestration/skills-codex/multi-model/WORKFLOW.md": "ba5392b048196408d579f0a871cbd2c6406b0b8952a507b34d26bf89e5d6ba28",
+    "plugins/orchestration/skills-codex/multi-model/SKILL.md": "901ffb98902134a309006f870bd6c6df5ec09e7f0949d429f6bd665d620f1288",
+    "plugins/orchestration/skills-codex/ship/WORKFLOW.md": "5c8e9e31d0b9d78d469e96f9c432bfd50c3b24beab5c7ba9e33d84309b440f10",
+    "plugins/orchestration/skills-codex/ship/SKILL.md": "5b2b2f4436231faf364f1070ce4a79f669ae9b20bee7d5cba151b7c9c7375638"
+  },
+  "source_matches_tested_snapshots": true,
+  "raw_evidence": "/private/tmp/supervision-context-4.10.0-v2",
+  "limitations": [
+    "Positive cases cover native execution; semantic and mismatched cases are isolated supervisor probes.",
+    "No A/B token savings forecast; authoring conversation usage is not included.",
+    "Normal installed-plugin upgrade is not part of this premerge validation."
+  ],
+  "retained_failures": [
+    "Offline signing-context failure before sourcing hermetic test environment.",
+    "Intentional C6 red regression on duplicated prompt diff; 98 scenarios green after correction.",
+    "Fixture preparation: temporary path alias and duplicate call instrumentation corrected before model calls.",
+    "Codex positive unsupported --default-branch stopped before model launch; preserved in blocked-arguments-1.",
+    "Trace grader strengthened to require captured full diff and actual rerun output; prior outcomes retained and regraded without new model calls."
+  ]
+}
