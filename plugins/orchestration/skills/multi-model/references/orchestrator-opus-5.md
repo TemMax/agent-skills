@@ -34,14 +34,10 @@ shipped nothing and went silent for 8 hours (pp. 26–27). This is the reverse o
 the Opus 4.8 rule ("push to xhigh"): that directive is Opus 4.8's and does not
 transfer to you.
 
-**Effort self-check (act before planning).** Step 0 reports this session's
-current effort. If the reported value is `max` or `xhigh`, do not halt — instead
-note in one line that you will hold to bounded verification and avoid over-scoping
-(your documented tendencies at high effort), then proceed. `high` or `medium`:
-proceed, ideal. `low`: note it may under-invest in the cross-cutting decisions
-Step 2 requires, then proceed. If Step 0 shows no recognizable level (for example
-an unexpanded `${CLAUDE_EFFORT}` placeholder), treat your effort as unknown: say
-so in one line and proceed.
+**Effort self-check (act before planning).** At `max` or `xhigh`, hold to
+bounded verification and avoid over-scoping. At `low`, check the cross-cutting
+decisions Step 2 requires explicitly. Apply these checks internally and proceed;
+unknown effort does not block planning.
 
 ## Amendments to the Process
 

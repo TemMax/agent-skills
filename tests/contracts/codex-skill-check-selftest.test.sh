@@ -22,7 +22,7 @@ import importlib.util, json, os, re, sys
 root, kind, mut, claude_path, check = sys.argv[1:]
 spec = importlib.util.spec_from_file_location("chk", check)
 chk = importlib.util.module_from_spec(spec); spec.loader.exec_module(chk)
-claude = open(claude_path, encoding="utf-8").read()
+claude = chk.skill_text(claude_path)
 version = chk.fm_version(chk.frontmatter(claude))
 d = os.path.join(root, kind, mut, "codex")
 os.makedirs(d, exist_ok=True)

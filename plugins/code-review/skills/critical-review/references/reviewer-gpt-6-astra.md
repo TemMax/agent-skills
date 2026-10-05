@@ -45,6 +45,7 @@ An explicitly requested review can report bounded findings with that limit.
 do not require a restart solely because the active effort is unknown or
 silently raise it to `max`.
 
-Read `gpt-6-astra-reviewer-dossier.md` for sources and measurement limits.
+Read `gpt-6-astra-reviewer-dossier.md` when checking model-selection or calibration
+claims; ordinary artifact review uses this profile's guards.
 Only dated clean/defect evaluations can qualify this reviewer. Lower coding
 deception or stronger injection robustness cannot substitute for those tests.

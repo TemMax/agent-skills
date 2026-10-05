@@ -1,8 +1,8 @@
 # Claude wave adapter — invoke the shipped runner
 
-Read from multi-model SKILL.md (Host adapter) when a wave's plan host is
+Read from multi-model WORKFLOW.md (Host adapter) when a wave's plan host is
 Claude. The shared contract, verifier, supervisor, ladder and result review
-stay in SKILL.md.
+stay in WORKFLOW.md.
 
 ## Contents
 
@@ -10,14 +10,30 @@ stay in SKILL.md.
 
 ## Claude-only wave — invoke the shipped runner
 
-For a Claude-only wave, the ladder in multi-model SKILL.md (Escalation ladder) is implemented once, in
+**Default: native CLI runner.** Read `execution-cost-controls.md` and launch:
+
+```
+node <this skill's base directory>/references/claude-wave-runner.mjs \
+  --plan <plan> --wave <n> --base <pushed sha> --repo <abs repo> --default-branch <branch>
+```
+
+It uses the same launcher and Workflow policy, supplies independent facts without
+a verifier model, and saves full evidence under the returned `summary.json` path.
+Read verdicts there before integration. A budget stop requires a strategy decision.
+A failed native run cannot use Workflow's `resumeFromRunId`.
+
+The steps below are the **Workflow fallback** when the local CLI is unavailable.
+Never switch to it automatically after a native budget stop. Mechanical-only tasks
+require native execution.
+
+For a Claude-only wave, the ladder in multi-model WORKFLOW.md (Escalation ladder) is implemented once, in
 `references/wave-runner.workflow.mjs`, and covered by the deterministic
 simulator tier in `tests/`. Your job is to assemble its inputs, not to
 re-implement its rules — every hand-written wave script is a fresh chance to
 get "two strikes escalate" subtly wrong, and the one hand-written run on
 record was rejected at launch four times before it worked.
 
-Its `opts.model` accepts exactly the full IDs in Model identifiers in multi-model SKILL.md and
+Its `opts.model` accepts exactly the full IDs in Model identifiers in multi-model WORKFLOW.md and
 rejects aliases by name.
 
 1. **Preflight the contracts at the base.** Before the first wave forks, run
@@ -87,7 +103,7 @@ rejects aliases by name.
 
 ```
 {
-  base: "<pushed fork-point sha>",          // see Wave Isolation in multi-model SKILL.md
+  base: "<pushed fork-point sha>",          // see Wave Isolation in multi-model WORKFLOW.md
   defaultBranch: "main",
   repoPath: "/abs/path/to/repo",
   supervisorPromptText: "<text of supervisor-prompt.md>",
@@ -107,7 +123,7 @@ rejects aliases by name.
 ```
 
 The runner assembles each executor's prompt from the task object — the six
-mandatory blocks of the Task Prompt Template in multi-model SKILL.md, plus a workspace section
+mandatory blocks of the Task Prompt Template in multi-model WORKFLOW.md, plus a workspace section
 carrying the isolation instructions — so the contract the executor reads and
 the contract the supervisor enforces are the same object and cannot diverge.
 Escalated rungs run at `high` effort.
@@ -121,9 +137,16 @@ evidence, and do no push. The Claude adapter keeps the shipped Workflow
 implementation unchanged; publication stays at this composition boundary, not
 in the Workflow arguments or script.
 
+Native recovery: when the local runner returns a clean committed candidate,
+repair the environment or apply the authorized contract amendment, then use
+`--resume-from <summary.json> --out <new-dir>` per `execution-cost-controls.md`.
+It performs verification/review with preserved counters and no executor. The
+status handling below describes the legacy Workflow fallback, whose cached
+reports use different recovery semantics.
+
 4. Act on the returned statuses, task by task:
    - `ok` — merge `wave/<id>` per the wave plan.
-   - `contract-unsatisfiable` — run the amendment flow (multi-model SKILL.md → Escalation ladder → `references/contract-amendment.md`) (one amendment
+   - `contract-unsatisfiable` — run the amendment flow (multi-model WORKFLOW.md → Escalation ladder → `references/contract-amendment.md`) (one amendment
      per task; removing or weakening a check goes to the user as a yes/no),
      regenerate the launch script from the edited plan with the same command,
      then re-invoke with `resumeFromRunId`: the runner is deterministic, so
@@ -138,7 +161,7 @@ in the Workflow arguments or script.
      would replay the cached blocked report instead of trying the fixed
      machine. It is
      never routed to the contract-amendment flow — Stop handling in
-     multi-model SKILL.md covers this status in full.
+     multi-model WORKFLOW.md covers this status in full.
    - `failed` / `error` — hand the user the task, every verdict in order, and
      the branch name. Do not quietly retry.
 

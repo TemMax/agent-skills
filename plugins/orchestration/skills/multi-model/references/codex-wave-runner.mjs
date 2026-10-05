@@ -33,16 +33,19 @@
 //
 // Zero dependencies. Node ESM only.
 
+import { createHash } from 'node:crypto'
 import { spawn, spawnSync } from 'node:child_process'
 import {
-  existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   applyLinks, checkDependsOn, detectEnvironmentBlock, effectivePlan, gitCommonDir,
-  resolveWorktreeEnv, TASK_HEADING_SOURCE,
+  resolveWorktreeEnv, TASK_HEADING_SOURCE, requireExecutable,
 } from './worktree-env.mjs'
+
+import { recoveryScope, readRecovery, makeRecoveryReceipt, claimRecovery, recoveredReport, candidate } from './candidate-recovery.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const HELPER = join(here, 'codex-wave-state.mjs')
@@ -51,7 +54,7 @@ const LINT = join(here, '..', '..', 'super-plan', 'references', 'plan-lint.mjs')
 const USAGE = [
   'usage: node codex-wave-runner.mjs --plan <file> --wave <n> --repo <abs> --base <40-hex sha>',
   '         [--jobs 3] [--codex codex] [--timeout-min 45] [--out <dir>]',
-  '         [--executor-network on|off] [--preflight on|off]',
+  '         [--executor-network on|off] [--preflight on|off] [--resume-from <summary.json>]',
   '       node codex-wave-runner.mjs --reset --plan <file> --wave <n> --repo <abs> --base <40-hex sha>',
   '         [--out <dir>]',
   '',
@@ -97,7 +100,7 @@ function parseArgv(argv) {
     process.exit(0)
   }
   const FLAGS = ['--plan', '--wave', '--repo', '--base', '--jobs', '--codex',
-    '--timeout-min', '--out', '--executor-network', '--preflight']
+    '--timeout-min', '--out', '--executor-network', '--preflight', '--resume-from']
   const raw = {}
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]
@@ -112,7 +115,7 @@ function parseArgv(argv) {
     raw[flag] = argv[++i]
   }
   if (raw['--reset']) {
-    for (const flag of ['--jobs', '--codex', '--timeout-min', '--executor-network', '--preflight']) {
+    for (const flag of ['--jobs', '--codex', '--timeout-min', '--executor-network', '--preflight', '--resume-from']) {
       if (Object.hasOwn(raw, flag)) usageError(flag + ' cannot be used with --reset')
     }
   }
@@ -148,6 +151,7 @@ function parseArgv(argv) {
 
   return {
     reset: raw['--reset'] === true,
+    resumeFrom: raw['--resume-from'] ? resolve(raw['--resume-from']) : null,
     planPath,
     waveNumber,
     repoPath,
@@ -503,6 +507,7 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
   }
   const results = []
   let blocked = null
+  const blocks = []
   try {
     applyLinks(repoPath, preflightPath, env.links)
     const writableRoots = [worktreeGitDir(preflightPath), commonDir, ...env.writable]
@@ -515,9 +520,9 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
       const seconds = (Date.now() - start) / 1000
       const exit = run.status === null ? -1 : run.status
       results.push({ cmd, exit, seconds })
-      if (!blocked) {
-        const detected = detectEnvironmentBlock((run.stdout || '') + '\n' + (run.stderr || ''))
-        if (detected) blocked = { cmd, id: detected.id, line: detected.line }
+      const detected = detectEnvironmentBlock((run.stdout || '') + '\n' + (run.stderr || ''))
+      if (detected) {
+        const entry = { cmd, id: detected.id, line: detected.line }; blocks.push(entry); blocked ??= entry
       }
     }
   } finally {
@@ -528,7 +533,7 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
         + preflightPath + ': ' + (removed.stderr || removed.stdout) + '\n')
     }
   }
-  return { blocked, results }
+  return { blocked, blocks, results }
 }
 
 // ---------------------------------------------------------------------------
@@ -580,6 +585,7 @@ function runReset(config) {
     const id = task.id
     return {
       id,
+      recoveryStatePaths: [],
       worktree: join(repo, '.worktrees', 'wave-' + id),
       branch: 'wave/' + id,
       statePath: join(repo, '.worktrees', 'codex-wave',
@@ -587,6 +593,23 @@ function runReset(config) {
     }
   })
 
+  // A prior completed state must not let reset remove a branch currently
+  // being reviewed by a recovery run. Recovery states live beside old states.
+  const stateDir = join(repo, '.worktrees', 'codex-wave')
+  for (const file of existsSync(stateDir) ? readdirSync(stateDir) : []) {
+    if (!file.endsWith('.json')) continue
+    let state
+    try { state = JSON.parse(readFileSync(join(stateDir, file), 'utf8')) } catch { continue }
+    if (state?.candidateRecovery !== true) continue
+    const affected = items.find(item => state.tasks?.[item.id]?.branch === item.branch)
+    if (!affected) continue
+    if (state.repoPath !== repo || state.base !== config.base || typeof state.planPath !== 'string'
+      || state.tasks[affected.id].worktree !== affected.worktree) resetRefuse(affected.id, 'recovery state identity mismatch')
+    if (!existsSync(join(dirname(dirname(state.planPath)), 'summary.json'))) {
+      resetRefuse(affected.id, 'recovery run has not produced its final summary; preserve the candidate')
+    }
+    affected.recoveryStatePaths.push(join(stateDir, file))
+  }
   // All checks first; nothing is changed until every task has passed.
   for (const item of items) {
     if (existsSync(item.statePath)) {
@@ -647,6 +670,7 @@ function runReset(config) {
       rmSync(item.statePath)
       removed.push('state')
     }
+    for (const path of item.recoveryStatePaths) { rmSync(path); removed.push('recovery-state') }
     if (removed.length === 0) {
       process.stdout.write('reset ' + item.id + ': nothing to remove\n')
     } else {
@@ -670,6 +694,7 @@ function runReset(config) {
 async function main() {
   const config = parseArgv(process.argv.slice(2))
   if (config.reset) runReset(config)
+  requireExecutable(config.codexBin)
   if (sandboxNestingBlocked()) reportNestedSandboxAndExit()
 
   if (existsSync(config.outPath)) {
@@ -717,6 +742,9 @@ async function main() {
   // linked worktree. See the Plan Format section in super-plan/SKILL.md.
   const planForEnv = effectivePlan(config.planPath, config.repoPath)
   const env = resolveWorktreeEnv(config.repoPath, planForEnv)
+  const scope = recoveryScope({ host: 'codex', repo: config.repoPath, base: config.base,
+    waveNumber: config.waveNumber, wave, plan: planForEnv, markdown: originalText })
+  const recovery = config.resumeFrom ? readRecovery(config.resumeFrom, scope) : null
   const commonDir = gitCommonDir(config.repoPath)
   if (env.missingWritable.length > 0) {
     process.stderr.write('codex-wave-runner: missing writable dirs (skipped): '
@@ -750,8 +778,8 @@ async function main() {
   // is why its result still rides along on the final summary.json below even
   // when nothing is blocked.
   let preflightResults = null
-  if (config.preflightOn) {
-    const { blocked, results } = runPreflight({
+  if (config.preflightOn && !recovery) {
+    const { blocked, blocks, results } = runPreflight({
       codexBin: config.codexBin, repoPath: config.repoPath, base: config.base, timeoutMs: config.timeoutMs,
       env, commonDir, networkOn: config.executorNetworkOn, wave,
     })
@@ -761,7 +789,7 @@ async function main() {
         status: 'stop',
         wave: config.waveNumber,
         stopped: [{ task: '*', reason: 'environment-blocked' }],
-        preflight: { results, blocked },
+        preflight: { results, blocked, blocks },
         cleanup: [],
       }
       process.stdout.write(JSON.stringify(summary, null, 2) + '\n')
@@ -805,7 +833,8 @@ async function main() {
   const statePaths = {}
   for (const taskId of taskIds) {
     const derivedPlanPath = deriveTaskPlan({
-      originalText, plan, waveIndex, taskId, outPath: config.outPath, planBasename,
+      originalText, plan, waveIndex, taskId, outPath: config.outPath,
+      planBasename: recovery ? planBasename + '-recovery-' + createHash('sha256').update(config.outPath).digest('hex').slice(0, 12) : planBasename,
     })
     const derivedLint = spawnSync(process.execPath,
       [LINT, derivedPlanPath, '--repo', config.repoPath, '--base', config.base],
@@ -818,7 +847,10 @@ async function main() {
     }
     let initResult
     try {
-      initResult = helperInit(derivedPlanPath, config.waveNumber, config.repoPath, config.base)
+      initResult = recovery ? runHelper(['adopt-candidate', '--plan', derivedPlanPath, '--wave', String(config.waveNumber),
+        '--repo', config.repoPath, '--base', config.base], { [taskId]: { ...recovery.tasks[taskId],
+          report: recoveredReport(recovery.tasks[taskId].report) } })
+        : helperInit(derivedPlanPath, config.waveNumber, config.repoPath, config.base)
     } catch (error) {
       const gitNotWritable = /cannot lock ref|unable to create directory|Operation not permitted/
         .test(error.message)
@@ -838,8 +870,9 @@ async function main() {
     statePaths[taskId] = initResult.state
   }
 
+  if (recovery) claimRecovery(recovery, join(config.outPath, 'summary.json'))
   const semaphore = createSemaphore(config.jobs)
-  const children = []
+  const children = recovery ? [...recovery.summary.children] : []
   // taskId -> { source: 'executor'|'supervisor', id, line } the first time a
   // child's failure is classified environment for that task, so the blocked
   // line reaches the orchestrator on the final stopped[] entry (the state
@@ -938,8 +971,11 @@ async function main() {
     const promptResult = helperSupervisorPrompt(statePath, taskId)
     writeFileSync(promptPath, promptResult.prompt)
 
+    const pinnedHead = spawnSync('git', ['-C', config.repoPath, 'rev-parse', action.branch], { encoding: 'utf8' }).stdout.trim()
+    const bound = JSON.parse(readFileSync(statePath, 'utf8')).tasks[taskId].verifierFacts.at(-1)?.verification?.head
+    if (bound && bound !== pinnedHead) throw new Error('candidate changed after verification')
     const added = spawnSync('git', ['-C', config.repoPath, 'worktree', 'add', '--detach',
-      checkoutPath, action.branch], { encoding: 'utf8' })
+      checkoutPath, pinnedHead], { encoding: 'utf8' })
     if (added.status !== 0) {
       throw new Error('supervisor worktree checkout failed for task "' + taskId + '": '
         + (added.stderr || added.stdout))
@@ -985,6 +1021,13 @@ async function main() {
           payload = isConsistentVerdict(stripped) ? stripped : { error: { kind: 'null-result' } }
         }
       }
+      const head = spawnSync('git', ['-C', checkoutPath, 'rev-parse', 'HEAD'], { encoding: 'utf8' })
+      const branchHead = spawnSync('git', ['-C', config.repoPath, 'rev-parse', action.branch], { encoding: 'utf8' })
+      const status = spawnSync('git', ['-C', checkoutPath, 'status', '--porcelain', '--untracked-files=all'], { encoding: 'utf8' })
+      if (head.status !== 0 || head.stdout.trim() !== pinnedHead || branchHead.status !== 0
+        || branchHead.stdout.trim() !== pinnedHead || status.status !== 0 || status.stdout.trim()) {
+        payload = { error: { kind: 'null-result' } }
+      }
       helperRecordVerdict(statePath, taskId, payload)
     } finally {
       const removed = spawnSync('git', ['-C', config.repoPath, 'worktree', 'remove', '--force', checkoutPath],
@@ -1001,8 +1044,16 @@ async function main() {
     try {
       for (;;) {
         const action = helperNext(statePath)
+        if (recovery && action.action === 'merge-ready') candidate(config.repoPath, config.base, taskId, recovery.tasks[taskId].head)
         if (action.action === 'merge-ready') return { task: taskId, status: 'merge-ready' }
         if (action.action === 'stop') return { task: taskId, status: 'stop', reason: action.reason }
+        if (['spawn-executor', 'spawn-supervisor'].includes(action.action)
+          && (wave.limits?.max_model_calls !== undefined || recovery)
+          && children.filter(child => child.task === taskId).length >= (wave.limits?.max_model_calls ?? 24)) {
+          return { task: taskId, status: 'stop', reason: 'budget-exhausted' }
+        }
+        if (recovery && action.action === 'spawn-executor') return { task: taskId, status: 'stop', reason: 'candidate-rejected' }
+        if (recovery) candidate(config.repoPath, config.base, taskId, recovery.tasks[taskId].head)
         if (action.action === 'spawn-executor') { await handleExecutor(taskId, statePath, action); continue }
         if (action.action === 'verify') { helperVerify(statePath, taskId); continue }
         if (action.action === 'spawn-supervisor') { await handleSupervisor(taskId, statePath, action); continue }
@@ -1025,7 +1076,13 @@ async function main() {
   const states = taskIds.map((taskId) => statePaths[taskId])
   const tasks = taskIds.map((taskId) => helperSummary(statePaths[taskId]).tasks[0])
 
+  const reports = Object.fromEntries(taskIds.map(id => {
+    const state = JSON.parse(readFileSync(statePaths[id], 'utf8'))
+    return [id, state.tasks[id].reports.at(-1) || '']
+  }))
   const summary = {
+    recovery: makeRecoveryReceipt(scope, children, reports),
+    ...(recovery ? { previousSummary: recovery.path } : {}),
     status, stopped, states, wave: config.waveNumber, tasks, children, wallSeconds,
     ...(preflightResults ? { preflight: { results: preflightResults } } : {}),
     ...(status === 'stop'
@@ -1037,6 +1094,8 @@ async function main() {
     // Each cleanup line above also removes that task's state file (see
     // cleanupLine), so once every printed line has been run, a fresh --out
     // is all a re-run needs.
+    process.stderr.write('recover a clean candidate with --resume-from ' + join(config.outPath, 'summary.json')
+      + ' --out <new-dir>; cleanup discards the candidate\n')
     process.stderr.write('re-run with a fresh --out after cleanup\n')
     process.stderr.write('codex-wave-runner: or re-run after: node ' + fileURLToPath(import.meta.url)
       + ' --reset --plan ' + config.planPath + ' --wave ' + config.waveNumber

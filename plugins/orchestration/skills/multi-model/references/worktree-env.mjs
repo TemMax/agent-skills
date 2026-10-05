@@ -3,7 +3,7 @@
 // sandboxed Codex child may write, which output means "the machine, not the
 // work, failed", and the one `## Task <id>` heading rule every parser uses.
 // Nothing here reads the content of a linked file.
-import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs'
+import { accessSync, constants, appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, statSync, symlinkSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
@@ -30,7 +30,8 @@ export const ENVIRONMENT_SIGNATURES = [
   { id: 'signing-agent', re: /1Password: Could not connect to socket|Could not connect to socket\. Is the agent running|agent refused operation|Could not open a connection to your authentication agent/ },
   { id: 'commit-signing', re: /failed to write commit object|gpg failed to sign the data/ },
   { id: 'read-only-fs', re: /Read-only file system/ },
-  { id: 'permission-denied', re: /Operation not permitted/ },
+  { id: 'permission-denied', re: /Operation not permitted|Permission denied|java\.nio\.file\.AccessDeniedException/ },
+  { id: 'simulator-service', re: /CoreSimulatorService.*(?:unavailable|invalid|failed)|Failed to connect to.*CoreSimulator/i },
 ]
 
 export function detectEnvironmentBlock(text) {
@@ -133,7 +134,17 @@ export function resolveWorktreeEnv(repo, plan) {
   const w = plan && typeof plan.worktree === 'object' && plan.worktree !== null ? plan.worktree : {}
   const explicitLinks = Array.isArray(w.links) ? w.links : []
   explicitLinks.forEach(assertRelative)
+  const optionalLinks = Array.isArray(w.optional_links) ? w.optional_links : []
+  optionalLinks.forEach(assertRelative)
+  const problems = explicitLinks.filter(l => !existsSync(join(repo, l)))
+    .map(l => 'required link missing: ' + l)
   const explicitWritable = (Array.isArray(w.writable) ? w.writable : []).map(expandHome)
+  for (const path of explicitWritable) {
+    if (!isAbsolute(path) || !existsSync(path) || !statSync(path).isDirectory()) {
+      problems.push('writable root must be an existing stable directory: ' + path)
+    }
+  }
+  if (problems.length) throw new Error('worktree environment: ' + problems.join('; '))
   const auto = { links: [], writable: [] }
   if (w.auto !== false) {
     if (existsSync(join(repo, 'gradlew'))) {
@@ -147,20 +158,23 @@ export function resolveWorktreeEnv(repo, plan) {
   const uniq = (xs) => [...new Set(xs)]
   const allWritable = uniq([...explicitWritable, ...auto.writable])
   return {
-    links: uniq([...explicitLinks, ...auto.links]),
+    links: uniq([...explicitLinks, ...optionalLinks.filter(l => existsSync(join(repo, l))), ...auto.links]),
     writable: allWritable.filter((d) => existsSync(d)),
     missingWritable: allWritable.filter((d) => !existsSync(d)),
     auto,
   }
 }
 
-export function applyLinks(repo, checkout, links) {
+export function applyLinks(repo, checkout, links, optional = []) {
   const out = { linked: [], present: [], missing: [] }
   for (const rel of links) {
     assertRelative(rel)
     const src = join(repo, rel)
     const dst = join(checkout, rel)
-    if (!existsSync(src)) { out.missing.push(rel); continue }
+    if (!existsSync(src)) {
+      if (!optional.includes(rel)) throw new Error('required worktree link missing: ' + rel)
+      out.missing.push(rel); continue
+    }
     let present = false
     try { lstatSync(dst); present = true } catch { present = false }
     if (present) { out.present.push(rel); continue }
@@ -195,4 +209,28 @@ export function checkDependsOn(plan, wave, repo) {
     if (res.status !== 0) unmet.push({ ...d, reason: d.path + ' is not present at ' + d.ref + ' in ' + r })
   }
   return unmet
+}
+
+// Narrow semantic lint for the shipped Codex unsigned-executor/squash route.
+// Arbitrary natural-language obligations remain the independent review's job.
+export function executionPolicyErrors(task, host) {
+  if (host !== 'codex') return []
+  const moves = task?.contract?.forbidden_moves
+  if (!Array.isArray(moves)) return []
+  const conflicts = moves.filter(rule => typeof rule === 'string' && !/persistent|configuration|git config\b/i.test(rule) && (
+    /^no\b[^.;\n]*\bsigning changes?\b/i.test(rule)
+    || /(?:no|never|do not|must not|forbid[^ ]*)\s+(?:(?:git|commit)\s+)?signing\s+changes?\b/i.test(rule)
+    || /(?:no|never|do not|must not|forbid[^ ]*)[^.;\n]*unsigned\s+commits?\b/i.test(rule)
+    || /(?:all|executor|task)[^.;\n]*commits?\s+(?:must|have to)\s+be\s+signed\b/i.test(rule)
+    || /(?:no|never|do not|must not|forbid[^ ]*)\s+(?:squash|recommit|re-commit)\b/i.test(rule)))
+  return conflicts.map(rule => 'contract conflicts with Codex unsigned executor / signed squash integration: ' + rule
+    + '; distinguish executor commit flags from persistent signing configuration; use a separate merge workflow if ancestry must be preserved')
+}
+
+export function requireExecutable(command) {
+  const paths = command.includes('/') ? [resolve(command)]
+    : (process.env.PATH || '').split(':').map(dir => join(dir, command))
+  if (!paths.some(path => { try { accessSync(path, constants.X_OK); return statSync(path).isFile() } catch { return false } })) {
+    throw new Error('required CLI adapter unavailable: ' + command)
+  }
 }

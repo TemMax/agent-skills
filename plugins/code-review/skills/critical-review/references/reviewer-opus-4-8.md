@@ -12,13 +12,10 @@ debugging and verification to high. Keep extended thinking on: it roughly halves
 prompt-injection susceptibility (17.44% → 7.03% per attempt), which matters here
 because PR content is untrusted.
 
-**Effort self-check.** Step 0 reports this session's current effort. If it is
-`medium` or below, note in the summary that the review ran below the recommended
-effort and its depth may suffer, and suggest rerunning at high or above — but
-still deliver the review. A requested review is not blocked on effort the way
-orchestration is; you note the shortfall rather than halting. At `high`, `xhigh`,
-or `max`, or if Step 0 shows no recognizable level (for example an unexpanded
-`${CLAUDE_EFFORT}` placeholder), proceed without remarking on effort.
+**Effort self-check.** At `medium` or below, check that the required review
+scope and evidence are complete. Report actual checks that could not be done
+and their practical impact. Deliver the review without an effort announcement
+or a speculative claim about its depth. Unknown effort does not block review.
 
 ## Your Own Documented Quirks (Opus 4.8)
 

@@ -68,12 +68,12 @@ check "verdicts.md points to ADR 009 instead" \
   "one_line '$VD' | grep -qF 'ADR 009'"
 check "contract-amendment.md points to ADR 009 and the Plan Format section" \
   "one_line '$AMEND' | grep -qF 'ADR 009'"
-check "contract-amendment.md's inherits bullet points to the Plan Format section" \
-  "one_line '$AMEND' | grep -qF 'Plan Format'"
+check "native recovery keeps task identities" \
+  "one_line '$AMEND' | grep -qF 'Keep task ids'"
 
 section "contract-amendment.md: an inherited e2e naming a parent task"
-check "the recovery plan marks it not-applicable automatically" \
-  "one_line '$AMEND' | grep -qF 'not-applicable: inherited e2e task'"
+check "recovery does not rename tasks to reset budgets" \
+  "one_line '$AMEND' | grep -qF 'Do not rename a task merely'"
 
 section "codex-wave-protocol.md: worktree-env.mjs citations replaced by function names"
 check "no more worktree-env.mjs:<line> citations" \
@@ -92,7 +92,7 @@ check "the Contents list carries the Toolchain caches section" \
   "one_line '$PROTOCOL' | grep -qF 'Toolchain caches, \`.git\` and linked files'"
 
 section "README.md: current versions"
-check "orchestration 4.7.2, code-review 1.14.1" \
-  "grep -qF 'orchestration 4.7.2, code-review 1.14.1' $README"
+check "orchestration 4.8.0, code-review 1.15.0" \
+  "grep -qF 'orchestration 4.8.0, code-review 1.15.0' $README"
 
 summary

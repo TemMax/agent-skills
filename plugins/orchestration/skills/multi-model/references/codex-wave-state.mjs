@@ -2,17 +2,17 @@
 // Deterministic state and mechanical verification for Codex-native waves.
 // This helper never calls a model or the network. It prints one JSON object.
 import {
-  existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync,
+  existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync,
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   applyLinks, detectEnvironmentBlock, effectivePlan, excludeFromGit, reportEnvironmentBlock,
-  resolveWorktreeEnv, TASK_HEADING_SOURCE,
+  resolveWorktreeEnv, TASK_HEADING_SOURCE, executionPolicyErrors,
 } from './worktree-env.mjs'
+import { limitsErrors, supervisionErrors, verifyPipeline } from './mechanical-verify.mjs'
 
 export const CODEX_MODELS = ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const ASTRA = 'gpt-6-astra'
@@ -30,6 +30,7 @@ const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
 const AGENT_ERRORS = ['null-result', 'transport', 'tool-unavailable', 'environment']
 const COMMANDS = {
   init: ['plan', 'wave', 'repo', 'base'],
+  'adopt-candidate': ['plan', 'wave', 'repo', 'base'],
   next: ['state'],
   'record-executor': ['state', 'task'],
   verify: ['state', 'task'],
@@ -140,6 +141,7 @@ export function validateCodexWave(wave, index) {
   const at = 'waves[' + index + ']'
   const errors = []
   if (!wave || typeof wave !== 'object' || Array.isArray(wave)) return [at + ': must be an object']
+  errors.push(...limitsErrors(wave.limits).map(error => at + '.' + error))
   const supervisor = wave.supervisor
   if (!supervisor || typeof supervisor !== 'object' || Array.isArray(supervisor)) {
     errors.push(at + '.supervisor: required')
@@ -170,6 +172,8 @@ export function validateCodexWave(wave, index) {
       ids.push(task.id)
       if (task.branch !== 'wave/' + task.id) errors.push(tat + '.branch: must be "wave/' + task.id + '"')
     }
+    errors.push(...executionPolicyErrors(task, 'codex').map(error => tat + '.' + error))
+    errors.push(...supervisionErrors(task).map(error => tat + '.' + error))
     const executor = task.executor
     if (!executor || typeof executor !== 'object' || Array.isArray(executor)) {
       errors.push(tat + '.executor: required')
@@ -227,6 +231,7 @@ export function validateCodexWave(wave, index) {
         if (!Array.isArray(contract[key])) errors.push(tat + '.contract.' + key + ': array required')
       }
       if (Array.isArray(contract.must_run)) contract.must_run.forEach((item, itemIndex) => {
+        if (item && item.cache !== undefined && item.cache !== 'artifact') errors.push(tat + '.contract.must_run[' + itemIndex + '].cache: artifact or absent')
         if (!item || typeof item !== 'object' || typeof item.cmd !== 'string' || item.cmd === '') {
           errors.push(tat + '.contract.must_run[' + itemIndex + '].cmd: required')
         }
@@ -314,9 +319,13 @@ function validMechanicalViolation(violation) {
 }
 
 function validVerifierFact(fact, state, task) {
+  const bindingKeys = fact && Object.hasOwn(fact, 'verification') ? ['verification'] : []
   if (!ownKeysAre(fact, ['base', 'branch', 'currentBranch', 'baseIsAncestor',
     'worktreeStatus', 'preflightPassed', 'changedPaths', 'commitCount', 'diff',
-    'git', 'mustRun', 'violations'])) return false
+    'git', 'mustRun', 'violations', ...bindingKeys])) return false
+  if (bindingKeys.length && (!ownKeysAre(fact.verification, ['key', 'head', 'reused'])
+    || !/^[0-9a-f]{64}$/.test(fact.verification.key) || !SHA.test(fact.verification.head)
+    || typeof fact.verification.reused !== 'boolean')) return false
   if (fact.base !== state.base || fact.branch !== task.branch
     || (fact.currentBranch !== null && typeof fact.currentBranch !== 'string')
     || typeof fact.baseIsAncestor !== 'boolean' || typeof fact.worktreeStatus !== 'string'
@@ -392,7 +401,10 @@ function validateStoredState(state, statePath) {
   // before this field existed has none, and is read as an empty link list.
   const hasWorktreeLinks = state && typeof state === 'object' && !Array.isArray(state)
     && Object.hasOwn(state, 'worktreeLinks')
-  const expectedStateKeys = hasWorktreeLinks ? [...STATE_KEYS, 'worktreeLinks'] : STATE_KEYS
+  const hasRecovery = state && typeof state === 'object' && !Array.isArray(state) && Object.hasOwn(state, 'candidateRecovery')
+  const expectedStateKeys = [...STATE_KEYS, ...(hasWorktreeLinks ? ['worktreeLinks'] : []),
+    ...(hasRecovery ? ['candidateRecovery'] : [])]
+  if (hasRecovery && state.candidateRecovery !== true) err('candidateRecovery', 'must be true when present')
   if (!ownKeysAre(state, expectedStateKeys)) {
     return ['state: expected exact schema-1 top-level fields']
   }
@@ -724,7 +736,7 @@ export function recordExecutor(state, id, result) {
   const updated = clone(state)
   const task = requireTask(updated, id)
   if (task.status !== 'ready') throw new NamedError('state-transition', id + ': executor not expected')
-  if (task.totalAttempts >= MAX_EXECUTOR_ATTEMPTS) {
+  if (task.totalAttempts >= (readPlanWave(updated).wave.limits?.max_attempts ?? MAX_EXECUTOR_ATTEMPTS)) {
     throw new NamedError('state-transition', id + ': executor attempt cap reached')
   }
   if (isAgentError(result)) {
@@ -765,44 +777,6 @@ function globRegex(glob) {
 
 const matchesAny = (path, globs) => globs.some((glob) => typeof glob === 'string'
   && globRegex(glob).test(path))
-
-function runContractCommand(cmd, cwd) {
-  const result = spawnSync(cmd, { cwd, encoding: 'utf8', shell: true })
-  return {
-    exit: result.status,
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
-    ...(result.error ? { error: result.error.code ?? result.error.message } : {}),
-  }
-}
-
-function runContractSequence(repo, head, entries, links) {
-  const root = mkdtempSync(join(tmpdir(), 'codex-wave-verify-'))
-  const checkout = join(root, 'checkout')
-  let created = false
-  try {
-    const added = runGit(repo, ['worktree', 'add', '--detach', checkout, head])
-    if (added.exit !== 0) {
-      throw new NamedError('verification-worktree', added.stderr || added.error || 'checkout failed')
-    }
-    created = true
-    applyLinks(repo, checkout, links)
-    return entries.map((entry) => runContractCommand(entry.cmd, checkout))
-  } finally {
-    // This disposable checkout belongs only to this sequence attempt. Its
-    // generated and ignored artifacts must not reach the next attempt.
-    try {
-      if (created) {
-        const removed = runGit(repo, ['worktree', 'remove', '--force', checkout])
-        if (removed.exit !== 0) {
-          throw new NamedError('verification-worktree', removed.stderr || removed.error || 'cleanup failed')
-        }
-      }
-    } finally {
-      rmSync(root, { recursive: true, force: true })
-    }
-  }
-}
 
 export function verifyTask(state, id) {
   const updated = clone(state)
@@ -905,6 +879,7 @@ export function verifyTask(state, id) {
     cmd: entry.cmd, evidence: entry.evidence, attempts: [],
     ...(!preflightPassed ? { skipped: 'safety-preflight' } : {}),
   }))
+  let verification
   if (preflightPassed && mustRun.length > 0) {
     const head = runGit(task.worktree, ['rev-parse', '--verify', 'HEAD^{commit}'])
     if (head.exit !== 0 || !SHA.test(head.stdout.trim())) {
@@ -913,11 +888,11 @@ export function verifyTask(state, id) {
     const headSha = head.stdout.trim()
     // Pin both complete attempts to the committed task head. Preceding
     // commands may generate prerequisites or poison their successors.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const results = runContractSequence(updated.repoPath, headSha, mustRun, links)
-      results.forEach((result, index) => mustRun[index].attempts.push(result))
-      if (results.every((result) => result.exit === 0)) break
-    }
+    const pipeline = verifyPipeline({ repo: updated.repoPath, head: headSha,
+      base: updated.base, branch: task.branch, contract: spec.contract, links,
+      cache: task.verifierFacts, logDir: join(updated.repoPath, '.worktrees', 'verification-logs', id, String(task.totalAttempts)) })
+    pipeline.mustRun.forEach((entry, index) => { mustRun[index].attempts = entry.attempts })
+    verification = pipeline.verification
   }
   // A command's own final attempt is what decides its outcome: a transient
   // machine failure on an earlier attempt that a later attempt outran is not
@@ -966,9 +941,13 @@ export function verifyTask(state, id) {
     git: gitFacts,
     mustRun,
     violations,
+    ...(verification ? { verification } : {}),
   }
   task.verifierFacts.push(facts)
   task.status = environmentBlock ? 'environment-blocked' : 'verified'
+  if (spec.supervision === 'mechanical' && task.status === 'verified' && violations.length === 0) {
+    return recordVerdict(updated, id, { ok: true, violations: [], remarks: ['independent mechanical contract checks passed'] })
+  }
   return updated
 }
 
@@ -1091,6 +1070,7 @@ export function recordVerdict(state, id, result) {
     task.status = 'contract-unsatisfiable'
     return updated
   }
+  if (updated.candidateRecovery) { task.status = 'failed'; return updated }
   if (effectiveResult.violations.some((violation) => violation.pasteReproduced === false)) {
     task.pasteStrikes++
   }
@@ -1106,7 +1086,7 @@ export function recordVerdict(state, id, result) {
       ? 'same-rule-repeat'
       : 'rung-exhausted'
   }
-  if (task.totalAttempts >= MAX_EXECUTOR_ATTEMPTS) {
+  if (task.totalAttempts >= (readPlanWave(updated).wave.limits?.max_attempts ?? MAX_EXECUTOR_ATTEMPTS)) {
     task.status = 'failed'
     return updated
   }
@@ -1243,7 +1223,7 @@ function gitAt(repo, args) {
   return spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8' })
 }
 
-function initCommand(options) {
+function initCommand(options, adoption = null) {
   // Persist cwd-independent paths before Git or state/worktree creation uses them.
   options = { ...options, plan: resolve(options.plan), repo: resolve(options.repo) }
   const waveNumber = Number(options.wave)
@@ -1275,6 +1255,7 @@ function initCommand(options) {
     base: options.base,
     wave,
   })
+  if (adoption) state.candidateRecovery = true
   state.worktreeLinks = env.links
   const stateDir = join(options.repo, '.worktrees', 'codex-wave')
   const planName = basename(options.plan).replace(/\.[^.]+$/, '')
@@ -1283,11 +1264,32 @@ function initCommand(options) {
   for (const task of Object.values(state.tasks)) {
     const branchExists = gitAt(options.repo, ['show-ref', '--verify', '--quiet',
       'refs/heads/' + task.branch]).status === 0
+    if (adoption) {
+      const saved = adoption[task.branch.slice(5)]
+      if (!saved || !SHA.test(saved.head) || !Number.isInteger(saved.executorCalls)
+        || saved.executorCalls < 1 || saved.executorCalls > 6 || typeof saved.report !== 'string'
+        || !task.rungs.includes(saved.executorModel) || !branchExists || !existsSync(task.worktree)) throw new NamedError('candidate', 'invalid candidate or counters')
+      const head = gitAt(task.worktree, ['rev-parse', 'HEAD'])
+      const branch = gitAt(task.worktree, ['branch', '--show-current'])
+      const clean = gitAt(task.worktree, ['status', '--porcelain', '--untracked-files=all'])
+      const ancestor = gitAt(task.worktree, ['merge-base', '--is-ancestor', options.base, 'HEAD'])
+      if (head.status !== 0 || head.stdout.trim() !== saved.head || saved.head === options.base
+        || branch.status !== 0 || branch.stdout.trim() !== task.branch
+        || clean.status !== 0 || clean.stdout.trim() || ancestor.status !== 0) throw new NamedError('candidate', 'candidate binding/cleanliness failed')
+      task.status = 'reported'
+      task.rung = task.rungs.indexOf(saved.executorModel)
+      task.totalAttempts = saved.executorCalls
+      task.attemptOnRung = 1
+      task.reports = Array.from({ length: saved.executorCalls }, (_, i) => i === saved.executorCalls - 1
+        ? saved.report : 'Historical invocation; original report remains in the previous run artifacts.')
+      continue
+    }
     if (existsSync(task.worktree) || branchExists) {
       throw new NamedError('worktree-conflict', task.worktree + ' or ' + task.branch + ' already exists')
     }
   }
   for (const task of Object.values(state.tasks)) {
+    if (adoption) { applyLinks(options.repo, task.worktree, env.links); continue }
     mkdirSync(dirname(task.worktree), { recursive: true })
     const created = spawnSync('git', ['-C', options.repo, 'worktree', 'add', task.worktree,
       '-b', task.branch, options.base], { encoding: 'utf8' })
@@ -1305,6 +1307,7 @@ function initCommand(options) {
 function runCli(argv) {
   const { command, options } = parseCli(argv)
   if (command === 'init') return initCommand(options)
+  if (command === 'adopt-candidate') return initCommand(options, parseStdin())
   const { state, canonicalPath } = readState(options.state)
   if (command === 'next') return nextAction(state)
   if (command === 'summary') return summarize(state)

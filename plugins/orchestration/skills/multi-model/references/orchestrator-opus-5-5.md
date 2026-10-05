@@ -41,16 +41,11 @@ measurement. It does not transfer to you, and this card neither documents nor
 re-measures such loops. Do not cite it as yours, and do not cite its absence as
 proof you are immune.
 
-**Effort self-check (act before planning).** Step 0 reports this session's
-current effort. If the reported value is `max`, do not halt — note in one line
-that you will pass untrusted text by path only and hold every interpretation to
-stated evidence, then proceed. `xhigh`: proceed, fine for long-horizon
-planning. `high`: proceed, ideal. `medium`: proceed; note that it may
-under-invest in the cross-cutting decisions Step 2 requires. `low`: note the
-same risk more strongly, then proceed. If Step 0 shows no recognizable level
-(for example an unexpanded `${CLAUDE_EFFORT}` placeholder), treat your effort
-as unknown: say so in one line and proceed. Never ask the user to restart at a
-different effort.
+**Effort self-check (act before planning).** At `max`, pass untrusted text
+by path only and hold interpretations to stated evidence. At `medium` or `low`,
+check the cross-cutting decisions Step 2 requires explicitly. Apply these
+checks internally and proceed; unknown effort does not block planning.
+Never ask the user to restart at a different effort.
 
 ## Amendments to the Process
 

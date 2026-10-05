@@ -6,7 +6,9 @@ cd "$(dirname "$0")/../.." || exit 1
 CP_ROUTING=plugins/orchestration/skills/multi-model/references/codex-routing.md
 CP_PROTOCOL=plugins/orchestration/skills/multi-model/references/codex-wave-protocol.md
 SH=plugins/orchestration/skills/ship/SKILL.md
-MMS=plugins/orchestration/skills/multi-model/SKILL.md
+MMS="$(mktemp)"
+trap 'rm -f "$MMS"' EXIT
+python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL.md > "$MMS"
 
 section "codex-routing: ordinary/difficult waves have no standard supervisor"
 

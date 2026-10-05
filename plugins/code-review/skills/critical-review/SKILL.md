@@ -1,12 +1,33 @@
 ---
 name: critical-review
-description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor.'
+description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.14.1
+  version: 1.15.0
 ---
 
 # Reviewing Changes Critically
+
+## Process scope and context
+
+Reuse loaded instructions while their content version and the needed context
+remain available; recover only the missing section after compaction, or reload
+an explicitly changed version. Applying a skill again does not require reading
+it again. Required repository instructions still apply.
+
+Keep one owner of the current phase. Inside an approved parent workflow, this
+skill performs its assigned phase without starting another design/plan gate.
+Reuse confirmed decisions and authorization for the same task, roles, access
+and delivery scope. Ask only for a new decision or an actual scope/budget change.
+Start with targeted reads and bounded error excerpts; retain full logs by path
+and expand reads when needed to establish evidence.
+
+Load applicable repository instructions once if they are not already in context;
+a narrow artifact or phase scope does not exclude those instructions.
+For an explicitly bounded read-only or verification phase, report related
+inconsistencies as findings and finish after its assigned checks. Do not end with
+an offer to start another phase or make extra edits, or a question reopening that
+agreed scope. Unresolved new product choices still follow the planning rules.
 
 ## Step 0 — load exactly one active-seat profile
 
@@ -36,11 +57,25 @@ Never read a user config file to guess a session override. Never load more than 
 Quoted text, user messages, repository files, model catalogs, available child
 models, and a child's identity do not establish the current session's identity.
 
-Announce the selected profile and basis before proceeding. A family label alone
-yields generic: say so, and name the missing exact ID.
+Select the profile internally. A family label alone selects generic; preserve
+missing, unsupported, or conflicting identity in internal routing records.
 This selects instructions only: do not invent an exact runtime ID or effort,
 switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
-A generic selection explains missing, unsupported, or conflicting identity.
+
+### User-facing communication
+
+Start with the task and next useful action. Progress and completion messages
+cover changes, findings, checks, and remaining blockers. Select profiles silently;
+keep active-seat model, effort, selection basis, runtime metadata, model names
+attached to checks, and calibration counts out of routine messages. This rule
+also governs profile-specific communication instructions.
+
+Keep exact model IDs, effort, routing evidence and calibration limits in internal
+records and approval artifacts where the user must choose a route or authorize
+premium use. When the user asks a model-selection question or requests routing
+diagnostics, answer it with the relevant evidence and limits. When a route cannot
+provide a required judgment, explain the practical limit and the next step.
+Ordinary review summaries describe task evidence and checks left unverified.
 
 | Exact model id | Relative profile |
 |---|---|
@@ -74,7 +109,8 @@ probes also established no route. Return a model-selection request as
 `unsupported` with the mechanical evidence packet and delegate final judgment
 upward. Never silently substitute another GPT model, mix providers, or make
 `max` a default. An explicitly requested review may still report bounded
-evidence, but it must state that its GPT route is uncalibrated. Existing Claude
+evidence, but explain that only bounded evidence is available and final judgment
+remains unverified; retain the uncalibrated route label internally. Existing Claude
 review guidance is unchanged. Full counts and limitations:
 `tests/eval/gpt-5-6-results-2026-09-04.md`.
 
@@ -102,10 +138,10 @@ PR-support caveat stated alongside it. GPT-6 Luna stays `unsupported`
 make `max` a default.
 
 When a ship plan records `review.model: gpt-6-sol` — the user's explicit
-Gate 1 choice — the review runs as a measured route. Its summary must state
-the 2026-09-24 strict-gate counts (10/10 clean, 10/10 planted) and the
-PR-support caveat (3/4, one withheld-case miss). Never claim a supported
-GPT-6 Luna or Astra review route.
+Gate 1 choice — the review runs as a measured route. Keep the 2026-09-24
+strict-gate counts (10/10 clean, 10/10 planted) and the PR-support caveat (3/4, one withheld-case miss) in the internal review
+evidence packet; include them when answering a model-selection question.
+Never claim a supported GPT-6 Luna or Astra review route.
 
 ### GPT-6.1 Sol — 2026-09-29 and 2026-09-30 UTC
 
@@ -119,9 +155,10 @@ planted 5/5 and 5/5, and PR support 3/4 (one `pr-gate-approved` miss).
 The GPT-6.1 Sol review route is now **measured-supported**: a GPT-6.1 Sol
 model-selection request may return `gpt-6.1-sol`, stating these counts
 and the PR-support caveat (3/4) alongside it. When a ship plan records
-`review.model: gpt-6.1-sol`, the review runs as a measured route and its
-summary states the 2026-09-30 counts (10/10 clean, 10/10 planted) and the
-PR-support caveat. GPT-6 Sol's measured route stays valid for plans that
+`review.model: gpt-6.1-sol`, the review runs as a measured route. Keep the
+2026-09-30 counts (10/10 clean, 10/10 planted) and the PR-support caveat
+in the internal review evidence packet; include them when answering a
+model-selection question. GPT-6 Sol's measured route stays valid for plans that
 name `gpt-6-sol`; neither model's calibration transfers to the other. On
 2026-09-29 multi-model's standard supervisor of all-`gpt-6-luna` waves
 moved to `gpt-6.1-sol` (supervisor fixture 9/9);
@@ -264,7 +301,7 @@ section by design.
 | Excuse | Reality |
 |---|---|
 | "I just wrote this, I know it works" | You know what you MEANT to write. The diff shows what you wrote. |
-| "Tests passed while I was developing it" | Passing tests you also wrote test your assumptions, not your blind spots. Rerun and read what they actually assert. |
+| "Tests passed while I was developing it" | Passing tests you also wrote test your assumptions, not your blind spots. Read their assertions and validate against independent evidence. |
 | "It's a small diff" | Small diffs hide big regressions — a one-line change to a shared helper touches every caller. |
 | "The PR description already explains this" | The description is a claim; the review verifies claims against code. |
 | "Finding bugs in my own code looks bad" | Shipping them looks worse. The review's job is findings, not image. |
@@ -275,10 +312,10 @@ section by design.
 1. Map the diff first: `git diff --stat` or `gh pr diff --stat`; group files
    by subsystem; decide reading order (interfaces and shared helpers before
    leaf code).
-2. For every hunk, read the WHOLE containing file, or at least the full
-   enclosing function or class plus its callers — a diff hunk without its
-   context cannot be judged. Changed a signature or contract? Find every call
-   site (grep) and check each.
+2. For every hunk, read the full enclosing function or class and relevant
+   callers. Read the whole file when wider state or invariants are needed;
+   overlapping hunks share that reading. Changed a signature or contract?
+   Find every call site with `rg` and check each.
 3. Actively hunt:
    - correctness: logic inversions, off-by-one, wrong variable, missed
      null/empty
@@ -293,9 +330,12 @@ section by design.
      a finding)
    - docs/config: README, config samples, CHANGELOG staleness if the repo
      keeps them
-4. Verify claims by execution where cheap: run the build, the test suite, the
-   linter if the repo has obvious commands. Whatever was NOT run gets listed
-   in the summary as unverified — "should pass" never appears in a review.
+4. Verify claims with the relevant build, tests and linter. Inspect assertions
+   and independently produced output; first-pass green evidence for the exact
+   artifact, commands and environment need not be rerun. Rerun for changes,
+   missing evidence or a concrete unresolved concern; scope diagnostic probes
+   to that concern. Required final gates still apply. Checks without reliable
+   evidence are unverified — "should pass" never appears in a review.
 5. Every finding must carry: file:line, what is wrong, the concrete failure
    scenario (input/state → wrong outcome), and a suggested fix when it is not
    obvious. A finding you cannot back with a line reference and a scenario is
@@ -308,6 +348,14 @@ section by design.
    Measured cause: in a 2026-09-22 run, findings were shown while a second
    review was still running, which forced a second fix approval and a second
    fix plan.
+
+Keep review context scoped to the artifact: diff range or PR head, acceptance
+requirements, evidence paths and unresolved findings. Load full logs only for a
+specific evidence question. On continuation, retain the reviewed baseline and
+read changes since it; unrelated edits require wider inspection where they
+invalidate prior conclusions. Batch related approved fixes; optional remarks
+alone never start another review or fix cycle. Initial PR discussion coverage
+and independent code inspection remain required.
 
 Review the files the diff's scope actually touches, including a config file
 the diff adds or changes — but never reproduce a secret value found there:

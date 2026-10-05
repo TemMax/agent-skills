@@ -1,5 +1,10 @@
 # Codex route selection
 
+Execution controls are defined in [execution-cost-controls.md](execution-cost-controls.md):
+explicit `supervision: "mechanical"` permits a deterministic green verdict;
+other tasks retain the selected model supervisor. Artifact-cache opt-in and
+per-task limits do not change model routes or premium authorization.
+
 Read for Codex authoring in multi-model, super-plan and ship. This shared policy
 governs child routing for Astra, GPT-5.6 and generic seats; it does not change
 active-seat identity guards or Claude routing. Unknown coordinator identity or

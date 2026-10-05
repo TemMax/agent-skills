@@ -396,16 +396,39 @@ def read_meta(run):
     return meta
 
 
-def analyze_run(run):
+def cumulative_usage_proven(run, usages):
+    """Resumed exec counters can include earlier turns. Require owned rollout evidence.
+
+    Monotonically growing per-turn usage alone is not evidence of accumulation.
+    Legacy fixtures without matching total_token_usage keep their original mode.
+    """
+    fields = ('input_tokens', 'cached_input_tokens', 'output_tokens')
+    path = os.path.join(run, 'rollout.jsonl')
+    if len(usages) < 2 or not os.path.isfile(path):
+        return False
+    totals = set()
+    for row in load_turn(path):
+        payload = row.get('payload') or {}
+        if row.get('type') == 'event_msg' and payload.get('type') == 'token_count':
+            total = (payload.get('info') or {}).get('total_token_usage') or {}
+            if all(k in total for k in fields): totals.add(tuple(total[k] for k in fields))
+    return bool(totals) and all(all(k in u for k in fields) and tuple(u[k] for k in fields) in totals for u in usages)
+
+
+def analyze_run(run, event_loader=load_turn, provider='codex'):
     run = os.path.abspath(run)
     repo = os.path.join(run, 'repo')
     tracked = tracked_files(repo)
     meta = read_meta(run)
     ks = sorted(int(m.group(1)) for f in os.listdir(run) for m in [re.match(r'turn-(\d+)\.jsonl$', f)] if m)
-    rt = rollout_turns(os.path.join(run, 'rollout.jsonl'))
+    rt = rollout_turns(os.path.join(run, 'rollout.jsonl')) if provider == 'codex' else None
+    raw_usages = [e.get('usage') or {} for k in ks for e in event_loader(os.path.join(run, f'turn-{k}.jsonl'))
+                  if e.get('type') == 'turn.completed']
+    cumulative = provider == 'codex' and cumulative_usage_proven(run, raw_usages)
+    previous_usage = {}
     turns = []
     for k in ks:
-        ev = load_turn(os.path.join(run, f'turn-{k}.jsonl'))
+        ev = event_loader(os.path.join(run, f'turn-{k}.jsonl'))
         items = OrderedDict()
         usage, completed, failed = None, False, []
         for e in ev:
@@ -419,6 +442,7 @@ def analyze_run(run):
                 completed, usage = True, e.get('usage') or {}
             elif t in ('turn.failed', 'error'):
                 failed.append(str(e.get('error') or e.get('message'))[:200])
+                usage = e.get('usage') or usage
         m = defaultdict(int)
         m['turn'] = k
         m['completed'] = completed
@@ -500,8 +524,15 @@ def analyze_run(run):
             m['seam_audits'] += sum(1 for s in spawns if SEAM.search(s))
             m['audit_agents'] += sum(1 for s in spawns if AUDIT.search(s))
         u = usage or {}
+        if cumulative and u:
+            delta = {key: value-previous_usage.get(key, 0) for key, value in u.items() if isinstance(value, (int, float))}
+            if any(value < 0 for value in delta.values()):
+                raise ValueError('Owned cumulative usage decreased; do not sum unverified counters')
+            previous_usage = u
+            u = delta
         m['input_tokens'] = u.get('input_tokens', 0)
         m['cached_input_tokens'] = u.get('cached_input_tokens', 0)
+        m['cache_write_input_tokens'] = u.get('cache_write_input_tokens', 0)
         m['output_tokens'] = u.get('output_tokens', 0)
         m['reasoning_output_tokens'] = u.get('reasoning_output_tokens', 0)
         rec = dict(m)
@@ -519,6 +550,7 @@ def analyze_run(run):
         'arm': meta.get('arm'),
         'thread_id': meta.get('thread_id'),
         'turns': len(turns),
+        'usage_mode': 'cumulative_verified_by_rollout' if cumulative else 'stream_per_turn',
         'turns_completed': sum(1 for t in turns if t['completed']),
         'skill_reads_full': tot('skill_reads_full'),
         'skill_reads_full_mm': tot('skill_reads_full_mm'),
@@ -538,7 +570,7 @@ def analyze_run(run):
         'runner_launches': tot('runner_launches'),
         'runner_resets': tot('runner_resets'),
         'raw_codex_exec': tot('raw_codex_exec'),
-        'native_spawns': tot('native_spawns') if rt is not None else None,
+        'native_spawns': tot('native_spawns') if rt is not None or provider == 'claude' else None,
         'seam_audits': tot('seam_audits'),
         'audit_agents': tot('audit_agents'),
         'seam_audits_t6_8': tot('audit_agents', t68),
@@ -549,8 +581,9 @@ def analyze_run(run):
         'commands_total': tot('commands_total'),
         'input_tokens': tot('input_tokens'),
         'cached_input_tokens': tot('cached_input_tokens'),
+        'cache_write_input_tokens': tot('cache_write_input_tokens'),
         'output_tokens': tot('output_tokens'),
-        'rollout_found': rt is not None,
+        'rollout_found': rt is not None if provider == 'codex' else os.path.isfile(os.path.join(run, 'rollout.jsonl')),
     }
     result = {'summary': summary, 'per_turn': turns}
     with open(os.path.join(run, 'metrics.json'), 'w', encoding='utf-8') as f:

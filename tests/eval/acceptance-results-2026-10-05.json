@@ -1,0 +1,555 @@
+{
+  "scope": "Final acceptance closure only; earlier A/B and guards remain in linked reports. All retained attempts included. Input includes cache reads. Logical CLI calls are not API request counts.",
+  "runs": [
+    {
+      "run": "final-acceptance-claude-decision-1",
+      "path": "/private/tmp/final-acceptance-claude-decision-1",
+      "provider": "claude",
+      "scenario": "decision",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "multi_model_loaded": true,
+        "super_plan_loaded": true,
+        "new_product_choice_not_silently_decided": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 14,
+        "cache_creation": 24114,
+        "cache_read": 165017,
+        "output": 2040,
+        "total": 191185
+      },
+      "logical_cli_calls": 2
+    },
+    {
+      "run": "final-acceptance-claude-decision-2",
+      "path": "/private/tmp/final-acceptance-claude-decision-2",
+      "provider": "claude",
+      "scenario": "decision",
+      "passed": false,
+      "assessment": "outcomes.json",
+      "checks": {
+        "multi_model_loaded": true,
+        "super_plan_loaded": true,
+        "new_product_choice_not_silently_decided": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": false,
+        "frozen_candidate_unchanged": true,
+        "no_false_missing_profile": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 14,
+        "cache_creation": 24410,
+        "cache_read": 166207,
+        "output": 1913,
+        "total": 192544
+      },
+      "logical_cli_calls": 2
+    },
+    {
+      "run": "final-acceptance-claude-decision-3",
+      "path": "/private/tmp/final-acceptance-claude-decision-3",
+      "provider": "claude",
+      "scenario": "decision",
+      "passed": false,
+      "assessment": "assessment-v2.json",
+      "checks": {
+        "multi_model_loaded": true,
+        "super_plan_loaded": true,
+        "new_product_choice_not_silently_decided": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_false_missing_profile": true,
+        "no_children": true,
+        "no_reapproval_of_requested_planning_scope": false
+      },
+      "usage": {
+        "uncached_input": 12,
+        "cache_creation": 25161,
+        "cache_read": 129815,
+        "output": 1669,
+        "total": 156657
+      },
+      "logical_cli_calls": 2
+    },
+    {
+      "run": "final-acceptance-claude-decision-4",
+      "path": "/private/tmp/final-acceptance-claude-decision-4",
+      "provider": "claude",
+      "scenario": "decision",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "multi_model_loaded": true,
+        "super_plan_loaded": true,
+        "new_product_choice_not_silently_decided": true,
+        "no_reapproval_of_requested_planning_scope": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_false_missing_profile": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 14,
+        "cache_creation": 24321,
+        "cache_read": 165414,
+        "output": 1797,
+        "total": 191546
+      },
+      "logical_cli_calls": 2
+    },
+    {
+      "run": "final-acceptance-claude-entrypoints-1",
+      "path": "/private/tmp/final-acceptance-claude-entrypoints-1",
+      "provider": "claude",
+      "scenario": "entrypoints",
+      "passed": false,
+      "assessment": "assessment-v2.json",
+      "checks": {
+        "super-plan_loaded": true,
+        "ship_loaded": true,
+        "assigned_checks_reported": true,
+        "critical-review_loaded": true,
+        "review_detected_readme_ci_conflict": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_children": true,
+        "no_followup_edit_offer": false
+      },
+      "usage": {
+        "uncached_input": 16,
+        "cache_creation": 42193,
+        "cache_read": 250430,
+        "output": 3528,
+        "total": 296167
+      },
+      "logical_cli_calls": 3
+    },
+    {
+      "run": "final-acceptance-claude-entrypoints-2",
+      "path": "/private/tmp/final-acceptance-claude-entrypoints-2",
+      "provider": "claude",
+      "scenario": "entrypoints",
+      "passed": false,
+      "assessment": "assessment-v2.json",
+      "checks": {
+        "super-plan_loaded": true,
+        "ship_loaded": true,
+        "assigned_checks_reported": true,
+        "critical-review_loaded": true,
+        "review_detected_readme_ci_conflict": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_followup_edit_offer": true,
+        "no_false_missing_profile": true,
+        "no_children": true,
+        "repository_instructions_loaded": false
+      },
+      "usage": {
+        "uncached_input": 14,
+        "cache_creation": 42324,
+        "cache_read": 210439,
+        "output": 3465,
+        "total": 256242
+      },
+      "logical_cli_calls": 3
+    },
+    {
+      "run": "final-acceptance-claude-entrypoints-3",
+      "path": "/private/tmp/final-acceptance-claude-entrypoints-3",
+      "provider": "claude",
+      "scenario": "entrypoints",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "super-plan_loaded": true,
+        "ship_loaded": true,
+        "assigned_checks_reported": true,
+        "critical-review_loaded": true,
+        "review_detected_readme_ci_conflict": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_followup_edit_offer": true,
+        "repository_instructions_loaded": true,
+        "no_false_missing_profile": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 20,
+        "cache_creation": 43414,
+        "cache_read": 340522,
+        "output": 3464,
+        "total": 387420
+      },
+      "logical_cli_calls": 3
+    },
+    {
+      "run": "final-acceptance-claude-reload-1",
+      "path": "/private/tmp/final-acceptance-claude-reload-1",
+      "provider": "claude",
+      "scenario": "reload",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "version_a_loaded_and_used": true,
+        "changed_version_reloaded": true,
+        "actual_fresh_context": true,
+        "instructions_recovered_in_fresh_context": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 18,
+        "cache_creation": 21273,
+        "cache_read": 171563,
+        "output": 1409,
+        "total": 194263
+      },
+      "logical_cli_calls": 3
+    },
+    {
+      "run": "final-acceptance-claude-signing-1",
+      "path": "/private/tmp/final-acceptance-claude-signing-1",
+      "provider": "claude",
+      "scenario": "signing",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "committed_environment_block": true,
+        "amended_plan_lint_clean": true,
+        "corrected_contract_accepted": true,
+        "one_executor_one_reviewer": true,
+        "same_candidate": true,
+        "persistent_signing_still_enabled": true,
+        "reviewer_received_corrected_contract": true
+      },
+      "usage": {
+        "uncached_input": 90,
+        "cache_creation": 21179,
+        "cache_read": 201744,
+        "output": 4430,
+        "total": 227443
+      },
+      "logical_cli_calls": 2
+    },
+    {
+      "run": "final-acceptance-codex-decision-1",
+      "path": "/private/tmp/final-acceptance-codex-decision-1",
+      "provider": "codex",
+      "scenario": "decision",
+      "passed": false,
+      "assessment": "assessment-v2.json",
+      "checks": {
+        "multi_model_loaded": true,
+        "super_plan_loaded": true,
+        "new_product_choice_not_silently_decided": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_children": true,
+        "no_false_missing_profile": false
+      },
+      "usage": {
+        "uncached_input": 23353,
+        "cache_creation": null,
+        "cache_read": 147712,
+        "output": 1054,
+        "total": 172119
+      },
+      "logical_cli_calls": 2
+    },
+    {
+      "run": "final-acceptance-codex-decision-2",
+      "path": "/private/tmp/final-acceptance-codex-decision-2",
+      "provider": "codex",
+      "scenario": "decision",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "multi_model_loaded": true,
+        "super_plan_loaded": true,
+        "new_product_choice_not_silently_decided": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_false_missing_profile": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 18831,
+        "cache_creation": null,
+        "cache_read": 186112,
+        "output": 1214,
+        "total": 206157
+      },
+      "logical_cli_calls": 2
+    },
+    {
+      "run": "final-acceptance-codex-decision-3",
+      "path": "/private/tmp/final-acceptance-codex-decision-3",
+      "provider": "codex",
+      "scenario": "decision",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "multi_model_loaded": true,
+        "super_plan_loaded": true,
+        "new_product_choice_not_silently_decided": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_false_missing_profile": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 18683,
+        "cache_creation": null,
+        "cache_read": 190080,
+        "output": 1118,
+        "total": 209881
+      },
+      "logical_cli_calls": 2
+    },
+    {
+      "run": "final-acceptance-codex-decision-4",
+      "path": "/private/tmp/final-acceptance-codex-decision-4",
+      "provider": "codex",
+      "scenario": "decision",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "multi_model_loaded": true,
+        "super_plan_loaded": true,
+        "new_product_choice_not_silently_decided": true,
+        "no_reapproval_of_requested_planning_scope": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_false_missing_profile": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 28604,
+        "cache_creation": null,
+        "cache_read": 178176,
+        "output": 1283,
+        "total": 208063
+      },
+      "logical_cli_calls": 2
+    },
+    {
+      "run": "final-acceptance-codex-entrypoints-1",
+      "path": "/private/tmp/final-acceptance-codex-entrypoints-1",
+      "provider": "codex",
+      "scenario": "entrypoints",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "super-plan_loaded": true,
+        "ship_loaded": true,
+        "assigned_checks_reported": true,
+        "critical-review_loaded": true,
+        "review_detected_readme_ci_conflict": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 29322,
+        "cache_creation": null,
+        "cache_read": 249216,
+        "output": 1357,
+        "total": 279895
+      },
+      "logical_cli_calls": 3
+    },
+    {
+      "run": "final-acceptance-codex-entrypoints-2",
+      "path": "/private/tmp/final-acceptance-codex-entrypoints-2",
+      "provider": "codex",
+      "scenario": "entrypoints",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "super-plan_loaded": true,
+        "ship_loaded": true,
+        "assigned_checks_reported": true,
+        "critical-review_loaded": true,
+        "review_detected_readme_ci_conflict": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_followup_edit_offer": true,
+        "no_false_missing_profile": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 35686,
+        "cache_creation": null,
+        "cache_read": 341504,
+        "output": 1657,
+        "total": 378847
+      },
+      "logical_cli_calls": 3
+    },
+    {
+      "run": "final-acceptance-codex-entrypoints-3",
+      "path": "/private/tmp/final-acceptance-codex-entrypoints-3",
+      "provider": "codex",
+      "scenario": "entrypoints",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "super-plan_loaded": true,
+        "ship_loaded": true,
+        "assigned_checks_reported": true,
+        "critical-review_loaded": true,
+        "review_detected_readme_ci_conflict": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_followup_edit_offer": true,
+        "repository_instructions_loaded": true,
+        "no_false_missing_profile": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 31594,
+        "cache_creation": null,
+        "cache_read": 285184,
+        "output": 1383,
+        "total": 318161
+      },
+      "logical_cli_calls": 3
+    },
+    {
+      "run": "final-acceptance-codex-reload-1",
+      "path": "/private/tmp/final-acceptance-codex-reload-1",
+      "provider": "codex",
+      "scenario": "reload",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "version_a_loaded_and_used": true,
+        "changed_version_reloaded": true,
+        "actual_fresh_context": true,
+        "instructions_recovered_in_fresh_context": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 17199,
+        "cache_creation": null,
+        "cache_read": 173312,
+        "output": 814,
+        "total": 191325
+      },
+      "logical_cli_calls": 3
+    },
+    {
+      "run": "final-acceptance-codex-reload-2",
+      "path": "/private/tmp/final-acceptance-codex-reload-2",
+      "provider": "codex",
+      "scenario": "reload",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "version_a_loaded_and_used": true,
+        "changed_version_reloaded": true,
+        "actual_fresh_context": true,
+        "instructions_recovered_in_fresh_context": true,
+        "all_turns_completed": true,
+        "files_unchanged": true,
+        "no_commit": true,
+        "quiet": true,
+        "frozen_candidate_unchanged": true,
+        "no_false_missing_profile": true,
+        "no_children": true
+      },
+      "usage": {
+        "uncached_input": 24537,
+        "cache_creation": null,
+        "cache_read": 164352,
+        "output": 791,
+        "total": 189680
+      },
+      "logical_cli_calls": 3
+    },
+    {
+      "run": "final-acceptance-codex-signing-1",
+      "path": "/private/tmp/final-acceptance-codex-signing-1",
+      "provider": "codex",
+      "scenario": "signing",
+      "passed": true,
+      "assessment": "outcomes.json",
+      "checks": {
+        "committed_environment_block": true,
+        "contradiction_rejected_before_models": true,
+        "amended_plan_lint_clean": true,
+        "corrected_contract_accepted": true,
+        "one_executor_one_reviewer": true,
+        "same_candidate": true,
+        "persistent_signing_still_enabled": true,
+        "reviewer_received_corrected_contract": true
+      },
+      "usage": {
+        "uncached_input": 15602,
+        "cache_creation": null,
+        "cache_read": 114304,
+        "output": 1245,
+        "total": 131151
+      },
+      "logical_cli_calls": 2
+    }
+  ],
+  "all_attempts_tokens": 4378746,
+  "logical_cli_calls": 47
+}

@@ -1587,7 +1587,7 @@ mutate '"ci": "none: fixture repository without CI workflows",' \
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "worktree wrong shape exits 1" "1" "$rc"
 contains "worktree wrong shape named" \
-  "worktree: must be an object with only \"links\", \"writable\" and \"auto\"" "$out"
+  "worktree: must be an object with only \"links\", \"optional_links\", \"writable\" and \"auto\"" "$out"
 
 mutate '"ci": "none: fixture repository without CI workflows",' \
        '"worktree": { "links": [], "bogus": true },
@@ -1595,7 +1595,7 @@ mutate '"ci": "none: fixture repository without CI workflows",' \
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "worktree extra key exits 1" "1" "$rc"
 contains "worktree extra key named" \
-  "worktree: must be an object with only \"links\", \"writable\" and \"auto\"" "$out"
+  "worktree: must be an object with only \"links\", \"optional_links\", \"writable\" and \"auto\"" "$out"
 
 mutate '"ci": "none: fixture repository without CI workflows",' \
        '"worktree": { "links": ["/abs/path"] },
@@ -1636,16 +1636,16 @@ out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "worktree non-boolean auto exits 1" "1" "$rc"
 contains "worktree non-boolean auto named" "worktree.auto: boolean required" "$out"
 
-section "worktree: link existence warning (--repo)"
+section "worktree: mandatory link existence (--repo)"
 
 mutate '"ci": "none: fixture repository without CI workflows",' \
        '"worktree": { "links": ["local.properties"] },
   "ci": "none: fixture repository without CI workflows",'
 mkdir -p "$W/wt_repo"
 out="$(node "$LINT" "$W/m.md" --repo "$W/wt_repo" 2>&1)"; rc=$?
-expect "missing worktree link with --repo exits 0" "0" "$rc"
+expect "missing worktree link with --repo exits 1" "1" "$rc"
 contains "missing worktree link warned" \
-  'worktree: link "local.properties" does not exist in the repo' "$out"
+  'worktree: required link "local.properties" does not exist in the repo' "$out"
 
 touch "$W/wt_repo/local.properties"
 out="$(node "$LINT" "$W/m.md" --repo "$W/wt_repo" 2>&1)"; rc=$?

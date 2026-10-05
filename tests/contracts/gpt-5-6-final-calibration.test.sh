@@ -4,7 +4,9 @@ cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
 REPORT="tests/eval/gpt-5-6-results-2026-09-04.md"
-ORCHESTRATION="plugins/orchestration/skills/multi-model/SKILL.md"
+ORCHESTRATION="$(mktemp)"
+trap 'rm -f "$ORCHESTRATION"' EXIT
+python3 tests/lib/skill-source.py "plugins/orchestration/skills/multi-model/SKILL.md" > "$ORCHESTRATION"
 REVIEW="plugins/code-review/skills/critical-review/SKILL.md"
 ORCHESTRATION_REFS="plugins/orchestration/skills/multi-model/references"
 REVIEW_REFS="plugins/code-review/skills/critical-review/references"

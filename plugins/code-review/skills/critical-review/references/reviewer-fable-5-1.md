@@ -20,10 +20,9 @@ not directives you inherit. What your own card documents:
   unrequested out-of-scope edits (p. 169) — in a review, findings
   outside the diff's scope. Keep findings inside the detected scope.
 
-Effort self-check: any reported `${CLAUDE_EFFORT}` value carries no
-threshold for you. If it reads `max` or `xhigh`, note it in one line —
-bound the review to the scope — and proceed; unknown or an unexpanded
-placeholder: proceed.
+Effort self-check: bound the review to the detected scope at every effort.
+Unknown effort or an unexpanded `${CLAUDE_EFFORT}` placeholder does not block
+review. Apply this internally and proceed.
 
 ---
 

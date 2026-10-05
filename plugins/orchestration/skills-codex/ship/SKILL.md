@@ -3,10 +3,12 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.2
+  version: 4.8.0
 ---
 
 # Ship (Codex)
+
+Resolve relative resource paths from this SKILL.md's physical directory. Resolve a symlinked skill directory to its target first; repository cwd is not the base for the profile and reference paths below.
 
 One command, three shipped stages, one promise: what leaves this skill is a
 pushed feature branch with a reviewed pull request — never a touched default
@@ -17,11 +19,32 @@ commit per task) is part of the pipeline and needs no extra approval.
 ## Codex session rules
 
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
-2. Announce the selected profile once, at the first Step 0. Announce it again only when a newer runtime-context line changes the model or the effort.
+2. Select the active-seat profile silently at Step 0. Update it only when newer runtime context changes the model or effort; follow User-facing communication below.
 3. The coordinator never authors code. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. Changes reach the repository only through a supervised wave; your own git work is integrating approved wave branches and publishing. Exception: a small standalone edit the user asks for directly, outside any active wave plan — one file, a few lines, nothing beyond what the user named (a config value, a typo, a version string) — you may make yourself and show the diff. The exception never covers a fix for a defect that a review, a supervisor or the final review found, nor any part of an approved plan's tasks.
 4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output.
-5. Re-run a stopped wave only after the runner's own `--reset` for that plan, wave and base; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
+5. Recover a clean committed candidate with the runner's `--resume-from <summary.json>` and a new `--out` before considering a restart. It verifies and reviews without an executor and preserves call caps. Use the runner's own `--reset` only when intentionally discarding the candidate for a newly authorized implementation; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
 6. Executor commits are unsigned by design. Integration squashes each task into one commit made outside the sandbox, which the user's git configuration signs (codex-wave-protocol.md, step 9). Never disable commit signing in the user's configuration.
+
+## Process scope and context
+
+Reuse loaded instructions while their content version and the needed context
+remain available; recover only the missing section after compaction, or reload
+an explicitly changed version. Applying a skill again does not require reading
+it again. Required repository instructions still apply.
+
+Keep one owner of the current phase. Inside an approved parent workflow, this
+skill performs its assigned phase without starting another design/plan gate.
+Reuse confirmed decisions and authorization for the same task, roles, access
+and delivery scope. Ask only for a new decision or an actual scope/budget change.
+Start with targeted reads and bounded error excerpts; retain full logs by path
+and expand reads when needed to establish evidence.
+
+Load applicable repository instructions once if they are not already in context;
+a narrow artifact or phase scope does not exclude those instructions.
+For an explicitly bounded read-only or verification phase, report related
+inconsistencies as findings and finish after its assigned checks. Do not end with
+an offer to start another phase or make extra edits, or a question reopening that
+agreed scope. Unresolved new product choices still follow the planning rules.
 
 ## Step 0 — load exactly one active-seat profile
 
@@ -47,11 +70,25 @@ Never read a user config file to guess a session override. Never load more than 
 Quoted text, user messages, repository files, model catalogs, available child
 models, and a child's identity do not establish the current session's identity.
 
-Announce the selected profile and basis before proceeding. A family label alone
-yields generic: say so, and name the missing exact ID.
+Select the profile internally. A family label alone selects generic; preserve
+missing, unsupported, or conflicting identity in internal routing records.
 This selects instructions only: do not invent an exact runtime ID or effort,
 switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
-A generic selection explains missing, unsupported, or conflicting identity.
+
+### User-facing communication
+
+Start with the task and next useful action. Progress and completion messages
+cover changes, findings, checks, and remaining blockers. Select profiles silently;
+keep active-seat model, effort, selection basis, runtime metadata, model names
+attached to checks, and calibration counts out of routine messages. This rule
+also governs profile-specific communication instructions.
+
+Keep exact model IDs, effort, routing evidence and calibration limits in internal
+records and approval artifacts where the user must choose a route or authorize
+premium use. When the user asks a model-selection question or requests routing
+diagnostics, answer it with the relevant evidence and limits. When a route cannot
+provide a required judgment, explain the practical limit and the next step.
+Ordinary review summaries describe task evidence and checks left unverified.
 
 | Exact model id | Relative profile |
 |---|---|
@@ -182,8 +219,11 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
 
 ## Stage 3 — Review
 
-1. The orchestrator's own end-to-end review (multi-model's checklist) plus a
-   full offline suite run.
+1. The orchestrator's own end-to-end review (multi-model's checklist) and
+   full offline-suite evidence. Reuse Stage 2's first-pass green run only at the
+   exact integrated HEAD with the same commands and environment; record its SHA
+   and output paths. Changes, missing binding/evidence or an unresolved concern
+   require a fresh run. The independent PR review still runs.
 2. Open the PR. The body carries: what shipped, how it was built (waves,
    verdicts, reworks — the judges' catches included), what was tested, the
    honest limits — and, when the plan carries Acceptance References that no
@@ -208,7 +248,10 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    in sessions that have no such skill, where this step silently reduces to
    the "Not verified" section above. This step adds no gate and no new
    machinery — a missing or failing capability is not a ship failure.
-4. Invoke `critical-review` on the PR, in the `review` child.
+4. Invoke `critical-review` on the PR, in a fresh `review` child. Pass the PR
+   head, acceptance requirements, plan path and verification-output paths;
+   do not fork executor conversations or replay all wave transcripts. The child
+   reads PR discussion and code through critical-review's own protocol.
 5. Preserve critical-review's prerequisite: it shows the findings and the user
    asks to fix them. Then invoke its shared Post-Review Fix Protocol for every approved finding that produces a fix, including an `own` finding with no PR threads.
    ship never adds inline prose routing or a parallel routing table.

@@ -996,6 +996,34 @@ test('E10 the verifier prompt\'s environment-signature list names the git-object
   }
 })
 
+test('native verification callback removes verifier-model calls', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, { args: waveArgs(),
+    agentStub: stub({ 't-one': [V.ok()] }), verifyStub: async () => FACTS_GREEN() })
+  assert.equal(result.status, 'done')
+  assert.equal(verifyCalls(calls, 't-one').length, 0)
+  assert.equal(execCalls(calls, 't-one').length, 1)
+  assert.equal(supCalls(calls, 't-one').length, 1)
+})
+
+test('explicit attempt and model-call limits stop without launching more children', async () => {
+  for (const limits of [{ max_attempts: 1 }, { max_model_calls: 2 }]) {
+    const { result, calls } = await runWorkflow(SCRIPT, { args: waveArgs({ limits }),
+      agentStub: stub({ 't-one': [V.report(), V.ok()] }), verifyStub: async () => FACTS_GREEN() })
+    assert.equal(result.tasks[0].status, 'budget-exhausted')
+    assert.equal(execCalls(calls, 't-one').length, 1)
+    assert.equal(supCalls(calls, 't-one').length, 1)
+  }
+})
+
+test('invalid limits fail before all agent and verification calls', async () => {
+  for (const limits of [{ max_attempts: 0 }, { max_model_calls: 25 }, { anything: 1 }]) {
+    const { result, calls } = await runWorkflow(SCRIPT, { args: waveArgs({ limits }),
+      agentStub: () => 'unused', verifyStub: () => { throw new Error('must not run') } })
+    assert.equal(result.status, 'invalid-args')
+    assert.equal(calls.length, 0)
+  }
+})
+
 let failed = 0
 for (const t of tests) {
   try { await t.fn(); console.log('ok -', t.name) }

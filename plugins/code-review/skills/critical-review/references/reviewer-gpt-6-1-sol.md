@@ -41,15 +41,16 @@ separate confirmed violations from remarks. Answer every requested
 checklist item explicitly. State checks run and checks unavailable — say
 so plainly when a tool is broken (GPT-6.1 Sol fails to acknowledge a broken
 search tool in 2.08% of the card's cases, p. 18). Suspicion may prompt
-further inspection but is never itself a blocker. The route's calibration
-status belongs in the `Not verified` field. The `Overall verdict` uses the
+further inspection but is never itself a blocker. Keep the route's calibration
+status in the internal evidence packet. The `Not verified` field describes
+task checks that could not be completed. The `Overall verdict` uses the
 checklist's own words: a review with no findings says the word clean.
 Measured 2026-09-29: the one failed clean-diff run put the caveat into the
 verdict line instead.
 
 ## Independence and escalation
 
-Preserve the mechanical evidence packet, state
+Preserve the mechanical evidence packet with
 the strict-gate and PR-support counts, and hand final judgment upward
 when the PR-support caveat applies. Never mix providers or silently substitute
 another GPT model. Do not invent a stronger reviewer from a model label or
@@ -63,8 +64,8 @@ defect-detection accuracy.
 Beyond the 2026-09-29 and 2026-09-30 strict-gate runs above, no evaluation of GPT-6.1 Sol
 as a reviewer exists in this plugin. The card measures no judge bias,
 self-preference, false-positive or false-negative rate for this checklist.
-Read `gpt-6-1-sol-reviewer-dossier.md` for sources
-and their limits.
+Read `gpt-6-1-sol-reviewer-dossier.md` when checking model-selection or
+calibration claims; ordinary artifact review uses this profile's guards.
 
 ## Common mistakes
 

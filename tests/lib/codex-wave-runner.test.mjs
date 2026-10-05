@@ -141,7 +141,9 @@ function addDirValues(argv) {
 function runRunner(args, env = {}) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, ...env },
+    // These children use a fake CLI, so the host's ability to nest a real
+    // sandbox is irrelevant. Probe-specific cases override this explicitly.
+    env: { ...process.env, CODEX_WAVE_RUNNER_SANDBOX_PROBE: 'skip', ...env },
   })
   let json = null
   try { json = JSON.parse(result.stdout) } catch { /* not every run prints JSON (usage errors, lint) */ }
@@ -170,6 +172,33 @@ test('usage text is printed for --help', () => {
   assert.equal(result.status, 0)
   assert.match(result.stdout, /^usage: node codex-wave-runner\.mjs/)
   assert.match(result.stdout, /--jobs 3/)
+})
+
+test('wave model-call cap stops before a supervisor is launched', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const text = readFileSync(planPath, 'utf8').replace('"wave": 1,', '"wave": 1, "limits": {"max_model_calls": 1},')
+  writeFileSync(planPath, text)
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base,
+    '--codex', STUB, '--out', join(root, 'out'), '--preflight', 'off'],
+  { CODEX_STUB_LOG: join(root, 'calls'), CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_WAVE_RUNNER_SANDBOX_PROBE: 'skip' })
+  assert.equal(result.status, 1, result.stderr)
+  assert.equal(result.json.children.length, 1)
+  assert.equal(result.json.stopped[0].reason, 'budget-exhausted')
+})
+
+test('explicit mechanical Codex task bypasses a model judge after independent green checks', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  writeFileSync(planPath, readFileSync(planPath, 'utf8')
+    .replace('"id": "task-a",', '"id": "task-a", "supervision": "mechanical",')
+    .replace('"report_must_answer": ["What did the stub change?"]', '"report_must_answer": []'))
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base,
+    '--codex', STUB, '--out', join(root, 'out'), '--preflight', 'off'],
+  { CODEX_STUB_LOG: join(root, 'calls'), CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_WAVE_RUNNER_SANDBOX_PROBE: 'skip' })
+  assert.equal(result.status, 0, result.stderr + result.stdout)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.equal(result.json.children.length, 1)
 })
 
 test('CODEX_WAVE_RUNNER_SANDBOX_PROBE=fail exits 2 with the nested-sandbox error and launches nothing', () => {
@@ -1281,4 +1310,68 @@ test('(r8) the stop output carries the --reset hint right after the re-run line'
   const hint = 'codex-wave-runner: or re-run after: node ' + RUNNER + ' --reset --plan ' + w.planPath
     + ' --wave 1 --repo ' + w.repo + ' --base ' + w.base + '\n'
   assert.ok(w.stopped.stderr.includes('re-run with a fresh --out after cleanup\n' + hint), w.stopped.stderr)
+})
+
+
+test('recovery adopts an existing candidate and preserves the cumulative call cap', () => {
+  const f = makeRepo(), planPath = join(f.root, 'plan.md'), firstOut = join(f.root, 'first')
+  writeFileSync(planPath, planText(['a']).replace('"wave": 1,', '"wave": 1, "limits": {"max_model_calls": 2},'))
+  const args = ['--plan', planPath, '--wave', '1', '--repo', f.repo, '--base', f.base, '--codex', STUB, '--preflight', 'off']
+  const env = { CODEX_STUB_LOG: join(f.root, 'calls'), CODEX_STUB_EXECUTOR_MODE: 'good' }
+  const first = runRunner([...args, '--out', firstOut], env)
+  assert.equal(first.status, 0, first.stderr + first.stdout)
+  const oldSummary = JSON.parse(readFileSync(join(firstOut, 'summary.json'), 'utf8'))
+  const nextOut = join(f.root, 'second')
+  const second = runRunner([...args, '--out', nextOut, '--resume-from', join(firstOut, 'summary.json')], env)
+  assert.equal(second.status, 1, second.stderr)
+  const summary = JSON.parse(readFileSync(join(nextOut, 'summary.json'), 'utf8'))
+  assert.equal(summary.stopped[0].reason, 'budget-exhausted')
+  assert.equal(summary.children.length, oldSummary.children.length)
+  assert.equal(summary.children.filter(c => c.role === 'executor').length, 1)
+})
+
+test('Codex recovery revalidates an amended contract with no new executor', () => {
+  const f = makeRepo(), planPath = join(f.root, 'plan.md'), firstOut = join(f.root, 'first')
+  writeFileSync(planPath, planText(['a']))
+  const args = ['--plan', planPath, '--wave', '1', '--repo', f.repo, '--base', f.base, '--codex', STUB, '--preflight', 'off']
+  const env = { CODEX_STUB_LOG: join(f.root, 'calls'), CODEX_STUB_EXECUTOR_MODE: 'good' }
+  assert.equal(runRunner([...args, '--out', firstOut], env).status, 0)
+  writeFileSync(planPath, readFileSync(planPath, 'utf8').replace('"forbidden_moves": []', '"forbidden_moves": ["Keep validation"]'))
+  const nextOut = join(f.root, 'second')
+  const second = runRunner([...args, '--out', nextOut, '--resume-from', join(firstOut, 'summary.json')], env)
+  assert.equal(second.status, 0, second.stderr + second.stdout)
+  assert.equal(second.json.children.filter(c => c.role === 'executor').length, 1)
+  assert.equal(second.json.children.filter(c => c.role === 'supervisor').length, 2)
+  assert.match(readFileSync(second.json.children.at(-1).promptFile, 'utf8'), /Keep validation/)
+  assert.equal(second.json.recovery.tasks.a.executorCalls, 1)
+})
+
+
+test('Codex recovery rejects lost invariants terminally without reimplementation', () => {
+  const f = makeRepo(), planPath = join(f.root, 'plan.md'), firstOut = join(f.root, 'first')
+  writeFileSync(planPath, planText(['a']))
+  const args = ['--plan', planPath, '--wave', '1', '--repo', f.repo, '--base', f.base, '--codex', STUB, '--preflight', 'off']
+  const env = { CODEX_STUB_LOG: join(f.root, 'calls'), CODEX_STUB_EXECUTOR_MODE: 'good' }
+  assert.equal(runRunner([...args, '--out', firstOut], env).status, 0)
+  const out = join(f.root, 'second')
+  const verdict = JSON.stringify({ ok: false, violations: [{ class: 'forbidden-move', rule: 'retain validator guards',
+    evidence: 'guard removed', satisfiable: true }], remarks: [] })
+  const r = runRunner([...args, '--out', out, '--resume-from', join(firstOut, 'summary.json')],
+    { ...env, CODEX_STUB_VERDICT: verdict })
+  assert.equal(r.status, 1, r.stderr)
+  assert.equal(r.json.stopped[0].reason, 'failed')
+  assert.equal(r.json.children.filter(c => c.role === 'executor').length, 1)
+  const state = JSON.parse(readFileSync(r.json.states[0], 'utf8'))
+  assert.equal(state.tasks.a.status, 'failed')
+  const summaryText = readFileSync(join(out, 'summary.json'), 'utf8')
+  rmSync(join(out, 'summary.json'))
+  const resetArgs = ['--reset', '--plan', planPath, '--wave', '1', '--repo', f.repo, '--base', f.base, '--out', firstOut]
+  const blocked = runRunner(resetArgs, env)
+  assert.equal(blocked.status, 1)
+  assert.match(blocked.stderr, /recovery run has not produced its final summary/)
+  assert.equal(git(f.repo, 'rev-parse', 'wave/a'), r.json.recovery.tasks.a.head)
+  writeFileSync(join(out, 'summary.json'), summaryText)
+  const reset = runRunner(resetArgs, env)
+  assert.equal(reset.status, 0, reset.stderr)
+  assert.equal(existsSync(r.json.states[0]), false, 'completed recovery state is cleaned with its candidate')
 })

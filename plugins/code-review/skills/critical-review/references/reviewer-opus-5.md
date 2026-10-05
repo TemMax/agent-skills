@@ -17,11 +17,10 @@ the thinking-vs-no-thinking delta in the coding context is neutral-to-slightly-
 negative and the card calls such deltas noise (p. 75–76). What lowers the number
 is the harness's probe/auto-mode layer, not your effort.
 
-**Effort self-check.** Step 0 reports this session's current effort. If it is
-`max` or `xhigh`, note in one line that you will keep the review bounded (findings,
-not a verification scaffold) and proceed. `high`/`medium`: proceed. `low`: note
-depth may suffer and proceed. If Step 0 shows no recognizable level (for example
-an unexpanded `${CLAUDE_EFFORT}` placeholder), ignore it and proceed.
+**Effort self-check.** Keep the review bounded to findings rather than a
+verification scaffold, especially at `max` or `xhigh`. At `low`, check that
+required evidence is complete. Unknown effort does not block review. Apply
+these checks internally and proceed.
 
 ## Your Own Documented Quirks (Opus 5)
 

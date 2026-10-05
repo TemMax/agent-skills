@@ -3,7 +3,9 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
-MM=plugins/orchestration/skills/multi-model/SKILL.md
+MM="$(mktemp)"
+trap 'rm -f "$MM"' EXIT
+python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL.md > "$MM"
 SH=plugins/orchestration/skills/ship/SKILL.md
 REF=plugins/orchestration/skills/multi-model/references/orchestrator-gpt-6-1-sol.md
 

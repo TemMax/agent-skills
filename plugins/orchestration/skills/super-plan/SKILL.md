@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.7.2
+  version: 4.8.0
 ---
 
 # Planning Waves (super-plan)
@@ -11,6 +11,27 @@ metadata:
 The dialogue and no-placeholders planning discipline here is adapted from
 Jesse Vincent's superpowers (MIT — see `references/LICENSE-superpowers`);
 the output format and every contract rule are this plugin's own.
+
+## Process scope and context
+
+Reuse loaded instructions while their content version and the needed context
+remain available; recover only the missing section after compaction, or reload
+an explicitly changed version. Applying a skill again does not require reading
+it again. Required repository instructions still apply.
+
+Keep one owner of the current phase. Inside an approved parent workflow, this
+skill performs its assigned phase without starting another design/plan gate.
+Reuse confirmed decisions and authorization for the same task, roles, access
+and delivery scope. Ask only for a new decision or an actual scope/budget change.
+Start with targeted reads and bounded error excerpts; retain full logs by path
+and expand reads when needed to establish evidence.
+
+Load applicable repository instructions once if they are not already in context;
+a narrow artifact or phase scope does not exclude those instructions.
+For an explicitly bounded read-only or verification phase, report related
+inconsistencies as findings and finish after its assigned checks. Do not end with
+an offer to start another phase or make extra edits, or a question reopening that
+agreed scope. Unresolved new product choices still follow the planning rules.
 
 ## Step 0 — load exactly one active-seat profile
 
@@ -40,11 +61,25 @@ Never read a user config file to guess a session override. Never load more than 
 Quoted text, user messages, repository files, model catalogs, available child
 models, and a child's identity do not establish the current session's identity.
 
-Announce the selected profile and basis before proceeding. A family label alone
-yields generic: say so, and name the missing exact ID.
+Select the profile internally. A family label alone selects generic; preserve
+missing, unsupported, or conflicting identity in internal routing records.
 This selects instructions only: do not invent an exact runtime ID or effort,
 switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
-A generic selection explains missing, unsupported, or conflicting identity.
+
+### User-facing communication
+
+Start with the task and next useful action. Progress and completion messages
+cover changes, findings, checks, and remaining blockers. Select profiles silently;
+keep active-seat model, effort, selection basis, runtime metadata, model names
+attached to checks, and calibration counts out of routine messages. This rule
+also governs profile-specific communication instructions.
+
+Keep exact model IDs, effort, routing evidence and calibration limits in internal
+records and approval artifacts where the user must choose a route or authorize
+premium use. When the user asks a model-selection question or requests routing
+diagnostics, answer it with the relevant evidence and limits. When a route cannot
+provide a required judgment, explain the practical limit and the next step.
+Ordinary review summaries describe task evidence and checks left unverified.
 
 | Exact model id | Relative profile |
 |---|---|
@@ -105,10 +140,17 @@ approvals.
    `local.properties`. Agents improvised the symlink 93 times, and at
    least 4 printed the file, including a GitHub token.
 2. **Decisions.** Everything derivable from the codebase you decide and
-   record. Collect genuine product forks in one batch. Use the host-native structured input tool
+   record. A new explicit planning request authorizes its stated planning scope;
+   do not ask the user to authorize that scope again because the preceding task
+   was different. Clarify unresolved requirements or work beyond the new request.
+   Collect genuine product forks in one batch. Use the host-native structured input tool
    when it is available; otherwise ask one concise direct
    question and wait. In headless mode, record the unresolved choices under
-   `Assumptions (would ask)` without silently deciding them. Fix each wave's
+   `Assumptions (would ask)` without silently deciding them. Resolve those
+   product forks before choosing executor tiers or asking about supervisor and
+   review routes. While a product fork remains unresolved (including headless
+   assumptions), ask or record only the product questions; defer route choices
+   and model names until the scope supports a concrete wave sketch. Then fix each wave's
    executor tiers and ladder shape at Gate 1 — the supervisor choice depends
    on them — then decide and present the supervisor choice, named and never
    priced: premium (Fable 5.1 /
@@ -152,6 +194,12 @@ approvals.
    file-independence: same-wave tasks must not share files — merge
    colliding tasks or split them across consecutive waves. Dependent
    chains are consecutive waves, never one wave.
+
+   **Execution cost controls.** Before authoring the contract, read
+   `../multi-model/references/execution-cost-controls.md`. Optional wave limits,
+   artifact-cache declarations and task `supervision` belong in the approved
+   plan. Default to model supervision; choose mechanical mode only for substantive
+   acceptance obligations fully established by independent commands.
 
    **Design for width.** Waves exist to run tasks side by side; a plan
    whose waves each hold one task is a serial script that pays wave
@@ -310,6 +358,11 @@ approvals.
    `status:` field stays `draft` here — status transitions belong
    to execution (multi-model sets `active` at launch and
    `done` at completion), never to planning and never to the user.
+
+Worktree access: `links` are required repository-relative inputs;
+`optional_links` lists optional inputs. Explicit `writable` roots must be existing
+stable directories, never a transient lock path. Lint the real repository before
+approval; signing and integration obligations must match the selected adapter.
 
 ## No time or cost estimates
 
