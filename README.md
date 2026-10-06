@@ -361,7 +361,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.10.0, code-review 1.16.0):
+orchestration 4.11.0, code-review 1.17.0):
 
 | Before | After |
 |---|---|

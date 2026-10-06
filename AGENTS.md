@@ -7,6 +7,12 @@ update installed versions from a local checkout, switch marketplace sources,
 or edit installed caches. Install updates only from Git after merge. Candidate
 checks use disposable host loading without modifying the installed plugins.
 
+After every user-authorized merge, immediately update the affected installed
+plugins in both Claude Code and Codex from their Git marketplace sources, then
+verify their versions and loading in fresh host sessions. This is part of
+completing the merge and does not require another confirmation. If an update or
+check is blocked, report the specific blocker and leave it marked incomplete.
+
 ## Live validation is required
 
 Changes to plugin behavior (skill instructions, prompts, hooks, routing or

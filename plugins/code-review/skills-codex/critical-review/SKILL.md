@@ -1,9 +1,9 @@
 ---
 name: critical-review
-description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR.'
+description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Load instructions before repository content or diff reads. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.16.0
+  version: 1.17.0
 ---
 
 # Reviewing Changes Critically
@@ -11,6 +11,24 @@ metadata:
 Resolve relative resource paths from this SKILL.md's physical directory.
 Resolve a symlinked skill directory to its target first; repository cwd is not
 the base for the profile and reference paths below.
+
+## Load the required phase before acting
+
+Before every review, complete these reads in order:
+
+1. [PROFILE.md](PROFILE.md): establish the trusted runtime context and permitted profile.
+2. Exactly one active-seat reviewer profile selected by that table and its identity guard.
+3. [REVIEW.md](REVIEW.md): the review method and output rules.
+
+Only then inspect code or a diff. This includes `git diff` used for Scope
+Detection; scope detection is not an exception to the profile guard.
+Profile identity and calibration guards are mandatory, including unsupported
+consequential-review routes; a short entrypoint never overrides them.
+
+
+Load the entrypoint alone. Finish each required read before the next;
+never batch them with each other or content reads. AGENTS.md/CLAUDE.md may be
+located and read first.
 
 ### User-facing communication
 
@@ -61,18 +79,6 @@ CLAUDE.md instructions.
 Read them if their full content is not already in context; a grep of task facts
 does not establish that repository instructions were loaded.
 
-## Load the required phase before acting
-
-Before every review, complete these reads in order:
-
-1. [PROFILE.md](PROFILE.md): establish the trusted runtime context and permitted profile.
-2. Exactly one active-seat reviewer profile selected by that table and its identity guard.
-3. [REVIEW.md](REVIEW.md): the review method and output rules.
-
-Only then inspect code or a diff. This includes `git diff` used for Scope
-Detection; scope detection is not an exception to the profile guard.
-Profile identity and calibration guards are mandatory, including unsupported
-consequential-review routes; a short entrypoint never overrides them.
 
 For PR scope, also load [PR.md](PR.md) and complete its paginated description,
 discussion and thread ledger protocol before reading any code or diff. Local

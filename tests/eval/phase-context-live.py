@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 from live_budget import Budget
+from review_phase_evidence import review_phase_evidence
 from claude_session_events import read_events, final_result, usage
 
 spec=importlib.util.spec_from_file_location('dialogue',Path(__file__).with_name('acceptance-dialogue-live.py'))
@@ -22,6 +23,7 @@ a=importlib.util.module_from_spec(spec); spec.loader.exec_module(a)
 b=a.bench
 BASELINE='9c90cf17d76452828dd2d4beff19781bb841cd01'
 CASES=['assigned','plan-lint','pr-review','fix-blocked','ship-preflight']
+SELECTABLE_CASES=CASES+['lookup','local-review']
 
 
 def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -176,7 +178,7 @@ def prepare(out, selected=None, include_baseline=False, providers=None):
     selected=CASES if selected is None else selected
     providers=['claude','codex'] if providers is None else providers
     if not providers or any(host not in ['claude','codex'] for host in providers):raise ValueError('Valid hosts required')
-    if not selected or any(case not in CASES for case in selected):raise ValueError('Valid affected cases required')
+    if not selected or any(case not in SELECTABLE_CASES for case in selected):raise ValueError('Valid affected cases required')
     if include_baseline and 'assigned' not in selected:raise ValueError('A/B baseline requires the assigned dialogue')
     out.mkdir(parents=True)
     cases=[]
@@ -192,7 +194,11 @@ def prepare(out, selected=None, include_baseline=False, providers=None):
         repo,base=fixture(d,case['provider'])
         name=lambda n: skill(case['provider'],n)
         common='Это изолированная фикстура. Новых агентов, изменений продуктовых файлов, коммитов, публикации и сетевых операций не выполняй. Дай короткий результат по-русски. Не читай служебные expected.json, frozen.json, matrix.json, budget.json, исходник драйвера или результаты других запусков.'
-        if case['case']=='assigned':
+        if case['case']=='lookup':
+            prompts=[f'Используй {name("multi-model")} для согласованного read-only lookup: прочитай README.md и .github/workflows/ci.yml и назови фактический timeout-minutes в CI. '+common];names=['multi-model']
+        elif case['case']=='local-review':
+            prompts=[f'Используй {name("critical-review")} для локального read-only ревью текущих uncommitted изменений. Сопоставь README с CI и проверь изменение validate. Сообщи подтверждённые замечания и результат проверки. '+common];names=['critical-review']
+        elif case['case']=='assigned':
             prompts=[f'Используй {name("super-plan")} для назначенной read-only фазы research внутри согласованного процесса: выясни точную команду тестов и текущий timeout CI из репозитория. План, роли и другие фазы не нужны. '+common,
                      f'Используй {name("ship")} для назначенной verification-only фазы: выполни `python3 -B -m unittest discover -s tests` и `git diff --check`, сохрани вывод команд в {d}/verification.log. Согласование этой фазы уже есть. '+common,
                      f'Используй {name("critical-review")} для критического локального ревью всех текущих uncommitted изменений. Связанные файлы можно читать для проверки утверждений. Без исправлений. '+common]
@@ -211,13 +217,16 @@ def prepare(out, selected=None, include_baseline=False, providers=None):
         frozen={str(p.relative_to(d)):digest(p) for p in pkg.rglob('*') if p.is_file()}
         b.dump(d/'expected.json',{'two_defects':['README fifteen vs CI ten','negative validator invariant removed despite 41 green tests'],
               'read_only_product':True,'no_commit':True,'no_children':True,'quiet':True,'loaded_skills':names,
-              'phase_rules':{'assigned':'No planning/delivery WORKFLOW, no PR/FIXES; PROFILE + REVIEW mandatory for review',
+              'phase_rules':{'lookup':'Load entrypoint only; actual CI timeout; quiet task-facing messages', 'local-review':'Sequential completed entrypoint, PROFILE, one selected profile, REVIEW before any artifact launch; find both defects', 'assigned':'No planning/delivery WORKFLOW, no PR/FIXES; PROFILE + REVIEW mandatory for review',
                 'plan-lint':'WORKFLOW mandatory; actual linter passes', 'pr-review':'PROFILE + REVIEW + PR mandatory; ledger before diff; no FIXES',
                 'fix-blocked':'FIXES mandatory; unavailable route stops before changes', 'ship-preflight':'WORKFLOW mandatory; dirty tree stops'}[case['case']]})
         b.dump(d/'frozen.json',{'package':frozen,'product':a.product_files(repo),'head':b.git(repo,'rev-parse','HEAD'), 'inputs':{str(p.relative_to(d)):digest(p) for p in [*d.glob('turn-*.prompt'), d/'expected.json', *[d/n for n in ['plan.md','gh','gh-data.json'] if (d/n).exists()]]}})
         b.dump(d/'meta.json',{**case,'versions':versions,'base':base,'names':names,'prompts':len(prompts)})
     initial_calls=sum(3 if case['case']=='assigned' else 1 for case in cases)
-    limits={'calls':initial_calls+4,'tokens':3000000 if include_baseline else 2000000,'claude_usd':6,'seconds_per_call':150}
+    focused=set(selected)<= {'lookup','local-review'}
+    limits={'calls':initial_calls+(2 if focused else 4),'tokens':700000 if focused else (3000000 if include_baseline else 2000000),'claude_usd':2 if focused else 6,'seconds_per_call':150}
+    scorer={str(Path(__file__).with_name(n).resolve()):digest(Path(__file__).with_name(n)) for n in ['phase-context-live.py','review_phase_evidence.py','acceptance-dialogue-live.py']}
+    b.dump(out/'scorer.json',scorer)
     b.dump(out/'matrix.json',{'baseline':BASELINE if include_baseline else None,'cases':cases,'initial_calls':initial_calls,'limits':limits,
            'scope':'Native hosts/models, no children. PR GitHub service only is a fixture. Plan-lint and blocked fix/preflight do not prove full pipeline execution.',
            'token_limit':'Stop guard after each completed call; one call may overshoot. Pending/unknown usage blocks further launches.'})
@@ -241,6 +250,8 @@ def budget_invoke(session,k,prompt,pkg,budget):
 
 
 def run_case(out,label):
+    if (out/'scorer.json').exists():
+        assert all(digest(Path(p))==h for p,h in json.loads((out/'scorer.json').read_text()).items()), 'Scorer changed after freeze'
     d=out/label; meta=json.loads((d/'meta.json').read_text()); frozen=json.loads((d/'frozen.json').read_text())
     pkg=d/'package'; repo=d/'repo'; session=a.Session(d,repo,meta['provider']); all_rows=[]; checks={}
     if any(d.glob('turn-*.jsonl')): raise RuntimeError('Fresh attempt directory required; preserve earlier failures')
@@ -261,7 +272,10 @@ def run_case(out,label):
                     selected=[p for p in profiles if a.observed(rows,p)]
                     checks[f'{k}-one-profile-before-code']=len(selected)==1 and a.observed(prefix,selected[0])
                     checks[f'{k}-phase-rules-before-code']=a.observed(prefix,path.parent/'PROFILE.md') and a.observed(prefix,path.parent/'REVIEW.md')
-                if meta['case'] in ['assigned','research-guard','review-quiet']:
+                    order=review_phase_evidence(rows,repo,path,profiles)
+                    b.dump(d/f'turn-{k}.review-order.json',order)
+                    checks[f'{k}-completed-instructions-before-artifact-launch']=order['passed']
+                if meta['case'] in ['assigned','research-guard','review-quiet','lookup','local-review']:
                     phases=['PR.md','FIXES.md'] if name=='critical-review' else ['WORKFLOW.md']
                     checks[f'{k}-unneeded-phases-skipped']=all(not read_path(rows,path.parent/p) for p in phases)
                 if meta['case']=='plan-lint':
@@ -290,9 +304,10 @@ def run_case(out,label):
                     checks['no-gh-write']=not any(any(v.upper() in ['POST','PATCH','PUT','DELETE'] or 'mutation' in v for v in x) for x in calls)
                     checks['no-real-gh']=not any(re.search(r'(?:^|[;|&\s])gh\s',cmd) for cmd in tools(rows))
             if meta['case'] in ['assigned','research-guard'] and k==1: checks['exact-ci-facts']='python3 -B -m unittest discover -s tests' in text and '10' in text
+            if meta['case']=='lookup':checks['actual-ci-timeout']='10' in text or 'десят' in text
             if meta['case']=='assigned' and k==2:
                 checks['verification-evidence']=(d/'verification.log').exists() and '41 tests' in (d/'verification.log').read_text()
-            if (meta['case']=='assigned' and k==3) or meta['case'] in ['pr-review','review-quiet']:
+            if (meta['case']=='assigned' and k==3) or meta['case'] in ['pr-review','review-quiet','local-review']:
                 checks['timeout-defect']=bool(re.search(r'README',text)) and bool(re.search(r'(?i)10|десят|\bten\b',text)) and bool(re.search(r'(?i)15|пятнадц|\bfifteen\b',text))
                 checks['validator-defect']=bool(re.search(r'validator|validate',text)) and bool(re.search(r'(?i)negative|отрицатель',text))
         cmds=tools(all_rows)
@@ -315,7 +330,7 @@ def run_case(out,label):
 
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__); p.add_argument('--out',type=Path,required=True); p.add_argument('--prepare',action='store_true'); p.add_argument('--run'); p.add_argument('--cases',nargs='+',choices=CASES); p.add_argument('--include-baseline',action='store_true'); p.add_argument('--providers',nargs='+',choices=['claude','codex'])
+    p=argparse.ArgumentParser(description=__doc__); p.add_argument('--out',type=Path,required=True); p.add_argument('--prepare',action='store_true'); p.add_argument('--run'); p.add_argument('--cases',nargs='+',choices=SELECTABLE_CASES); p.add_argument('--include-baseline',action='store_true'); p.add_argument('--providers',nargs='+',choices=['claude','codex'])
     args=p.parse_args(); out=args.out.resolve(); os.umask(0o077)
     if args.prepare:
         if out.exists(): p.error('Fresh result root required')

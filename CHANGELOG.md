@@ -4,6 +4,21 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.11.0
+
+### Highlights
+
+**multi-model**
+- Keep lookup messages focused on the requested fact and result
+- Read repository instructions before the lookup exception
+
+**critical-review**
+- Finish review instruction reads before artifact inspection
+- Detect parallel, failed or incomplete loading in native traces
+
+Orchestration 4.11.0 and code-review 1.17.0 apply to Claude Code and Codex.
+Focused live cases cover quiet lookup and local review of two real defects.
+
 ## 4.10.0
 
 ### Highlights

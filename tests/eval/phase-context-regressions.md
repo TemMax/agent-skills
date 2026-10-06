@@ -56,3 +56,23 @@ python3 tests/eval/phase-context-live.py --prepare --cases pr-review --out /priv
 python3 tests/eval/phase-context-live.py --out /private/tmp/phase-context-candidate --run claude-new-pr-review
 # Run the remaining declared labels individually; inspect any failure first.
 ```
+
+Focused communication and review-order checks use `--cases lookup local-review`:
+four initial calls, two follow-ups at most, 700,000 inclusive tokens and $2
+reported Claude cost. Both host cases use one fresh turn. The scorer is frozen
+alongside the candidate and expected outcomes. Replay the retained baseline
+traces without paying for new baseline calls.
+
+Local review requires successful, full entrypoint → PROFILE → one selected
+reviewer profile → REVIEW reads in order. Score tool launches as well as results:
+parallel artifact launches fail even if instruction output arrives first.
+README, workflows and other repository content count as artifacts; instruction
+discovery and git status remain allowed. Partial/failed reads and assistant
+narration cannot prove loading. Quiet checks cover internal filenames and
+instruction-selection narration. Preserve both semantic findings and unchanged
+product/HEAD checks.
+
+```sh
+python3 tests/eval/phase-context-live.py --prepare --cases lookup local-review --out /private/tmp/review-order-candidate
+python3 tests/eval/phase-context-live.py --out /private/tmp/review-order-candidate --run claude-new-lookup
+```

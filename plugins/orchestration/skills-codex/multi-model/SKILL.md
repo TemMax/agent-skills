@@ -1,12 +1,34 @@
 ---
 name: multi-model
-description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'
+description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work. Routine updates state the task, check or result; keep skill/profile loading silent.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.10.0
+  version: 4.11.0
 ---
 
 # Orchestrating Multi-Model Development (Codex)
+
+Before reading requested repository files, locate and read the repository
+AGENTS.md/CLAUDE.md if present. This mandatory step also applies to the read-only
+lookup exception below; reuse full instructions already available in context.
+
+### User-facing communication
+
+For a lookup, state the fact you will check and then the result. Keep instruction
+loading, skipped internal steps and profile selection silent.
+
+Start with the task and next useful action. Progress and completion messages
+cover changes, findings, checks, and remaining blockers. Select profiles silently;
+keep active-seat model, effort, selection basis, runtime metadata, model names
+attached to checks, and calibration counts out of routine messages. This rule
+also governs profile-specific communication instructions.
+
+Keep exact model IDs, effort, routing evidence and calibration limits in internal
+records and approval artifacts where the user must choose a route or authorize
+premium use. When the user asks a model-selection question or requests routing
+diagnostics, answer it with the relevant evidence and limits. When a route cannot
+provide a required judgment, explain the practical limit and the next step.
+Ordinary review summaries describe task evidence and checks left unverified.
 
 Resolve relative resource paths from this SKILL.md's physical directory.
 Resolve a symlinked skill directory to its target first; repository cwd is not
@@ -89,20 +111,6 @@ missing, unsupported, or conflicting identity in internal routing records.
 This selects instructions only: do not invent an exact runtime ID or effort,
 switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
 
-### User-facing communication
-
-Start with the task and next useful action. Progress and completion messages
-cover changes, findings, checks, and remaining blockers. Select profiles silently;
-keep active-seat model, effort, selection basis, runtime metadata, model names
-attached to checks, and calibration counts out of routine messages. This rule
-also governs profile-specific communication instructions.
-
-Keep exact model IDs, effort, routing evidence and calibration limits in internal
-records and approval artifacts where the user must choose a route or authorize
-premium use. When the user asks a model-selection question or requests routing
-diagnostics, answer it with the relevant evidence and limits. When a route cannot
-provide a required judgment, explain the practical limit and the next step.
-Ordinary review summaries describe task evidence and checks left unverified.
 
 | Exact model id | Relative profile |
 |---|---|

@@ -19,7 +19,7 @@ HJ=plugins/orchestration/hooks/hooks.json
 section "skill discovery stays trigger-first and preserves boundaries"
 
 expect "multi-model discovery description" \
-  "description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work.'" \
+  "description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work. Routine updates state the task, check or result; keep skill/profile loading silent.'" \
   "$(sed -n '3p' "$MM")"
 expect "super-plan discovery description" \
   "description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'" \
@@ -28,7 +28,7 @@ expect "ship discovery description" \
   "description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'" \
   "$(sed -n '3p' "$SH")"
 expect "critical-review discovery description" \
-  "description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR.'" \
+  "description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Load instructions before repository content or diff reads. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR.'" \
   "$(sed -n '3p' "$CR")"
 
 section "all skills resolve one active-seat profile from runtime context"
