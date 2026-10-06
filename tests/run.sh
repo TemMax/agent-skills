@@ -51,6 +51,7 @@ run "behaviour — review phase ordering (offline)" python3 tests/eval/review-ph
 run "behaviour — phase-context fixtures (offline)" python3 tests/eval/phase-context-live.test.py
 run "behaviour — supervisor-context fixtures (offline)" python3 tests/eval/supervision-context-live.test.py
 run "behaviour — acceptance dialogue evidence (offline)" python3 tests/eval/acceptance-dialogue-live.test.py
+run "behaviour — retained dialogue replay (offline)" python3 tests/eval/acceptance-dialogue-replay.test.py
 run "behaviour — seam-audit scorer" bash tests/eval/seam-audit.test.sh
 run "behaviour — seam-audit fixture runner" bash tests/eval/seam-audit-fixtures.test.sh
 run "behaviour — drift fixture runner" bash tests/eval/drift-fixtures.test.sh

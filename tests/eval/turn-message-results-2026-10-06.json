@@ -1,0 +1,425 @@
+{
+  "date": "2026-10-06",
+  "scope": "Offline communication scoring of retained native traces; no new live validation.",
+  "run_count": 30,
+  "turn_count": 44,
+  "new_model_calls": 0,
+  "previous_aggregation_commit": "17019eaa11de31d2b1e78ef82df9ca4e7981101e",
+  "communication_rule_changed_by_this_patch": false,
+  "aggregation_false_green_count": 4,
+  "stored_outcome_differences": 10,
+  "stored_outcome_note": "Six additional historical scoring differences remain even with the previous aggregation and today's regex; they are not caused by ID aggregation. Original runs used their own scoring versions.",
+  "original_evidence_unchanged": true,
+  "replay_output": "/private/tmp/eval-turn-messages-replay-cli-20261006",
+  "source_sha256": {
+    "tests/eval/acceptance-dialogue-live.py": "9ed1058667b8ce2e1fcf5d6f47c4c934233eff76f19faf7d63e746d967ae2c25",
+    "tests/eval/phase-context-live.py": "5b24149ae77081559a20c71bea22d226591a33a70748ceaea958e8282acf6b2a",
+    "tests/eval/acceptance-dialogue-replay.py": "9a5a9cb23c008c8b0d24354d6f9d7abaf16c3178bc21dd96f595e715b7cdbe5c"
+  },
+  "runs": [
+    {
+      "run": "/private/tmp/agent-skills-installed-9c90cf1/claude",
+      "turn_count": 2,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "15a15e94ae37b36c06e6ab2cdf35402419cdebf6b829336c87c8b42c00ca1506",
+        "turn-2.jsonl": "f8a10f92c957f1fc0e2cea4737fbd8c0c08202d71eada23e6c71b4f1b6954f80",
+        "outcomes.json": "d17c4327cb7704b113cd56956d49010f230a4d17ecbba6b5f2f65ed411beabc7"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/agent-skills-installed-9c90cf1/codex",
+      "turn_count": 2,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "0adad25b69e2f0e1450041674e1471a97f09495deb4b83b3b654785a79a00575",
+        "turn-2.jsonl": "267b399d5aa5b771ace520865e5f92b9978effa5e314770a115f59740e37ed84",
+        "outcomes.json": "3082f39360d43f5482fc96ebc264916f545566beb6431a6fc0a2de670ed72886"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/agent-skills-installed-972e393/claude",
+      "turn_count": 2,
+      "original_quiet": false,
+      "quiet": false,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "ffb4e8a8f4c9f509625dc6aba724b0d356ebe5e94d40e775ad5360cfd7bcc4dd",
+        "turn-2.jsonl": "d8b87bb75fc275a7c23b95475653796059efd3289847110bdb0a83418ab2658a",
+        "outcomes.json": "4530bafa81e6a474bbba809378d4630beeb6fce0c986daf0ca2f02a9393c15bc"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/agent-skills-installed-972e393/codex",
+      "turn_count": 2,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "212c928f7db4a3c33243266cb88b57d1b92f959ae9e4eb85ab02742970dc9c02",
+        "turn-2.jsonl": "062648b40d053b8f99d2478d20d5d587882cd0844824a87df2e57065d0c08059",
+        "outcomes.json": "df39508806e8af47889fb339aa577b2dece137286bdfdd615cb264e1ecf578d1"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": true
+    },
+    {
+      "run": "/private/tmp/agent-skills-installed-17019ea/claude",
+      "turn_count": 2,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "0aa9ab50062de002ea90507296ea8aeb19dad438f8d7c94c400176dfcadf54fd",
+        "turn-2.jsonl": "49ed562e8503cf0d07d91072c3001e15bfc08890ef6c3c64e897809e5a03db10",
+        "outcomes.json": "2c94a9d4fb72bbbec30d476790844ef31cdde5a6e405779916834b6707810768"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/agent-skills-installed-17019ea/codex",
+      "turn_count": 2,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "e50d3ade8d6a733fa1eff4b5500f0dcd6da9d77be6f67f4cf1da7b4af1ca90ad",
+        "turn-2.jsonl": "efaf56d72a561c767694455d7f61d9d096bfd3c92c1c128fcc1b1823b8ee3de0",
+        "outcomes.json": "c93024bed208877e3254e0d57180984584aa1189ba34d3e5a4e7556861b21437"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": true
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-assigned",
+      "turn_count": 3,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "a556c98db3f170aaa894f7bc00129fd2af0e22829250f73857484ac4768f6b0b",
+        "turn-2.jsonl": "4af378a378f4838b21d19edba71ef87f3fda3f59bb1480679fcd7e9135c7cee3",
+        "turn-3.jsonl": "cbc789990d147164efd80fd11352e49d65bedbade4e0d1d6285b7c284fc74c26",
+        "outcomes.json": "7f800eac7809710a64e8045009b3699b4c6f18f881368f65800c934bfbc7c55a"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-fix-blocked",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "d00c1de1c12915fc6cce767099a33916812ab3571131b8f6da82338c57c66de6",
+        "outcomes.json": "490cd6211576d264093ffe73e8167a2b5774a879b73e2e4299bd431384e0d3e2"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-plan-lint",
+      "turn_count": 1,
+      "original_quiet": false,
+      "quiet": false,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "53fb2a2d635bd2edd2720b912a15acbccf24f1b777abdc0e06b9b6cfeae5d887",
+        "outcomes.json": "2c5447964f6aa1ecb060ed19b91b6748ebbbe7ea6bd4cfcf44067562bff8e747"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-plan-lint-quiet",
+      "turn_count": 1,
+      "original_quiet": false,
+      "quiet": false,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "f1f75284a8397596b3fcefe159ee1fc673c2b45d8393a6577b97567714e58233",
+        "outcomes.json": "f464f2bd7810d938548a6178f7fe3e5c2b83796618a6292a6945a6e435348036"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-pr-review",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "e7eef479e0a8f4376331b6f755868fe298f156dd6f5b1872582feb269a93a79c",
+        "outcomes.json": "dcbb6e20153e91865952dd64db754e13aa7e323c3dbac631fa9c1af639bc3332"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-research-guard",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "0edace3a3071b1b18c6e10b982096f35f1b181f78271a860c00d2935696f9e55",
+        "outcomes.json": "934c36fd3428317f56192102b95c5f16279e7d8dbd5df7439c8aa0c33c2a6f0b"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-review-order",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "63df88da1740857a038ae73a93ee34df6f963705dffa8776c381b2d9a2b7ed0b",
+        "outcomes.json": "b861dde887080ebf2f541d781ccb743532b769f1377dfb67da99fc1821c817ee"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-review-quiet",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "446910c7c7b701b08f8a9b18e2e68f07ce7e7e2a444acf79b3bfaa2652197bed",
+        "outcomes.json": "712b59f0bff2c242533b22ea2c6f4bfad3d46eef3419b41f98e312ed8440903f"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-new-ship-preflight",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "89b66809e229051f0a1ed1097887afee91192ab14902bbedbad5ed6e14dfd3c9",
+        "outcomes.json": "390b87901203c20fe0c10b9fc6937871533ee58c67a69b2ac197e3b14a5d5963"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/claude-old-assigned",
+      "turn_count": 3,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "255d3eb8a10991b5b2268f00adf4ff7f6e4666d6a06048a7124057a20c1399f9",
+        "turn-2.jsonl": "e67b3e2301ba350f63bbbaafdc775026bf7618bd2613708ea0e354ec34039dc6",
+        "turn-3.jsonl": "efb67f629502aa2234d36daa967542c37d8810594b07a59c9a50c2e6ee9505dc",
+        "outcomes.json": "0f227cb6409f62a0aeb701bb7ca2e6b6783196892223a5995021b1489c18b9b9"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-assigned",
+      "turn_count": 3,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "66d2b540279a24776b3bb370e9f2533bbffc6081217d4615fe7b10eb7f865c23",
+        "turn-2.jsonl": "0e52e111cbb84abc17e33e133a11f66fb4ab90f4a846933c769712ad0b0a52c9",
+        "turn-3.jsonl": "b28b4dd85819ea4ec14dc09345063ae927d18a1046c0823bca106a4fc6f8adb7",
+        "outcomes.json": "5cbb2cf46074e7b74b2c368c185475236e5a49b7b18546d9c99d50559cee74c3"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": true
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-fix-blocked",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "fb11cbce62515491dea5e67653d57007d6f7d7e4ec8c16a68ee664aa6d145f3b",
+        "outcomes.json": "393ea360299470f5c78bca6abb3883584bd413bf2c5a21197cbe949a0384a02c"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-plan-lint",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "2b74b77e926e63aa03c66435a1c3b2ff2cc894e1d31950e72f6709e737cc1f59",
+        "outcomes.json": "55d54d0ea3ff5e07cbf67e1e8e7d35ab7db110dab39219e54ba4d624022cd8a2"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-pr-review",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "0c950bc50e1726ee5143accc27c28affc2820b023f20085fad50e3f0915de858",
+        "outcomes.json": "8108f61151a72e271a2d9818097469a0eee8a103c5cf95aad746150d20c3a372"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/codex-new-ship-preflight",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "5c236a22a719d53851e4d736aac11a0029415221826f7792c9ae4dd6b3977da4",
+        "outcomes.json": "ad87ca7e393bdd27f4a62c8b74444b5c36679e8420660df9c5661b63a7e307f4"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/phase-context-4.9.0-1.16.0/codex-old-assigned",
+      "turn_count": 3,
+      "original_quiet": true,
+      "quiet": false,
+      "changed": true,
+      "input_sha256": {
+        "turn-1.jsonl": "a8b494c82a6eea6959e9b11d67d546f7a0198f2d06e9a2f5d1cff2f681cf258d",
+        "turn-2.jsonl": "664c930fd7af8d1c317b37f258477f0ff245f537c5539e1800755c8ba9b403c2",
+        "turn-3.jsonl": "82fd5d5b240c6d710bb82f9d9b3cf1d765bc93021c3d1dc4761026febdd7b232",
+        "outcomes.json": "4ababef0c16fd06ee02855de70b260f9246f74264019ff5338df4e7a53f51938"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": true
+    },
+    {
+      "run": "/private/tmp/review-order-4.11.0-v1/claude-new-lookup",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "fd013d4940bbcfa9e7816c5affc46ceb76051394f5a966e236d1e24f78beb087",
+        "outcomes.json": "d0a57d297df41b9bc668695038de5cc70812a8db5db7c1e50aefc024f0745437"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/review-order-4.11.0-v2/claude-new-lookup",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "0d871dadde446684dc3cde8e7cb8b6fb8dc4d831cfb64f5c5c529ca9ccf57bb5",
+        "outcomes.json": "e9a6d7830d7d8a0a20db214362bd4d9fcef4925754efe46e3c790348495068f1"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/review-order-4.11.0-v3/claude-new-local-review",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "b8e64c4aad49f695eacbf7698ce35bc902badfbdfec647484cd4290935e126ce",
+        "outcomes.json": "9c630948a1d0acc90fa06b4eac00a85586dc1d44663f7dc0efc445acd6faa33d"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/review-order-4.11.0-v3/claude-new-lookup",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "d5016ce7c776cb19254f4136ae3a0a39837f0b3fa3ceb7f97a2e6f4c2f1b4a01",
+        "outcomes.json": "274fa0cfdaaeba1fa21acb9a4b8a33ecd48abd4c5a979400e60c389106a28e39"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/review-order-4.11.0-v4/codex-new-local-review",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "d4b29053bf6676a385630fd322c270cd7c84464e8cbb90630d43aee22fe15bb6",
+        "outcomes.json": "15b5ad379cd13bc1aaaad50aea21ea39dd79e4e379ab60867d8edbeef75ff71f"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/review-order-4.11.0-v4/codex-new-lookup",
+      "turn_count": 1,
+      "original_quiet": false,
+      "quiet": false,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "b43b2c229b87575ea4f9fdabf13c347eb9db44a42911da75ee4b52733ba37143",
+        "outcomes.json": "bd0f2753cecb3a45183253d8504d988aa2720d1b1797bdcab7fe7a353353c7d7"
+      },
+      "previous_aggregation_quiet": false,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/review-order-4.11.0-v5/claude-new-lookup",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "21ce7bfc1298e98aeb70353916417292b146dc917a274593ac5e273508cc402d",
+        "outcomes.json": "e2fe5a3195ce4f5157b3b380935eb2b481e249f8093c3555645a3fbd9b844267"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    },
+    {
+      "run": "/private/tmp/review-order-4.11.0-v5/codex-new-lookup",
+      "turn_count": 1,
+      "original_quiet": true,
+      "quiet": true,
+      "changed": false,
+      "input_sha256": {
+        "turn-1.jsonl": "ae8bccbcc68077adff32664430a009677f9fb599a295abb65bc0191e228467cf",
+        "outcomes.json": "3028f8ce1e28eb26009ae5004a278b7123ec47389f37970c7191e6fbae39c20c"
+      },
+      "previous_aggregation_quiet": true,
+      "aggregation_changed": false
+    }
+  ]
+}

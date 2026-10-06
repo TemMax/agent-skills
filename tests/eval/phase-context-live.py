@@ -253,14 +253,14 @@ def run_case(out,label):
     if (out/'scorer.json').exists():
         assert all(digest(Path(p))==h for p,h in json.loads((out/'scorer.json').read_text()).items()), 'Scorer changed after freeze'
     d=out/label; meta=json.loads((d/'meta.json').read_text()); frozen=json.loads((d/'frozen.json').read_text())
-    pkg=d/'package'; repo=d/'repo'; session=a.Session(d,repo,meta['provider']); all_rows=[]; checks={}
+    pkg=d/'package'; repo=d/'repo'; session=a.Session(d,repo,meta['provider']); all_rows=[]; turn_rows=[]; checks={}
     if any(d.glob('turn-*.jsonl')): raise RuntimeError('Fresh attempt directory required; preserve earlier failures')
     assert all(digest(d/p)==h for p,h in frozen['package'].items()), 'Candidate changed after freeze'
     assert all(digest(d/p)==h for p,h in frozen.get('inputs',{}).items()), 'Declared fixture inputs changed after freeze'
     budget=Budget(out/'budget.json')
     try:
         for k,name in enumerate(meta['names'],1):
-            rows=budget_invoke(session,k,(d/f'turn-{k}.prompt').read_text(),pkg,budget); all_rows+=rows
+            rows=budget_invoke(session,k,(d/f'turn-{k}.prompt').read_text(),pkg,budget); all_rows+=rows; turn_rows.append(rows)
             path=a.skill_path(pkg,meta['provider'],name); text=a.messages(rows)
             checks[f'{k}-skill-body']=a.observed(rows,path)
             if meta['arm']=='new':
@@ -310,9 +310,12 @@ def run_case(out,label):
             if (meta['case']=='assigned' and k==3) or meta['case'] in ['pr-review','review-quiet','local-review']:
                 checks['timeout-defect']=bool(re.search(r'README',text)) and bool(re.search(r'(?i)10|десят|\bten\b',text)) and bool(re.search(r'(?i)15|пятнадц|\bfifteen\b',text))
                 checks['validator-defect']=bool(re.search(r'validator|validate',text)) and bool(re.search(r'(?i)negative|отрицатель',text))
+        communication=a.communication_checks(turn_rows)
+        b.dump(d/'communication.json',communication)
+        all_text='\n'.join(t['messages'] for t in communication['turns'])
         cmds=tools(all_rows)
         checks.update(product_unchanged=a.product_files(repo)==frozen['product'],head_unchanged=b.git(repo,'rev-parse','HEAD')==frozen['head'],
-            frozen_candidate_unchanged=all(digest(d/p)==h for p,h in frozen['package'].items()),frozen_inputs_unchanged=all(digest(d/p)==h for p,h in frozen.get('inputs',{}).items()),quiet=a.quiet(a.messages(all_rows)),
+            frozen_candidate_unchanged=all(digest(d/p)==h for p,h in frozen['package'].items()),frozen_inputs_unchanged=all(digest(d/p)==h for p,h in frozen.get('inputs',{}).items()),quiet=communication['quiet'],
             no_children=not any('CHILD_AGENT' in cmd or re.search(r'\b(?:claude\s+-p|codex\s+exec)\b',cmd) for cmd in cmds),
             all_turns_completed=all(t['complete'] and t['exit']==0 for t in session.turns))
         checks['no-publication-attempt']=not any(re.search(r'git[^;\n]*\bpush\b|\bpr\s+(?:create|merge)\b',cmd) for cmd in cmds)
@@ -321,7 +324,7 @@ def run_case(out,label):
             meta['repository_instructions_required']=False
         else:
             checks['repository-instructions']=a.instructions_seen(all_rows,repo/'AGENTS.md',(d/'rollouts').glob('*.jsonl'))
-        if meta['case']=='assigned': checks['no-extra-edit-offer']=not re.search(r'(?im)(?:исправить|поправить|обновить|хотите|нужно ли|сделать).*\?',a.messages(all_rows))
+        if meta['case']=='assigned': checks['no-extra-edit-offer']=not re.search(r'(?im)(?:исправить|поправить|обновить|хотите|нужно ли|сделать).*\?',all_text)
         result={'passed':all(checks.values()),'checks':checks,'sessions':session.turns}
     except Exception as e:
         result={'passed':False,'checks':checks,'error':str(e),'sessions':session.turns}
