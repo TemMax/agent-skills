@@ -57,6 +57,21 @@ class FixtureTests(unittest.TestCase):
         self.assertFalse(m.a.quiet('Нужно загрузить PROFILE.md перед чтением кода.'))
         self.assertTrue(m.a.quiet('Проверка нашла нарушение запрета отрицательных значений.'))
 
+    def test_lookup_and_local_review_only_prepare_four_calls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp)/'focused';m.prepare(out,selected=['lookup','local-review'])
+            matrix=json.loads((out/'matrix.json').read_text())
+            self.assertEqual(matrix['initial_calls'],4)
+            for case in matrix['cases']:
+                d=out/f"{case['provider']}-{case['arm']}-{case['case']}"
+                expected=json.loads((d/'expected.json').read_text())
+                if case['case']=='local-review':self.assertIn('before any artifact launch',expected['phase_rules'])
+                self.assertEqual(json.loads((d/'meta.json').read_text())['prompts'],1)
+    def test_instruction_narration_without_filenames_is_not_quiet(self):
+        for text in ['Для read-only пропускаю выбор профиля.', "I'll read the skill instructions first.", 'Загружу скилл, потом проверю таймаут.', 'Здесь скилл говорит пропустить шаги.']:
+            with self.subTest(text=text):self.assertFalse(m.a.quiet(text))
+        self.assertTrue(m.a.quiet('Проверю таймаут CI и изменение валидатора.'))
+
     def test_lint_narration_or_instruction_example_cannot_prove_execution(self):
         claim={'type':'item.completed','item':{'type':'agent_message','text':'Plan lint passed: OK: 0 error(s)'}}
         read={'type':'item.completed','item':{'type':'command_execution','command':'cat WORKFLOW.md','aggregated_output':'Example: OK: 0 error(s)'}}

@@ -77,7 +77,7 @@ def messages(rows):
 
 
 def quiet(text):
-    return not re.search(r'(?i)PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:PROFILE|WORKFLOW)\.md\b|модель вне таблицы калибровки', text)
+    return not re.search(r'(?i)(?:загруж|прочита|пропуска|выбира|load|read|skip|select)[^.!?\n]{0,90}(?:внутренн|инструкци|профил|скилл|навык|profile|instructions)|(?:скилл|навык|skill) (?:says|говорит)|PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:SKILL|PROFILE|REVIEW|PR|FIXES|WORKFLOW)\.md\b|модель вне таблицы калибровки', text)
 
 
 def instructions_seen(rows, expected, rollouts):

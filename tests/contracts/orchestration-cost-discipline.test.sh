@@ -16,7 +16,10 @@ for tree in ['skills', 'skills-codex']:
 
 path = Path('plugins/orchestration/skills/multi-model/references/supervisor-prompt.md')
 text = path.read_text()
-for phrase in ['When independent verifier facts match the branch and ordered pipeline',
+for phrase in ['independent VERIFIER FACTS cover this candidate and every `must_run` command',
+               'recorded HEAD, it must match the task commit',
+               '**Matching independent facts:** use those results for `must_run`.',
+               '**Absent, incomplete or inconsistent facts:**',
                'A re-run needs a concrete reason', 'Do not expand the contract']:
     assert phrase in text, f'{path}: missing {phrase!r}'
 print('PASS: scoped rework, context, usage and supervisor checks')
