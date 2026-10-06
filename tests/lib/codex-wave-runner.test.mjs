@@ -542,13 +542,14 @@ test('(j) a violation with null quote/pasteReproduced and satisfiable:true is st
     { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: verdict },
   )
   // Mode stays "good" for every attempt: the first attempt commits and gets
-  // this test's verdict; the retry the task is sent back to writes the exact
-  // same content into the same worktree, so it has nothing new to commit and
-  // the stub's `git commit` fails — which is enough to terminate the wave
-  // quickly and deterministically (as a transport agent failure) without
-  // needing the retry to actually succeed. The assertions below are about
-  // the first verdict, not about how the task eventually ends.
+  // this test's verdict; the retry the task is sent back to resumes the first
+  // attempt's thread (same rung, same model and effort) and commits a new
+  // per-call file. The verdict is static, so every attempt is rejected again
+  // and the state helper's own ladder ends the loop: two attempts per rung,
+  // then `failed` on the last rung. The assertions below are about the first
+  // verdict, not about how the task eventually ends.
   assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop', 'a static rejecting verdict must still end the loop')
 
   const state = JSON.parse(readFileSync(result.json.states[0], 'utf8'))
   const firstVerdict = state.tasks['task-a'].verdicts[0]
@@ -567,6 +568,8 @@ test('(j) a violation with null quote/pasteReproduced and satisfiable:true is st
   const executors = result.json.children.filter((c) => c.role === 'executor')
   assert.ok(executors.length >= 2, 'the task must have gone back to rework after the first verdict: '
     + JSON.stringify(executors))
+  assert.equal(executors[1].resumed, true, 'the same-rung rework must resume the first attempt\'s thread: '
+    + JSON.stringify(executors[1]))
   assert.notEqual(result.json.stopped.find((s) => s.task === 'task-a')?.reason, 'contract-unsatisfiable',
     'satisfiable:true must never stop the task as contract-unsatisfiable')
 })
@@ -1374,4 +1377,195 @@ test('Codex recovery rejects lost invariants terminally without reimplementation
   const reset = runRunner(resetArgs, env)
   assert.equal(reset.status, 0, reset.stderr)
   assert.equal(existsSync(r.json.states[0]), false, 'completed recovery state is cleaned with its candidate')
+})
+
+// ---------------------------------------------------------------------------
+// Executor session resume: a same-rung rework continues the executor's own
+// thread (`codex exec resume <thread id>`); anything else starts fresh.
+// ---------------------------------------------------------------------------
+
+const REJECTED = {
+  ok: false,
+  violations: [{ rule: 'must_run: true', class: 'must_run', evidence: 'flagged for review', satisfiable: true }],
+  remarks: [],
+}
+const CLEAN = { ok: true, violations: [], remarks: ['stub: clean'] }
+// What one stub call adds to its thread's running usage total.
+const STUB_CALL_USAGE = { input_tokens: 100, cached_input_tokens: 10, output_tokens: 50, reasoning_output_tokens: 5 }
+
+// Model-call start records in launch order, split by role. A supervisor is
+// the only child that carries --output-schema; a resumed executor's prompt
+// has no "# Task:" first line to tell it by.
+function modelStarts(logPath) {
+  const starts = readLog(logPath).filter((entry) => entry.event === 'start' && entry.argv[0] === 'exec')
+  return {
+    executors: starts.filter((entry) => !entry.argv.includes('--output-schema')),
+    supervisors: starts.filter((entry) => entry.argv.includes('--output-schema')),
+  }
+}
+
+function runResumeWave(verdicts, env = {}, rewritePlan = (text) => text) {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  writeFileSync(planPath, rewritePlan(readFileSync(planPath, 'utf8')))
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--preflight', 'off', '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICTS: JSON.stringify(verdicts), ...env },
+  )
+  assert.ok(result.json, result.stdout + result.stderr)
+  return {
+    repo, logPath, result,
+    executors: result.json.children.filter((c) => c.role === 'executor'),
+    state: JSON.parse(readFileSync(result.json.states[0], 'utf8')).tasks['task-a'],
+    starts: modelStarts(logPath),
+  }
+}
+
+test('(s1) a same-rung rework resumes the first executor child\'s thread with only the continuation', () => {
+  const { repo, result, executors, state, starts } = runResumeWave([REJECTED, CLEAN])
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.equal(result.json.tasks[0].status, 'ok')
+  assert.equal(result.json.tasks[0].attempts.length, 2)
+  assert.equal(state.totalAttempts, 2)
+
+  assert.equal(executors.length, 2, JSON.stringify(executors))
+  const [first, second] = executors
+  assert.equal(Object.hasOwn(first, 'resumed'), false)
+  assert.match(first.threadId, /^stub-thread-/)
+  assert.equal(second.resumed, true)
+  assert.equal(second.threadId, first.threadId)
+  assert.equal(Object.hasOwn(second, 'fallbackFrom'), false)
+  assert.equal(second.model, first.model)
+  assert.equal(second.effort, first.effort)
+
+  assert.equal(starts.executors.length, 2)
+  const resumeStart = starts.executors[1]
+  assert.deepEqual(resumeStart.argv.slice(0, 3), ['exec', 'resume', first.threadId])
+  assert.ok(resumeStart.prompt.startsWith('PRIOR VERDICT:'), resumeStart.prompt)
+  assert.equal(resumeStart.prompt.includes('# Task:'), false)
+  assert.equal(resumeStart.prompt, readFileSync(second.promptFile, 'utf8'),
+    'the prompt file must hold exactly what was sent on stdin')
+  assert.ok(resumeStart.cwd.endsWith('wave-task-a'), 'a resumed child runs with the worktree as its cwd: '
+    + resumeStart.cwd)
+  for (const flag of ['--ephemeral', '--sandbox', '-C', '--add-dir']) {
+    assert.equal(resumeStart.argv.includes(flag), false, 'resume argv must not carry ' + flag + ': '
+      + JSON.stringify(resumeStart.argv))
+  }
+  assert.ok(resumeStart.argv.includes('sandbox_mode="workspace-write"'), JSON.stringify(resumeStart.argv))
+  const prefix = 'sandbox_workspace_write.writable_roots='
+  const rootsIndex = resumeStart.argv.findIndex((arg) => arg.startsWith(prefix))
+  assert.ok(rootsIndex > 0, 'resume argv must carry the writable-roots override: ' + JSON.stringify(resumeStart.argv))
+  assert.equal(resumeStart.argv[rootsIndex - 1], '-c')
+  const writableRoots = JSON.parse(resumeStart.argv[rootsIndex].slice(prefix.length))
+  assert.ok(writableRoots.includes(git(repo, 'rev-parse', '--path-format=absolute', '--git-common-dir')),
+    JSON.stringify(writableRoots))
+  assert.ok(writableRoots.some((path) => path.endsWith('/.git/worktrees/wave-task-a')), JSON.stringify(writableRoots))
+
+  // The resumed child's events carry the thread's running total (two calls);
+  // its recorded usage is only what this child added.
+  const turns = readFileSync(second.eventsFile, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line))
+    .filter((event) => event.type === 'turn.completed')
+  assert.deepEqual(turns.at(-1).usage, Object.fromEntries(
+    Object.entries(STUB_CALL_USAGE).map(([key, value]) => [key, value * 2])))
+  assert.deepEqual(second.usage, STUB_CALL_USAGE)
+  assert.deepEqual(first.usage, STUB_CALL_USAGE)
+
+  assert.match(git(repo, 'log', '--oneline', 'wave/task-a'), /stub: task rework/)
+})
+
+test('(s2) a failing resume falls back at once to a fresh executor child within the same attempt', () => {
+  const { logPath, result, executors, state, starts } = runResumeWave([REJECTED, CLEAN],
+    { CODEX_STUB_RESUME_MODE: 'fail' })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.equal(result.json.tasks[0].attempts.length, 2, 'the failed resume is not an attempt of its own')
+  assert.equal(state.totalAttempts, 2)
+  assert.deepEqual(state.agentFailures, [], 'the failed resume never reaches the wave state')
+
+  assert.equal(executors.length, 3, JSON.stringify(executors))
+  const [first, resumed, fallback] = executors
+  assert.equal(resumed.resumed, true)
+  assert.equal(resumed.threadId, first.threadId)
+  assert.equal(resumed.exit, 1)
+  assert.deepEqual(resumed.usage, STUB_CALL_USAGE)
+  assert.equal(fallback.fallbackFrom, 'resume')
+  assert.equal(Object.hasOwn(fallback, 'resumed'), false)
+  assert.notEqual(fallback.threadId, first.threadId)
+  assert.equal(fallback.exit, 0)
+  assert.deepEqual(executors.map((c) => c.attempt), [1, 2, 3])
+  assert.equal(basename(fallback.promptFile), 'executor-3.prompt.md')
+
+  assert.equal(starts.executors.length, 3)
+  assert.equal(starts.executors[1].argv[1], 'resume')
+  const fallbackStart = starts.executors[2]
+  assert.equal(fallbackStart.argv.includes('resume'), false)
+  assert.ok(fallbackStart.prompt.startsWith('# Task: task-a'), fallbackStart.prompt)
+  assert.ok(fallbackStart.prompt.includes('PRIOR VERDICT:'))
+  assert.equal(fallbackStart.prompt, readFileSync(fallback.promptFile, 'utf8'))
+  // Nothing ran between the failed resume and its fallback.
+  assert.equal(starts.supervisors.length, 2)
+  const order = readLog(logPath).filter((entry) => entry.event === 'start' && entry.argv[0] === 'exec')
+  const resumeIndex = order.findIndex((entry) => entry.argv[1] === 'resume')
+  assert.equal(order[resumeIndex + 1].argv.includes('--output-schema'), false,
+    'the fresh fallback must be the very next child after the failed resume')
+})
+
+test('(s3) executor children never carry --ephemeral; supervisor children always do', () => {
+  const { result, starts } = runResumeWave([REJECTED, REJECTED, CLEAN], { CODEX_STUB_RESUME_MODE: 'fail' })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  // Fresh, resumed and fallback executors are all covered by this run.
+  assert.ok(starts.executors.some((entry) => entry.argv[1] === 'resume'))
+  assert.ok(starts.executors.some((entry) => entry.argv[1] !== 'resume'))
+  assert.ok(starts.executors.length >= 3 && starts.supervisors.length >= 3)
+  for (const entry of starts.executors) {
+    assert.equal(entry.argv.includes('--ephemeral'), false, 'executor argv: ' + JSON.stringify(entry.argv))
+  }
+  for (const entry of starts.supervisors) {
+    assert.equal(entry.argv.includes('--ephemeral'), true, 'supervisor argv: ' + JSON.stringify(entry.argv))
+    assert.ok(entry.prompt.startsWith('# Supervisor Prompt'))
+  }
+})
+
+test('(s4) a rework on the next ladder rung starts a fresh thread, never exec resume', () => {
+  const { result, executors, starts } = runResumeWave([REJECTED, REJECTED, CLEAN])
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.equal(result.json.tasks[0].attempts.length, 3)
+
+  assert.deepEqual(executors.map((c) => c.model), ['gpt-6-luna', 'gpt-6-luna', 'gpt-6-sol'])
+  assert.deepEqual(executors.map((c) => c.resumed === true), [false, true, false])
+  const rung = executors[2]
+  assert.equal(Object.hasOwn(rung, 'fallbackFrom'), false)
+  assert.notEqual(rung.threadId, executors[0].threadId)
+  assert.deepEqual(rung.usage, STUB_CALL_USAGE)
+
+  const rungStart = starts.executors[2]
+  assert.equal(rungStart.argv.includes('resume'), false, JSON.stringify(rungStart.argv))
+  assert.equal(rungStart.argv[rungStart.argv.indexOf('--model') + 1], 'gpt-6-sol')
+  assert.ok(rungStart.argv.includes('-C') && rungStart.argv.includes('--sandbox'))
+  assert.ok(rungStart.prompt.startsWith('# Task: task-a'))
+  assert.ok(rungStart.prompt.includes('PRIOR VERDICT:'))
+})
+
+test('(s5) a rework at a raised effort on the same model starts a fresh thread', () => {
+  // Terminal gpt-5.6-sol under a gpt-5.6-terra supervisor gets one
+  // higher-effort retry (codex-wave-state.mjs `raised-effort`): the model is
+  // unchanged, the effort is not, so the stored session must not be resumed.
+  const { result, executors, starts } = runResumeWave([REJECTED, REJECTED, REJECTED, CLEAN], {},
+    (text) => text.replaceAll('gpt-6-luna', 'gpt-5.6-luna').replaceAll('gpt-6-sol', 'gpt-5.6-sol')
+      .replace('"supervisor": { "model": "gpt-6-astra", "effort": "high" }',
+        '"supervisor": { "model": "gpt-5.6-terra", "effort": "high" }')
+      .replace(/,\s*"approvals": \{[\s\S]*?\} \}\n\}/, '\n}'))
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+
+  assert.deepEqual(executors.map((c) => c.model), ['gpt-5.6-luna', 'gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-sol'])
+  assert.notEqual(executors[3].effort, executors[2].effort)
+  assert.deepEqual(executors.map((c) => c.resumed === true), [false, true, false, false])
+  assert.equal(starts.executors[3].argv.includes('resume'), false, JSON.stringify(starts.executors[3].argv))
+  assert.ok(starts.executors[3].prompt.startsWith('# Task: task-a'))
+  assert.notEqual(executors[3].threadId, executors[2].threadId)
 })

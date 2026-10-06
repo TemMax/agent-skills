@@ -585,6 +585,25 @@ test('C8 first violation requests same-model rework with prior verdict', () => {
   assert.equal(state(env.statePath).tasks['divide-guard'].verdicts[0].escalation, null)
 })
 
+test('C8b a rework action carries a continuation; a first attempt does not', () => {
+  const env = init()
+  const first = next(env.statePath)
+  assert.equal(first.action, 'spawn-executor')
+  assert.equal(Object.hasOwn(first, 'continuation'), false)
+  prepareAttempt(env)
+  recordVerdict(env.statePath, failed())
+  const action = next(env.statePath)
+  assert.equal(action.action, 'spawn-executor')
+  assert.equal(typeof action.continuation, 'string')
+  assert.ok(action.continuation.startsWith('PRIOR VERDICT:'), action.continuation)
+  const stored = state(env.statePath).tasks['divide-guard'].verdicts[0].verdict
+  assert.ok(action.continuation.includes(JSON.stringify(stored, null, 2)), action.continuation)
+  assert.equal(action.continuation.includes('# Task:'), false)
+  assert.match(action.continuation, new RegExp('git log --oneline ' + env.base + '\\.\\.HEAD'))
+  assert.match(action.prompt, /PRIOR VERDICT/)
+  assert.ok(action.prompt.startsWith('# Task: divide-guard'))
+})
+
 test('C9a repeated class and rule advances Luna directly to Sol', () => {
   const env = init()
   prepareAttempt(env)
