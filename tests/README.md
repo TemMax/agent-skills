@@ -52,6 +52,24 @@ pre-merge matrix on either host. Installed Git upgrades are checked after merge.
 A list of scenarios or an offline test of a live driver must not be reported
 as a completed live run.
 
+For changes that must act before the first Codex message, prepare phase-context
+cases with `--codex-native-plugins`. This installs frozen candidates through the
+real plugin CLI into owned temporary `CODEX_HOME` directories. It preserves the
+user's installed plugins and configuration, and does not register workspace
+skill links. The native runs verify that startup communication context reached
+the model before its first assistant message, alongside normal loading and
+semantic checks.
+
+Codex requires trust for plugin hooks. The isolated automation uses its documented
+invocation-only hook-trust option after vetting and freezing the candidate
+sources; it retains the model's workspace sandbox and changes no persisted user
+trust. Normal installed runs require reviewed, trusted hooks in that profile.
+See [Codex hook trust](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
+
+The [2026-10-06 bootstrap report](eval/quiet-bootstrap-results-2026-10-06.md)
+records native loading, instruction-order checks and all paid attempts. Its
+Claude review communication gate remains failed; the candidate is a draft.
+
 Run the bounded probes manually, once per provider/arm, with fresh directories:
 
 ```bash

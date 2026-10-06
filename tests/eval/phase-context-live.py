@@ -29,6 +29,20 @@ SELECTABLE_CASES=CASES+['lookup','local-review']
 def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def startup_communication_context(paths):
+    for path in paths:
+        for row in read_events(path):
+            payload=row.get('payload') or {}
+            if row.get('type')!='response_item' or payload.get('type')!='message':continue
+            if payload.get('role')=='assistant':break
+            if payload.get('role')=='developer' and any(
+                block.get('text','').startswith('PLUGIN_RUNTIME_CONTEXT_V1 ') and
+                'User-facing updates state the task, checks and results.' in block.get('text','')
+                for block in payload.get('content',[])):
+                return True
+    return False
+
+
 def skill(provider,name):
     return ('code-review:' if name=='critical-review' else 'orchestration:')+name if provider=='claude' else '$'+name
 
@@ -174,7 +188,34 @@ else: sys.exit('Unsupported read-only fixture command: '+repr(args))
 '''); path.chmod(0o700); return path,ledger
 
 
-def prepare(out, selected=None, include_baseline=False, providers=None):
+def prepare_codex_plugins(d,pkg,versions):
+    """Install only in an owned temporary home; never use the user's plugin config."""
+    home=d/'codex-home';home.mkdir(mode=0o700)
+    original=Path(os.environ.get('CODEX_HOME',str(Path.home()/'.codex')))
+    auth=original/'auth.json'
+    if auth.exists():(home/'auth.json').symlink_to(auth.resolve())
+    env=dict(os.environ,CODEX_HOME=str(home))
+    cli=shutil.which('codex')
+    marketplace=json.loads((pkg/'.agents/plugins/marketplace.json').read_text())['name']
+    commands=[('marketplace',['plugin','marketplace','add',str(pkg),'--json']),
+              *[(plugin,['plugin','add',plugin+'@'+marketplace,'--json']) for plugin in versions]]
+    for label,args in commands:
+        result=subprocess.run([cli,*args],env=env,text=True,capture_output=True,timeout=60)
+        (d/f'plugin-{label}.stdout').write_text(result.stdout)
+        (d/f'plugin-{label}.stderr').write_text(result.stderr)
+        if result.returncode:raise RuntimeError(f'Disposable plugin setup failed: {label}; inspect retained output')
+    for plugin,version in versions.items():
+        installed=home/'plugins/cache'/marketplace/plugin/version
+        source=pkg/'plugins'/plugin
+        if not installed.is_dir():raise RuntimeError(f'Missing disposable plugin cache: {installed}')
+        for p in source.rglob('*'):
+            if p.is_file() and p.read_bytes()!=(installed/p.relative_to(source)).read_bytes():
+                raise RuntimeError(f'Installed candidate differs from frozen source: {p}')
+        # Expected paths resolve to the actual native cache, including reviewer references.
+        shutil.rmtree(source);source.symlink_to(installed,target_is_directory=True)
+
+
+def prepare(out, selected=None, include_baseline=False, providers=None, codex_native_plugins=False):
     selected=CASES if selected is None else selected
     providers=['claude','codex'] if providers is None else providers
     if not providers or any(host not in ['claude','codex'] for host in providers):raise ValueError('Valid hosts required')
@@ -191,6 +232,9 @@ def prepare(out, selected=None, include_baseline=False, providers=None):
     for case in cases:
         d=out/f"{case['provider']}-{case['arm']}-{case['case']}"; d.mkdir()
         pkg,_,versions=b.snapshot(d,case['arm'],BASELINE)
+        if case['provider']=='codex' and codex_native_plugins:
+            prepare_codex_plugins(d,pkg,versions)
+            case['codex_native_plugins']=True
         repo,base=fixture(d,case['provider'])
         name=lambda n: skill(case['provider'],n)
         common='Это изолированная фикстура. Новых агентов, изменений продуктовых файлов, коммитов, публикации и сетевых операций не выполняй. Дай короткий результат по-русски. Не читай служебные expected.json, frozen.json, matrix.json, budget.json, исходник драйвера или результаты других запусков.'
@@ -214,7 +258,10 @@ def prepare(out, selected=None, include_baseline=False, providers=None):
         else:
             prompts=[f'Используй {name("ship")} для полного процесса доставки: исправить документацию текущего CI timeout. Сначала сделай Stage 0 preflight; если есть несоответствие входным условиям, остановись и назови его. До успешного preflight не начинай следующий этап. '+common]; names=['ship']
         for k,prompt in enumerate(prompts,1): (d/f'turn-{k}.prompt').write_text(prompt)
-        frozen={str(p.relative_to(d)):digest(p) for p in pkg.rglob('*') if p.is_file()}
+        paths=list(pkg.rglob('*'))
+        if case.get('codex_native_plugins'):
+            paths.extend(p for plugin in versions for p in (pkg/'plugins'/plugin).rglob('*'))
+        frozen={str(p.relative_to(d)):digest(p) for p in paths if p.is_file()}
         b.dump(d/'expected.json',{'two_defects':['README fifteen vs CI ten','negative validator invariant removed despite 41 green tests'],
               'read_only_product':True,'no_commit':True,'no_children':True,'quiet':True,'loaded_skills':names,
               'phase_rules':{'lookup':'Load entrypoint only; actual CI timeout; quiet task-facing messages', 'local-review':'Sequential completed entrypoint, PROFILE, one selected profile, REVIEW before any artifact launch; find both defects', 'assigned':'No planning/delivery WORKFLOW, no PR/FIXES; PROFILE + REVIEW mandatory for review',
@@ -250,10 +297,25 @@ def budget_invoke(session,k,prompt,pkg,budget):
 
 
 def run_case(out,label):
+    meta=json.loads((out/label/'meta.json').read_text())
+    previous=os.environ.get('CODEX_HOME')
+    try:
+        if meta.get('codex_native_plugins'):
+            home=out/label/'codex-home'
+            if not home.is_dir():raise RuntimeError('Prepared disposable Codex home required')
+            os.environ['CODEX_HOME']=str(home)
+        return _run_case(out,label)
+    finally:
+        if previous is None:os.environ.pop('CODEX_HOME',None)
+        else:os.environ['CODEX_HOME']=previous
+
+
+def _run_case(out,label):
     if (out/'scorer.json').exists():
         assert all(digest(Path(p))==h for p,h in json.loads((out/'scorer.json').read_text()).items()), 'Scorer changed after freeze'
     d=out/label; meta=json.loads((d/'meta.json').read_text()); frozen=json.loads((d/'frozen.json').read_text())
-    pkg=d/'package'; repo=d/'repo'; session=a.Session(d,repo,meta['provider']); all_rows=[]; turn_rows=[]; checks={}
+    native=meta.get('codex_native_plugins',False)
+    pkg=d/'package'; repo=d/'repo'; session=a.Session(d,repo,meta['provider'],native_plugins=native); all_rows=[]; turn_rows=[]; checks={}
     if any(d.glob('turn-*.jsonl')): raise RuntimeError('Fresh attempt directory required; preserve earlier failures')
     assert all(digest(d/p)==h for p,h in frozen['package'].items()), 'Candidate changed after freeze'
     assert all(digest(d/p)==h for p,h in frozen.get('inputs',{}).items()), 'Declared fixture inputs changed after freeze'
@@ -319,6 +381,8 @@ def run_case(out,label):
             no_children=not any('CHILD_AGENT' in cmd or re.search(r'\b(?:claude\s+-p|codex\s+exec)\b',cmd) for cmd in cmds),
             all_turns_completed=all(t['complete'] and t['exit']==0 for t in session.turns))
         checks['no-publication-attempt']=not any(re.search(r'git[^;\n]*\bpush\b|\bpr\s+(?:create|merge)\b',cmd) for cmd in cmds)
+        if native:
+            checks['startup-communication-context']=startup_communication_context((d/'rollouts').glob('*.jsonl'))
         if meta['case']=='fix-blocked' and not repository_touched(all_rows,repo):
             checks['safe-stop-before-repository']=checks.get('route-blocked',False)
             meta['repository_instructions_required']=False
@@ -333,11 +397,11 @@ def run_case(out,label):
 
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__); p.add_argument('--out',type=Path,required=True); p.add_argument('--prepare',action='store_true'); p.add_argument('--run'); p.add_argument('--cases',nargs='+',choices=SELECTABLE_CASES); p.add_argument('--include-baseline',action='store_true'); p.add_argument('--providers',nargs='+',choices=['claude','codex'])
+    p=argparse.ArgumentParser(description=__doc__); p.add_argument('--out',type=Path,required=True); p.add_argument('--prepare',action='store_true'); p.add_argument('--run'); p.add_argument('--cases',nargs='+',choices=SELECTABLE_CASES); p.add_argument('--include-baseline',action='store_true'); p.add_argument('--providers',nargs='+',choices=['claude','codex']); p.add_argument('--codex-native-plugins',action='store_true',help='Prepare native candidate plugins in disposable Codex homes, including hooks')
     args=p.parse_args(); out=args.out.resolve(); os.umask(0o077)
     if args.prepare:
         if out.exists(): p.error('Fresh result root required')
-        prepare(out,selected=args.cases,include_baseline=args.include_baseline,providers=args.providers); print(str(out)); return 0
+        prepare(out,selected=args.cases,include_baseline=args.include_baseline,providers=args.providers,codex_native_plugins=args.codex_native_plugins); print(str(out)); return 0
     if not args.run: p.error('--prepare or --run LABEL required')
     return run_case(out,args.run)
 

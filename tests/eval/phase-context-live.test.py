@@ -10,10 +10,33 @@ import unittest
 from unittest.mock import patch
 from contextlib import redirect_stdout
 import io
+import os
 spec=importlib.util.spec_from_file_location('phase',Path(__file__).with_name('phase-context-live.py'))
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 
 class FixtureTests(unittest.TestCase):
+    def test_startup_context_requires_host_delivery_before_first_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'rollout.jsonl'
+            def event(role,text):
+                return {'type':'response_item','payload':{'type':'message','role':role,'content':[{'type':'input_text','text':text}]}}
+            hook=event('developer','PLUGIN_RUNTIME_CONTEXT_V1 plugin=orchestration host=codex model=gpt-6.1-sol effort=medium\nUser-facing updates state the task, checks and results.')
+            reply=event('assistant','Проверю CI.')
+            for rows,expected in [([hook,reply],True),([reply,hook],False),([event('user',hook['payload']['content'][0]['text']),reply],False),([],False)]:
+                path.write_text('\n'.join(json.dumps(r) for r in rows))
+                self.assertEqual(m.startup_communication_context([path]),expected)
+
+    def test_native_home_is_restored_after_failed_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp);d=out/'codex-new-lookup';d.mkdir();(d/'codex-home').mkdir()
+            (d/'meta.json').write_text(json.dumps({'codex_native_plugins':True}))
+            def failed(*args):
+                self.assertEqual(os.environ['CODEX_HOME'],str(d/'codex-home'))
+                raise RuntimeError('Fixture failure')
+            with patch.dict(os.environ,{'CODEX_HOME':'original-home'}),patch.object(m,'_run_case',side_effect=failed):
+                with self.assertRaises(RuntimeError):m.run_case(out,d.name)
+                self.assertEqual(os.environ['CODEX_HOME'],'original-home')
+
     def test_phase_driver_checks_every_turn_without_native_calls(self):
         with tempfile.TemporaryDirectory() as tmp:
             out=Path(tmp)/'run';m.prepare(out,selected=['assigned'],providers=['codex'])

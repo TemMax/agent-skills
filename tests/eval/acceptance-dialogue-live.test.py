@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 from contextlib import redirect_stdout
 import io
+import os
 
 SCRIPT = Path(__file__).with_name('acceptance-dialogue-live.py')
 spec = importlib.util.spec_from_file_location('acceptance', SCRIPT)
@@ -17,6 +18,31 @@ module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 
 
 class Evidence(unittest.TestCase):
+    def test_native_transport_requires_owned_home_and_preserves_plugin_loading(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp);repo=out/'repo';repo.mkdir();home=out/'codex-home';home.mkdir()
+            with self.assertRaises(ValueError): module.Session(out,repo,'codex',native_plugins=True)
+            def cli(cmd,*args,**kwargs):
+                self.assertIn('--enable',cmd);self.assertNotIn('--disable',cmd)
+                self.assertNotIn('--ignore-user-config',cmd)
+                (out/'turn-1.stdout').write_text(json.dumps({'type':'turn.completed'})+'\n')
+                return 0
+            with patch.dict(os.environ,{'CODEX_HOME':str(home)}), \
+                 patch.object(module,'register') as register, \
+                 patch.object(module.bench,'run_logged',side_effect=cli), redirect_stdout(io.StringIO()):
+                module.Session(out,repo,'codex',native_plugins=True).invoke(1,'Fixture request',out)
+                register.assert_not_called()
+
+    def test_skill_announcements_fail_but_task_updates_pass(self):
+        for text in ['Использую orchestration:multi-model: проверю README.',
+                     'Применяю навык critical-review для проверки.',
+                     'Using $super-plan to inspect CI.',
+                     'Сначала найду AGENTS.md и CLAUDE.md, затем проверю CI.']:
+            with self.subTest(text=text): self.assertFalse(module.quiet(text))
+        self.assertTrue(module.quiet('Проверю README и сверю таймаут с CI.'))
+        self.assertTrue(module.quiet('Удалённая проверка нарушает инвариант из AGENTS.md.'))
+        self.assertFalse(module.quiet('Сначала нужно найти AGENTS.md и CLAUDE.md.'))
+
     def test_reused_codex_ids_preserve_early_messages_and_failure(self):
         first = [
             {'type': 'item.completed', 'item': {'id': 'item_0', 'type': 'agent_message', 'text': 'Прочитаю инструкции скилла.'}},

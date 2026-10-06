@@ -66,15 +66,26 @@ if event not in {"SessionStart", "SubagentStart", "UserPromptSubmit"}:
     print("{}")
     raise SystemExit
 
+# Communication does not depend on host identity. Some startup payloads omit
+# model; keep routing metadata absent while still delivering the startup policy.
+policy = "User-facing updates state the task, checks and results. Do not announce skills, instruction/profile filenames or loading, runtime model/effort or selection metadata."
+def emit_context(context):
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": context}}, separators=(",", ":")))
+def missing_identity():
+    if event in {"SessionStart", "SubagentStart"}:
+        emit_context(policy)
+    else:
+        print("{}")
+
 model = data.get("model")
 if not isinstance(model, str):
-    print("{}")
+    missing_identity()
     raise SystemExit
 
 model = normalize_model(model)
 host = "codex" if model.startswith("gpt-") else "claude" if model.startswith("claude-") else "unknown"
 if host == "unknown":
-    print("{}")
+    missing_identity()
     raise SystemExit
 
 records = []
@@ -134,5 +145,5 @@ if event == "UserPromptSubmit":
         raise SystemExit
 
 context = f"PLUGIN_RUNTIME_CONTEXT_V1 plugin={plugin} host={host} model={model} effort={effort}"
-print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": context}}, separators=(",", ":")))
+emit_context(context + "\n" + policy)
 ' "$PLUGIN_NAME"

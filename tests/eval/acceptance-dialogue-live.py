@@ -79,7 +79,7 @@ def messages(rows):
 
 
 def quiet(text):
-    return not re.search(r'(?i)(?:загруж|прочита|пропуска|выбира|load|read|skip|select)[^.!?\n]{0,90}(?:внутренн|инструкци|профил|скилл|навык|profile|instructions)|(?:скилл|навык|skill) (?:says|говорит)|PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:SKILL|PROFILE|REVIEW|PR|FIXES|WORKFLOW)\.md\b|модель вне таблицы калибровки', text)
+    return not re.search(r'(?i)(?:загруж|прочита|пропуска|выбира|использу|примен|load|read|skip|select|using|use|най(?:ду|ти)|find|locate)[^.!?\n]{0,90}(?:внутренн|инструкци|профил|скилл|навык|profile|instructions|AGENTS\.md|CLAUDE\.md)|(?:скилл|навык|skill) (?:says|говорит)|PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:SKILL|PROFILE|REVIEW|PR|FIXES|WORKFLOW)\.md\b|\b(?:orchestration|code-review):(?:multi-model|super-plan|ship|critical-review)\b|\$(?:multi-model|super-plan|ship|critical-review)\b|модель вне таблицы калибровки', text)
 
 
 def communication_checks(turns):
@@ -127,11 +127,16 @@ def product_files(repo):
 
 
 class Session:
-    def __init__(self, out, repo, provider, budget_usd=3):
+    def __init__(self, out, repo, provider, budget_usd=3, native_plugins=False):
         self.out, self.repo, self.provider = out, repo, provider
         self.cli = shutil.which(provider)
         self.sid = None; self.spent = 0; self.turns = []; self.budget_usd = budget_usd
         self.turn_rows = []
+        self.native_plugins = native_plugins
+        if native_plugins:
+            home=out/'codex-home'
+            if not home.is_dir() or Path(os.environ.get('CODEX_HOME','')).resolve()!=home.resolve():
+                raise ValueError('Native candidate plugins require the owned disposable Codex home')
 
     def invoke(self, k, prompt, pkg, fresh=False):
         if fresh: self.sid = None
@@ -146,8 +151,11 @@ class Session:
             else:
                 self.sid = str(uuid.uuid4()); cmd = common+['--session-id', self.sid]
         else:
-            register(self.repo, pkg)
-            common = ['--ignore-user-config', '--disable', 'plugins', '--json', '--skip-git-repo-check', '--model', 'gpt-6.1-sol',
+            if not self.native_plugins: register(self.repo, pkg)
+            # Only the owned fixture home reaches this branch; candidate hook sources
+            # are frozen and checked before launch. No persisted user trust is changed.
+            transport = ['--enable', 'plugins', '--dangerously-bypass-hook-trust'] if self.native_plugins else ['--ignore-user-config', '--disable', 'plugins']
+            common = [*transport, '--json', '--skip-git-repo-check', '--model', 'gpt-6.1-sol',
                 '-c', 'model_reasoning_effort="medium"', '-c', 'memories.use_memories=false', '-c', 'memories.generate_memories=false']
             if self.sid: cmd = [self.cli, 'exec', 'resume', *common, '-c', 'sandbox_mode="workspace-write"', self.sid, '-']
             else: cmd = [self.cli, 'exec', *common, '-C', str(self.repo), '--sandbox', 'workspace-write', '--add-dir', str(self.out), '-']
