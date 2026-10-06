@@ -50,6 +50,11 @@ export function candidate(repo, base, id, expectedHead) {
   return { head, worktree }
 }
 
+// Executor attempts as the wave state counts them: a fresh child launched
+// after a failed resume (fallbackFrom 'resume') shares that resume's attempt.
+const executorAttempts = calls => calls.filter(c => ['executor', 'exec'].includes(c.role)
+  && c.fallbackFrom !== 'resume').length
+
 export function makeRecoveryReceipt(scope, children, reports = {}) {
   const tasks = {}
   for (const task of scope.wave.tasks) {
@@ -59,7 +64,7 @@ export function makeRecoveryReceipt(scope, children, reports = {}) {
     const executors = calls.filter(c => ['executor', 'exec'].includes(c.role))
     const previousReport = reports[task.id]
     tasks[task.id] = { ...artifact, report: typeof previousReport === 'string' ? previousReport : '',
-      modelCalls: calls.length, executorCalls: executors.length,
+      modelCalls: calls.length, executorCalls: executorAttempts(calls),
       executorModel: executors.at(-1)?.model ?? null }
   }
   return { schema: 1, scope, tasks }
@@ -76,7 +81,7 @@ export function readRecovery(summaryPath, scope) {
   for (const task of scope.wave.tasks) {
     const saved = receipt.tasks[task.id], calls = summary.children.filter(c => c.task === task.id)
     if (!saved || !/^[0-9a-f]{40}$/.test(saved.head) || typeof saved.report !== 'string'
-      || saved.modelCalls !== calls.length || saved.executorCalls !== calls.filter(c => ['executor', 'exec'].includes(c.role)).length
+      || saved.modelCalls !== calls.length || saved.executorCalls !== executorAttempts(calls)
       || saved.executorModel !== calls.filter(c => ['executor', 'exec'].includes(c.role)).at(-1)?.model
       || saved.executorCalls < 1 || saved.executorCalls > 6) throw new Error('recovery: invalid candidate/counters for ' + task.id)
     candidate(scope.repo, scope.base, task.id, saved.head)

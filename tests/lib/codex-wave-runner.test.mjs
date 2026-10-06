@@ -1416,7 +1416,7 @@ function runResumeWave(verdicts, env = {}, rewritePlan = (text) => text) {
   )
   assert.ok(result.json, result.stdout + result.stderr)
   return {
-    repo, logPath, result,
+    root, repo, base, planPath, logPath, result,
     executors: result.json.children.filter((c) => c.role === 'executor'),
     state: JSON.parse(readFileSync(result.json.states[0], 'utf8')).tasks['task-a'],
     starts: modelStarts(logPath),
@@ -1511,6 +1511,57 @@ test('(s2) a failing resume falls back at once to a fresh executor child within 
   const resumeIndex = order.findIndex((entry) => entry.argv[1] === 'resume')
   assert.equal(order[resumeIndex + 1].argv.includes('--output-schema'), false,
     'the fresh fallback must be the very next child after the failed resume')
+})
+
+test('(s2a) at the model-call cap a failing resume gets no fallback and the task stops budget-exhausted', () => {
+  const { result, executors, state, starts } = runResumeWave([REJECTED], { CODEX_STUB_RESUME_MODE: 'fail' },
+    (text) => text.replace('"wave": 1,', '"wave": 1, "limits": {"max_model_calls": 3},'))
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  const children = result.json.children.filter((c) => c.task === 'task-a')
+  assert.deepEqual(children.map((c) => c.role), ['executor', 'supervisor', 'executor'])
+  assert.equal(children.length, 3, 'executor, supervisor, resumed executor: ' + JSON.stringify(children))
+  assert.equal(executors[1].resumed, true)
+  assert.equal(executors[1].exit, 1)
+  assert.equal(result.json.children.some((c) => Object.hasOwn(c, 'fallbackFrom')), false)
+  assert.equal(starts.executors.length, 2)
+  assert.equal(starts.supervisors.length, 1)
+  assert.deepEqual(result.json.stopped.map((s) => [s.task, s.reason]), [['task-a', 'budget-exhausted']])
+  // The failed resume is recorded as the failed executor child it is.
+  assert.deepEqual(state.agentFailures.map((f) => [f.point, f.kind]), [['executor', 'transport']])
+})
+
+test('(s2b) a failed resume and its fallback are one executor attempt in the recovery receipt', () => {
+  const { root, repo, base, planPath, logPath, result, executors } = runResumeWave([REJECTED, CLEAN],
+    { CODEX_STUB_RESUME_MODE: 'fail' })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.deepEqual(result.json.children.map((c) => c.role),
+    ['executor', 'supervisor', 'executor', 'executor', 'supervisor'])
+  assert.equal(executors[2].fallbackFrom, 'resume')
+  const receipt = result.json.recovery.tasks['task-a']
+  assert.equal(receipt.executorCalls, 2, 'the fallback shares its attempt with the failed resume')
+  assert.equal(receipt.modelCalls, 5, 'every child still counts as a model call')
+  assert.equal(receipt.executorModel, executors[2].model)
+
+  const nextOut = join(root, 'second')
+  const second = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--preflight', 'off', '--out', nextOut, '--resume-from', join(root, 'out', 'summary.json')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  // The receipt check and the state's adoption both accept the counters: the
+  // receipt is claimed, the candidate is adopted at two attempts and goes
+  // straight to a supervisor with no new executor child.
+  assert.doesNotMatch(second.stderr + second.stdout,
+    /recovery: |candidate recovery: |invalid candidate|candidate binding/)
+  assert.ok(existsSync(join(root, 'out', 'summary.json.resumed')), second.stderr + second.stdout)
+  const stateDir = join(repo, '.worktrees', 'codex-wave')
+  const adoptedFiles = readdirSync(stateDir).filter((name) => name.includes('-recovery-'))
+  assert.equal(adoptedFiles.length, 1, JSON.stringify(readdirSync(stateDir)))
+  const adopted = JSON.parse(readFileSync(join(stateDir, adoptedFiles[0]), 'utf8')).tasks['task-a']
+  assert.equal(adopted.totalAttempts, 2)
+  const starts = modelStarts(logPath)
+  assert.equal(starts.executors.length, 3, 'no new executor child')
+  assert.equal(starts.supervisors.length, 3)
 })
 
 test('(s3) executor children never carry --ephemeral; supervisor children always do', () => {
