@@ -387,7 +387,7 @@ def _run_case(out,label):
             checks['safe-stop-before-repository']=checks.get('route-blocked',False)
             meta['repository_instructions_required']=False
         else:
-            checks['repository-instructions']=a.instructions_seen(all_rows,repo/'AGENTS.md',(d/'rollouts').glob('*.jsonl'))
+            checks['repository-instructions']=a.instructions_seen(all_rows,repo/'AGENTS.md', [*(d/'rollouts').glob('*.jsonl'), *(d/'native-history').glob('*.jsonl')])
         if meta['case']=='assigned': checks['no-extra-edit-offer']=not re.search(r'(?im)(?:исправить|поправить|обновить|хотите|нужно ли|сделать).*\?',all_text)
         result={'passed':all(checks.values()),'checks':checks,'sessions':session.turns}
     except Exception as e:

@@ -48,3 +48,21 @@ test('clear invalidates delivery state even when the model API is unavailable', 
   const recovered = await $.prompt.submit({text:'After clear'})
   expect(recovered.context).toEqual(['PLUGIN_RUNTIME_CONTEXT_V1 plugin=' + plugin + ' host=claude model=claude-fable-5-1 effort=unknown\n' + policy])
 })
+
+
+test('AGENTS memory preserves other instructions and deduplicates imported files', async ($, on) => {
+  on('fs.ancestors', () => ({value:[{dir:'/repo',name:'AGENTS.md',content:'Keep negatives',parts:[{path:'/repo/AGENTS.md',content:'Keep negatives'}]}]}))
+  on('prompt.context', ($, e) => ({blocks:e.blocks,instructionFiles:e.instructionFiles}))
+  const input={blocks:[{name:'other',text:'Keep'}],instructionFiles:[{path:'/repo/CLAUDE.md',kind:'project' as const,content:'Other rules'}]}
+  const result=await $.prompt.context(input)
+  expect(result.instructionFiles).toEqual([...input.instructionFiles,{path:'/repo/AGENTS.md',kind:'project',content:'Keep negatives'}])
+  expect((await $.prompt.context({...input,instructionFiles:result.instructionFiles})).instructionFiles).toEqual(result.instructionFiles)
+})
+
+test('unknown memory provenance and denied reads retain the ordinary fallback', async ($, on) => {
+  on('fs.ancestors', () => ({deny:'Test read denial'}))
+  on('prompt.context', ($, e) => ({blocks:e.blocks,instructionFiles:e.instructionFiles}))
+  const input={blocks:[{name:'other',text:'Keep'}]}
+  expect((await $.prompt.context(input)).blocks).toEqual(input.blocks)
+  expect((await $.prompt.context({...input,instructionFiles:[]})).instructionFiles).toEqual([])
+})

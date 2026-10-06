@@ -32,8 +32,12 @@ never batch them with each other or content reads.
 
 ### User-facing communication
 
-Start with the task and next useful action. Progress and completion messages
-cover changes, findings, checks, and remaining blockers. Select profiles silently;
+The opening update names the review target and comparison, for example:
+“I’ll compare the changes with surrounding code and tests.” / «Сопоставлю
+изменения с кодом и тестами». Complete the required instruction and profile
+reads directly with tools as one internal preparation step. The next visible
+update reports a code observation, a check or a concrete blocker. The final
+message reports findings and verification evidence. Select profiles silently;
 keep active-seat model, effort, selection basis, runtime metadata, model names
 attached to checks, and calibration counts out of routine messages. This rule
 also governs profile-specific communication instructions.

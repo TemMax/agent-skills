@@ -1,5 +1,9 @@
 # Claude lifecycle runtime adapter — 2026-10-06
 
+Later follow-up: the [final quiet local-review case](quiet-native-memory-results-2026-10-06.md)
+passed in both hosts. This report preserves its earlier candidate outcomes and
+cost scope; its recorded failed quiet verdict is not rewritten.
+
 Candidate: orchestration 4.11.1 / code-review 1.17.1, adapter based on
 `878757f`. Installed Git versions were not upgraded. Native checks used frozen
 disposable copies, including candidate changes. Claude Code 2.1.291 generated

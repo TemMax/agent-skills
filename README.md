@@ -209,7 +209,10 @@ refreshes runtime context at lifecycle starts or a changed-model prompt. Child
 identity is explicitly unknown rather than borrowed from the parent. Effort
 fallback and profile/calibration guards remain in force. Codex loads the separate
 classic-only hook configuration. See the [live adapter checks](tests/eval/claude-runtime-mod-results-2026-10-06.md)
-for the tested scenarios and remaining limits.
+for the tested scenarios and remaining limits. The mod uses the host memory loader
+for applicable AGENTS.md files, preserving existing instructions and read rules.
+The [quiet-review follow-up](tests/eval/quiet-native-memory-results-2026-10-06.md)
+records the final dual-host checks and all retained failed approaches.
 
 Both Codex manifests intentionally retain their `hooks` fields, including the
 orchestration advisory drift hook. Lifecycle behavior is host-dependent;

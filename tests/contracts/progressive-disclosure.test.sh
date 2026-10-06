@@ -48,8 +48,8 @@ for tree in ['skills','skills-codex']:
     for plugin,name in [('orchestration','super-plan'),('orchestration','ship'),('code-review','critical-review')]:
         p=Path('plugins')/plugin/tree/name/'SKILL.md'
         entry=p.read_text(); combined=skill_text(p)
-        # Bounded at 7 KB including the explicit no-repository early-stop guard.
-        assert len(entry.encode()) < 7000, f'{p}: entrypoint grew'
+        # Bounded at 7.5 KB including the tested positive communication contract.
+        assert len(entry.encode()) < 7500, f'{p}: entrypoint grew'
         # Fingerprints of pre-split paragraphs work in shallow clones/archives too.
         actual={hashlib.sha256(norm(block).encode()).hexdigest()
                 for block in re.split(r'\n\s*\n',combined) if norm(block)}

@@ -40,4 +40,23 @@ export function register(on) {
     // a fork inheriting its parent's identity and loading the wrong profile.
     return replaceOwnContext(result, 'unknown');
   });
+  on('prompt.context', async ($, e, next) => {
+    // Another mod rewrote the memory text: its source files are unknown.
+    if (e.instructionFiles === undefined) return next(e);
+    let ancestors;
+    try { ancestors = await $.fs.ancestors({ names: ['AGENTS.md'] }); }
+    catch { return next(e); } // Existing skill discovery remains the fallback.
+    const paths = new Set(e.instructionFiles.map(file => file.path));
+    const added = [];
+    for (const ancestor of ancestors) {
+      for (const part of ancestor.parts) {
+        if (paths.has(part.path)) continue;
+        paths.add(part.path);
+        // The loader flattens imports without exposing their direct importer.
+        added.push({ path: part.path, kind: 'project', content: part.content });
+      }
+    }
+    if (!added.length) return next(e);
+    return next({ ...e, instructionFiles: [...e.instructionFiles, ...added] });
+  });
 }

@@ -68,7 +68,13 @@ See [Codex hook trust](https://learn.chatgpt.com/docs/hooks#review-and-trust-hoo
 
 The [2026-10-06 bootstrap report](eval/quiet-bootstrap-results-2026-10-06.md)
 records native loading, instruction-order checks and all paid attempts. Its
-Claude review communication gate remains failed; the candidate is a draft.
+Claude review communication gate failed in that round. The
+[follow-up](eval/quiet-native-memory-results-2026-10-06.md) records the later
+passing local-review case in both hosts, stricter scoring and retained failures.
+Claude fixtures enable only owned project settings: empty setting sources disable
+native project memory. Native AGENTS.md delivery requires exact path/full-body
+attachment evidence before the first assistant, not model narration or callback
+logs. Capture host delivery before spending a full semantic-review call.
 
 Claude runtime mods have free host-runtime tests in each plugin, in addition to
 the Node behavior checks in the offline suite:

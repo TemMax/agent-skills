@@ -1,5 +1,9 @@
 # Quiet repository bootstrap — 2026-10-06
 
+Later follow-up: the [final quiet local-review case](quiet-native-memory-results-2026-10-06.md)
+passed in both hosts. This report preserves its earlier candidate outcomes and
+cost scope; its recorded failed quiet verdict is not rewritten.
+
 **Draft: the Claude review communication gate remains failed.** Both scoped
 changes have positive evidence: Codex startup context suppresses pre-load skill
 announcements; Claude reads AGENTS.md before repository artifacts. This does not

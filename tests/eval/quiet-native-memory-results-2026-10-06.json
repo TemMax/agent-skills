@@ -1,0 +1,132 @@
+{
+  "candidate_based_on": "2dac12a",
+  "versions": {
+    "orchestration": "4.11.1",
+    "code-review": "1.17.1"
+  },
+  "final_cases": {
+    "claude": {
+      "checks": {
+        "1-skill-body": true,
+        "1-profile-body": true,
+        "1-review-body": true,
+        "1-one-profile-before-code": true,
+        "1-phase-rules-before-code": true,
+        "1-completed-instructions-before-artifact-launch": true,
+        "1-unneeded-phases-skipped": true,
+        "timeout-defect": true,
+        "validator-defect": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "frozen_inputs_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "no-publication-attempt": true,
+        "repository-instructions": true
+      },
+      "session": "1059c5f6-f608-4880-b8f7-c982b7b4214f",
+      "evidence": "/private/tmp/quiet-native-memory-v4-20261006/claude-new-local-review",
+      "frozen_hash": "51b96e196c2e1aec80deeb52f5f10c955e4eb6e85b1d6cedf4d937e455edb3ee",
+      "outcomes_hash": "113a93b75589738e14dcf1310e35800cdcbf3787bb33576ebe0a6437b4d9479d"
+    },
+    "codex": {
+      "checks": {
+        "1-skill-body": true,
+        "1-profile-body": true,
+        "1-review-body": true,
+        "1-one-profile-before-code": true,
+        "1-phase-rules-before-code": true,
+        "1-completed-instructions-before-artifact-launch": true,
+        "1-unneeded-phases-skipped": true,
+        "timeout-defect": true,
+        "validator-defect": true,
+        "product_unchanged": true,
+        "head_unchanged": true,
+        "frozen_candidate_unchanged": true,
+        "frozen_inputs_unchanged": true,
+        "quiet": true,
+        "no_children": true,
+        "all_turns_completed": true,
+        "no-publication-attempt": true,
+        "startup-communication-context": true,
+        "repository-instructions": true
+      },
+      "session": "01a111c1-3d4d-7e42-a9b8-ccc35a6171cb",
+      "evidence": "/private/tmp/quiet-native-memory-v4-20261006/codex-new-local-review",
+      "frozen_hash": "8c1b16c11924a3caeb0a0fa0d1a9a3f5735e5898fa5db37c3ec2bc74009e728d",
+      "outcomes_hash": "bb8bf98d9574769a626ec3709bac79ad0e5caf4b9823fb23a828cb2fb434c1f4"
+    }
+  },
+  "attempts": [
+    {
+      "label": "claude-new-local-review/turn-1",
+      "tokens": 231819,
+      "claude_usd": 0.1399104,
+      "complete": true,
+      "evidence": "/private/tmp/quiet-native-memory-20261006/claude-new-local-review/turn-1.jsonl"
+    },
+    {
+      "label": "diagnostic-context-delivery",
+      "tokens": 7096,
+      "claude_usd": 0.014887000000000001,
+      "complete": true,
+      "evidence": "/private/tmp/quiet-native-memory-20261006/diagnostic/stream.jsonl"
+    },
+    {
+      "label": "claude-new-local-review/turn-1",
+      "tokens": 267452,
+      "claude_usd": 0.1555496,
+      "complete": true,
+      "evidence": "/private/tmp/quiet-native-memory-v2-20261006/claude-new-local-review/turn-1.jsonl"
+    },
+    {
+      "label": "claude-new-local-review/turn-1",
+      "tokens": 266097,
+      "claude_usd": 0.1492454,
+      "complete": true,
+      "evidence": "/private/tmp/quiet-native-memory-v3-20261006/claude-new-local-review/turn-1.jsonl"
+    },
+    {
+      "label": "claude-new-local-review/turn-1",
+      "tokens": 219949,
+      "claude_usd": 0.142436,
+      "complete": true,
+      "evidence": "/private/tmp/quiet-native-memory-v4-20261006/claude-new-local-review/turn-1.jsonl"
+    },
+    {
+      "label": "codex-new-local-review/turn-1",
+      "tokens": 195477,
+      "claude_usd": 0,
+      "complete": true,
+      "evidence": "/private/tmp/quiet-native-memory-v4-20261006/codex-new-local-review/turn-1.jsonl"
+    }
+  ],
+  "limits": {
+    "calls": 6,
+    "tokens": 1300000,
+    "claude_usd": 0.8,
+    "seconds_per_call": 150
+  },
+  "native_invocations": 6,
+  "tokens_including_cache": 1187890,
+  "reported_claude_usd": 0.6020284,
+  "scope": "One final local-review sample per host, not reliability, unchanged quality or token savings. Authoring/reviewer agent usage excluded; no Codex dollar cost inferred.",
+  "free_validation": {
+    "full_offline_suite": {
+      "passed": true,
+      "log_hash": "1529f2d1e61e37143da9f5e47572239027bfe883995bc401c9cdde8ccf0bb7e2",
+      "scope": "Completed during investigation; final deltas received focused reruns"
+    },
+    "node": 14,
+    "native_kit": 12,
+    "acceptance": 18,
+    "phase": 12,
+    "routing": 143,
+    "runtime_contracts": 64,
+    "structure": 125,
+    "disclosure": "passed",
+    "independent_bounded_review": "clean; no native runs independently repeated"
+  }
+}
