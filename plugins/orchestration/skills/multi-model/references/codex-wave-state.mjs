@@ -964,17 +964,16 @@ export function buildSupervisorPrompt(state, id, promptText) {
   const report = String(task.reports.at(-1)).split(executorModel)
     .join('[executor-model-redacted]')
   const facts = task.verifierFacts.at(-1)
-  let verifierFactsJson = JSON.stringify(facts, null, 2)
-  // The stored state always keeps the full diff; only this prompt copy is
-  // capped, so a huge diff cannot blow up the supervisor's context window.
-  if (verifierFactsJson.length > 60000) {
-    const omit = (text) => '[omitted: ' + text.length + ' characters; read it with git diff '
-      + state.base + '..' + task.branch + ']'
-    const promptFacts = clone(facts)
-    promptFacts.diff = omit(facts.diff)
-    promptFacts.git = { ...promptFacts.git, diff: { ...promptFacts.git.diff, stdout: omit(facts.git.diff.stdout) } }
-    verifierFactsJson = JSON.stringify(promptFacts, null, 2)
-  }
+  // The supervisor reads every hunk from Git. Keep the complete diff in state,
+  // but do not also inject its two copies into the model's initial context.
+  // Preserve all other facts, including the diff command's exit/error metadata.
+  const { diff, git: gitFacts, ...otherFacts } = facts
+  const { stdout, ...diffResult } = gitFacts.diff
+  const verifierFactsJson = JSON.stringify({ ...otherFacts,
+    git: { ...gitFacts, diff: diffResult },
+    diff: '[omitted: ' + diff.length + ' characters; read it with git diff '
+      + state.base + '..' + task.branch + ']',
+  }, null, 2)
   return promptText + [
     '',
     '',

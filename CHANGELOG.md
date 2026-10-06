@@ -4,6 +4,20 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.10.0
+
+### Highlights
+
+**multi-model**
+- Read the complete diff from Git without duplicate prompt copies
+- Reuse matching independent command evidence during supervision
+- Rerun the pipeline when evidence is absent or inconsistent
+
+Orchestration 4.10.0 applies to Claude Code and Codex. Code-review remains
+1.16.0. Stored verifier artifacts retain the full diff and all command facts;
+only the Codex supervisor's prompt projection omits duplicate diff bodies.
+Semantic supervision, candidate binding and final verification remain required.
+
 ## 4.9.0
 
 ### Highlights
