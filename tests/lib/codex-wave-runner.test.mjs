@@ -1513,6 +1513,23 @@ test('(s2) a failing resume falls back at once to a fresh executor child within 
     'the fresh fallback must be the very next child after the failed resume')
 })
 
+test('(s2a) at the model-call cap a failing resume gets no fallback and the task stops budget-exhausted', () => {
+  const { result, executors, state, starts } = runResumeWave([REJECTED], { CODEX_STUB_RESUME_MODE: 'fail' },
+    (text) => text.replace('"wave": 1,', '"wave": 1, "limits": {"max_model_calls": 3},'))
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  const children = result.json.children.filter((c) => c.task === 'task-a')
+  assert.deepEqual(children.map((c) => c.role), ['executor', 'supervisor', 'executor'])
+  assert.equal(children.length, 3, 'executor, supervisor, resumed executor: ' + JSON.stringify(children))
+  assert.equal(executors[1].resumed, true)
+  assert.equal(executors[1].exit, 1)
+  assert.equal(result.json.children.some((c) => Object.hasOwn(c, 'fallbackFrom')), false)
+  assert.equal(starts.executors.length, 2)
+  assert.equal(starts.supervisors.length, 1)
+  assert.deepEqual(result.json.stopped.map((s) => [s.task, s.reason]), [['task-a', 'budget-exhausted']])
+  // The failed resume is recorded as the failed executor child it is.
+  assert.deepEqual(state.agentFailures.map((f) => [f.point, f.kind]), [['executor', 'transport']])
+})
+
 test('(s3) executor children never carry --ephemeral; supervisor children always do', () => {
   const { result, starts } = runResumeWave([REJECTED, REJECTED, CLEAN], { CODEX_STUB_RESUME_MODE: 'fail' })
   assert.equal(result.status, 0, result.stdout + result.stderr)

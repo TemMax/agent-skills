@@ -1004,6 +1004,11 @@ async function main() {
     return { payload, envBlock }
   }
 
+  // The per-task model-call cap: every child of the task counts, whatever
+  // its role. It applies only with an explicit limit or on a recovery run.
+  const modelCallCapReached = (taskId) => (wave.limits?.max_model_calls !== undefined || recovery)
+    && children.filter(child => child.task === taskId).length >= (wave.limits?.max_model_calls ?? 24)
+
   async function handleExecutor(taskId, statePath, action) {
     const stored = executorSessions.get(taskId)
     // Resume only the same rung's own thread: same model and effort as the
@@ -1016,7 +1021,10 @@ async function main() {
     // A resume that failed for no machine reason is retried at once as a
     // fresh thread within the same state attempt: only the fresh child's
     // payload is recorded, so the state's attempt counters never see it.
-    if (session && !Object.hasOwn(outcome.payload, 'report') && !outcome.envBlock) {
+    // At the model-call cap there is no fallback: the failed resume's own
+    // payload is recorded and the dispatch loop stops the task.
+    if (session && !Object.hasOwn(outcome.payload, 'report') && !outcome.envBlock
+      && !modelCallCapReached(taskId)) {
       outcome = await launchExecutor(taskId, action, null, 'resume')
     }
     if (outcome.envBlock) {
@@ -1144,9 +1152,7 @@ async function main() {
         if (recovery && action.action === 'merge-ready') candidate(config.repoPath, config.base, taskId, recovery.tasks[taskId].head)
         if (action.action === 'merge-ready') return { task: taskId, status: 'merge-ready' }
         if (action.action === 'stop') return { task: taskId, status: 'stop', reason: action.reason }
-        if (['spawn-executor', 'spawn-supervisor'].includes(action.action)
-          && (wave.limits?.max_model_calls !== undefined || recovery)
-          && children.filter(child => child.task === taskId).length >= (wave.limits?.max_model_calls ?? 24)) {
+        if (['spawn-executor', 'spawn-supervisor'].includes(action.action) && modelCallCapReached(taskId)) {
           return { task: taskId, status: 'stop', reason: 'budget-exhausted' }
         }
         if (recovery && action.action === 'spawn-executor') return { task: taskId, status: 'stop', reason: 'candidate-rejected' }
