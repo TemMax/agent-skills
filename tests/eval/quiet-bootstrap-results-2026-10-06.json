@@ -142,7 +142,8 @@
         "package/plugins/code-review/skills-codex/critical-review/SKILL.md": false,
         "package/plugins/code-review/skills-codex/critical-review/REVIEW.md": true,
         "package/plugins/code-review/skills-codex/critical-review/PROFILE.md": true
-      }
+      },
+      "quiet_followup_scorer": false
     },
     {
       "label": "codex-new-lookup/turn-1",
@@ -268,7 +269,8 @@
         "package/plugins/code-review/skills-codex/critical-review/SKILL.md": true,
         "package/plugins/code-review/skills-codex/critical-review/REVIEW.md": true,
         "package/plugins/code-review/skills-codex/critical-review/PROFILE.md": true
-      }
+      },
+      "quiet_followup_scorer": false
     },
     {
       "label": "codex-new-lookup/turn-1",
@@ -394,7 +396,8 @@
         "package/plugins/code-review/skills-codex/critical-review/SKILL.md": true,
         "package/plugins/code-review/skills-codex/critical-review/REVIEW.md": true,
         "package/plugins/code-review/skills-codex/critical-review/PROFILE.md": true
-      }
+      },
+      "quiet_followup_scorer": false
     },
     {
       "label": "codex-new-lookup/turn-1",
@@ -521,7 +524,8 @@
         "package/plugins/code-review/skills-codex/critical-review/SKILL.md": true,
         "package/plugins/code-review/skills-codex/critical-review/REVIEW.md": true,
         "package/plugins/code-review/skills-codex/critical-review/PROFILE.md": true
-      }
+      },
+      "quiet_followup_scorer": true
     },
     {
       "label": "codex-new-local-review/turn-1",
@@ -654,7 +658,8 @@
         "package/plugins/code-review/skills-codex/critical-review/SKILL.md": true,
         "package/plugins/code-review/skills-codex/critical-review/REVIEW.md": true,
         "package/plugins/code-review/skills-codex/critical-review/PROFILE.md": true
-      }
+      },
+      "quiet_followup_scorer": true
     },
     {
       "label": "claude-new-lookup/turn-1",
@@ -780,7 +785,8 @@
         "package/plugins/code-review/skills-codex/critical-review/SKILL.md": true,
         "package/plugins/code-review/skills-codex/critical-review/REVIEW.md": true,
         "package/plugins/code-review/skills-codex/critical-review/PROFILE.md": true
-      }
+      },
+      "quiet_followup_scorer": true
     },
     {
       "label": "claude-new-local-review/turn-1",
@@ -912,7 +918,8 @@
         "package/plugins/code-review/skills-codex/critical-review/SKILL.md": true,
         "package/plugins/code-review/skills-codex/critical-review/REVIEW.md": true,
         "package/plugins/code-review/skills-codex/critical-review/PROFILE.md": true
-      }
+      },
+      "quiet_followup_scorer": false
     },
     {
       "label": "codex-new-lookup/turn-1",
@@ -1039,7 +1046,8 @@
         "package/plugins/code-review/skills-codex/critical-review/SKILL.md": true,
         "package/plugins/code-review/skills-codex/critical-review/REVIEW.md": true,
         "package/plugins/code-review/skills-codex/critical-review/PROFILE.md": true
-      }
+      },
+      "quiet_followup_scorer": true
     },
     {
       "label": "claude-new-local-review/turn-1",
@@ -1171,7 +1179,8 @@
         "package/plugins/code-review/skills-codex/critical-review/SKILL.md": true,
         "package/plugins/code-review/skills-codex/critical-review/REVIEW.md": true,
         "package/plugins/code-review/skills-codex/critical-review/PROFILE.md": true
-      }
+      },
+      "quiet_followup_scorer": false
     }
   ],
   "candidate_sha256": {
@@ -1191,7 +1200,8 @@
     "status": "passed",
     "log": "/private/tmp/quiet-bootstrap-offline-final.log",
     "exit": 0,
-    "log_sha256": "908cf9f2b468c868ade951af2102199c0d27f539a0a068e4ba364cfd6914903e"
+    "log_sha256": "908cf9f2b468c868ade951af2102199c0d27f539a0a068e4ba364cfd6914903e",
+    "snapshot": "Initial candidate before follow-up grader-only fixes; retained full-suite pass, not a new full-suite invocation."
   },
   "preparation_only": [
     "v2: prepare only",
@@ -1208,12 +1218,194 @@
     "claude_review": 9
   },
   "remaining": [
-    "Claude local-review still announces AGENTS.md discovery despite successful policy-only SessionStart hooks. Requires correction and a fresh bounded real-host check before release-ready."
+    "Claude narration still fails the quiet gate even after confirmed policy delivery; PR remains draft. No user plugin updates or merge."
   ],
   "installed_plugins": "Eight installed skill bodies unchanged; no candidate installed into user profiles.",
   "scorer_sha256": {
     "tests/eval/phase-context-live.py": "abe21fd1fbee7794bbc48c09fcdcc330ac5c5b9c9ed0f49e64a3f816275a95b3",
     "tests/eval/acceptance-dialogue-live.py": "cc07a99a895b89a365477adce72a5c9bf77b3e783af2915c5d1848a7e3dd41e5",
     "tests/eval/review_phase_evidence.py": "5ab3fb80efb74df68e81425fea5ee3723e06c0b6b3150f1e6e05ec71c30b1a40"
+  },
+  "follow_up": {
+    "status": "Claude quiet gate still failed; wording experiment reverted",
+    "limits": {
+      "calls": 2,
+      "tokens": 600000,
+      "claude_usd": 1,
+      "seconds_per_call": 150
+    },
+    "calls": 2,
+    "inclusive_tokens": 465097,
+    "claude_usd": 0.1467432,
+    "overshoot": 0,
+    "attempts": [
+      {
+        "label": "claude-new-local-review/turn-1",
+        "tokens": 240746,
+        "claude_usd": 0.1467432,
+        "complete": true,
+        "evidence": "/private/tmp/quiet-bootstrap-4.11.1-v9/claude-new-local-review/turn-1.jsonl",
+        "attempt": 10,
+        "original_checks": {
+          "1-skill-body": true,
+          "1-profile-body": true,
+          "1-review-body": true,
+          "1-one-profile-before-code": true,
+          "1-phase-rules-before-code": true,
+          "1-completed-instructions-before-artifact-launch": false,
+          "1-unneeded-phases-skipped": true,
+          "timeout-defect": true,
+          "validator-defect": true,
+          "product_unchanged": true,
+          "head_unchanged": true,
+          "frozen_candidate_unchanged": true,
+          "frozen_inputs_unchanged": true,
+          "quiet": false,
+          "no_children": true,
+          "all_turns_completed": true,
+          "no-publication-attempt": true,
+          "repository-instructions": true
+        },
+        "checks_with_corrected_scorer": {
+          "1-skill-body": true,
+          "1-profile-body": true,
+          "1-review-body": true,
+          "1-one-profile-before-code": true,
+          "1-phase-rules-before-code": true,
+          "1-completed-instructions-before-artifact-launch": true,
+          "1-unneeded-phases-skipped": true,
+          "timeout-defect": true,
+          "validator-defect": true,
+          "product_unchanged": true,
+          "head_unchanged": true,
+          "frozen_candidate_unchanged": true,
+          "frozen_inputs_unchanged": true,
+          "quiet": false,
+          "no_children": true,
+          "all_turns_completed": true,
+          "no-publication-attempt": true,
+          "repository-instructions": true
+        },
+        "passed_with_corrected_scorer": false,
+        "first_message": "Сначала читаю инструкции репозитория.",
+        "evidence_sha256": {
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/claude-new-local-review/turn-1.jsonl": "6b962a8a7b449e5522073cf791b109fb92bf7e61a270fc4ac9286b124347bb35",
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/claude-new-local-review/outcomes.json": "0dd55b6be121e9abe0051ae095eb830414e899f85b04ac32c076b7c418899454",
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/claude-new-local-review/frozen.json": "8eadb7f57a94b42ae1e6ad5b6070b4031376ed31d58ba49e22242a1130190755",
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/claude-new-local-review/turn-1.prompt": "e65f6d87acc7bbffc0dd99ae5b63224a74a21a825b7e3e8d103ab32a4ec839c2",
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/claude-new-local-review/communication.json": "8b19e5ca961ef92d8aca638e315552e1fc41e141ff893d505b11b2f9b535faa8",
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/claude-new-local-review/current-scorer-recheck.json": "dd5f51ee797257186bd1b894c44ecdea0ab46b5c889d4296c4502692545169a7",
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/claude-new-local-review/startup-delivery.json": "0de5e5e5055745073052b1308e0558ed30bbe4137baf12c840b992ce8d2023f9",
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/scorer.json": "3726565aab2bc748093a3fc783100dff582a2945dcc2b247559328dda36e0277",
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/budget.json": "1c7772bc28989c826b582ae706b9bccfcd607b5656ffb5e08d537c787d3e6a3b",
+          "/private/tmp/quiet-bootstrap-4.11.1-v9/claude-new-local-review/final-scorer-recheck.json": "33097804a493aa7327874c1bbcbf910f3a24b1139cb51f1c93f496d2710b345f"
+        },
+        "experiment_entrypoint_sha256": {
+          "package/plugins/code-review/skills/critical-review/SKILL.md": "013c3cb4c674ee8a072b98d67f2129fe996eef9075dc4b22ebffed7b76ecec97",
+          "package/plugins/code-review/skills-codex/critical-review/SKILL.md": "b28300263e86fab038b4f3a1f446072661e4d8306152f5e312fa35f896c62fb2"
+        }
+      },
+      {
+        "label": "codex-new-local-review/turn-1",
+        "tokens": 224351,
+        "claude_usd": 0,
+        "complete": true,
+        "evidence": "/private/tmp/quiet-bootstrap-4.11.1-v11/codex-new-local-review/turn-1.jsonl",
+        "attempt": 11,
+        "original_checks": {
+          "1-skill-body": true,
+          "1-profile-body": true,
+          "1-review-body": true,
+          "1-one-profile-before-code": true,
+          "1-phase-rules-before-code": true,
+          "1-completed-instructions-before-artifact-launch": true,
+          "1-unneeded-phases-skipped": true,
+          "timeout-defect": true,
+          "validator-defect": true,
+          "product_unchanged": true,
+          "head_unchanged": true,
+          "frozen_candidate_unchanged": true,
+          "frozen_inputs_unchanged": true,
+          "quiet": true,
+          "no_children": true,
+          "all_turns_completed": true,
+          "no-publication-attempt": true,
+          "startup-communication-context": true,
+          "repository-instructions": true
+        },
+        "checks_with_corrected_scorer": {
+          "1-skill-body": true,
+          "1-profile-body": true,
+          "1-review-body": true,
+          "1-one-profile-before-code": true,
+          "1-phase-rules-before-code": true,
+          "1-completed-instructions-before-artifact-launch": true,
+          "1-unneeded-phases-skipped": true,
+          "timeout-defect": true,
+          "validator-defect": true,
+          "product_unchanged": true,
+          "head_unchanged": true,
+          "frozen_candidate_unchanged": true,
+          "frozen_inputs_unchanged": true,
+          "quiet": true,
+          "no_children": true,
+          "all_turns_completed": true,
+          "no-publication-attempt": true,
+          "startup-communication-context": true,
+          "repository-instructions": true
+        },
+        "passed_with_corrected_scorer": true,
+        "first_message": "Проверю текущий diff, сопоставлю README с CI и проверю поведение `validate`. Ревью будет локальным и read-only, без сети и новых агентов.",
+        "evidence_sha256": {
+          "/private/tmp/quiet-bootstrap-4.11.1-v11/codex-new-local-review/turn-1.jsonl": "7ece2266a67e22f8e1f2da63b49adcd94f353e701ad90177fedc737f7ee367ce",
+          "/private/tmp/quiet-bootstrap-4.11.1-v11/codex-new-local-review/outcomes.json": "b79b9f544fd12202c6d45235abb61a006a01acd4f09bb4b208a33abc9505e1e5",
+          "/private/tmp/quiet-bootstrap-4.11.1-v11/codex-new-local-review/frozen.json": "4272f9b2c157dee712f0f0d270733086db06bee617f096a64a94394f8f354d02",
+          "/private/tmp/quiet-bootstrap-4.11.1-v11/codex-new-local-review/turn-1.prompt": "8bccec24565d0e457b1465800a800e6ab3ad1495446e854d6e689b837c695a43",
+          "/private/tmp/quiet-bootstrap-4.11.1-v11/codex-new-local-review/communication.json": "05da26f055467109ff2c3b22485ee9f109e3292d5b76918be447a4845e0280bd",
+          "/private/tmp/quiet-bootstrap-4.11.1-v11/scorer.json": "ca479e21566ebe10499738ca4a094514f5d3df9f40fbee885e4567b6ffc094a4",
+          "/private/tmp/quiet-bootstrap-4.11.1-v11/budget.json": "8fba75cec4d64aaac5ecf78616a361bd7dcd00c39b97c79916fd8ee593f6ef88",
+          "/private/tmp/quiet-bootstrap-4.11.1-v11/codex-new-local-review/final-scorer-recheck.json": "64fefcd009cff87d74be39167ad26ae5a8bc0b006989babef66312c0c0ff588a"
+        },
+        "experiment_entrypoint_sha256": {
+          "package/plugins/code-review/skills/critical-review/SKILL.md": "013c3cb4c674ee8a072b98d67f2129fe996eef9075dc4b22ebffed7b76ecec97",
+          "package/plugins/code-review/skills-codex/critical-review/SKILL.md": "b28300263e86fab038b4f3a1f446072661e4d8306152f5e312fa35f896c62fb2"
+        }
+      }
+    ],
+    "preparation_only": [
+      "v10: prepared before final communication-regex correction; no model call"
+    ],
+    "current_scorer_sha256": {
+      "tests/eval/acceptance-dialogue-live.py": "92d88317ac6b44f35df06a6bd1495f66a717d312e3778a13d51513a6f395261e",
+      "tests/eval/review_phase_evidence.py": "d1de36b6a0901bd79a97fb0aa1f51eb7a36318474fa77fd442134b2382533523"
+    },
+    "offline": {
+      "review_order_tests": 13,
+      "communication_tests": 15,
+      "disclosure": "pass",
+      "routing_contracts": 143,
+      "runtime_contracts": 64,
+      "phase_tests_after_discovery_fix": 12,
+      "full_suite_rerun": false,
+      "logs": {
+        "/private/tmp/quiet-bootstrap-followup-communication-final.log": "fd8136fdac8fbfaf7c1e037a6abc30f6014b968c7d04fb4c5803ee2b5ede242b",
+        "/private/tmp/quiet-bootstrap-followup-order-final.log": "e5a3b9f90e71557584ec0b5252f18fea4ca1843dd5d793d463f2dc6be0421447",
+        "/private/tmp/quiet-bootstrap-followup-phase.log": "3831d6080c1e5dc09c6d443fbdf101d41bc490938fa3951cd93f4c3446dfb870"
+      }
+    },
+    "findings": [
+      "The native Claude transcript proves SessionStart communication context was delivered before its first response. The model still narrated repository instruction reading.",
+      "A filename-brace instruction-only Glob was incorrectly classified as an artifact read; corrected replay passes review order with no violations.",
+      "Bare English read matched README and rejected legitimate citations; Russian читаю instruction narration was missed. Both are covered by failing-then-passing tests."
+    ],
+    "docs": "https://code.claude.com/docs/en/hooks#add-context-for-claude",
+    "experiment_reverted": true,
+    "next_experiment": "Evaluate automatic, bounded repository-instruction delivery to remove a separate model-driven discovery/read step. This is a hypothesis, not implemented or verified; no further wording retries in this round.",
+    "scorer_provenance": "Final retained-trace replay also covers English past-tense narration after live runs. Native run freezes and original outcomes remain unchanged."
+  },
+  "cumulative_native_validation": {
+    "calls": 11,
+    "inclusive_tokens": 1641429,
+    "claude_usd": 0.5853578
   }
 }

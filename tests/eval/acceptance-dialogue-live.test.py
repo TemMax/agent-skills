@@ -43,6 +43,16 @@ class Evidence(unittest.TestCase):
         self.assertTrue(module.quiet('Удалённая проверка нарушает инвариант из AGENTS.md.'))
         self.assertFalse(module.quiet('Сначала нужно найти AGENTS.md и CLAUDE.md.'))
 
+    def test_readme_citation_is_not_instruction_loading_narration(self):
+        for text,expected in [
+            ('Сначала читаю инструкции репозитория.',False),
+            ('Reading AGENTS.md before reviewing the diff.',False),
+            ('Loaded instructions before reviewing the diff.',False),
+            ('Used instructions before reviewing.',False),
+            ('README и AGENTS.md требуют сохранить проверку отрицательных значений.',True),
+        ]:
+            with self.subTest(text=text):self.assertEqual(module.quiet(text),expected)
+
     def test_reused_codex_ids_preserve_early_messages_and_failure(self):
         first = [
             {'type': 'item.completed', 'item': {'id': 'item_0', 'type': 'agent_message', 'text': 'Прочитаю инструкции скилла.'}},

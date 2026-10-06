@@ -79,7 +79,7 @@ def messages(rows):
 
 
 def quiet(text):
-    return not re.search(r'(?i)(?:загруж|прочита|пропуска|выбира|использу|примен|load|read|skip|select|using|use|най(?:ду|ти)|find|locate)[^.!?\n]{0,90}(?:внутренн|инструкци|профил|скилл|навык|profile|instructions|AGENTS\.md|CLAUDE\.md)|(?:скилл|навык|skill) (?:says|говорит)|PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:SKILL|PROFILE|REVIEW|PR|FIXES|WORKFLOW)\.md\b|\b(?:orchestration|code-review):(?:multi-model|super-plan|ship|critical-review)\b|\$(?:multi-model|super-plan|ship|critical-review)\b|модель вне таблицы калибровки', text)
+    return not re.search(r'(?i)(?:загруж|прочита|чита|пропуска|выбира|использу|примен|най(?:ду|ти)|\b(?:load(?:ed|s|ing)?|read(?:s|ing)?|skip(?:s|ped|ping)?|select(?:ed|s|ing)?|us(?:e[ds]?|ing)|find(?:s|ing)?|found|locat(?:e[ds]?|ing))\b)[^.!?\n]{0,90}(?:внутренн|инструкци|профил|скилл|навык|profile|instructions|AGENTS\.md|CLAUDE\.md)|(?:скилл|навык|skill) (?:says|говорит)|PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:SKILL|PROFILE|REVIEW|PR|FIXES|WORKFLOW)\.md\b|\b(?:orchestration|code-review):(?:multi-model|super-plan|ship|critical-review)\b|\$(?:multi-model|super-plan|ship|critical-review)\b|модель вне таблицы калибровки', text)
 
 
 def communication_checks(turns):

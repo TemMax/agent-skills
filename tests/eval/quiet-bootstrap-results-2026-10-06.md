@@ -10,7 +10,7 @@ Candidate versions: orchestration 4.11.1 and code-review 1.17.1. The
 and evidence hashes, every paid attempt, original checks and current-scorer
 communication results. Original traces/results remain unchanged under `/private/tmp`.
 
-## Live checks
+## Initial-round live checks
 
 | Host / case | Evidence | Repository instructions | Semantic checks | Quiet |
 | --- | --- | --- | --- | --- |
@@ -43,7 +43,7 @@ still read instructions and diff, and independently found both semantic defects.
 
 ## All paid attempts
 
-| Attempt | Run | Case | Inclusive tokens | Claude USD | Quiet with current scorer |
+| Attempt | Run | Case | Inclusive tokens | Claude USD | Quiet with initial-round scorer |
 | --- | --- | --- | ---: | ---: | --- |
 | 1 | v1 | claude-new-lookup | 85,674 | 0.065253 | Fail |
 | 2 | v3 | codex-new-lookup | 67,317 | — | Fail |
@@ -69,7 +69,8 @@ initialization before any model prompt. None is reported as a product pass.
 
 ## Offline checks and release status
 
-The complete `bash tests/run.sh` suite passed with exit 0. This includes
+Before the follow-up grader fixes, the complete `bash tests/run.sh` suite passed
+with exit 0. This includes
 64 runtime-context contracts, 12 phase-context tests and 14 communication tests.
 The machine-readable report records the retained full log hash.
 `git diff --check` passed. All 26 preexisting untracked user documents and eight
@@ -81,3 +82,54 @@ check it through a fresh native Claude session under a new bounded test plan.
 These probes do not establish token savings, reliable suppression across
 repeated samples, full authoring/recovery behavior, or normal installed loading
 after merge. The latter is required when an authorized merge occurs.
+
+## Follow-up verification
+
+A separately bounded round tested one bootstrap-wording change in both native
+hosts: **two calls / 600,000 inclusive-token guard / $1 Claude / 150 seconds per
+call**. Existing attempt accounting was copied into the second prepared run,
+not reset. The earlier nine paid attempts remain in this report.
+
+| Host | Trace | Review order with corrected scorer | Both defects | Quiet |
+| --- | --- | --- | --- | --- |
+| Claude | v9, attempt 10 | Pass | Pass | **Fail** |
+| Codex | v11, attempt 11 | Pass | Pass | Pass |
+
+Claude's first message was «Сначала читаю инструкции репозитория.» Its native
+session history contains a rendered `hook_additional_context` system reminder
+with the startup policy, before the first assistant response. This proves
+context delivery; it does not prove obedience. See the
+[documented hook context mechanism](https://code.claude.com/docs/en/hooks#add-context-for-claude).
+
+The wording experiment was **reverted** after its Claude failure. The plugin
+candidate matches the original PR snapshot; only evidence/grader corrections
+are retained from this follow-up. Codex v11 tests that discarded wording
+experiment, not a newly shipped instruction body. Original Codex candidate
+checks remain the v6/v8 cases above. Installed plugins remain unchanged.
+
+Two scorer defects were corrected using failing-then-passing regression tests:
+`{AGENTS.md,CLAUDE.md}` discovery no longer counts as artifact reading (mixed
+patterns including README still fail), and English `read` no longer matches
+README while Russian «читаю инструкции» is now rejected. English past-tense
+loading announcements also retain their rejection. Claude's original
+outcomes are preserved. A separate corrected replay removes the false order
+failure while retaining its genuine quiet failure. A final replay of both follow-up traces uses the final scorer, including the
+past-tense refinement made after live runs; native freezes and original outputs
+remain unchanged. Original-round quiet verdicts remain unchanged too.
+
+Final affected tests passed: communication (15) and review-order evidence (13).
+The phase driver suite (12) also passed after the discovery-parser correction;
+the final regex refinement has its own communication tests. Disclosure, routing
+(143) and runtime-context (64) contracts passed. The complete unrelated offline
+suite was not repeated. v10 was preparation-only before the final regex fix;
+it incurred no model call.
+
+Follow-up usage: **465,097 inclusive tokens, $0.146743 Claude**,
+with no limit overshoot. Cumulative native validation: **11 calls /
+1,641,429 inclusive tokens / $0.585358 Claude**.
+The accounting exclusions described above still apply.
+
+The PR remains a draft. A next architectural experiment can test automatic,
+bounded repository-instruction delivery so discovery is not a separate model
+action. That approach is not implemented or verified here. Further wording
+retries are not justified by this round; no additional live calls were made.

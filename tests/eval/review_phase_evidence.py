@@ -39,7 +39,7 @@ def review_phase_evidence(rows,repo,entry,profiles):
             return p.is_relative_to(repo) and p.name not in ['AGENTS.md','CLAUDE.md']
         if tool in ['Grep','Glob']:
             pattern=args.get('glob') or args.get('pattern','')
-            return not bool(re.fullmatch(r'(?:\*\*/)?(?:AGENTS|CLAUDE|\{AGENTS,CLAUDE\}|\{CLAUDE,AGENTS\})\.md',pattern))
+            return not bool(re.fullmatch(r'(?:\*\*/)?(?:(?:AGENTS|CLAUDE|\{AGENTS,CLAUDE\}|\{CLAUDE,AGENTS\})\.md|\{AGENTS\.md,CLAUDE\.md\}|\{CLAUDE\.md,AGENTS\.md\})',pattern))
         command=args.get('command','');tokens=_tokens(command)
         if re.search(r'\bgit\b[^;\n]*\b(?:diff|show)\b|\bpr\s+diff\b',command):return True
         # Repository content includes docs and workflows, not only src/tests.
