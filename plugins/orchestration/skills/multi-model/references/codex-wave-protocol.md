@@ -90,8 +90,16 @@ run's wall time and 63% of its cost, spent on the orchestrator's own
 round trips rather than on the Codex children it was coordinating. The
 runner performs the same helper-governed loop with no model in that loop.
 
+A rework on the same rung — same model and effort as the task's previous executor
+child, in the same runner process — runs `codex exec resume <thread>` in the task
+worktree and sends only the prior verdict and the report reminder. A failed resume
+falls back at once to a fresh launch with the full prompt, without spending an
+extra attempt. The first attempt, an escalation, raised effort and a new runner
+invocation (`--resume-from`, `--reset`) always start fresh.
+
 The runner shells out to `codex exec` for every executor and supervisor
-child, and each child sets up its own sandbox — so the runner process itself
+child (only supervisors run `--ephemeral`; executor threads persist), and each
+child sets up its own sandbox — so the runner process itself
 must run with no sandbox wrapped around it. On macOS, seatbelt sandboxes
 cannot nest: launched from inside a Codex `workspace-write` sandbox, the
 runner's `codex exec` children fail to start with `failed to initialize

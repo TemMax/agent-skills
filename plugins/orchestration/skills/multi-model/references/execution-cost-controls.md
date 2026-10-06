@@ -11,8 +11,12 @@ Run `node references/claude-wave-runner.mjs --plan <file> --wave <n> --repo <abs
 The launcher still lints and checks the pushed base and dependencies. The runner
 uses the shipped Workflow escalation policy.
 
-Each child starts a new CLI session with a small built-in tool list and its task
-prompt, without the coordinator's conversation. Authentication and repository
+Each supervisor, and each executor's first attempt, starts a new CLI session with a
+small built-in tool list and its task prompt, without the coordinator's
+conversation. A rework on the same rung (same model and effort, same runner
+process) instead resumes that executor's persisted session and sends only the
+prior verdict and the report reminder; a failed resume falls back to a fresh
+session with the full prompt. Authentication and repository
 instructions use normal CLI configuration; `--bare` is not used. Supervisors get
 detached checkouts and read tools plus Bash; modifying their checkout, changing its
 HEAD or moving the task branch invalidates the result. Verdicts remain bound to the

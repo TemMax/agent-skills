@@ -21,6 +21,7 @@ It uses the same launcher and Workflow policy, supplies independent facts withou
 a verifier model, and saves full evidence under the returned `summary.json` path.
 Read verdicts there before integration. A budget stop requires a strategy decision.
 A failed native run cannot use Workflow's `resumeFromRunId`.
+A rework on the same rung resumes the executor's session with only the verdict; the Workflow fallback keeps every executor call fresh.
 
 The steps below are the **Workflow fallback** when the local CLI is unavailable.
 Never switch to it automatically after a native budget stop. Mechanical-only tasks
