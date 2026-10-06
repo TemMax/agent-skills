@@ -203,6 +203,14 @@ plans moves to `gpt-6-sol`/`gpt-6-luna` executors with the fixed
 plans, but an already-approved plan carrying GPT-5.6 fields still runs to
 completion.
 
+Claude Code 2.1.287+ loads a UI-free lifecycle mod with each plugin. It obtains
+the main session model directly from the host, including headless sessions, and
+refreshes runtime context at lifecycle starts or a changed-model prompt. Child
+identity is explicitly unknown rather than borrowed from the parent. Effort
+fallback and profile/calibration guards remain in force. Codex loads the separate
+classic-only hook configuration. See the [live adapter checks](tests/eval/claude-runtime-mod-results-2026-10-06.md)
+for the tested scenarios and remaining limits.
+
 Both Codex manifests intentionally retain their `hooks` fields, including the
 orchestration advisory drift hook. Lifecycle behavior is host-dependent;
 **ChatGPT surfaces do not run Codex lifecycle hooks**. Treat hooks as advisory

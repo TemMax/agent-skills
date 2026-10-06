@@ -15,5 +15,5 @@
     "quality"
   ],
   "skills": "./skills-codex/",
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/hooks-codex.json"
 }

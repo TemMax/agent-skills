@@ -29,20 +29,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/drift-check\"",
-            "timeout": 360
-          }
-        ]
-      }
     ]
-  },
-  "modules": [
-    "./runtime-context.mjs"
-  ]
+  }
 }

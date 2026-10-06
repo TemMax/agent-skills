@@ -30,5 +30,8 @@
         ]
       }
     ]
-  }
+  },
+  "modules": [
+    "./runtime-context.mjs"
+  ]
 }

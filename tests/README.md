@@ -70,6 +70,22 @@ The [2026-10-06 bootstrap report](eval/quiet-bootstrap-results-2026-10-06.md)
 records native loading, instruction-order checks and all paid attempts. Its
 Claude review communication gate remains failed; the candidate is a draft.
 
+Claude runtime mods have free host-runtime tests in each plugin, in addition to
+the Node behavior checks in the offline suite:
+
+```sh
+claude plugin validate plugins/code-review
+claude plugin validate plugins/orchestration
+claude plugin test plugins/code-review
+claude plugin test plugins/orchestration
+```
+
+These require Claude Code 2.1.287+ and use stubbed host responses, without a model
+call. They do not establish live delivery. The
+[runtime-mod results](eval/claude-runtime-mod-results-2026-10-06.md) distinguish
+actual headless/interactive delivery, resume with a changed model, conservative
+child identity, and the dual-host semantic review from these free checks.
+
 Run the bounded probes manually, once per provider/arm, with fresh directories:
 
 ```bash

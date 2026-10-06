@@ -9,7 +9,7 @@ section "Manifests parse"
 for f in .claude-plugin/marketplace.json plugins/*/.claude-plugin/plugin.json; do
   check "valid JSON: $f" "python3 -c 'import json;json.load(open(\"$f\"))'"
 done
-for f in plugins/*/hooks/hooks.json; do
+for f in plugins/*/hooks/hooks*.json; do
   [ -e "$f" ] || continue
   check "valid JSON: $f" "python3 -c 'import json;json.load(open(\"$f\"))'"
 done
@@ -267,7 +267,12 @@ done <<< "$highlights_out"
 
 section "Executables are executable"
 for f in plugins/*/hooks/*; do
-  case "$f" in *.json) continue;; esac
+  case "$f" in
+    *.json|*.test.ts) continue;;
+    *.mjs)
+      check "JavaScript syntax: $(basename "$f")" "node --check '$f'"
+      continue;;
+  esac
   [ -f "$f" ] || continue
   check "executable: $(basename "$f")" "[ -x '$f' ]"
   check "shell syntax: $(basename "$f")" "bash -n '$f'"
