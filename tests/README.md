@@ -92,6 +92,21 @@ two-child cap, keeps `commit.gpgsign=true`, saves the amendment authorization,
 and must obtain fresh positive review without another executor. Signing and
 handoff support `--arm new` only.
 
+Acceptance and phase-context runs save `communication.json` with root assistant
+text and a `quiet` verdict for each turn. The aggregate passes only when every
+turn passes; repeated native message IDs cannot erase earlier text. Text already
+observed in a failed native turn is retained as well. To recheck saved traces
+without model calls, use a fresh output directory:
+
+```bash
+python3 tests/eval/acceptance-dialogue-replay.py /tmp/retained-run-1 /tmp/retained-run-2 --out /tmp/communication-replay
+```
+
+Replay checks communication only, records input hashes and preserves original
+traces and outcomes. It does not revalidate other live checks. The
+[retained-trace report](eval/turn-message-results-2026-10-06.md) documents the
+scoring correction and four previously hidden communication failures.
+
 `--case handoff --arm new` checks the delegated path with a real coordinator,
 one executor and one independent reviewer. It must load `WORKFLOW.md` and invoke
 the shipped runner; it stops before integration/publication. The Codex coordinator

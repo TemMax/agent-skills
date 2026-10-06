@@ -7,10 +7,26 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from contextlib import redirect_stdout
+import io
 spec=importlib.util.spec_from_file_location('phase',Path(__file__).with_name('phase-context-live.py'))
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 
 class FixtureTests(unittest.TestCase):
+    def test_phase_driver_checks_every_turn_without_native_calls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp)/'run';m.prepare(out,selected=['assigned'],providers=['codex'])
+            def invoke(session,k,*args):
+                session.turns.append({'turn':k,'complete':True,'exit':0})
+                text='Прочитаю инструкции скилла.' if k==1 else 'Проверка завершена.'
+                return [{'type':'item.completed','item':{'id':'item_0','type':'agent_message','text':text}}]
+            with patch.object(m,'budget_invoke',side_effect=invoke), patch.object(m.a,'accounting',return_value={}), redirect_stdout(io.StringIO()):
+                m.run_case(out,'codex-new-assigned')
+            d=out/'codex-new-assigned';report=json.loads((d/'communication.json').read_text())
+            self.assertEqual([t['quiet'] for t in report['turns']],[False,True,True])
+            self.assertFalse(json.loads((d/'outcomes.json').read_text())['checks']['quiet'])
+
     def test_frozen_matrix_and_semantic_defect_despite_green_tests(self):
         with tempfile.TemporaryDirectory() as tmp:
             out=Path(tmp)/'run'; m.prepare(out,include_baseline=True)

@@ -7,6 +7,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from contextlib import redirect_stdout
+import io
 
 SCRIPT = Path(__file__).with_name('acceptance-dialogue-live.py')
 spec = importlib.util.spec_from_file_location('acceptance', SCRIPT)
@@ -14,6 +17,77 @@ module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 
 
 class Evidence(unittest.TestCase):
+    def test_reused_codex_ids_preserve_early_messages_and_failure(self):
+        first = [
+            {'type': 'item.completed', 'item': {'id': 'item_0', 'type': 'agent_message', 'text': 'Прочитаю инструкции скилла.'}},
+            {'type': 'item.completed', 'item': {'id': 'item_1', 'type': 'agent_message', 'text': 'CI timeout: 10.'}},
+        ]
+        second = [
+            {'type': 'item.completed', 'item': {'id': 'item_0', 'type': 'agent_message', 'text': 'Проверю README и CI.'}},
+            {'type': 'item.completed', 'item': {'id': 'item_1', 'type': 'agent_message', 'text': 'README says 15; CI uses 10.'}},
+        ]
+        self.assertEqual(module.messages(first + second), '\n'.join(r['item']['text'] for r in first + second))
+        self.assertFalse(module.quiet(module.messages(first + second)))
+        report = module.communication_checks([first, second])
+        self.assertFalse(report['quiet'])
+        self.assertEqual([t['quiet'] for t in report['turns']], [False, True])
+        self.assertEqual([t['turn'] for t in report['turns']], [1, 2])
+
+    def test_reused_claude_message_ids_preserve_both_turns(self):
+        first = [{'type': 'assistant', 'message': {'id': 'same', 'content': [{'type': 'text', 'text': 'Выбираю профиль модели.'}]}}]
+        second = [{'type': 'assistant', 'message': {'id': 'same', 'content': [{'type': 'text', 'text': 'Проверка завершена.'}]}}]
+        self.assertEqual(module.messages(first + second), 'Выбираю профиль модели.\nПроверка завершена.')
+        self.assertEqual([t['quiet'] for t in module.communication_checks([first, second])['turns']], [False, True])
+
+    def test_only_completed_root_text_is_communication_evidence(self):
+        rows = [
+            {'type': 'item.started', 'item': {'type': 'agent_message', 'text': 'Прочитаю инструкции.'}},
+            {'type': 'item.completed', 'item': {'type': 'command_execution', 'aggregated_output': 'Профиль: internal'}},
+            {'type': 'assistant', 'parent_tool_use_id': 'child', 'message': {'content': [{'type': 'text', 'text': 'Профиль: child'}]}},
+            {'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': 'Проверю CI.'}, {'type': 'tool_use', 'name': 'Read', 'input': {}}]}},
+        ]
+        self.assertEqual(module.messages(rows), 'Проверю CI.')
+        self.assertTrue(module.communication_checks([rows])['quiet'])
+        self.assertFalse(module.communication_checks([])['quiet'])
+
+    def test_dialogue_driver_persists_each_turn_without_native_calls(self):
+        class FakeSession:
+            def __init__(self, *args): self.turns = []
+            def invoke(self, k, *args):
+                self.turns.append({'turn': k, 'complete': True, 'exit': 0})
+                text = 'Прочитаю инструкции скилла.' if k == 1 else 'Проверка завершена.'
+                return [{'type': 'item.completed', 'item': {'id': 'item_0', 'type': 'agent_message', 'text': text}}]
+        original_call = module.bench.call
+        def offline_call(cmd, *args, **kwargs):
+            return 'offline-cli' if cmd == ['offline-cli', '--version'] else original_call(cmd, *args, **kwargs)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'run'
+            argv = [str(SCRIPT), '--provider', 'codex', '--case', 'decision', '--out', str(out)]
+            with patch.object(sys, 'argv', argv), patch.object(module, 'Session', FakeSession), \
+                 patch.object(module.shutil, 'which', return_value='offline-cli'), \
+                 patch.object(module.bench, 'call', side_effect=offline_call), \
+                 patch.object(module, 'accounting', return_value={}), redirect_stdout(io.StringIO()):
+                module.main()
+            report = json.loads((out / 'communication.json').read_text())
+            self.assertEqual([t['quiet'] for t in report['turns']], [False, True])
+            self.assertFalse(json.loads((out / 'outcomes.json').read_text())['checks']['quiet'])
+
+    def test_failed_native_turn_retains_communication_before_raising(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp); repo = out / 'repo'; repo.mkdir()
+            row = {'type': 'item.completed', 'item': {'id': 'item_0', 'type': 'agent_message', 'text': 'Прочитаю инструкции скилла.'}}
+            def failed_cli(*args, **kwargs):
+                (out / 'turn-1.stdout').write_text(json.dumps(row)+'\n')
+                return 1
+            with patch.object(module.shutil, 'which', return_value='offline-cli'), \
+                 patch.object(module, 'register'), patch.object(module.bench, 'run_logged', side_effect=failed_cli), \
+                 redirect_stdout(io.StringIO()):
+                session = module.Session(out, repo, 'codex')
+                with self.assertRaises(RuntimeError): session.invoke(1, 'Fixture request', out)
+            report = json.loads((out / 'communication.json').read_text())
+            self.assertFalse(report['quiet'])
+            self.assertIn('инструкции', report['turns'][0]['messages'])
+
     def test_complete_output_usage_requires_matching_root_input_scope(self):
         rows = [{'type': 'assistant', 'message': {'id': 'm', 'usage': {'input_tokens': 2, 'cache_creation_input_tokens': 30, 'cache_read_input_tokens': 100, 'output_tokens': 0}}},
                 {'type': 'result', 'usage': {'input_tokens': 2, 'cache_creation_input_tokens': 30, 'cache_read_input_tokens': 100, 'output_tokens': 500}}]

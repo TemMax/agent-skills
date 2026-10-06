@@ -64,20 +64,31 @@ def observed(rows, expected, marker=None):
 
 
 def messages(rows):
-    parts = {}
-    for i, r in enumerate(rows):
+    """Preserve root text in trace order; message IDs are not unique across turns."""
+    parts = []
+    for r in rows:
+        if r.get('parent_tool_use_id'): continue
         item = r.get('item') or {}
         if r.get('type') == 'item.completed' and item.get('type') == 'agent_message':
-            parts[item.get('id', str(i))] = item.get('text', '')
-        if r.get('type') == 'assistant' and not r.get('parent_tool_use_id'):
+            parts.append(item.get('text', ''))
+        if r.get('type') == 'assistant':
             msg = r.get('message') or {}
-            for j, b in enumerate(msg.get('content', [])):
-                if isinstance(b, dict) and b.get('type') == 'text': parts[(msg.get('id', str(i)), j)] = b.get('text', '')
-    return '\n'.join(parts.values())
+            for b in msg.get('content', []):
+                if isinstance(b, dict) and b.get('type') == 'text': parts.append(b.get('text', ''))
+    return '\n'.join(parts)
 
 
 def quiet(text):
     return not re.search(r'(?i)(?:загруж|прочита|пропуска|выбира|load|read|skip|select)[^.!?\n]{0,90}(?:внутренн|инструкци|профил|скилл|навык|profile|instructions)|(?:скилл|навык|skill) (?:says|говорит)|PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:SKILL|PROFILE|REVIEW|PR|FIXES|WORKFLOW)\.md\b|модель вне таблицы калибровки', text)
+
+
+def communication_checks(turns):
+    """Score each CLI invocation independently, retaining its user-facing text."""
+    per_turn = []
+    for number, rows in enumerate(turns, 1):
+        text = messages(rows)
+        per_turn.append({'turn': number, 'messages': text, 'quiet': quiet(text)})
+    return {'turns': per_turn, 'quiet': bool(per_turn) and all(t['quiet'] for t in per_turn)}
 
 
 def instructions_seen(rows, expected, rollouts):
@@ -120,6 +131,7 @@ class Session:
         self.out, self.repo, self.provider = out, repo, provider
         self.cli = shutil.which(provider)
         self.sid = None; self.spent = 0; self.turns = []; self.budget_usd = budget_usd
+        self.turn_rows = []
 
     def invoke(self, k, prompt, pkg, fresh=False):
         if fresh: self.sid = None
@@ -143,6 +155,8 @@ class Session:
         rc = bench.run_logged(cmd, self.out, f'turn-{k}', cwd=self.repo, prompt=prompt, timeout=150)
         shutil.copyfile(self.out / f'turn-{k}.stdout', self.out / f'turn-{k}.jsonl')
         rows = read_events(self.out / f'turn-{k}.jsonl')
+        self.turn_rows.append(rows)
+        bench.dump(self.out / 'communication.json', communication_checks(self.turn_rows))
         if self.provider == 'claude':
             result = final_result(rows)
             self.spent += result.get('total_cost_usd', 3)
@@ -238,24 +252,24 @@ def main():
         'base': base, 'versions': versions, 'loading': 'disposable --plugin-dir' if args.provider == 'claude' else 'native workspace skills, plugins disabled',
         'cli_version': bench.call([shutil.which(args.provider), '--version'])})
     if args.prepare_only: return 0
-    session = Session(out, repo, args.provider); checks = {}; all_rows = []
+    session = Session(out, repo, args.provider); checks = {}; all_rows = []; turn_rows = []
     skill = lambda name: 'orchestration:'+name if args.provider == 'claude' and name != 'critical-review' else 'code-review:critical-review' if args.provider == 'claude' else '$'+name
     try:
         if args.case == 'decision':
-            rows = session.invoke(1, f'Используй {skill("multi-model")}. В рамках уже согласованной задачи только прочитай README.md и CI, назови timeout-minutes. Ничего не меняй.', pkg); all_rows += rows
+            rows = session.invoke(1, f'Используй {skill("multi-model")}. В рамках уже согласованной задачи только прочитай README.md и CI, назови timeout-minutes. Ничего не меняй.', pkg); all_rows += rows; turn_rows.append(rows)
             checks['multi_model_loaded'] = observed(rows, skill_path(pkg, args.provider, 'multi-model'))
-            rows = session.invoke(2, f'Теперь используй {skill("super-plan")} для следующего изменения API. Новое требование: у /divide при нулевом знаменателе команда интеграций требует HTTP 422 с ошибкой, а мобильная команда требует HTTP 200 с JSON null. Приоритет между ними ещё не выбран. Нужно спланировать это изменение; текущий согласованный CI scope такого решения не содержит. Пока файлы не меняй.', pkg); all_rows += rows
+            rows = session.invoke(2, f'Теперь используй {skill("super-plan")} для следующего изменения API. Новое требование: у /divide при нулевом знаменателе команда интеграций требует HTTP 422 с ошибкой, а мобильная команда требует HTTP 200 с JSON null. Приоритет между ними ещё не выбран. Нужно спланировать это изменение; текущий согласованный CI scope такого решения не содержит. Пока файлы не меняй.', pkg); all_rows += rows; turn_rows.append(rows)
             text = messages(rows)
             checks['super_plan_loaded'] = observed(rows, skill_path(pkg, args.provider, 'super-plan'))
             checks['new_product_choice_not_silently_decided'] = '422' in text and '200' in text and bool(re.search(r'(?i)\?|would ask|не\s+(?:выбран|решён)|уточн|выбор|приоритет|какой|какое|решение.*нуж', text))
             checks['no_reapproval_of_requested_planning_scope'] = not re.search(r'(?i)(?:подтвердите|разрешите)[^\n]{0,100}(?:план может|планирование|новый scope)', text)
         elif args.case == 'reload':
-            rows = session.invoke(1, f'Используй {skill("multi-model")} и выполни checkpoint verification из скилла для текущего CI. Проверка уже согласована; файлы не меняй.', pkg); all_rows += rows
+            rows = session.invoke(1, f'Используй {skill("multi-model")} и выполни checkpoint verification из скилла для текущего CI. Проверка уже согласована; файлы не меняй.', pkg); all_rows += rows; turn_rows.append(rows)
             checks['version_a_loaded_and_used'] = observed(rows, skill_path(pkg, args.provider, 'multi-model'), a) and a in messages(rows)
-            rows = session.invoke(2, f'Скилл {skill("multi-model")} действительно обновлён с 4.8.0 до 4.8.1; текущий источник: {skill_path(later, args.provider, "multi-model")}. Продолжи ту же checkpoint verification по обновлённым инструкциям. Объём прежний, файлов не меняй.', later); all_rows += rows
+            rows = session.invoke(2, f'Скилл {skill("multi-model")} действительно обновлён с 4.8.0 до 4.8.1; текущий источник: {skill_path(later, args.provider, "multi-model")}. Продолжи ту же checkpoint verification по обновлённым инструкциям. Объём прежний, файлов не меняй.', later); all_rows += rows; turn_rows.append(rows)
             checks['changed_version_reloaded'] = observed(rows, skill_path(later, args.provider, 'multi-model'), b) and b in messages(rows) and a not in messages(rows)
             previous_sid = session.sid
-            rows = session.invoke(3, f'Продолжи согласованную проверку по checkpoint.md со скиллом {skill("multi-model")}. Выполни только checkpoint verification; правок и новой реализации не нужно.', later, fresh=True); all_rows += rows
+            rows = session.invoke(3, f'Продолжи согласованную проверку по checkpoint.md со скиллом {skill("multi-model")}. Выполни только checkpoint verification; правок и новой реализации не нужно.', later, fresh=True); all_rows += rows; turn_rows.append(rows)
             checks['actual_fresh_context'] = session.sid != previous_sid
             checks['instructions_recovered_in_fresh_context'] = observed(rows, skill_path(later, args.provider, 'multi-model'), b) and b in messages(rows)
         else:
@@ -263,19 +277,22 @@ def main():
                 f'Продолжи тот же родительский процесс со скиллом {skill("ship")}. Сейчас назначена только фаза проверки: выполни unit tests и git diff --check, сообщи фактический результат. Другие фазы не запускай, файлов не меняй, ничего не коммить и не публикуй.',
                 f'Используй {skill("critical-review")} для критического ревью только текущего uncommitted diff README.md. Сопоставь утверждения с .github/workflows/ci.yml. Дай подтверждённые замечания с расположением и последствиями. Это локальное read-only ревью, без исправлений, публикации и дополнительных агентов.']
             for k, (name, prompt) in enumerate(zip(['super-plan', 'ship', 'critical-review'], prompts), 1):
-                rows = session.invoke(k, prompt, pkg); all_rows += rows
+                rows = session.invoke(k, prompt, pkg); all_rows += rows; turn_rows.append(rows)
                 checks[name+'_loaded'] = observed(rows, skill_path(pkg, args.provider, name))
                 text = messages(rows)
                 if k == 2: checks['assigned_checks_reported'] = bool(re.search(r'(?i)тест|test', text)) and bool(re.search(r'(?i)diff|пробел|формат', text))
                 if k == 3: checks['review_detected_readme_ci_conflict'] = bool(re.search(r'README', text)) and ('10' in text or 'десят' in text) and ('15' in text or 'пятнадц' in text)
+        communication = communication_checks(turn_rows)
+        bench.dump(out / 'communication.json', communication)
+        all_text = '\n'.join(t['messages'] for t in communication['turns'])
         checks.update(all_turns_completed=all(t['complete'] and t['exit'] == 0 for t in session.turns),
                       files_unchanged=product_files(repo) == before, no_commit=bench.git(repo, 'rev-parse', 'HEAD') == head,
-                      quiet=quiet(messages(all_rows)),
+                      quiet=communication['quiet'],
                       frozen_candidate_unchanged=all(hashlib.sha256((out / name).read_bytes()).hexdigest() == digest for name, digest in snapshots.items()))
         if args.case == 'entrypoints':
-            checks['no_followup_edit_offer'] = not re.search(r'(?im)(?:исправить|поправить|обновить|хотите|нужно ли|сделать).*\?', messages(all_rows))
+            checks['no_followup_edit_offer'] = not re.search(r'(?im)(?:исправить|поправить|обновить|хотите|нужно ли|сделать).*\?', all_text)
             checks['repository_instructions_loaded'] = instructions_seen(all_rows, repo / 'AGENTS.md', (out / 'rollouts').glob('*.jsonl'))
-        checks['no_false_missing_profile'] = not re.search(r'(?i)(?:orchestrator[\w.-]*|codex-routing\.md)[^\n]{0,200}(?:не найден|отсутств)|(?:отсутств|не найден)[^\n]{0,200}(?:orchestrator[\w.-]*|codex-routing\.md)', messages(all_rows))
+        checks['no_false_missing_profile'] = not re.search(r'(?i)(?:orchestrator[\w.-]*|codex-routing\.md)[^\n]{0,200}(?:не найден|отсутств)|(?:отсутств|не найден)[^\n]{0,200}(?:orchestrator[\w.-]*|codex-routing\.md)', all_text)
         # Record no-child evidence from the actual native event streams.
         checks['no_children'] = not any((r.get('item') or {}).get('type') == 'collab_tool_call' for r in all_rows)
         checks['no_children'] &= not any(isinstance(b, dict) and b.get('name') in ['Agent', 'Task', 'Workflow'] for r in all_rows for b in ((r.get('message') or {}).get('content', []) if isinstance((r.get('message') or {}).get('content'), list) else []))
