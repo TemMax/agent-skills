@@ -21,15 +21,35 @@
 #                              caller can assert a worktree link landed before
 #                              the child ran.
 #   CODEX_STUB_SLEEP          seconds to sleep between start and end (default 0).
-#   CODEX_STUB_EXECUTOR_MODE  good|empty|fail — only consulted for an executor
-#                              invocation (prompt starts with "# Task:").
+#   CODEX_STUB_EXECUTOR_MODE  good|empty|fail — only consulted for a fresh
+#                              executor invocation (prompt starts with
+#                              "# Task:", argv is not `exec resume`).
 #                              good: create/commit a file, write a report.
+#                              When that file is already committed unchanged
+#                              (a fresh retry in a worktree an earlier call
+#                              committed to), it commits a per-call file
+#                              instead, like CODEX_STUB_RESUME_MODE=good.
 #                              empty: write an empty report.
 #                              fail: exit 1 without writing a report; also
 #                              prints CODEX_STUB_FAIL_STDERR to stderr first,
 #                              if set.
 #   CODEX_STUB_FAIL_STDERR    text printed to stderr before a CODEX_STUB_EXECUTOR_MODE=fail
 #                              exit (default: nothing printed).
+#   CODEX_STUB_RESUME_MODE    good|fail (default good) — only consulted for an
+#                              `exec resume <id> …` invocation, which is always
+#                              an executor call whatever its prompt's first
+#                              line is. `exec resume` has no -C, so the
+#                              worktree is the process cwd.
+#                              good: commit a new file whose name differs per
+#                              call (src/<task>/rework-<ns>.txt), write a
+#                              non-empty report.
+#                              fail: exit 1 without writing a report.
+#   CODEX_STUB_VERDICTS       optional JSON array of verdict objects, consumed
+#                              in order by successive supervisor invocations
+#                              (the counter lives in
+#                              "${CODEX_STUB_LOG}.d/verdicts.count"). When it
+#                              is exhausted or unset, CODEX_STUB_VERDICT / the
+#                              default clean verdict applies.
 #   CODEX_STUB_VERDICT        JSON text written verbatim to the -o file for a
 #                              supervisor invocation (prompt starts with
 #                              "# Supervisor Prompt"). Defaults to a clean
@@ -40,6 +60,14 @@
 #                              runs: the wrapped `bash -c` command is never
 #                              actually executed by this double.
 #   CODEX_STUB_SANDBOX_EXIT   exit code for a `sandbox` invocation (default 0).
+#
+# Every `exec` invocation prints {"type":"thread.started","thread_id":"<id>"}
+# as its first stdout line: the resume id for `exec resume <id>`, otherwise a
+# new "stub-thread-<pid>-<ns>". Usage is thread-cumulative, like the real CLI:
+# a per-thread call counter lives in "${CODEX_STUB_LOG}.d/thread-<id>.calls",
+# and the closing turn.completed carries the thread's running total (each call
+# adds input_tokens 100, cached_input_tokens 10, output_tokens 50,
+# reasoning_output_tokens 5).
 set -euo pipefail
 
 if [ -z "${CODEX_STUB_LOG:-}" ]; then
@@ -106,6 +134,18 @@ if [ "${1:-}" = "sandbox" ]; then
   exit "$exit_code"
 fi
 
+resume=0
+thread_id=""
+if [ "${1:-}" = "exec" ]; then
+  if [ "${2:-}" = "resume" ]; then
+    resume=1
+    thread_id="${3:-}"
+  else
+    thread_id="stub-thread-$$-$(now_ns)"
+  fi
+  printf '{"type":"thread.started","thread_id":%s}\n' "$(json_string "$thread_id")"
+fi
+
 worktree=""
 outfile=""
 schema=""
@@ -117,6 +157,10 @@ while [ "$#" -gt 0 ]; do
     *) shift ;;
   esac
 done
+# `exec resume` accepts no -C: the caller sets the process cwd instead.
+if [ -z "$worktree" ]; then
+  worktree="$(pwd)"
+fi
 
 # Captured to a file, never a shell variable: `$(cat -)` command substitution
 # strips trailing newlines, which would silently corrupt the byte-for-byte
@@ -149,8 +193,44 @@ write_record start "$start_record"
 
 sleep "${CODEX_STUB_SLEEP:-0}"
 
+# Commits one new file whose name differs per call and writes a non-empty
+# report. Used wherever re-committing the first attempt's path would fail on
+# an unchanged file.
+commit_rework() {
+  slug="$(basename "$worktree")"
+  task_id="${slug#wave-}"
+  rel="src/${task_id}/rework-$(now_ns).txt"
+  mkdir -p "$worktree/src/${task_id}"
+  printf 'stub executor rework\n' > "$worktree/$rel"
+  git -C "$worktree" -c commit.gpgsign=false -c user.name="Codex Stub" \
+    -c user.email="codex-stub@example.invalid" add "$rel"
+  git -C "$worktree" -c commit.gpgsign=false -c user.name="Codex Stub" \
+    -c user.email="codex-stub@example.invalid" commit -m "stub: task rework" --quiet
+  printf 'reworked via stub\n\nmust_run output:\nOK\n' > "$outfile"
+}
+
+kind="$prompt"
+if [ "$resume" -eq 1 ]; then
+  kind='# Resume'
+fi
+
 exit_code=0
-case "$prompt" in
+case "$kind" in
+  '# Resume')
+    mode="${CODEX_STUB_RESUME_MODE:-good}"
+    case "$mode" in
+      good)
+        commit_rework
+        ;;
+      fail)
+        exit_code=1
+        ;;
+      *)
+        echo "codex-stub: unknown CODEX_STUB_RESUME_MODE '$mode'" >&2
+        exit_code=1
+        ;;
+    esac
+    ;;
   '# Task:'*)
     mode="${CODEX_STUB_EXECUTOR_MODE:-good}"
     case "$mode" in
@@ -165,9 +245,13 @@ case "$prompt" in
         printf 'stub executor work\n' > "$worktree/$rel"
         git -C "$worktree" -c commit.gpgsign=false -c user.name="Codex Stub" \
           -c user.email="codex-stub@example.invalid" add "$rel"
-        git -C "$worktree" -c commit.gpgsign=false -c user.name="Codex Stub" \
-          -c user.email="codex-stub@example.invalid" commit -m "stub: task work" --quiet
-        printf 'implemented via stub\n\nmust_run output:\nOK\n' > "$outfile"
+        if git -C "$worktree" diff --cached --quiet; then
+          commit_rework
+        else
+          git -C "$worktree" -c commit.gpgsign=false -c user.name="Codex Stub" \
+            -c user.email="codex-stub@example.invalid" commit -m "stub: task work" --quiet
+          printf 'implemented via stub\n\nmust_run output:\nOK\n' > "$outfile"
+        fi
         ;;
       empty)
         printf '' > "$outfile"
@@ -185,7 +269,20 @@ case "$prompt" in
     esac
     ;;
   '# Supervisor Prompt'*)
-    verdict="${CODEX_STUB_VERDICT:-}"
+    verdict=""
+    if [ -n "${CODEX_STUB_VERDICTS:-}" ]; then
+      verdict_counter="$log_dir/verdicts.count"
+      verdict_index="$(cat "$verdict_counter" 2>/dev/null || printf '0')"
+      verdict="$(node -e '
+        const list = JSON.parse(process.env.CODEX_STUB_VERDICTS)
+        const index = Number(process.argv[1])
+        if (index < list.length) process.stdout.write(JSON.stringify(list[index]))
+      ' -- "$verdict_index")"
+      printf '%s' "$((verdict_index + 1))" > "$verdict_counter"
+    fi
+    if [ -z "$verdict" ]; then
+      verdict="${CODEX_STUB_VERDICT:-}"
+    fi
     if [ -z "$verdict" ]; then
       verdict='{"ok":true,"violations":[],"remarks":["stub: clean"]}'
     fi
@@ -198,7 +295,12 @@ case "$prompt" in
     ;;
 esac
 
-printf '{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":10,"output_tokens":50,"reasoning_output_tokens":5}}\n'
+thread_counter="$log_dir/thread-${thread_id}.calls"
+thread_calls="$(cat "$thread_counter" 2>/dev/null || printf '0')"
+thread_calls="$((thread_calls + 1))"
+printf '%s' "$thread_calls" > "$thread_counter"
+printf '{"type":"turn.completed","usage":{"input_tokens":%s,"cached_input_tokens":%s,"output_tokens":%s,"reasoning_output_tokens":%s}}\n' \
+  "$((thread_calls * 100))" "$((thread_calls * 10))" "$((thread_calls * 50))" "$((thread_calls * 5))"
 
 end_ts="$(now_ms)"
 end_record="$(printf '{"event":"end","ts":%s,"cwd":%s,"argv":%s,"exit":%s}' \
