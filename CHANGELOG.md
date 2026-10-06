@@ -4,6 +4,16 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.12.0
+
+### Highlights
+
+**multi-model**
+- Rework a rejected attempt in the executor's own session
+- Fall back to a fresh executor at once when a resume fails
+
+Orchestration 4.12.0 and code-review 1.17.1 apply to Claude Code and Codex.
+
 ## 4.11.1
 
 ### Highlights

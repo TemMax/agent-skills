@@ -534,6 +534,8 @@ what escalates. Before judging or acting on a verdict, read
 | The contract cannot be satisfied | Stop immediately — no rework, no stronger model. Return the task to yourself to amend the contract — before acting, read `references/contract-amendment.md` |
 | Stop | Hand the user the task, every verdict in order, and the branch name |
 
+The native runners continue the same executor session for that rework and send only the verdict, not the full prompt again. An escalation to a stronger model, raised effort, a new runner invocation (`--resume-from`, `--reset`) or a failed resume starts a fresh executor with the full prompt; a failed resume costs no extra attempt. Supervisors are always fresh.
+
 ## Host adapter
 
 ### Invocation publication contract
