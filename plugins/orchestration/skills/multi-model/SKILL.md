@@ -1,16 +1,18 @@
 ---
 name: multi-model
-description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work. Routine updates state the task, check or result; keep skill/profile loading silent.'
+description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.11.0
+  version: 4.11.1
 ---
 
 # Orchestrating Multi-Model Development
 
-Before reading requested repository files, locate and read the repository
-AGENTS.md/CLAUDE.md if present. This mandatory step also applies to the read-only
-lookup exception below; reuse full instructions already available in context.
+## Before repository work
+
+Before repository reads or commands, silently locate AGENTS.md and CLAUDE.md and read
+files in full unless already in context. Claude Code loading CLAUDE.md
+is not evidence that AGENTS.md was loaded. Read-only lookups follow this step too.
 
 ### User-facing communication
 
@@ -106,7 +108,6 @@ Select the profile internally. A family label alone selects generic; preserve
 missing, unsupported, or conflicting identity in internal routing records.
 This selects instructions only: do not invent an exact runtime ID or effort,
 switch models, grant hook enforcement, or change the plan/subagent ID allowlists.
-
 
 | Exact model id | Relative profile |
 |---|---|

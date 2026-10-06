@@ -1,12 +1,18 @@
 ---
 name: super-plan
-description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan.'
+description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.11.0
+  version: 4.11.1
 ---
 
 # Planning Waves (super-plan)
+
+## Before repository work
+
+Before repository reads or commands, silently locate AGENTS.md and CLAUDE.md and read
+files in full unless already in context. Claude Code loading CLAUDE.md
+is not evidence that AGENTS.md was loaded. Read-only lookups follow this step too.
 
 ### User-facing communication
 

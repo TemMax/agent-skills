@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 from contextlib import redirect_stdout
 import io
+import os
 
 SCRIPT = Path(__file__).with_name('acceptance-dialogue-live.py')
 spec = importlib.util.spec_from_file_location('acceptance', SCRIPT)
@@ -17,6 +18,56 @@ module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 
 
 class Evidence(unittest.TestCase):
+    def test_claude_fixture_enables_only_owned_project_settings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp);repo=out/'repo';repo.mkdir()
+            def cli(cmd,*args,**kwargs):
+                self.assertEqual(cmd[cmd.index('--setting-sources')+1], 'project')
+                (out/'turn-1.stdout').write_text(json.dumps({'type':'result','subtype':'success','is_error':False,'total_cost_usd':0})+'\n')
+                return 0
+            with patch.object(module.bench,'run_logged',side_effect=cli), redirect_stdout(io.StringIO()):
+                module.Session(out,repo,'claude').invoke(1,'Fixture request',out)
+
+    def test_native_transport_requires_owned_home_and_preserves_plugin_loading(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out=Path(tmp);repo=out/'repo';repo.mkdir();home=out/'codex-home';home.mkdir()
+            with self.assertRaises(ValueError): module.Session(out,repo,'codex',native_plugins=True)
+            def cli(cmd,*args,**kwargs):
+                self.assertIn('--enable',cmd);self.assertNotIn('--disable',cmd)
+                self.assertNotIn('--ignore-user-config',cmd)
+                (out/'turn-1.stdout').write_text(json.dumps({'type':'turn.completed'})+'\n')
+                return 0
+            with patch.dict(os.environ,{'CODEX_HOME':str(home)}), \
+                 patch.object(module,'register') as register, \
+                 patch.object(module.bench,'run_logged',side_effect=cli), redirect_stdout(io.StringIO()):
+                module.Session(out,repo,'codex',native_plugins=True).invoke(1,'Fixture request',out)
+                register.assert_not_called()
+
+    def test_skill_announcements_fail_but_task_updates_pass(self):
+        for text in ['Использую orchestration:multi-model: проверю README.',
+                     'Применяю навык critical-review для проверки.',
+                     'Using $super-plan to inspect CI.',
+                     'Сначала найду AGENTS.md и CLAUDE.md, затем проверю CI.']:
+            with self.subTest(text=text): self.assertFalse(module.quiet(text))
+        self.assertTrue(module.quiet('Проверю README и сверю таймаут с CI.'))
+        self.assertTrue(module.quiet('Удалённая проверка нарушает инвариант из AGENTS.md.'))
+        self.assertFalse(module.quiet('Сначала нужно найти AGENTS.md и CLAUDE.md.'))
+
+    def test_loading_review_method_is_internal_instruction_narration(self):
+        for text in ['Загружаю методику ревью, затем перехожу к диффу.', 'Читаю методику проверки.', 'Loading the review methodology before the diff.']:
+            with self.subTest(text=text): self.assertFalse(module.quiet(text))
+        self.assertTrue(module.quiet('Проверю методику расчёта скидки в src/pricing.py.'))
+
+    def test_readme_citation_is_not_instruction_loading_narration(self):
+        for text,expected in [
+            ('Сначала читаю инструкции репозитория.',False),
+            ('Reading AGENTS.md before reviewing the diff.',False),
+            ('Loaded instructions before reviewing the diff.',False),
+            ('Used instructions before reviewing.',False),
+            ('README и AGENTS.md требуют сохранить проверку отрицательных значений.',True),
+        ]:
+            with self.subTest(text=text):self.assertEqual(module.quiet(text),expected)
+
     def test_reused_codex_ids_preserve_early_messages_and_failure(self):
         first = [
             {'type': 'item.completed', 'item': {'id': 'item_0', 'type': 'agent_message', 'text': 'Прочитаю инструкции скилла.'}},
@@ -94,6 +145,22 @@ class Evidence(unittest.TestCase):
         self.assertEqual(module.usage(rows)['output_tokens'], 500)
         rows[-1]['usage']['input_tokens'] = 999
         self.assertEqual(module.usage(rows)['output_tokens'], 0)
+
+    def test_native_claude_instructions_require_exact_file_body_before_first_answer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'AGENTS.md';path.write_text('Required repository rule.\n')
+            trace=Path(tmp)/'native.jsonl'
+            event={'type':'attachment','attachment':{'type':'instructions','files':[{'path':str(path),'type':'Project','content':path.read_text().strip()}]}}
+            reply={'type':'assistant','message':{'content':[{'type':'text','text':'Done'}]}}
+            for rows,expected in [([event,reply],True),([reply,event],False)]:
+                trace.write_text('\n'.join(map(json.dumps,rows)))
+                self.assertEqual(module.instructions_seen([],path,[trace]),expected)
+            event['attachment']['files'][0]['content']='Partial rule'
+            trace.write_text(json.dumps(event))
+            self.assertFalse(module.instructions_seen([],path,[trace]))
+            event['attachment']['files'][0].update(path=str(path.parent/'other.md'),content=path.read_text().strip())
+            trace.write_text(json.dumps(event))
+            self.assertFalse(module.instructions_seen([],path,[trace]))
 
     def test_repository_instruction_evidence_is_not_an_assistant_claim(self):
         with tempfile.TemporaryDirectory() as tmp:

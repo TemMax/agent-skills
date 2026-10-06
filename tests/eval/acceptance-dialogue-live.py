@@ -79,7 +79,9 @@ def messages(rows):
 
 
 def quiet(text):
-    return not re.search(r'(?i)(?:загруж|прочита|пропуска|выбира|load|read|skip|select)[^.!?\n]{0,90}(?:внутренн|инструкци|профил|скилл|навык|profile|instructions)|(?:скилл|навык|skill) (?:says|говорит)|PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:SKILL|PROFILE|REVIEW|PR|FIXES|WORKFLOW)\.md\b|модель вне таблицы калибровки', text)
+    if re.search(r'(?i)(?:загруж|прочита|чита|\bload(?:ed|s|ing)?\b|\bread(?:s|ing)?\b)[^.!?\n]{0,90}(?:методик\w*\s+(?:ревью|проверк)|review\s+(?:methodology|method))', text):
+        return False
+    return not re.search(r'(?i)(?:загруж|прочита|чита|пропуска|выбира|использу|примен|най(?:ду|ти)|\b(?:load(?:ed|s|ing)?|read(?:s|ing)?|skip(?:s|ped|ping)?|select(?:ed|s|ing)?|us(?:e[ds]?|ing)|find(?:s|ing)?|found|locat(?:e[ds]?|ing))\b)[^.!?\n]{0,90}(?:внутренн|инструкци|профил|скилл|навык|profile|instructions|AGENTS\.md|CLAUDE\.md)|(?:скилл|навык|skill) (?:says|говорит)|PLUGIN_RUNTIME_CONTEXT|active-seat|профил(?:ь|я|ем)\s*(?:[:—]|(?:ревьюера|модели|generic)\b)|\beffort\b|\bgpt-\d|\bclaude-(?:opus|sonnet|haiku|fable)|\b(?:Astra|Fable|Opus|Sonnet|Haiku|Luna|Sol)\b|\b(?:SKILL|PROFILE|REVIEW|PR|FIXES|WORKFLOW)\.md\b|\b(?:orchestration|code-review):(?:multi-model|super-plan|ship|critical-review)\b|\$(?:multi-model|super-plan|ship|critical-review)\b|модель вне таблицы калибровки', text)
 
 
 def communication_checks(turns):
@@ -110,9 +112,15 @@ def instructions_seen(rows, expected, rollouts):
             if block.get('type') == 'tool_result' and block.get('tool_use_id') in ids and not block.get('is_error'):
                 content = block.get('content', '')
                 if isinstance(content, str) and body in re.sub(r'(?m)^\s*\d+\t', '', content): return True
-    # Codex can supply AGENTS.md in the native initial context without a read.
+    # Both hosts can supply AGENTS.md in native initial context without a tool read.
     for path in rollouts:
         for row in read_events(path):
+            if row.get('type') == 'assistant': break
+            attachment = row.get('attachment') or {}
+            if row.get('type') == 'attachment' and attachment.get('type') == 'instructions':
+                for file in attachment.get('files', []):
+                    if file.get('path') and Path(file['path']).is_absolute() and Path(file['path']).resolve() == expected.resolve() and file.get('content', '').strip() == body:
+                        return True
             payload = row.get('payload') or {}
             if row.get('type') == 'response_item' and payload.get('type') == 'message' and payload.get('role') == 'user':
                 for block in payload.get('content', []):
@@ -127,11 +135,16 @@ def product_files(repo):
 
 
 class Session:
-    def __init__(self, out, repo, provider, budget_usd=3):
+    def __init__(self, out, repo, provider, budget_usd=3, native_plugins=False):
         self.out, self.repo, self.provider = out, repo, provider
         self.cli = shutil.which(provider)
         self.sid = None; self.spent = 0; self.turns = []; self.budget_usd = budget_usd
         self.turn_rows = []
+        self.native_plugins = native_plugins
+        if native_plugins:
+            home=out/'codex-home'
+            if not home.is_dir() or Path(os.environ.get('CODEX_HOME','')).resolve()!=home.resolve():
+                raise ValueError('Native candidate plugins require the owned disposable Codex home')
 
     def invoke(self, k, prompt, pkg, fresh=False):
         if fresh: self.sid = None
@@ -139,15 +152,18 @@ class Session:
             if self.spent >= self.budget_usd: raise RuntimeError('Dialogue USD cap reached')
             common = [self.cli, '-p', '--verbose', '--output-format', 'stream-json', '--model', 'claude-sonnet-5-5', '--effort', 'medium',
                 '--permission-mode', 'acceptEdits', '--permission-prompts', 'none', '--allowedTools', 'Read,Glob,Grep,Bash,Skill',
-                '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--add-dir', str(self.out),
+                '--setting-sources', 'project', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--add-dir', str(self.out),
                 '--plugin-dir', str(pkg / 'plugins/orchestration'), '--plugin-dir', str(pkg / 'plugins/code-review'),
                 '--max-budget-usd', str(self.budget_usd-self.spent)]
             if self.sid: cmd = common+['--resume', self.sid]
             else:
                 self.sid = str(uuid.uuid4()); cmd = common+['--session-id', self.sid]
         else:
-            register(self.repo, pkg)
-            common = ['--ignore-user-config', '--disable', 'plugins', '--json', '--skip-git-repo-check', '--model', 'gpt-6.1-sol',
+            if not self.native_plugins: register(self.repo, pkg)
+            # Only the owned fixture home reaches this branch; candidate hook sources
+            # are frozen and checked before launch. No persisted user trust is changed.
+            transport = ['--enable', 'plugins', '--dangerously-bypass-hook-trust'] if self.native_plugins else ['--ignore-user-config', '--disable', 'plugins']
+            common = [*transport, '--json', '--skip-git-repo-check', '--model', 'gpt-6.1-sol',
                 '-c', 'model_reasoning_effort="medium"', '-c', 'memories.use_memories=false', '-c', 'memories.generate_memories=false']
             if self.sid: cmd = [self.cli, 'exec', 'resume', *common, '-c', 'sandbox_mode="workspace-write"', self.sid, '-']
             else: cmd = [self.cli, 'exec', *common, '-C', str(self.repo), '--sandbox', 'workspace-write', '--add-dir', str(self.out), '-']
@@ -171,6 +187,13 @@ class Session:
             if owned:
                 dest = self.out / 'rollouts'; dest.mkdir(exist_ok=True)
                 shutil.copyfile(owned, dest / (self.sid+'.jsonl'))
+        if self.provider == 'claude' and self.sid:
+            # Only the UUID minted for this owned fixture is read, never other sessions.
+            projects = Path(os.environ.get('CLAUDE_CONFIG_DIR', str(Path.home()/'.claude'))) / 'projects'
+            owned = list(projects.glob('*/'+self.sid+'.jsonl'))
+            if len(owned) == 1:
+                dest = self.out / 'native-history'; dest.mkdir(exist_ok=True)
+                shutil.copyfile(owned[0], dest / (self.sid+'.jsonl'))
         bench.dump(self.out / 'sessions.json', self.turns)
         if rc or not complete: raise RuntimeError(f'Native turn {k} did not complete; inspect retained traces')
         return rows

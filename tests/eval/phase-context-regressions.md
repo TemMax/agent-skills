@@ -76,3 +76,11 @@ product/HEAD checks.
 python3 tests/eval/phase-context-live.py --prepare --cases lookup local-review --out /private/tmp/review-order-candidate
 python3 tests/eval/phase-context-live.py --out /private/tmp/review-order-candidate --run claude-new-lookup
 ```
+
+When validating startup hooks and discovery together, add
+`--codex-native-plugins` to preparation. Codex then loads actual candidate
+plugins and vetted hooks from a disposable profile, with no workspace skill
+registration. The frozen package paths resolve to that profile's real cache;
+all plugin files remain hashed, including symlinked roots. The native scorer
+requires host-delivered startup context before the first assistant message.
+An untrusted/skipped hook is not a product pass.

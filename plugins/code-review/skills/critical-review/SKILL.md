@@ -1,12 +1,18 @@
 ---
 name: critical-review
-description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Load instructions before repository content or diff reads. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR.'
+description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Load instructions before repository content or diff reads. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.17.0
+  version: 1.17.1
 ---
 
 # Reviewing Changes Critically
+
+## Before repository work
+
+Before repository reads or commands, silently locate AGENTS.md and CLAUDE.md and read
+files in full unless already in context. Claude Code loading CLAUDE.md
+is not evidence that AGENTS.md was loaded. Read-only lookups follow this step too.
 
 ## Load the required phase before acting
 
@@ -21,18 +27,17 @@ Detection; scope detection is not an exception to the profile guard.
 Profile identity and calibration guards are mandatory, including unsupported
 consequential-review routes; a short entrypoint never overrides them.
 
-
 Load the entrypoint alone. Finish each required read before the next;
-never batch them with each other or content reads. AGENTS.md/CLAUDE.md may be
-located and read first.
+never batch them with each other or content reads.
 
 ### User-facing communication
 
-Do not narrate loading or selecting internal instructions. Say which task or
-check you will perform.
-
-Start with the task and next useful action. Progress and completion messages
-cover changes, findings, checks, and remaining blockers. Select profiles silently;
+The opening update names the review target and comparison, for example:
+“I’ll compare the changes with surrounding code and tests.” / «Сопоставлю
+изменения с кодом и тестами». Complete the required instruction and profile
+reads directly with tools as one internal preparation step. The next visible
+update reports a code observation, a check or a concrete blocker. The final
+message reports findings and verification evidence. Select profiles silently;
 keep active-seat model, effort, selection basis, runtime metadata, model names
 attached to checks, and calibration counts out of routine messages. This rule
 also governs profile-specific communication instructions.
@@ -69,12 +74,6 @@ For an explicitly bounded read-only or verification phase, report related
 inconsistencies as findings and finish after its assigned checks. Do not end with
 an offer to start another phase or make extra edits, or a question reopening that
 agreed scope. Unresolved new product choices still follow the planning rules.
-
-Before interacting with the repository, locate applicable AGENTS.md and
-CLAUDE.md instructions.
-Read them if their full content is not already in context; a grep of task facts
-does not establish that repository instructions were loaded.
-
 
 For PR scope, also load [PR.md](PR.md) and complete its paginated description,
 discussion and thread ledger protocol before reading any code or diff. Local

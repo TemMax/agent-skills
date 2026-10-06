@@ -52,6 +52,46 @@ pre-merge matrix on either host. Installed Git upgrades are checked after merge.
 A list of scenarios or an offline test of a live driver must not be reported
 as a completed live run.
 
+For changes that must act before the first Codex message, prepare phase-context
+cases with `--codex-native-plugins`. This installs frozen candidates through the
+real plugin CLI into owned temporary `CODEX_HOME` directories. It preserves the
+user's installed plugins and configuration, and does not register workspace
+skill links. The native runs verify that startup communication context reached
+the model before its first assistant message, alongside normal loading and
+semantic checks.
+
+Codex requires trust for plugin hooks. The isolated automation uses its documented
+invocation-only hook-trust option after vetting and freezing the candidate
+sources; it retains the model's workspace sandbox and changes no persisted user
+trust. Normal installed runs require reviewed, trusted hooks in that profile.
+See [Codex hook trust](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
+
+The [2026-10-06 bootstrap report](eval/quiet-bootstrap-results-2026-10-06.md)
+records native loading, instruction-order checks and all paid attempts. Its
+Claude review communication gate failed in that round. The
+[follow-up](eval/quiet-native-memory-results-2026-10-06.md) records the later
+passing local-review case in both hosts, stricter scoring and retained failures.
+Claude fixtures enable only owned project settings: empty setting sources disable
+native project memory. Native AGENTS.md delivery requires exact path/full-body
+attachment evidence before the first assistant, not model narration or callback
+logs. Capture host delivery before spending a full semantic-review call.
+
+Claude runtime mods have free host-runtime tests in each plugin, in addition to
+the Node behavior checks in the offline suite:
+
+```sh
+claude plugin validate plugins/code-review
+claude plugin validate plugins/orchestration
+claude plugin test plugins/code-review
+claude plugin test plugins/orchestration
+```
+
+These require Claude Code 2.1.287+ and use stubbed host responses, without a model
+call. They do not establish live delivery. The
+[runtime-mod results](eval/claude-runtime-mod-results-2026-10-06.md) distinguish
+actual headless/interactive delivery, resume with a changed model, conservative
+child identity, and the dual-host semantic review from these free checks.
+
 Run the bounded probes manually, once per provider/arm, with fresh directories:
 
 ```bash

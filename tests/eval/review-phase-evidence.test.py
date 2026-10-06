@@ -56,6 +56,18 @@ class EvidenceTests(unittest.TestCase):
         self.assertTrue(self.score([glob]+self.loaded()+[self.command('git diff')]))
         glob['message']['content'][0]['input']['pattern']='**/*.py'
         self.assertFalse(self.score([glob]+self.loaded()+[self.command('git diff')]))
+    def test_instruction_filename_braces_do_not_count_as_artifact_reads(self):
+        for pattern,instruction_only in [('{AGENTS.md,CLAUDE.md}',True),
+                                         ('**/{CLAUDE.md,AGENTS.md}',True),
+                                         ('{AGENTS.md,README.md}',False),('**/*.md',False)]:
+            with self.subTest(pattern=pattern):
+                glob={'type':'assistant','message':{'content':[{'type':'tool_use','id':'glob',
+                      'name':'Glob','input':{'pattern':pattern,'path':str(self.repo)}}]}}
+                result=review_phase_evidence([glob]+self.loaded()+[self.command('git diff')],
+                                             self.repo,self.paths[0],[self.paths[2]])
+                self.assertEqual(result['passed'],instruction_only)
+                self.assertEqual(bool(result['violations']),not instruction_only)
+
     def test_claude_tool_batch_launch_before_results_fails(self):
         calls=[];results=[]
         for p in self.paths:

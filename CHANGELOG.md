@@ -4,6 +4,26 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.11.1
+
+### Highlights
+
+**multi-model**
+- Keep the first update about the task, including before skill loading
+- Read AGENTS.md before bounded lookups in Claude Code
+
+**super-plan**
+- Keep assigned research messages focused on task facts
+
+**ship**
+- Keep verification messages focused on checks and results
+
+**critical-review**
+- Keep instruction loading out of review progress updates
+- Read repository instructions before inspecting artifacts
+
+Orchestration 4.11.1 and code-review 1.17.1 apply to Claude Code and Codex.
+
 ## 4.11.0
 
 ### Highlights

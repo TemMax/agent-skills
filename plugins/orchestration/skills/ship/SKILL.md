@@ -1,12 +1,18 @@
 ---
 name: ship
-description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge.'
+description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.11.0
+  version: 4.11.1
 ---
 
 # Shipping a Feature (ship)
+
+## Before repository work
+
+Before repository reads or commands, silently locate AGENTS.md and CLAUDE.md and read
+files in full unless already in context. Claude Code loading CLAUDE.md
+is not evidence that AGENTS.md was loaded. Read-only lookups follow this step too.
 
 ### User-facing communication
 

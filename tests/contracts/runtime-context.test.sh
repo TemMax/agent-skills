@@ -38,7 +38,7 @@ new_transcript() { # writes $1 (printf-ready lines, already newline-joined) to a
 }
 
 expected() { # $1 = plugin, $2 = event, $3 = model, $4 = host, $5 = effort
-  printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"$2\",\"additionalContext\":\"PLUGIN_RUNTIME_CONTEXT_V1 plugin=$1 host=$4 model=$3 effort=$5\"}}"
+  printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"$2\",\"additionalContext\":\"PLUGIN_RUNTIME_CONTEXT_V1 plugin=$1 host=$4 model=$3 effort=$5\\nUser-facing updates state the task, checks and results. Do not announce skills, instruction/profile filenames or loading, runtime model/effort or selection metadata.\"}}"
 }
 
 run_case() { # $1 = handler, $2 = payload
@@ -61,6 +61,23 @@ assert_empty() { # $1 = label, $2 = payload
     plugin="$(basename "$(dirname "$(dirname "$handler")")")"
     actual="$(run_case "$handler" "$payload")"
     expect "$label: $plugin" '{}' "$actual"
+  done
+}
+
+assert_policy_only() {
+  local label="$1" payload="$2" event="$3" handler actual
+  for handler in "${HANDLERS[@]}"; do
+    actual="$(run_case "$handler" "$payload")"
+    if python3 - "$event" "$actual" <<'PY'
+import json,sys
+value=json.loads(sys.argv[2])['hookSpecificOutput']
+assert value['hookEventName']==sys.argv[1]
+context=value['additionalContext']
+assert 'User-facing updates state the task, checks and results.' in context
+assert 'PLUGIN_RUNTIME_CONTEXT_V1' not in context
+assert 'model=' not in context and 'effort=' not in context
+PY
+    then pass "$label: $handler"; else fail "$label: $handler"; fi
   done
 }
 
@@ -99,8 +116,10 @@ CASES=(
   'JSON null emits no context|null|empty'
   'JSON array emits no context|[]|empty'
   'JSON string emits no context|"gpt-5.6"|empty'
-  'missing model emits no context|{"hook_event_name":"SessionStart"}|empty'
-  'unknown host emits no context|{"hook_event_name":"SessionStart","model":"other-1"}|empty'
+  'missing model keeps startup policy without claiming identity|{"hook_event_name":"SessionStart"}|policy|SessionStart'
+  'unknown host keeps startup policy without claiming identity|{"hook_event_name":"SessionStart","model":"other-1"}|policy|SessionStart'
+  'missing subagent model keeps startup policy without claiming identity|{"hook_event_name":"SubagentStart"}|policy|SubagentStart'
+  'missing model on a later prompt does not repeat startup policy|{"hook_event_name":"UserPromptSubmit"}|empty'
   'unrelated event emits no context|{"hook_event_name":"Stop","model":"gpt-5.6"}|empty'
 )
 
@@ -108,6 +127,7 @@ for row in "${CASES[@]}"; do
   IFS='|' read -r label payload kind event model host effort <<< "$row"
   case "$kind" in
     context) assert_case "$label" "$payload" "$event" "$model" "$host" "$effort" ;;
+    policy) assert_policy_only "$label" "$payload" "$event" ;;
     empty) assert_empty "$label" "$payload" ;;
   esac
 done

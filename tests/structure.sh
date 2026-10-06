@@ -9,7 +9,7 @@ section "Manifests parse"
 for f in .claude-plugin/marketplace.json plugins/*/.claude-plugin/plugin.json; do
   check "valid JSON: $f" "python3 -c 'import json;json.load(open(\"$f\"))'"
 done
-for f in plugins/*/hooks/hooks.json; do
+for f in plugins/*/hooks/hooks*.json; do
   [ -e "$f" ] || continue
   check "valid JSON: $f" "python3 -c 'import json;json.load(open(\"$f\"))'"
 done
@@ -84,21 +84,21 @@ for f in \
   plugins/orchestration/.claude-plugin/plugin.json \
   plugins/orchestration/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "orchestration release version: $f" "4.11.0" "$v"
+  expect "orchestration release version: $f" "4.11.1" "$v"
 done
 for f in plugins/orchestration/skills/*/SKILL.md plugins/orchestration/skills-codex/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "orchestration skill release version: $f" "4.11.0" "$v"
+  expect "orchestration skill release version: $f" "4.11.1" "$v"
 done
 for f in \
   plugins/code-review/.claude-plugin/plugin.json \
   plugins/code-review/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "code-review release version: $f" "1.17.0" "$v"
+  expect "code-review release version: $f" "1.17.1" "$v"
 done
 for f in plugins/code-review/skills/*/SKILL.md plugins/code-review/skills-codex/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "code-review skill release version: $f" "1.17.0" "$v"
+  expect "code-review skill release version: $f" "1.17.1" "$v"
 done
 for marker in \
   "Claude Code installation" \
@@ -267,7 +267,12 @@ done <<< "$highlights_out"
 
 section "Executables are executable"
 for f in plugins/*/hooks/*; do
-  case "$f" in *.json) continue;; esac
+  case "$f" in
+    *.json|*.test.ts) continue;;
+    *.mjs)
+      check "JavaScript syntax: $(basename "$f")" "node --check '$f'"
+      continue;;
+  esac
   [ -f "$f" ] || continue
   check "executable: $(basename "$f")" "[ -x '$f' ]"
   check "shell syntax: $(basename "$f")" "bash -n '$f'"

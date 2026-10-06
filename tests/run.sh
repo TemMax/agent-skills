@@ -31,6 +31,7 @@ run "behaviour — wave launcher generator" bash tests/wave-launch.test.sh
 run "behaviour — plan linter on fixture mutants"                   bash tests/plan-lint.test.sh
 run "behaviour — Codex native wave state" bash tests/codex-wave-state.test.sh
 run "behaviour — mechanical verification and artifact reuse" node --test tests/lib/mechanical-verify.test.mjs
+run "behaviour — Claude runtime mod" node --test tests/lib/claude-runtime-mod.test.mjs tests/lib/claude-repository-context.test.mjs
 run "behaviour — native Claude wave runner" node --test tests/lib/claude-wave-runner.test.mjs
 run "behaviour — codex wave runner" node --test tests/lib/codex-wave-runner.test.mjs
 run "behaviour — worktree environment helper" node --test tests/lib/worktree-env.test.mjs
