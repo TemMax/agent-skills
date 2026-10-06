@@ -412,10 +412,8 @@ function mechanicalViolations(t, facts) {
   return v
 }
 
-function reworkPrompt(t, verdict) {
-  return executorPrompt(t) + [
-    '',
-    '',
+function reworkSection(t, verdict) {
+  return [
     '## Prior attempt was rejected',
     'A supervisor checked your branch against the contract and rejected it.',
     'The verdict, including the supervisor\'s own evidence:',
@@ -427,6 +425,22 @@ function reworkPrompt(t, verdict) {
     'The dead-end protocol still applies: if the task still needs an artifact',
     'another task of this wave produces, report `blocked-on-sibling` again',
     'instead of committing a placeholder.',
+  ].join('\n')
+}
+
+function reworkPrompt(t, verdict) {
+  return executorPrompt(t) + '\n\n' + reworkSection(t, verdict)
+}
+
+// Sent instead of the full rework prompt when the transport resumes the
+// executor's own session: the task text is already in that session.
+function continuationPrompt(t, verdict) {
+  return reworkSection(t, verdict) + '\n\n' + [
+    'Finish with a complete, self-contained REPORT in the format your task',
+    'requires: changed files, the gist of the change, the verbatim output of',
+    'every must_run command you ran, an answer to every report_must_answer',
+    'question, git log --oneline ' + wave.base + '..HEAD and git status --porcelain.',
+    'The supervisor reads only this final report.',
   ].join('\n')
 }
 
@@ -609,8 +623,14 @@ async function runTask(t) {
       log(t.id + ': ' + (prevVerdict ? 'rework' : 'executor') + ' ' + model + '/' + effort
         + ' — rung ' + (rung + 1) + '/' + rungs.length
         + ', attempt ' + verdictCount + '/' + MAX_ATTEMPTS_PER_TASK)
-      const report = await call(prompt,
-        { model, effort, label: 'exec:' + t.id, phase: 'Wave' }, rung)
+      // Same rung means same model and effort as the previous attempt, so the
+      // native transport may resume that session. The host Workflow agent()
+      // (no verify function) must not receive the extra key.
+      const execOpts = { model, effort, label: 'exec:' + t.id, phase: 'Wave' }
+      if (prevVerdict && attemptOnRung > 1 && typeof verify === 'function') {
+        execOpts.continuation = continuationPrompt(t, prevVerdict)
+      }
+      const report = await call(prompt, execOpts, rung)
       if (report === null) return finish(budgetStopped ? 'budget-exhausted' : 'error')
 
       // (a) The executor itself hit the machine, not the work: stop at once,
