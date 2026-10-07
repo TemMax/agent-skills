@@ -172,15 +172,35 @@ never `codex exec` (`preflightSandboxArgs`, `codex-wave-runner.mjs:478-486`,
 called from `runPreflight`, `:495-532`). A command whose output matches a
 known machine-failure signature (`detectEnvironmentBlock`,
 e.g. a git lock, a read-only filesystem, a missing
-Android SDK) stops the whole run right there, before any executor or
-supervisor is spawned (`codex-wave-runner.mjs:754-770`). A red command with
-no matching signature is only recorded, in case it is expected-red
-(`codex-wave-runner.mjs:424-425,517`).
+Android SDK) is run once more outside the sandbox, in the same checkout and
+under the same timeout (`runPreflight`), and that second run classifies it:
+
+- **Machine block** — the signature shows outside the sandbox too. The run
+  cannot succeed on this machine. The preflight still probes the remaining
+  commands, then the whole run stops, before any executor or supervisor is
+  spawned and before `--out` exists; the stop lists every machine block in
+  `preflight.blocks` (command, signature id and line each), and
+  `preflight.blocked` is the first of them. Only machine blocks stop the wave.
+- **Sandbox-only block** — the signature shows inside the sandbox and not
+  outside it. The command does not stop the wave: it is listed in
+  `preflight.outsideSandbox`, passed to every task's state at `init`, and
+  written to the final `summary.json`. The executor prompt lists the task's
+  own sandbox-only commands and tells the executor not to run them and not to
+  report `environment-blocked` for them; the supervisor prompt lists them as
+  run outside the sandbox by the runner, to be judged from the VERIFIER FACTS
+  and not run by the supervisor, and a missing paste for them in the report is
+  not a violation (`outsideSandboxCmds`, `codex-wave-state.mjs`).
+
+Each entry of `preflight.results` carries `sandbox` (`ok` or `blocked`) and,
+for a command that was run again, `outside` with that run's exit code,
+duration and `blocked` flag. A red command with no matching signature is only
+recorded, in case it is expected-red. A run resumed with `--resume-from` skips
+the preflight and takes `preflight.outsideSandbox` from the summary it resumes.
 
 **`environment-blocked` status.** This is the terminal stop the machine, not
 the work, produced — see ADR 009 (`docs/decisions/009-environment-blocked-and-worktree-env.md`).
-It is set when: the preflight above matches a
-signature (`codex-wave-runner.mjs:754-770`); an executor's report itself
+It is set when: the preflight above finds a
+machine block (a sandbox-only block never sets it); an executor's report itself
 has, as its first non-empty line (optionally backtick-wrapped, text after
 the colon non-empty and not a `<placeholder>`), `environment-blocked:`
 (`reportEnvironmentBlock`, `codex-wave-state.mjs:834-857`) — a marker
@@ -227,7 +247,10 @@ classification the state helper only ever receives as
 exists), the runner writes no `--out` directory and no `summary.json` at
 all — that run's summary JSON (with a `preflight.blocked` object naming the
 command, signature id and line for the preflight case) goes to stdout only,
-so read it there, not from a file.
+so read it there, not from a file. For the preflight case that summary also
+carries `preflight.blocks`, every machine block found, so all of them can be
+fixed before the relaunch. A wave that went on past sandbox-only blocks names
+them in `preflight.outsideSandbox` of its `summary.json`.
 
 **`depends-on-unmet` stop.** Before any worktree exists, the runner checks
 the plan's `depends_on` entries for the selected wave against the live repo

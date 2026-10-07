@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.14.0
+  version: 4.15.0
 ---
 
 # Planning Waves (super-plan)
@@ -76,10 +76,10 @@ e.g. "I'll check the approved plan's format." Keep instruction-loading actions
 in tools; do not add a sentence announcing WORKFLOW.md or a profile.
 
 Before authoring or amending a plan, decomposition, role selection, seam audit,
-plan lint or presenting approval gates, load [WORKFLOW.md](WORKFLOW.md) once.
-Its profile selection, product-fork ordering, design and plan gates, wave
+plan lint or presenting the design report or the start approval, load [WORKFLOW.md](WORKFLOW.md) once.
+Its profile selection, product-fork ordering, design report and start approval, wave
 contracts, acceptance requirements and lint rules are mandatory. A full planning
-request always takes this path; research scope cannot bypass a planning gate.
+request always takes this path; research scope cannot bypass the start approval.
 If requirements are unresolved, collect genuine product forks before choosing
 execution or review routes. Never silently decide a new product requirement.
 

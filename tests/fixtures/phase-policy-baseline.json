@@ -104,7 +104,7 @@
       "a844229c947784d8cb1c2eb01726030d01d6fda5c826fc48911aeca92ec709d9",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
       "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
-      "cc88d4a182447a7d99359b32ff5b65d50c7434455136dae135221153e2bfcb8b",
+      "5b2032b4d2aa39bf24d9e5fa6ff2a161dea2e8bedcae347c32bf71628d287df6",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
       "2f7a898155f959dddf3dcbb12e9f77cea7de86aecb12afa43af381a3b4f1ecf0"
     ],
@@ -113,7 +113,7 @@
       "fd78bf29024208fdea0d0fdfebdc9fa725a35231126670cec5f165411daa518f",
       "94352790aa739129874e2ccf7ce06cd3eb4e36040f6b0bfa8e2286153f3e3296",
       "f38ace80dc794ce71e17b7c4f91d67be1987d758e4846f02991d5addc3e6d77d",
-      "d004b8e52d3a5b983c4e05a6b4cb9eb663ea5263fc0e18a2aeda88d59824a0d6",
+      "cc2c660845d706030c96c116ca830d20313f859d5a3142c65f2e53ff935bce6e",
       "5a5c8adb6e54a6b6ad8f32a0fe0e637e542cd63a6cf1be303b99041b85403c7f",
       "d0c6a8f1fdb20c856fd49aa040dcd3c39ff32b67531b7c98818f57fe4c52f255",
       "9e43dd8b6b4af484dad0b3a48f005e6575441f0231d28807361c4ad552df8819",
@@ -188,7 +188,7 @@
       "fd78bf29024208fdea0d0fdfebdc9fa725a35231126670cec5f165411daa518f",
       "823aa4586ed5241cd481c74881dbde0a06c37c9a10ec13ad08098ccf4fb7fa87",
       "f38ace80dc794ce71e17b7c4f91d67be1987d758e4846f02991d5addc3e6d77d",
-      "d004b8e52d3a5b983c4e05a6b4cb9eb663ea5263fc0e18a2aeda88d59824a0d6",
+      "cc2c660845d706030c96c116ca830d20313f859d5a3142c65f2e53ff935bce6e",
       "5a5c8adb6e54a6b6ad8f32a0fe0e637e542cd63a6cf1be303b99041b85403c7f",
       "d0c6a8f1fdb20c856fd49aa040dcd3c39ff32b67531b7c98818f57fe4c52f255",
       "9e43dd8b6b4af484dad0b3a48f005e6575441f0231d28807361c4ad552df8819",
@@ -220,7 +220,7 @@
       "09dd7dd4734ea7fd881ef189468874b7ea0f03b69977dcb7fc20b0e6e4df1fa2",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
       "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
-      "6c46f62e350775719f2589a5121563e0e732066348f561e6b7331fa20303c563",
+      "be0da921cc1825545d6ca68b32c71814a8c458e1b8d7370e1d216fc9b13c0c89",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
       "2f7a898155f959dddf3dcbb12e9f77cea7de86aecb12afa43af381a3b4f1ecf0"
     ],
@@ -328,7 +328,7 @@
       "9fdc6c9f38dccbd0f00893bfaf49451b2158dfc4289cd3434aaeedea01ed6e95",
       "fd78bf29024208fdea0d0fdfebdc9fa725a35231126670cec5f165411daa518f",
       "f38ace80dc794ce71e17b7c4f91d67be1987d758e4846f02991d5addc3e6d77d",
-      "141d92533acb470cd14df1a28486a027c607ba66c2347cf60d1de3607e946619",
+      "37692d37ac4b96cf86eef38433c6cf55cbbaa506f9b9815b8d9d1f727d6db8ac",
       "5a5c8adb6e54a6b6ad8f32a0fe0e637e542cd63a6cf1be303b99041b85403c7f",
       "d0c6a8f1fdb20c856fd49aa040dcd3c39ff32b67531b7c98818f57fe4c52f255",
       "9e43dd8b6b4af484dad0b3a48f005e6575441f0231d28807361c4ad552df8819",
@@ -825,6 +825,36 @@
       "old": "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125",
       "new": "2f7a898155f959dddf3dcbb12e9f77cea7de86aecb12afa43af381a3b4f1ecf0",
       "reason": "Common Mistakes: 'Adding a second ship-level gate mid-flow ... One gate up front' replaced by 'Adding a ship-level gate anywhere in the flow ... ship adds no gate' (A1)."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "cc88d4a182447a7d99359b32ff5b65d50c7434455136dae135221153e2bfcb8b",
+      "new": "5b2032b4d2aa39bf24d9e5fa6ff2a161dea2e8bedcae347c32bf71628d287df6",
+      "reason": "Failure map table: the row 'A preflight check fails' stops 'before planning' instead of 'before the gate' (ship has no gate of its own)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "d004b8e52d3a5b983c4e05a6b4cb9eb663ea5263fc0e18a2aeda88d59824a0d6",
+      "new": "cc2c660845d706030c96c116ca830d20313f859d5a3142c65f2e53ff935bce6e",
+      "reason": "Codex session rules block: the environment-blocked rule adds that the runner keeps going when only the sandbox blocks a must_run command, so the stop means the machine itself is broken; fix and relaunch the same plan without asking."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "d004b8e52d3a5b983c4e05a6b4cb9eb663ea5263fc0e18a2aeda88d59824a0d6",
+      "new": "cc2c660845d706030c96c116ca830d20313f859d5a3142c65f2e53ff935bce6e",
+      "reason": "Codex session rules block: the environment-blocked rule adds that the runner keeps going when only the sandbox blocks a must_run command, so the stop means the machine itself is broken; fix and relaunch the same plan without asking."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "6c46f62e350775719f2589a5121563e0e732066348f561e6b7331fa20303c563",
+      "new": "be0da921cc1825545d6ca68b32c71814a8c458e1b8d7370e1d216fc9b13c0c89",
+      "reason": "Failure map table: the row 'A preflight check fails' stops 'before planning' instead of 'before the gate' (ship has no gate of its own)."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "old": "141d92533acb470cd14df1a28486a027c607ba66c2347cf60d1de3607e946619",
+      "new": "37692d37ac4b96cf86eef38433c6cf55cbbaa506f9b9815b8d9d1f727d6db8ac",
+      "reason": "Codex session rules block: the environment-blocked rule adds that the runner keeps going when only the sandbox blocks a must_run command, so the stop means the machine itself is broken; fix and relaunch the same plan without asking."
     }
   ]
 }

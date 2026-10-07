@@ -64,6 +64,10 @@ incomplete pipeline or inconsistent result is not proof.
   task commit, using the fresh-workspace and retry rules below. Never replace
   missing independent evidence with the executor's report.
 
+A `must_run` command the prompt lists as run outside the sandbox by the runner
+is judged from the VERIFIER FACTS on either path: do not run it yourself, and
+a missing paste for it in the report is not a violation.
+
 ## Scope and verification cost
 
 A re-run needs a concrete reason: missing or inconsistent facts, a changed
@@ -97,7 +101,9 @@ belong in `remarks`; they do not block acceptance or request another pass.
   what failed. The task stops as `environment-blocked`, and the orchestrator
   fixes the machine. Measured: two 2026-09-25 Codex waves stopped as
   `contract-unsatisfiable` over a Gradle lock denied in `~/.gradle` and a
-  missing Android SDK. The contract was fine.
+  missing Android SDK. The contract was fine. A command the prompt lists as
+  run outside the sandbox by the runner is not this class merely because the
+  sandbox cannot run it: judge it from the VERIFIER FACTS.
 
 ## Report whether the paste reproduced — do not judge honesty
 

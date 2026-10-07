@@ -183,4 +183,48 @@ for retired in 'decide and present the supervisor choice' 'then stop touching th
   done
 done
 
+section "a sandbox-only block does not stop a Codex wave; a machine block does"
+
+PROTOCOL=plugins/orchestration/skills/multi-model/references/codex-wave-protocol.md
+SUPERVISOR=plugins/orchestration/skills/multi-model/references/supervisor-prompt.md
+
+check "codex-wave-protocol names preflight.outsideSandbox" \
+  "grep -qF 'preflight.outsideSandbox' $PROTOCOL"
+check "codex-wave-protocol names both kinds of block" \
+  "grep -qF '**Machine block**' $PROTOCOL && grep -qF '**Sandbox-only block**' $PROTOCOL"
+check "codex-wave-protocol runs a signature command once more outside the sandbox" \
+  "one_line '$PROTOCOL' | grep -qF 'is run once more outside the sandbox'"
+check "codex-wave-protocol stops only on machine blocks and lists all of them" \
+  "one_line '$PROTOCOL' | grep -qF 'Only machine blocks stop the wave.' && one_line '$PROTOCOL' | grep -qF 'the stop lists every machine block in \`preflight.blocks\`'"
+check "codex-wave-protocol keeps a sandbox-only command from stopping the wave" \
+  "one_line '$PROTOCOL' | grep -qF 'The command does not stop the wave: it is listed in \`preflight.outsideSandbox\`'"
+check "supervisor-prompt judges a command run outside the sandbox from the VERIFIER FACTS" \
+  "one_line '$SUPERVISOR' | grep -qF 'is judged from the VERIFIER FACTS on either path: do not run it yourself, and a missing paste for it in the report is not a violation.'"
+for f in plugins/orchestration/skills/multi-model/WORKFLOW.md plugins/orchestration/skills-codex/multi-model/WORKFLOW.md; do
+  check "$f: Stop handling reads a Codex runner environment-blocked as a machine block" \
+    "one_line '$f' | grep -qF 'For a wave run by the Codex runner, \`environment-blocked\` means a machine block: a sandbox-only block — a \`must_run\` command blocked inside the sandbox and clean outside it — is handled by that runner and never reaches the coordinator as a stop.'"
+done
+
+SESSION_RULE="$(phrase 'The runner already keeps going when only the sandbox blocks a `must_run` command, so an `environment-blocked` stop means the machine itself is broken: fix it in the plan'"'"'s `worktree` key or on the machine and relaunch the same plan without asking.')"
+for f in plugins/orchestration/skills-codex/multi-model/SKILL.md \
+         plugins/orchestration/skills-codex/super-plan/WORKFLOW.md \
+         plugins/orchestration/skills-codex/ship/WORKFLOW.md \
+         plugins/code-review/skills-codex/critical-review/PROFILE.md; do
+  check "$f: the environment-blocked session rule relaunches after a machine fix without asking" \
+    "grep -F 'On \`environment-blocked\`, diagnose before you ask the user for anything.' '$f' | grep -qFf '$SESSION_RULE'"
+done
+
+section "wording follows the single start approval"
+
+for f in plugins/orchestration/skills/ship/WORKFLOW.md plugins/orchestration/skills-codex/ship/WORKFLOW.md; do
+  check "$f: a failed preflight check stops before planning" \
+    "grep -qF '| A preflight check fails | Stop before planning; name the missing piece |' '$f' && ! grep -qF 'Stop before the gate' '$f'"
+done
+for f in plugins/orchestration/skills/super-plan/SKILL.md plugins/orchestration/skills-codex/super-plan/SKILL.md; do
+  check "$f: the entrypoint names the design report and the start approval" \
+    "grep -qF 'plan lint or presenting the design report or the start approval, load' '$f' && grep -qF 'design report and start approval, wave' '$f' && grep -qF 'research scope cannot bypass the start approval.' '$f'"
+  check "$f: the entrypoint keeps none of the retired gate phrases" \
+    "! grep -qF 'presenting approval gates' '$f' && ! grep -qF 'design and plan gates' '$f' && ! grep -qF 'bypass a planning gate' '$f'"
+done
+
 summary
