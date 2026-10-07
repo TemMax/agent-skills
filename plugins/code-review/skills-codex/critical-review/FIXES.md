@@ -1,61 +1,113 @@
 ## Post-Review Fix Protocol
 
-Everything in this section applies **only after the user, having seen the
-findings table, asked for the findings to be fixed.** Until then the review
-is read-only, as Review Method item 6 requires.
+For a review the user asked for on its own, everything in this section
+applies **only after the user, having seen the findings table, asked for the
+findings to be fixed.** Until then the review is read-only, as Review Method
+item 6 requires. When the review runs as a stage of ship on the pipeline's
+own pull request, the user already asked for a reviewed pull request: the
+findings table is shown and the fixes start without a separate request.
 
-An earlier approval to "implement directly", given for execution work
-elsewhere in the session, does not extend to review findings. Review
-findings are a separate gate every time: the user sees the findings table
-produced by this review, and only then do fixes go through this protocol.
-Measured cause: an orchestrator fixed final-review findings inline and
-pushed twice without showing findings.
+The findings are always shown before or with the fixes, never hidden. For a
+review the user asked for on its own, the findings are a separate gate
+every time: the user sees the findings table produced by this review, and
+only then do fixes start. Measured cause: an orchestrator fixed
+final-review findings inline and pushed twice without showing findings.
+Once the fixes start, the user's direct instruction about how to make them
+wins (step 2).
+
+These rules apply only to findings of a review the user asked for in this
+session. A plain request to change code is implementation work, not a review
+fix, and does not enter this protocol. For those findings step 2 decides who
+makes a change; it takes precedence over a general rule that the coordinator
+never authors code.
 
 ### Order of operations
 
 1. **Record the starting point**: `git rev-parse HEAD`. Note whether the
    working tree already had uncommitted changes before this phase began.
-2. **Route every approved fix; the coordinator never authors a fix**, including
-   prose. Each route names an explicit available host, model, supported effort,
-   bounded paths and contract, with rationale from multi-model's shared routing
-   rules — never severity, coordinator identity, or inherited child defaults. A
-   fix wave follows the plan format (`ci`, `e2e`), and a premium model
-   (`gpt-6-astra`) in any role of that wave needs `approvals.premium`
-   recorded from the user's choice at this fix gate — the approval to fix is
-   not an approval to spend premium, and premium use is never inferred from it.
-   If any required skill, host, model, or effort is unavailable, stop and report
-   that bounded route; never fall back to self-implementation. Behavior changes,
-   including instruction/config text that changes actual behavior, use
-   multi-model with `publication: local` and supervised execution. Only genuinely
-   non-behavior prose, comments, or docs use one bounded explicitly routed
-   subagent instead of a supervised wave.
-   The returned evidence is not authority to publish.
-   The fix wave's base is the pushed PR head, copied from
-   `git rev-parse origin/<pr-branch>` — never local `HEAD`, even when the
-   local branch looks identical. Measured cause: a fix wave launched on an
-   unpushed local `HEAD` spent 15 agent calls before every executor refused.
-   The fix-wave plan file itself may stay uncommitted; the launcher reads it
-   from disk. Its fix tasks are appended as a new plan, or as a plan with
-   `inherits` pointing at the shipped plan — never by flipping the shipped
-   plan's `done` status back to `active`.
-3. **Integrate, commit, and verify** returned approved fixes — one logical fix
-   per commit, staging only paths the fix touched, so pre-existing uncommitted
-   work is never swept into a fix commit. Do not silently push an uncommitted
-   standalone base to manufacture a wave base. Commits precede the gate because
-   replies cite real SHAs. A verification failure halts before the gate and
-   returns its output; no commit has been pushed or posted.
-4. **Preflight** write capability (below). `degrade` concerns only PR capability,
-   never unavailable delegated execution.
-5. **Gate** — present the package once, and wait.
-6. **Execute**, only on approval, in strict order:
+2. **Choose the fix route yourself.** Never ask the user to approve a route or
+   a model. Ask the user only for a contradiction in the feature, a change of
+   the agreed scope, weakening or removing a test or check, an irreversible
+   action on something this run did not create, or an action only the user
+   can take; step 6 gates the outward steps that are not the user's own. The
+   first rule decides whenever it applies:
+   - **Instruction.** The user's direct instruction wins. When the user tells
+     the coordinator in this session how to carry out a change — "fix it
+     yourself", "do it and check it yourself", "no agents", "use agents", "use
+     this model" — do exactly that, whatever the change is, and never answer
+     with a request to approve another route.
+   - **Direct.** Without such an instruction, the coordinator makes the change
+     itself when all of these hold: it can state the exact change before
+     making it; the change stays inside the task already agreed with the user
+     and inside one module or subsystem; no new public interface, data format
+     or product behavior has to be decided; checks that cover the change exist
+     or are added with it and can be run here.
+   - **Delegated.** Anything else goes to a supervised wave: multi-model with
+     `publication: local` on the standard route. Each delegated route names an
+     explicit available host, model, supported effort, bounded paths and
+     contract, with rationale from multi-model's shared routing rules — never
+     severity, coordinator identity, or inherited child defaults. When a
+     required skill, host, model, or effort is unavailable, fix directly with
+     the checks of a direct fix and say so in the report; do not stop.
+   - **Checks of a direct fix.** Run the covering checks. A behavior change,
+     including instruction/config text that changes actual behavior, also gets
+     one independent check of the diff from a fresh agent on the standard
+     review route when the host can spawn one. The report says plainly when no
+     independent check ran.
+   - **Premium.** Premium models are never the subject of a question. A
+     premium model (`gpt-6-astra`) is used only when the user said
+     so: in this session, or through a standing authorization written in the
+     user's or the repository's instruction files (`AGENTS.md`, `CLAUDE.md`),
+     which counts as the user's choice and is recorded in `approvals.premium`
+     with its source. The request to fix findings is not a premium
+     authorization, and premium use is never inferred from it. An
+     authorization given for a pull request or task covers its later fix and
+     recovery waves while the models and roles stay the same. Without an
+     authorization use the standard route; when no standard delegated route
+     fits, fix directly with the checks of a direct fix. The report notes in
+     one line where a premium route would have applied.
+   - **Fix wave.** A fix wave follows the plan format (`ci`, `e2e`). The fix
+     wave's base is the pushed PR head, copied from
+     `git rev-parse origin/<pr-branch>` — never local `HEAD`, even when the
+     local branch looks identical. Measured cause: a fix wave launched on an
+     unpushed local `HEAD` spent 15 agent calls before every executor refused.
+     The fix-wave plan file itself may stay uncommitted; the launcher reads it
+     from disk. Its fix tasks are appended as a new plan, or as a plan with
+     `inherits` pointing at the shipped plan — never by flipping the shipped
+     plan's `done` status back to `active`. A later fix plan of the same pull
+     request `inherits` the plan that already carries the user's premium
+     authorization, so nothing is asked again.
+   - **Re-run.** Re-running the same approved plan or route after the machine
+     or the plan's environment was fixed needs no new approval.
+3. **Commit and verify** every fix, direct or returned by a wave — one logical
+   fix per commit, staging only paths the fix touched, so pre-existing
+   uncommitted work is never swept into a fix commit. Do not silently push an
+   uncommitted standalone base to manufacture a wave base. Commits precede
+   publication because replies cite real SHAs. A verification failure halts
+   before publication and returns its output; no commit has been pushed or
+   posted.
+4. **Preflight** write capability (below). `degrade` concerns only PR
+   capability; step 2 handles a missing delegated capability.
+5. **Publish the user's own work without a question.** After verification is
+   green, push the fix commits to the feature branch of the user's own pull
+   request — its author is the login `gh api user --jq .login` returns — and
+   report what was pushed.
+6. **Gate only what is not the user's own**: replies and resolves in threads
+   started by someone else (the root comment's author is another login), and a
+   push to a branch or pull request that is not the user's own. Present those
+   items once, and wait for the user's word; a package without such items is
+   published without the gate. The order is always
    `push` → replies → resolves. Replying before the push is forbidden: the
-   reply would cite a commit that is not on the remote.
+   reply would cite a commit that is not on the remote. A merge is never part
+   of this protocol; it needs the user's word.
 7. **Report** facts: what was pushed, which threads were answered and
    resolved, what failed.
 
 ### The gate
 
-One confirmation covers the whole package. It shows:
+The gate is shown only for the items step 6 names. One confirmation covers
+the whole package. When no gate is shown, the report carries what the gate
+would have stated about dropped steps and their reply texts. The gate shows:
 
 - the diff of all fixes, the commit messages, and their real SHAs;
 - any pre-existing uncommitted work deliberately left out of the commits;
@@ -66,9 +118,11 @@ One confirmation covers the whole package. It shows:
 - any capability degradation found by preflight, stated plainly.
 
 The user approves the package as a whole, amends individual lines, or
-cancels. **Cancel is `git reset --soft <starting HEAD>`**: the fix commits
-disappear, the fixes themselves stay in the working tree for further work,
-and nothing left the machine.
+cancels. **Cancel is `git reset --soft <starting HEAD>`** when no fix commit
+was pushed: the fix commits disappear, the fixes themselves stay in the
+working tree for further work, and nothing left the machine. When the fix
+commits are already on the user's own pull request, cancel posts nothing and
+leaves the pushed commits in place.
 
 ### Preflight
 
@@ -187,9 +241,10 @@ gh api graphql \
 
 | Case | Behavior |
 |---|---|
-| Verification (build/tests) fails | Halt before the gate; report the output; fix commits exist locally, nothing pushed or posted |
-| User cancels at the gate | `git reset --soft <starting HEAD>`; fixes stay in the working tree; nothing left the machine |
-| No `gh`, or not authenticated | Delegated fixes and verification still run; the gate degrades to the push only, and carries reply texts for manual use |
+| Verification (build/tests) fails | Halt before publication; report the output; fix commits exist locally, nothing pushed or posted |
+| User cancels at the gate | Nothing pushed yet: `git reset --soft <starting HEAD>`; fixes stay in the working tree; nothing left the machine. Fix commits already on the user's own pull request: nothing is posted; the pushed commits stay |
+| No `gh`, or not authenticated | Fixes and verification still run; the pull request's author cannot be confirmed, so the push goes through the gate, which carries reply texts for manual use |
+| A required delegated skill, host, model, or effort is unavailable | Fix directly with the checks of a direct fix and say so in the report; do not stop |
 | `viewerCanResolve: false` on a thread | That thread gets its reply; its resolve is dropped from the package, with the reason stated |
 | `viewerCanReply: false` on a thread | Listed in the gate as untouchable, with its prepared text for manual use |
 | Node count ≠ `totalCount` after pagination | Stop with an explicit error; never present a partial thread inventory as complete |
@@ -197,4 +252,4 @@ gh api graphql \
 | Thread already `isResolved`, or already carries your marker comment | Skip it, do not touch it |
 | Thread has more comments than the 50 fetched | Marker may be outside the window — do not post; list it for manual handling |
 | Reply or resolve fails mid-loop | Stop the loop; report exactly which threads landed and which did not |
-| Non-PR scope (uncommitted changes) | Same protocol minus every thread step; the gate covers the fix commits and the push |
+| Non-PR scope (uncommitted changes) | Same protocol minus every thread step; no pull request of the user's own exists, so the gate covers the fix commits and the push |

@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.13.0
+  version: 4.14.0
 ---
 
 # Orchestrating Multi-Model Development
@@ -32,10 +32,21 @@ diagnostics, answer it with the relevant evidence and limits. When a route canno
 provide a required judgment, explain the practical limit and the next step.
 Ordinary review summaries describe task evidence and checks left unverified.
 
-For a single edit the user explicitly asks you to do yourself outside an active
-wave, apply and verify only that edit, then finish. Skip the delegation process
-below. A related documentation inconsistency is a finding, not another task;
-"continue in the same scope" does not authorize changing additional files.
+The user's direct instruction wins: when the user tells you in this session
+how to carry out a change — "fix it yourself", "do it and check it yourself",
+"no agents", "use agents", "use this model" — do exactly that, whatever the
+change is (a review finding, a supervisor's or the final review's defect, part
+of an approved plan), and never answer with a request to approve another
+route. Without such an instruction choose the route yourself and never ask the
+user to approve it: make the change yourself when you can state the exact
+change before making it, it stays inside the task already agreed with the user
+and inside one module or subsystem, no new public interface, data format or
+product behavior has to be decided, and checks that cover it exist or are
+added with it and can be run here; anything else goes to a supervised wave on
+the standard route. When you make a change yourself, run the covering checks
+and show the diff. A related documentation inconsistency is a finding, not
+another task; "continue in the same scope" does not authorize changing
+additional files.
 
 ## Process scope and context
 
@@ -47,9 +58,12 @@ it again. Required repository instructions still apply.
 Keep one owner of the current phase. Inside an approved parent workflow, this
 skill performs its assigned phase without starting another design/plan gate.
 Reuse confirmed decisions and authorization for the same task, roles, access
-and delivery scope. Ask only for a new decision or an actual scope/budget change.
-For a directly requested standalone edit, finish within the named files and
-stop when the requested change is verified. Report related inconsistencies as
+and delivery scope. Ask the user only for: a contradiction in the feature; a
+change of the agreed scope; weakening or removing a test or check; an
+irreversible action on something this run did not create; an action only the
+user can take. Everything else: decide, act, report.
+For a change you make yourself, stay within the task agreed with the user and
+stop when the change is verified. Report related inconsistencies as
 findings, without proposing extra edits or ending with "shall I update it?".
 "Continue in the same scope" keeps the same file boundary; it does not approve
 a suggested follow-up. The planning/decomposition process in WORKFLOW.md applies
@@ -59,10 +73,15 @@ and expand reads when needed to establish evidence.
 
 ## Choose the current task path
 
-For a read-only explanation, lookup, or the directly requested small standalone
-edit allowed above, keep the named scope and verify that result. Skip Step 0,
-profiles, routing, calibration evidence, and WORKFLOW.md: no agents are needed.
-This exception does not cover review fixes or any task in an approved wave.
+For a read-only explanation, lookup, or a change you make yourself under
+the rule above, keep the agreed scope and verify that result. Skip Step 0,
+profiles, routing, calibration evidence, and WORKFLOW.md. A behavior change
+you made yourself also gets one independent check of the diff from a fresh
+agent on the standard review route when the host can spawn one; the report
+says plainly when no independent check ran. One logical fix per commit.
+Review-fix rules apply only to findings of a review the user asked for in
+this session; a plain request to change code is implementation work, not a
+review fix.
 
 Before researching for decomposition, authoring or amending a wave plan, launching
 agents, supervising, recovering, integrating or publishing a delegated task,

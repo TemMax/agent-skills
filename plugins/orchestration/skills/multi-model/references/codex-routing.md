@@ -35,7 +35,11 @@ the standard `gpt-6.1-sol` supervisor has no ladder.
 so a wave containing either task class has no standard supervisor: the
 standard-supervisor option is available only when every executor and rung is
 `gpt-6-luna`, and a Sol executor already breaks that condition. Such a wave
-needs the premium `gpt-6-astra` supervisor.
+needs the premium `gpt-6-astra` supervisor. Without the user's premium
+authorization the coordinator does not ask for one: it makes such a change
+directly when the direct-fix conditions of multi-model's step 8 hold, with one
+independent check of the diff on the standard review route, or cuts the work
+into mechanical tasks for the standard route.
 
 Mechanical means a narrow edit with complete instructions and checkable output;
 ordinary means a closed implementation across call sites; difficult means a
@@ -124,7 +128,8 @@ runs in a fresh child of the model the plan's `review` key names — chosen by
 the user at Gate 1: `gpt-6-astra` (premium, recorded
 in `approvals.premium`) or `gpt-6.1-sol` (measured 2026-09-30: clean 10/10,
 planted 10/10, PR support 3/4; the PR says so). If the plan has no `review`
-key, stop and ask the user before invoking the review; never pick. The fresh
+key, use the standard measured review route `gpt-6.1-sol` without asking; a
+premium review model is used only on the user's word. The fresh
 child keeps a GPT-5.6 main seat
 from selecting a GPT-5.6 consequential-reviewer profile and keeps the review
 independent from the coordinator's context.

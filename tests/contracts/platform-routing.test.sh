@@ -217,13 +217,13 @@ check "ship leaves adapter selection and subagent execution to multi-model" \
 check "ship does not own provider invocation machinery" \
   "grep -qF 'ship never invokes provider CLIs, adapter workflows, or state helpers itself' '$SH'"
 check "ship fixes own findings even without review threads" \
-  "grep -qF 'every approved finding that produces a fix, including an \`own\` finding with no PR threads' '$SH'"
+  "grep -qF 'without waiting for a request, for every finding that produces a fix, including an \`own\` finding with no PR threads' '$SH'"
 check "ship defers fix routing to critical-review" \
   "grep -qF 'shared Post-Review Fix Protocol' '$SH' && grep -qF 'ship never adds inline prose routing or a parallel routing table' '$SH'"
-check "critical-review gate is the first review-fix publication point" \
-  "grep -qF 'Only after that approval does publication run in that order' '$SH' && ! sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' '$SH' | grep -qF 'pushed like any wave'"
-check "ship keeps delegated review fixes local" \
-  "grep -qF 'Critical-review keeps every resulting fix commit local' '$SH'"
+check "review fixes reach the user's own pull request without a question, in the fixed order" \
+  "grep -qF 'branch of the user'\''s own pull request without a question and reports what' '$SH' && grep -qF 'The order is always \`push → replies → resolves\`' '$SH' && ! sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' '$SH' | grep -qF 'pushed like any wave'"
+check "ship commits and verifies review fixes before publication" \
+  "grep -qF 'Critical-review commits and verifies every resulting fix before publication' '$SH'"
 
 section "provider-aware Stop drift registration is strict and complete"
 
@@ -238,7 +238,7 @@ check "drift hook remains executable" "[ -x '$DH' ]"
 section "premium models gate Fable 5.1 and GPT-6 Astra behind approvals.premium"
 
 check "multi-model states the premium-approval paragraph" \
-  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna-only waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.1 and GPT-6 Astra are premium; they are used — as supervisor, executor or ladder rung — only when the user chose them at Gate 1 and the plan records \`approvals.premium\`; the linter enforces it. Standard alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors), Codex \`gpt-6.1-sol\` for Luna-only waves.'"
+  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna-only waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.1 and GPT-6 Astra are premium. Premium models are never the subject of a question. They are used — as supervisor, executor or ladder rung — only when the user said so: in this session (for a new feature plan that is super-plan'\''s Gate 1), or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice. The plan records it in \`approvals.premium\`; the linter enforces it.' && sed -n '/^\*\*Premium models\.\*\*/,/for Luna-only waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Without an authorization use the standard route; when no standard delegated route fits, fix directly per step 8. The report notes in one line where a premium route would have applied. Standard alternatives: Opus 5.5 (Sonnet/Haiku waves), Opus 5 (for Opus 5.5 executors), Codex \`gpt-6.1-sol\` for Luna-only waves.'"
 check "the supervisor table default-ladder sentence counts an omitted ladder" \
   "grep -qF 'The rung rule counts the default ladder' '$MM' && grep -qF 'inherits the runner'\''s default ladder' '$MM'"
 check "Haiku and Sonnet supervisor rows route to Opus 5.5 or Opus 5 by rung, with Fable 5.1 as premium" \
@@ -325,8 +325,8 @@ section "the Table step shows the supervisor, premium status, and cost, with pre
 
 check "process step 4 table adds supervisor and premium status, and forbids estimates" \
   "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The table also shows, per wave, the supervisor and whether it is premium.' && sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never a time or cost estimate — not in the table, a progress update or the completion summary (super-plan: \"No time or cost estimates\").'"
-check "process step 4 table gates premium on the user's Gate 1 choice and approvals.premium" \
-  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'A premium model (Fable 5.1 / GPT-6 Astra, any role) is used only when the user picks it here and the plan records \`approvals.premium\` with that choice — never filled in by the orchestrator for a choice the user did not make.'"
+check "process step 4 table gates premium on the user's word or a standing authorization, recorded in approvals.premium" \
+  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Premium models are never the subject of a question. A premium model (Fable 5.1 / GPT-6 Astra, any role) is used only when the user said so: in this session — for a new feature plan that is super-plan'\''s Gate 1 — or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source — never filled in by the orchestrator for a choice the user did not make.'"
 check "process step 3 groups for width by super-plan's Design for width rule" \
   "sed -n '/^3\. \*\*Plan\.\*\*/,/^4\. \*\*Table\.\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Group for width'"
 

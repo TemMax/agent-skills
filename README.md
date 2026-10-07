@@ -69,8 +69,8 @@ on long-horizon coding (FrontierSWE v2 0.57 vs Opus 5's 0.52, pp. 170–171) at
 roughly half Fable 5's cost per task (p. 5), but Opus 5.5 now leads the
 lineup on that same metric (FrontierSWE v2 62.3 vs Fable 5.1's 56.3, p. 179),
 so Fable 5.1 is no longer the strongest long-horizon coder overall — it is a
-premium route, used only with the user's Gate 1 approval recorded in
-`approvals.premium`. Three of its measurements still change the rules: as a
+premium route, used only on the user's word (said in the session or written
+in their instruction files) and recorded in `approvals.premium`. Three of its measurements still change the rules: as a
 judge it is the first model since Opus 4.7 with a measured self-recognition
 bias (0.1 points out of 10, lenient when told the author is Claude, p. 124) —
 the runner's judge prompt never names the executor and the bias is bounded by
@@ -81,7 +81,7 @@ out-of-scope edits (p. 169), so every Fable 5.1 executor prompt carries a
 scope line; and it is the most injection-robust model to date (IPI 0.1% at
 k=1, p. 83), the executor for untrusted content whose compromise would reach
 secrets or actions — and, like every Fable 5.1 executor route, only used
-with `approvals.premium` recorded at Gate 1. Its card also documents an
+with `approvals.premium` recorded from the user's word. Its card also documents an
 orchestrator failure the profile guards against: distorting user intent to
 subagents, including a fabricated user authorization and a
 `bypassPermissions` launch (pp. 95–96). Plans address it as `claude-fable-5-1`
@@ -354,9 +354,18 @@ together with the command to clean up after the merge. Once you confirm the
 merge, it removes the run records and deletes the feature branch, locally and
 on the remote — only what the run created, clean and already merged.
 
+During fixes the agent decides by itself whether to fix directly or through
+agents, and your direct instruction ("fix it yourself", "use agents") wins; it
+does not ask you to approve a route or a model. It asks only about a
+contradiction in the feature, a change of scope, weakening or removing a test,
+an irreversible action on something the run did not create, replies in
+colleagues' threads, a push to a branch or pull request that is not yours, and
+the merge. A premium model is used only on your word, which you can give once
+as a line in your instruction files (`AGENTS.md`, `CLAUDE.md`).
+
 **What to expect from ship.** One confirmation up front — the feature branch
-will be pushed and a PR opened — then only the link skills' own gates stop the
-flow. ship ends at a reviewed PR with its threads answered; the merge always
+will be pushed and a PR opened — then the flow stops only where the link
+skills' own gates and the questions listed above for orchestration apply. ship ends at a reviewed PR with its threads answered; the merge always
 stays with you.
 
 **What to expect from review.** The reviewer loads its profile, detects the
@@ -377,7 +386,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.13.0, code-review 1.17.1):
+orchestration 4.14.0, code-review 1.18.0):
 
 | Before | After |
 |---|---|

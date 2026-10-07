@@ -10,7 +10,7 @@ commit per task) is part of the pipeline and needs no extra approval.
 
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
 2. Select the active-seat profile silently at Step 0. Update it only when newer runtime context changes the model or effort; follow User-facing communication below.
-3. The coordinator never authors code. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. Changes reach the repository only through a supervised wave; your own git work is integrating approved wave branches and publishing. Exception: a small standalone edit the user asks for directly, outside any active wave plan — one file, a few lines, nothing beyond what the user named (a config value, a typo, a version string) — you may make yourself and show the diff. The exception never covers a fix for a defect that a review, a supervisor or the final review found, nor any part of an approved plan's tasks.
+3. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. The user's direct instruction wins: when the user tells you in this session how to carry out a change — "fix it yourself", "do it and check it yourself", "no agents", "use agents", "use this model" — do exactly that, whatever the change is (a review finding, a supervisor's or the final review's defect, part of an approved plan), and never answer with a request to approve another route. Without such an instruction choose the route yourself and never ask the user to approve it: author the change yourself when you can state the exact change before making it, it stays inside the task already agreed with the user and inside one module or subsystem, no new public interface, data format or product behavior has to be decided, and checks that cover it exist or are added with it and can be run here; anything else goes to a supervised wave on the standard route. When you author a change, run the covering checks and show the diff.
 4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output.
 5. Recover a clean committed candidate with the runner's `--resume-from <summary.json>` and a new `--out` before considering a restart. It verifies and reviews without an executor and preserves call caps. Use the runner's own `--reset` only when intentionally discarding the candidate for a newly authorized implementation; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
 6. Executor commits are unsigned by design. Integration squashes each task into one commit made outside the sandbox, which the user's git configuration signs (codex-wave-protocol.md, step 9). Never disable commit signing in the user's configuration.
@@ -70,9 +70,13 @@ before launch; preserve the approvals below. Stage 3 `critical-review` runs in
 a fresh child of the model the plan's `review` key names (chosen at Gate 1;
 `gpt-6-astra` recorded in `approvals.premium`, or `gpt-6.1-sol`,
 measured 2026-09-30: clean 10/10, planted 10/10, PR support 3/4);
-if the plan has no `review` key, stop and ask the user before invoking the
-review; never pick. Missing required review capability stops the route; it
-never authorizes self-review or publication.
+if the plan has no `review` key, use the standard measured review route
+`gpt-6.1-sol` without asking; a premium review model is used only on the
+user's word. When the review capability is missing, ship does not stop
+and does not ask: it opens the pull request with the explicit line
+`independent review not performed` in the body and in the handoff report,
+and leaves the review and the merge to the user. It never presents its
+own check as an independent review.
 
 ## What ship owns — and what it does not
 
@@ -102,15 +106,26 @@ it, and that a PR into the default branch will be opened at the end. One
 yes/no. After yes, ship itself never stops the flow again — only the link
 skills' own gates do.
 
-At this same gate, the user may also grant a standing recovery allowance:
-"up to N one-task recovery or fix waves within the approved files and
-contracts, same supervisor tier". Record the grant (the number N) in the
-plan. Within that allowance, ship launches such recovery or fix waves
-without asking for a new gate, and reports each one it launches. Anything
-outside the allowance still needs an explicit yes: a test-weakening
-decision, premium spend, or a wave that touches files or contracts the
-grant did not approve. Measured: one four-repository run needed 8 extra
-recovery gates for exactly this kind of within-scope fix.
+At this same gate, state the standing recovery allowance; do not ask for
+it: up to 3 one-task recovery or fix waves within the approved files and
+contracts, same supervisor tier, unless the user sets another number.
+Record the number in the plan. Within that allowance, ship launches such
+recovery or fix waves without a question, and reports each one it launches;
+when the allowance is used up, stop and report what still fails. Re-running
+the same approved plan or route after the machine or the plan's environment
+was fixed needs no new approval. Measured: one four-repository run needed
+8 extra recovery gates for exactly this kind of within-scope fix.
+
+Ask the user only for: a contradiction in the feature (the plan, the
+design, the code or a new instruction disagree and the choice changes what
+ships); a change of the agreed scope; weakening or removing a test or
+check; an irreversible action on something this run did not create; an
+action only the user can take. Everything else: decide, act, report.
+Premium models are never the subject of a question: a premium model is
+used only when the user said so in this session, or through a standing
+authorization written in the user's or the repository's instruction files
+(`AGENTS.md`, `CLAUDE.md`), recorded in `approvals.premium` with its
+source. Without an authorization, use the standard route.
 
 ## Stage 1 — Plan
 
@@ -166,11 +181,12 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    wave. Never an amendment, never a reason to bypass supervised execution.
 6. multi-model owns the plan's status transitions (`active` at launch,
    `done` at completion), as always.
-7. **Bypass scope.** Mirror multi-model: when supervised execution fails and
-   the user approves "implement directly", that approval covers the named
-   waves only. Stage 3 review fixes still go through critical-review's own
-   gate — the bypass never extends to them. The PR body states which waves
-   ran supervised and which, if any, were implemented directly.
+7. **Bypass scope.** The user's direct instruction wins (multi-model, step
+   8). When the user tells the coordinator to implement directly, that
+   instruction covers exactly what the user named, review fixes included.
+   Without an instruction the coordinator chooses the route itself by that
+   step's conditions and never asks the user to approve it. The PR body
+   states which waves ran supervised and what was implemented directly.
 
 ## Stage 3 — Review
 
@@ -193,7 +209,9 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    when step 3's pass ran, naming the capability used, or
    `Runtime pass: skipped — <reason>` when it did not — including when no
    Acceptance References exist. Measured: a runtime pass was skipped
-   silently, with a device capability available.
+   silently, with a device capability available. When the review
+   capability is missing, the body also carries the line
+   `independent review not performed`.
 3. If the plan carries Acceptance References and this session has a tool or
    skill whose **described capability** is running the product and
    observing it — launching the app, driving its UI, capturing screenshots —
@@ -207,12 +225,31 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    head, acceptance requirements, plan path and verification-output paths;
    do not fork executor conversations or replay all wave transcripts. The child
    reads PR discussion and code through critical-review's own protocol.
-5. Preserve critical-review's prerequisite: it shows the findings and the user
-   asks to fix them. Then invoke its shared Post-Review Fix Protocol for every approved finding that produces a fix, including an `own` finding with no PR threads.
-   ship never adds inline prose routing or a parallel routing table.
-6. Critical-review keeps every resulting fix commit local through integration and
-   verification, then presents its single exact-text `push → replies → resolves`
-   gate. Only after that approval does publication run in that order.
+   When the review capability is missing, do not stop and do not ask: skip
+   this step and steps 5 and 6, put the line
+   `independent review not performed` in the handoff report too, and leave
+   the review and the merge to the user. Step 1 is ship's own check; never
+   present it as an independent review.
+5. Inside ship the user already asked for a reviewed pull request. Show the
+   findings table in the report, then invoke critical-review's shared Post-Review Fix Protocol
+   without waiting for a request, for every finding that produces a fix, including an `own` finding with no PR threads.
+   The findings are always shown before or with the fixes, never hidden. A
+   finding whose fix needs one of the decisions Stage 0 says to ask the
+   user about is not fixed: list it and ask. A finding that answers a
+   thread started by someone else keeps that protocol's gate.
+   ship never adds inline prose routing or a parallel routing table. That
+   protocol applies only to findings of a review the user asked for in this
+   session, and the review of the pipeline's own pull request is one; a
+   plain request to change code is implementation work, not a review fix.
+   Under it the coordinator chooses the fix route itself and never asks the
+   user to approve a route or a model.
+6. Critical-review commits and verifies every resulting fix before publication.
+   After verification is green it pushes the fix commits to the feature
+   branch of the user's own pull request without a question and reports what
+   it pushed. It asks once before replies or resolves in threads started by
+   someone else, and before a push to a branch or pull request that is not
+   the user's own. The order is always `push → replies → resolves`. The
+   merge into the default branch stays with the user.
 
 ## Stage 4 — Handoff
 
@@ -255,20 +292,22 @@ not create, is named in the report and asked about — never deleted.
 
 ## Failure map
 
-Every stop below ends with one recommended next action, phrased as a
-yes/no question in plain language, after the verdicts and branch names —
-never a bare list of options with no recommendation.
+A row the coordinator can resolve itself is resolved and reported without
+a question. Every stop that needs the user ends with one recommended next
+action, phrased as a yes/no question in plain language, after the verdicts
+and branch names — never a bare list of options with no recommendation.
 
 | Where it broke | What ship does |
 |---|---|
 | A preflight check fails | Stop before the gate; name the missing piece |
 | The user declines a super-plan gate | Stop; nothing was created yet |
 | A wave returns `failed` / `error` | Stop with verdicts and branch names (multi-model's rule) |
-| The suite is red after a merge | Stop and show the output. On the user's yes, push the red tip to the feature branch only, say so, and run a one-task supervised fix wave from that pushed tip. Never push it to the default branch, and never fix inline. |
-| A plan `ci.commands` command is red after the final wave | Stop before the push; hand the output over. The fix follows the row above: on the user's yes, a one-task supervised fix wave from the red tip pushed to the feature branch only. |
+| The suite is red after a merge | Show the output, then fix without asking, by multi-model's step 8: directly when its conditions hold; otherwise push the red tip to the feature branch only, say so, and run a one-task supervised fix wave from that pushed tip. Never push it to the default branch. |
+| A plan `ci.commands` command is red after the final wave | Hold the push and show the output. The fix follows the row above, without asking: a direct fix, or a one-task supervised fix wave from the red tip pushed to the feature branch only. Never to the default branch. |
 | A `must_run` command is `environment-blocked` | Stop, name the blocked command and its error line, diagnose per rule 4, fix the machine, then re-run the wave after `--reset`; never an amendment, never a reason to bypass supervised execution |
 | `gh` loses write capability mid-flow | critical-review degrades per its own protocol; prepared texts go to the user |
-| The user declines critical-review's fix gate | Soft reset per that skill; the PR stays open |
+| The review capability is missing | Do not stop and do not ask: open the PR with the line `independent review not performed` in the body and in the handoff report, and leave the review and the merge to the user. Never present ship's own check as an independent review |
+| The user declines critical-review's gate | Cancel per that skill; the PR stays open |
 | The runtime QA capability is missing or fails mid-pass | Not a ship failure: the affected references go to the PR's "Not verified — manual QA needed" section |
 
 ## Common Mistakes
@@ -277,7 +316,7 @@ never a bare list of options with no recommendation.
 |---|---|---|
 | Re-implementing a stage inline | Silent divergence from tested behavior | Invoke the link skill |
 | Merging the PR yourself | The one decision that is not yours | The merge stays with the user |
-| Routing a fix inline because it is small | The coordinator authors an unreviewed change | Invoke critical-review's shared route, whatever the size |
+| Choosing a fix route by habit — always inline, or always a wave | A wide change ships unchecked, or a one-line fix waits on a wave and a question | Choose by the conditions of multi-model's step 8: direct when all hold, otherwise a supervised wave; never ask the user to approve the route |
 | Adding a second ship-level gate mid-flow | The pipeline stops being automatic | One gate up front; the links keep their own |
 | Basing a wave on a hand-typed sha | A corrupted base already burned a wave once | Copy the tip verbatim from `git rev-parse` output |
 | Opening the PR before the suite is green | The reviewers review a broken branch | Suite first, PR second |

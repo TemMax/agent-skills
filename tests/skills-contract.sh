@@ -281,7 +281,7 @@ check "a Codex Sol executor forces the Astra supervisor" \
 check "super-plan records ship's Stage 3 review child in the plan's review key, Sol measured with a strict-gate line" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'as the recommended option, recorded in \`approvals.premium\` only when the user picks it, or, when the user instead chooses the cheaper option, \`gpt-6.1-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30 — disclosed at Gate 1 too.'"
 check "super-plan documents the optional review key next to ci/e2e/approvals" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'required for a Codex plan that goes through ship' && grep -qF '\"review\"' $SP"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'optional (without it ship uses the standard measured review route without asking)' && grep -qF '\"review\"' $SP"
 check "super-plan says the linter also checks the review key" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the optional \`review\` key'"
 check "the review key is documented as an object with model and effort" \
@@ -328,9 +328,9 @@ check "ship routes provider protocol selection through multi-model" \
 check "ship does not take over provider execution" \
   "grep -qF 'Only multi-model selects that adapter and owns all subagent execution' $SH && grep -qF 'ship never invokes provider CLIs, adapter workflows, or state helpers itself' $SH"
 check "post-review fixes include own findings without threads" \
-  "grep -qF 'every approved finding that produces a fix, including an \`own\` finding with no PR threads' $SH"
-check "review fix commits remain unpublished until critical-review approval" \
-  "grep -qF 'Critical-review keeps every resulting fix commit local' $SH && grep -qF 'Only after that approval does publication run in that order' $SH"
+  "grep -qF 'without waiting for a request, for every finding that produces a fix, including an \`own\` finding with no PR threads' $SH"
+check "review fix commits are verified first, then pushed to the user's own pull request without a question" \
+  "grep -qF 'Critical-review commits and verifies every resulting fix before publication' $SH && grep -qF 'branch of the user'\''s own pull request without a question and reports what' $SH && grep -qF 'The order is always \`push → replies → resolves\`' $SH"
 check "post-review behavior fixes are not pushed like ordinary waves" \
   "! sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' $SH | grep -qF 'pushed like any wave'"
 check "ship does not duplicate review-fix routing" \

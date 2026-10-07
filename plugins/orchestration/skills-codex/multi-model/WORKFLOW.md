@@ -46,16 +46,20 @@ English does not mean English replies.
 
 ### Single-task path
 
-Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution uses the runner and independent verification, followed by integration by the coordinator. Model supervision remains the default; the explicit mechanical mode follows the shared cost controls. The coordinator never edits task code. When the change grows to a second task, return to the full process. A small standalone edit that rule 3's exception covers needs no plan at all.
+Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution uses the runner and independent verification, followed by integration by the coordinator. Model supervision remains the default; the explicit mechanical mode follows the shared cost controls. On this path the executor writes the task's code; the coordinator edits it only under rule 3. When the change grows to a second task, return to the full process. A change that rule 3 lets the coordinator make itself needs no plan at all.
 
 4. **Table.** Before launching, show the user: task | model | effort | rationale.
    The table also shows, per wave, the supervisor and whether it is premium.
    Never a time or cost estimate — not in the table, a progress update or the
-   completion summary (super-plan: "No time or cost estimates"). A premium
-   model (GPT-6 Astra, any role) is used only when the user picks it here and
-   the plan records `approvals.premium` with that choice — never filled in by
-   the orchestrator for a choice the user did not make. When the plan comes
-   from super-plan, this choice is its Gate 1.
+   completion summary (super-plan: "No time or cost estimates"). Premium
+   models are never the subject of a question. A premium model (GPT-6 Astra,
+   any role) is used only when the user said so: in this session — for a new
+   feature plan that is super-plan's Gate 1 — or through a standing
+   authorization written in the user's or the repository's instruction files
+   (`AGENTS.md`, `CLAUDE.md`), which counts as the user's choice and is
+   recorded in `approvals.premium` with its source — never filled in by the
+   orchestrator for a choice the user did not make. Without an authorization
+   the table shows the standard route.
 5. **Write the wave plan file** (see Wave plan artifact) with `status: active`,
    and record the base SHA. You do this, not the user. Once it is lint-clean and
    explicitly approved, preserve its exact provider/model/effort fields through
@@ -64,12 +68,32 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    `../../skills/multi-model/references/codex-wave-protocol.md`.
 7. **Review** (see the checklist below). Fixes — as one concrete list. Two misses
    in the same place — fix the task spec, don't repeat the prompt.
-8. **The final end-to-end review is the orchestrator's own.** **The
-   coordinator never authors code.** This holds for defects its own review or
-   the final review finds, however small: they go to a one-task supervised
-   wave, never a coordinator edit. Measured: in the 2026-09-24/25 sessions,
-   orchestrators wrote wiring and review fixes themselves and pushed them
-   unreviewed.
+8. **The final end-to-end review is the orchestrator's own.** **Choose
+   the fix route yourself.** This holds for every change the coordinator has
+   to make — a review finding, a supervisor's or the final review's defect,
+   part of an approved plan. Never ask the user to approve a route or a model.
+   The first rule decides whenever it applies:
+   - **Instruction.** The user's direct instruction wins. When the user tells
+     the coordinator in this session how to carry out a change — "fix it
+     yourself", "do it and check it yourself", "no agents", "use agents", "use
+     this model" — do exactly that, whatever the change is, and never answer
+     with a request to approve another route.
+   - **Direct.** Without such an instruction, the coordinator makes the change
+     itself when all of these hold: it can state the exact change before
+     making it; the change stays inside the task already agreed with the user
+     and inside one module or subsystem; no new public interface, data format
+     or product behavior has to be decided; checks that cover the change exist
+     or are added with it and can be run here.
+   - **Delegated.** Anything else goes to a supervised wave on the standard
+     route — a one-task supervised wave for a single defect. A supervised wave
+     is the default for anything beyond a direct fix. Measured: in the
+     2026-09-24/25 sessions, orchestrators wrote wiring and review fixes
+     themselves and pushed them unreviewed.
+   - **Checks of a direct fix.** Run the covering checks. A behavior change,
+     including instruction/config text that changes actual behavior, also gets
+     one independent check of the diff from a fresh agent on the standard
+     review route when the host can spawn one. The report says plainly when no
+     independent check ran. One logical fix per commit.
 9. **Completion.** Codex uses the native helper's bounded attempts from shared
    Codex routing. Integrate each `ok` task with `git merge --squash` per
    `../../skills/multi-model/references/codex-wave-protocol.md` step 9 — never a
@@ -78,9 +102,10 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    wave's push, not after — with `ci: "none: <reason>"` there is nothing extra
    to run. A red `ci.commands` entry stops completion exactly like a red
    offline suite: fix it, don't push through it. The only push while red is
-   the one the user approves to the feature branch as the base of a one-task
-   supervised fix wave (ship's failure map) — never to the default branch,
-   never a PR. At the end a summary: done / verified / remaining.
+   the one to the feature branch as the base of a one-task supervised fix
+   wave (ship's failure map), made without asking and reported — never to
+   the default branch, never a PR. At the end a summary: done / verified /
+   remaining.
    **Set the wave plan's `status: done`** in the same breath — an open plan
    keeps the drift hook paying for a wave that ended.
 
@@ -107,22 +132,36 @@ equals the `tip` it printed; everything the script kept is named and asked
 about. Remove only what this run created, clean and already integrated; anything
 else is named and asked about, never deleted.
 
-**Scope of a bypass.** When supervised execution fails and the user approves
-"implement directly," record the scope in the plan — which waves the approval
-covers — and state that same scope in the PR body. The approval covers those
-waves only. It does not cover review fixes: a defect a review or the final
-review finds still goes to a one-task supervised wave, and critical-review's
-findings gate still applies regardless of the bypass. Set the plan's
-`status: done` with a note recording the bypass and its scope, not a
-free-text status in place of `done`.
+**Scope of a bypass.** The user's instruction to implement directly covers
+exactly what the user named, review fixes included. Record that scope in the
+plan and state the same scope in the PR body. Outside that scope the
+coordinator chooses the route by step 8. Critical-review's findings gate still
+applies regardless of the bypass: the user sees the findings before any fix
+starts. Set the plan's `status: done` with a note recording the bypass and its
+scope, not a free-text status in place of `done`.
 
 **Stop handling.** A stop is `failed`, `error`, `contract-unsatisfiable`, or
 **`environment-blocked`** — the environment itself is broken, not the
 contract or the task's work: name the failing command and its exact error
 line, fix the machine, and re-run, rather than treating a broken environment
-as a contract defect (diagnose first — Codex session rules, rule 4). Every
-stop ends with one recommended next action, phrased as a yes/no question for
-the user to approve or decline.
+as a contract defect (diagnose first — Codex session rules, rule 4). A stop
+the coordinator can resolve itself is resolved and reported without a
+question: an environment fix and a relaunch of the same approved plan or
+route, and recovery inside the approved plan, need no new approval. A stop
+that needs the user ends with one recommended next action, phrased as a
+yes/no question for the user to approve or decline.
+
+**Decide, act, report.** Ask the user only for: a contradiction in the
+feature (the plan, the design, the code or a new instruction disagree and the
+choice changes what ships); a change of the agreed scope; weakening or
+removing a test or check; an irreversible action on something this run did
+not create; an action only the user can take. Everything else: decide, act,
+report. Publication of the user's own work needs no question: after
+verification is green, push to the feature branch of the user's own pull
+request and report what was pushed. Ask once before replies or resolves in
+threads started by someone else, and before pushing to a branch or pull
+request that is not the user's own. The merge into the default branch stays
+with the user unless the user says otherwise.
 
 The orchestrator reads targeted ranges itself when a focused lookup answers
 its question; use `git diff --stat` to locate the scope. Delegate substantial,
@@ -326,9 +365,21 @@ Details: `../../skills/multi-model/references/execution-cost-controls.md`.
 - A wave has one supervisor: pick it by the strongest model any task in the
   wave can run, ladder rungs included. A supervisor that is also a rung is
   rejected.
-- A premium supervisor (`gpt-6-astra`) needs `approvals.premium` recorded at
-  Gate 1; the linter enforces it. The standard supervisor `gpt-6.1-sol` covers
-  waves whose executors and rungs are all `gpt-6-luna`.
+- **Premium models.** `gpt-6-astra` is premium, in any role. Premium models are
+  never the subject of a question. It is used only when the user said so: in
+  this session (for a new feature plan that is super-plan's Gate 1), or
+  through a standing authorization written in the user's or the repository's
+  instruction files (`AGENTS.md`, `CLAUDE.md`), which counts as the user's
+  choice. The plan records it in `approvals.premium`; the linter enforces it. `approvals.premium` keeps its
+  four fields — `models`, `reason`, `approved_by`, `date`: the source of the
+  authorization goes into `reason` (for example "standing authorization in
+  AGENTS.md" or "user's instruction in this session"), and `approved_by` stays
+  `"user"`. An authorization given for a pull request or task covers its later
+  fix and recovery waves while the models and roles stay the same. Without an
+  authorization use the standard route; when no standard delegated route fits,
+  fix directly per step 8. The report notes in one line where a premium route
+  would have applied. The standard supervisor `gpt-6.1-sol` covers waves
+  whose executors and rungs are all `gpt-6-luna`.
 - Never name the executor's model in the judge prompt.
 
 **The supervisor trusts artifacts only.** A verdict is `{"ok", "violations",
@@ -497,8 +548,9 @@ supervisor verdicts and remarks, not the executor reports.
 | A full-repo gate in a per-task contract | Wall-clock multiplied by the task count | Scope `must_run` to the task's module; the full gate runs once per wave at merge |
 | Reading an environment block as a contract defect | An amendment or escalation is spent on a broken machine | Stop as `environment-blocked`: probe, fix the machine, re-run |
 | Re-running a stopped wave with hand-written cleanup | State and branches drift from the runner's record | The runner's `--reset`, then re-run |
-| Applying a subagent's patch yourself | Unreviewed code reaches the branch | Even a one-line fix goes to a one-task supervised wave |
-| Extending an "implement directly" approval to review fixes | Fixes ship with no supervisor | The bypass covers only the waves recorded in the plan |
+| Applying a subagent's patch yourself without the checks of a direct fix | Unchecked code reaches the branch | It is authoring code (rule 3): run the covering checks and show the diff; a behavior change also gets one independent check |
+| Refusing or re-asking after the user's direct instruction ("fix it yourself", "no agents", "use this model") | The work waits on a question nobody needed | Do exactly what the user said, whatever the change is; record the scope in the plan |
+| Asking the user to approve a fix route or a premium model | The run stops on a decision the coordinator owns | Choose the route by step 8; premium only on the user's word or a standing authorization in instruction files, otherwise the standard route |
 | Leaving worktrees and `wave/*` branches after integration | Clutter accumulates across runs (measured 2026-10-07: five worktrees, five branches and three run-record directories were left after a merged pull request) | Run the printed `afterIntegration` command after each wave and list the rest under `Left behind:` |
 
 ## References
