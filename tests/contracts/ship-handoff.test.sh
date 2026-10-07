@@ -10,8 +10,8 @@ one_line() { tr '\n' ' ' < "$1" | tr -s ' '; }
 check "Runtime pass line is documented" \
   "one_line '$SKILL' | grep -qF 'Runtime pass:'"
 
-check "standing recovery allowance is documented at ship's gate" \
-  "one_line '$SKILL' | grep -qF 'recovery allowance'"
+check "standing recovery allowance is stated in the start approval, not asked" \
+  "one_line '$SKILL' | grep -qF 'In that same start approval, state the standing recovery allowance; do not ask for it'"
 
 check "the PR body states which waves ran supervised" \
   "one_line '$SKILL' | grep -qF 'ran supervised'"
