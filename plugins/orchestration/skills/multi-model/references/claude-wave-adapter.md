@@ -158,7 +158,10 @@ reports use different recovery semantics.
      contained in the checked-out branch, and prints what it kept and why. With
      parallel single-task invocations run each printed command as its task is
      merged: siblings that are still running are kept. Report every kept
-     entry; never remove a kept entry yourself — name it and ask.
+     entry; never remove a kept entry yourself — name it and ask. The native
+     runner prints `afterIntegration` whenever at least one task ended `ok`, a
+     partly accepted wave included; the command touches only tasks the run
+     accepted.
    - `contract-unsatisfiable` — run the amendment flow (multi-model WORKFLOW.md → Escalation ladder → `references/contract-amendment.md`) (one amendment
      per task; removing or weakening a check goes to the user as a yes/no),
      regenerate the launch script from the edited plan with the same command,
