@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 const runner = resolve('plugins/orchestration/skills/multi-model/references/claude-wave-runner.mjs')
-function fixture(t, limits, supervision, contractPatch = {}) {
+function fixture(t, limits, supervision, contractPatch = {}, { repoParent = '', extraTasks = [] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'claude-native-test-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
-  const repo = join(root, 'repo'); mkdirSync(repo)
+  const repo = join(root, repoParent, 'repo'); mkdirSync(repo, { recursive: true })
   function git(...args) {
     const r = spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8' })
     assert.equal(r.status, 0, r.stderr); return r.stdout.trim()
@@ -24,11 +24,12 @@ function fixture(t, limits, supervision, contractPatch = {}) {
   const wave = { wave: 1, ...(limits ? { limits } : {}), supervisor: { model: 'claude-opus-5', effort: 'high' },
     tasks: [{ id: 'one', branch: 'wave/one', ...(supervision ? { supervision } : {}), executor: { model: 'claude-sonnet-5-5', effort: 'medium' }, ladder: [],
       contract: { files_allowed: ['src/**'], files_forbidden: [], forbidden_moves: [], report_must_answer: [],
-        must_run: [{ cmd: 'test -f src/one.txt', evidence: 'required', cache: 'artifact' }], ...contractPatch } }] }
+        must_run: [{ cmd: 'test -f src/one.txt', evidence: 'required', cache: 'artifact' }], ...contractPatch } }, ...extraTasks] }
   const plan = join(root, 'plan.md')
   writeFileSync(plan, 'status: draft\nbase: pending\n```json wave-plan\n'
     + JSON.stringify({ waves: [wave], ci: 'none: fixture has no CI', e2e: 'not-applicable: fixture has no flows' })
-    + '\n```\n\n## Task one\n\nCreate src/one.txt.\n')
+    + '\n```\n\n## Task one\n\nCreate src/one.txt.\n'
+    + extraTasks.map(x => '\n## Task ' + x.id + '\n\nCreate ' + x.id + '.\n').join(''))
   const cli = join(root, 'claude-stub')
   writeFileSync(cli, `#!/usr/bin/env node
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs';
@@ -90,6 +91,43 @@ test('native Claude runner spends two model calls, verifies independently and na
   assert.ok(!calls[1].argv[calls[1].argv.indexOf('--tools') + 1].includes('Edit'))
   assert.equal(r.summary.usage.output, 6)
   assert.ok(r.stdout.length < 2000)
+})
+
+test('a done run prints the cleanup command in stdout and summary.json; other statuses omit it', t => {
+  const f = fixture(t); const r = run(f)
+  assert.equal(r.status, 0, r.stderr)
+  const expected = 'node ' + join(dirname(runner), 'wave-cleanup.mjs') + ' --repo ' + f.repo
+    + ' --plan ' + resolve(f.plan) + ' --wave 1 --summary ' + join(f.out, 'summary.json')
+  assert.equal(JSON.parse(r.stdout).afterIntegration, expected)
+  assert.equal(r.summary.afterIntegration, expected)
+  const g = fixture(t, { max_model_calls: 1 }); const b = run(g)
+  assert.equal(b.status, 1, b.stderr)
+  assert.ok(!('afterIntegration' in JSON.parse(b.stdout)))
+  assert.ok(!('afterIntegration' in b.summary))
+})
+
+test('a repository path with a space yields a quoted cleanup command that the shell parses', t => {
+  const f = fixture(t, undefined, undefined, {}, { repoParent: 'dir with space' }); const r = run(f)
+  assert.equal(r.status, 0, r.stderr)
+  const q = v => "'" + v + "'"
+  const expected = 'node ' + join(dirname(runner), 'wave-cleanup.mjs') + ' --repo ' + q(f.repo)
+    + ' --plan ' + resolve(f.plan) + ' --wave 1 --summary ' + join(f.out, 'summary.json')
+  assert.ok(f.repo.includes(' '))
+  assert.equal(JSON.parse(r.stdout).afterIntegration, expected)
+  assert.equal(r.summary.afterIntegration, expected)
+  const help = spawnSync('sh', ['-c', expected + ' --help'], { encoding: 'utf8' })
+  assert.equal(help.status, 0, help.stderr)
+})
+
+test('a partial wave with one ok task still prints the cleanup command', t => {
+  const two = { id: 'two', branch: 'wave/two', executor: { model: 'claude-sonnet-5-5', effort: 'medium' }, ladder: [],
+    contract: { files_allowed: ['other/**'], files_forbidden: [], forbidden_moves: [], report_must_answer: [],
+      must_run: [{ cmd: 'test -f other/two.txt', evidence: 'required', cache: 'artifact' }] } }
+  const f = fixture(t, undefined, undefined, {}, { extraTasks: [two] }); const r = run(f)
+  assert.equal(r.status, 1, r.stderr)
+  assert.deepEqual(r.summary.tasks.map(x => x.status === 'ok'), [true, false])
+  assert.ok(JSON.parse(r.stdout).afterIntegration)
+  assert.equal(r.summary.afterIntegration, JSON.parse(r.stdout).afterIntegration)
 })
 
 test('a same-rung rework resumes the executor session with the continuation only', t => {

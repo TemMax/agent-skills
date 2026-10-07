@@ -84,6 +84,29 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    **Set the wave plan's `status: done`** in the same breath — an open plan
    keeps the drift hook paying for a wave that ended.
 
+**Clean up what the run created.** After each wave's `ok` branches are
+integrated, run the runner's printed `afterIntegration` command (the cleanup
+script, `../../skills/multi-model/references/wave-cleanup.mjs`). It removes only the worktrees and `wave/<id>`
+branches of tasks a finished run accepted, clean and already integrated, and
+lists what it kept with the reason; a running, stopped or rejected task always
+stays. Run records (`summary.json`, verdicts, state files) stay until the pull
+request is merged, because review and `--resume-from` read them. The
+completion summary carries a `Left behind:` line: every branch, worktree, run
+record and temporary directory this run created that still exists — taken from
+`wave-cleanup.mjs --dry-run --records` plus any scratch directory the
+orchestrator itself created outside the repository — or `Left behind: nothing`.
+Whenever something is left behind, the summary also carries one line starting
+`After the merge:` with the ready command — `wave-cleanup.mjs` with absolute
+paths, `--repo <repo>`, one `--plan` per plan this run executed (fix plans
+included), `--into origin/<default branch>`, `--records` and `--branch <feature
+branch>` (without `--branch` when the wave was not integrated into a feature
+branch of its own). When the user confirms the integration branch is merged,
+run that command at once and report: delete the remote feature branch only if
+the script reported the local feature branch removed and the remote branch tip
+equals the `tip` it printed; everything the script kept is named and asked
+about. Remove only what this run created, clean and already integrated; anything
+else is named and asked about, never deleted.
+
 **Scope of a bypass.** When supervised execution fails and the user approves
 "implement directly," record the scope in the plan — which waves the approval
 covers — and state that same scope in the PR body. The approval covers those
@@ -476,6 +499,7 @@ supervisor verdicts and remarks, not the executor reports.
 | Re-running a stopped wave with hand-written cleanup | State and branches drift from the runner's record | The runner's `--reset`, then re-run |
 | Applying a subagent's patch yourself | Unreviewed code reaches the branch | Even a one-line fix goes to a one-task supervised wave |
 | Extending an "implement directly" approval to review fixes | Fixes ship with no supervisor | The bypass covers only the waves recorded in the plan |
+| Leaving worktrees and `wave/*` branches after integration | Clutter accumulates across runs (measured 2026-10-07: five worktrees, five branches and three run-record directories were left after a merged pull request) | Run the printed `afterIntegration` command after each wave and list the rest under `Left behind:` |
 
 ## References
 

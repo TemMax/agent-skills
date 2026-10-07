@@ -342,6 +342,90 @@ test('(b) --jobs 1 never overlaps children; --jobs 2 does', () => {
     + JSON.stringify(twoIntervals))
 })
 
+test('a merge-ready run carries the afterIntegration cleanup command; a stopped run does not', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const outPath = join(root, 'out')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  const expected = 'node ' + join(dirname(RUNNER), 'wave-cleanup.mjs') + ' --repo ' + repo
+    + ' --plan ' + planPath + ' --wave 1 --summary ' + join(outPath, 'summary.json')
+  assert.equal(result.json.afterIntegration, expected)
+  const onDisk = JSON.parse(readFileSync(join(outPath, 'summary.json'), 'utf8'))
+  assert.equal(onDisk.afterIntegration, expected)
+
+  const stopRoot = makeRepo()
+  const stopPlan = writePlan(stopRoot.root, ['task-a'])
+  const verdict = JSON.stringify({
+    ok: false,
+    violations: [{
+      rule: 'must_run: true', class: 'must_run', evidence: 'no compliant change could pass this',
+      satisfiable: false,
+    }],
+    remarks: [],
+  })
+  const stopped = runRunner(
+    ['--plan', stopPlan, '--wave', '1', '--repo', stopRoot.repo, '--base', stopRoot.base, '--codex', STUB,
+      '--out', join(stopRoot.root, 'out')],
+    { CODEX_STUB_LOG: join(stopRoot.root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: verdict },
+  )
+  assert.equal(stopped.json.status, 'stop')
+  assert.equal(Object.hasOwn(stopped.json, 'afterIntegration'), false)
+  const stoppedDisk = JSON.parse(readFileSync(join(stopRoot.root, 'out', 'summary.json'), 'utf8'))
+  assert.equal(Object.hasOwn(stoppedDisk, 'afterIntegration'), false)
+})
+
+test('afterIntegration shell-quotes paths with spaces and parses through sh', () => {
+  const { root } = makeRepo()
+  const spaced = join(root, 'with space')
+  mkdirSync(spaced, { recursive: true })
+  const repo = join(spaced, 'repo')
+  mkdirSync(repo, { recursive: true })
+  git(repo, 'init')
+  git(repo, 'config', 'user.name', 'Codex Runner Test')
+  git(repo, 'config', 'user.email', 'codex-runner-test@example.invalid')
+  git(repo, 'config', 'commit.gpgsign', 'false')
+  writeFileSync(join(repo, 'README.md'), 'base\n')
+  git(repo, 'add', '.')
+  git(repo, 'commit', '-m', 'base')
+  const base = git(repo, 'rev-parse', 'HEAD')
+  const planPath = join(spaced, 'plan.md')
+  writeFileSync(planPath, planText(['task-a']))
+  const outPath = join(spaced, 'out')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  const command = result.json.afterIntegration
+  assert.ok(command.includes("--repo '" + repo + "'"), command)
+  assert.ok(command.includes("--plan '" + planPath + "'"), command)
+  assert.ok(command.includes("--summary '" + join(outPath, 'summary.json') + "'"), command)
+  const parsed = spawnSync('sh', ['-c', command + ' --help'], { encoding: 'utf8' })
+  assert.equal(parsed.status, 0, parsed.stdout + parsed.stderr)
+})
+
+test('afterIntegration prints the executed wave entry\'s own wave number', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = join(root, 'plan.md')
+  writeFileSync(planPath, planText(['task-a']).replace('{ "wave": 1,', '{ "wave": 3,'))
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.match(result.json.afterIntegration, / --wave 3 /)
+})
+
 test('(c) an empty executor report is recorded as null-result and the loop continues', () => {
   const { root, repo, base } = makeRepo()
   const planPath = writePlan(root, ['task-a'])

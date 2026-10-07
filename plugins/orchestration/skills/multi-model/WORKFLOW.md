@@ -141,6 +141,29 @@ English does not mean English replies.
    **Set the wave plan's `status: done`** in the same breath — an open plan
    keeps the drift hook paying for a wave that ended.
 
+**Clean up what the run created.** After each wave's `ok` branches are
+integrated, run the runner's printed `afterIntegration` command (the cleanup
+script, `references/wave-cleanup.mjs`). It removes only the worktrees and `wave/<id>`
+branches of tasks a finished run accepted, clean and already integrated, and
+lists what it kept with the reason; a running, stopped or rejected task always
+stays. Run records (`summary.json`, verdicts, state files) stay until the pull
+request is merged, because review and `--resume-from` read them. The
+completion summary carries a `Left behind:` line: every branch, worktree, run
+record and temporary directory this run created that still exists — taken from
+`wave-cleanup.mjs --dry-run --records` plus any scratch directory the
+orchestrator itself created outside the repository — or `Left behind: nothing`.
+Whenever something is left behind, the summary also carries one line starting
+`After the merge:` with the ready command — `wave-cleanup.mjs` with absolute
+paths, `--repo <repo>`, one `--plan` per plan this run executed (fix plans
+included), `--into origin/<default branch>`, `--records` and `--branch <feature
+branch>` (without `--branch` when the wave was not integrated into a feature
+branch of its own). When the user confirms the integration branch is merged,
+run that command at once and report: delete the remote feature branch only if
+the script reported the local feature branch removed and the remote branch tip
+equals the `tip` it printed; everything the script kept is named and asked
+about. Remove only what this run created, clean and already integrated; anything
+else is named and asked about, never deleted.
+
 **Scope of a bypass.** When supervised execution fails and the user approves
 "implement directly," record the scope in the plan — which waves the approval
 covers — and state that same scope in the PR body. The approval covers those
@@ -713,6 +736,7 @@ Opus 5 relays subagent claims unverified (p. 81).
 | Reading an environment block as a contract defect | An amendment or escalation is spent on a broken machine, not broken work | Stop as `environment-blocked`: name the command and its error line, fix the machine, re-run |
 | Extending an "implement directly" approval to review fixes | Fixes ship with no supervisor and no findings gate, on an approval the user never gave for them | The bypass covers only the waves recorded in the plan; review fixes still go to a one-task supervised wave and critical-review's findings gate |
 | The coordinator writing a small fix itself | Unreviewed code reaches the branch outside any wave, however small the defect | Even a one-line fix goes to a one-task supervised wave |
+| Leaving worktrees and `wave/*` branches after integration | Clutter accumulates across runs (measured 2026-10-07: five worktrees, five branches and three run-record directories were left after a merged pull request) | Run the printed `afterIntegration` command after each wave and list the rest under `Left behind:` |
 
 ## References
 

@@ -4,6 +4,19 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.13.0
+
+### Highlights
+
+**multi-model**
+- Remove merged task worktrees and branches after each wave
+- List what a run left behind in the completion summary
+
+**ship**
+- Clean up the feature branch and run records after merge is confirmed
+
+Orchestration 4.13.0 and code-review 1.17.1 apply to Claude Code and Codex.
+
 ## 4.12.0
 
 ### Highlights

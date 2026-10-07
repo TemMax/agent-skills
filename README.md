@@ -348,6 +348,11 @@ independent judge model checks out the branch, re-runs the contract's commands
 itself and issues a verdict — executor self-reports are never trusted. Rework,
 model escalation and the unsatisfiable-contract stop are code, not judgment
 calls.
+After each wave the orchestrator removes the merged tasks' worktrees and
+`wave/<id>` branches; the final report lists what is left under `Left behind:`
+together with the command to clean up after the merge. Once you confirm the
+merge, it removes the run records and deletes the feature branch, locally and
+on the remote — only what the run created, clean and already merged.
 
 **What to expect from ship.** One confirmation up front — the feature branch
 will be pushed and a PR opened — then only the link skills' own gates stop the
@@ -372,7 +377,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.12.0, code-review 1.17.1):
+orchestration 4.13.0, code-review 1.17.1):
 
 | Before | After |
 |---|---|
@@ -506,6 +511,7 @@ plugins/
       multi-model/
         SKILL.md
         references/
+          wave-cleanup.mjs           # removes merged tasks' worktrees and branches, then the run records
           worktree-env.mjs           # shared worktree links, writable caches, environment-block detection
           wave-runner.workflow.mjs   # the escalation ladder as code
           wave-launch.mjs            # generates the Claude wave launch script

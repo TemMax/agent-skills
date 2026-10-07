@@ -230,9 +230,15 @@ for (const task of result.tasks) {
     result.errors.push('mechanical checks still fail for ' + task.id)
   }
 }
+const shellQuote = value => /^[A-Za-z0-9_@%+=:,.\/-]+$/.test(value) ? value : "'" + value.replaceAll("'", "'\\''") + "'"
+const afterIntegration = result.tasks.some(task => task.status === 'ok')
+  ? ['node', join(here, 'wave-cleanup.mjs'), '--repo', options.repo, '--plan', resolve(options.plan),
+    '--wave', options.wave, '--summary', join(options.out, 'summary.json')].map(part => shellQuote(String(part))).join(' ')
+  : undefined
 const summary = { ...result, children, usage, recovery: makeRecoveryReceipt(scope, children, reports),
-  ...(recovery ? { previousSummary: recovery.path } : {}) }
+  ...(recovery ? { previousSummary: recovery.path } : {}), ...(afterIntegration ? { afterIntegration } : {}) }
 save(join(options.out, 'summary.json'), summary)
 console.log(JSON.stringify({ status: summary.status, tasks: summary.tasks.map(({ id, status, branch }) => ({ id, status, branch })),
-  errors: summary.errors, modelCalls: children.length, summaryPath: join(options.out, 'summary.json') }))
+  errors: summary.errors, modelCalls: children.length, summaryPath: join(options.out, 'summary.json'),
+  ...(afterIntegration ? { afterIntegration } : {}) }))
 process.exitCode = summary.status === 'done' ? 0 : 1
