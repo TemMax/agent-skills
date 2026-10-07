@@ -305,7 +305,7 @@ and branch names — never a bare list of options with no recommendation.
 
 | Where it broke | What ship does |
 |---|---|
-| A preflight check fails | Stop before the gate; name the missing piece |
+| A preflight check fails | Stop before planning; name the missing piece |
 | The user declines super-plan's start approval | Stop; nothing was created yet |
 | A wave returns `failed` / `error` | Stop with verdicts and branch names (multi-model's rule) |
 | The suite is red after a merge | Show the output, then fix without asking, by multi-model's step 8: directly when its conditions hold; otherwise push the red tip to the feature branch only, say so, and run a one-task supervised fix wave from that pushed tip. Never push it to the default branch. |

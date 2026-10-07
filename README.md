@@ -23,8 +23,8 @@ model identity and loads the matching profile from `references/`. There is no
 
 | Plugin | Skill | What it does |
 |---|---|---|
-| `orchestration` | `super-plan` | Wave-native planning: research to decomposition depth, one batched round of user questions, tasks carrying machine-checkable contracts grouped into waves by file-independence, validated by the shipped `plan-lint.mjs` before the plan gate. Planning discipline adapted from Jesse Vincent's superpowers (MIT, attribution shipped). |
-| `orchestration` | `ship` | The pipeline conductor: one command from request to reviewed PR — super-plan → supervised waves on a feature branch → critical-review of the PR and its threads. Adds no machinery of its own: one up-front gate, fixes routed by behavior change, and the merge always stays with the user. |
+| `orchestration` | `super-plan` | Wave-native planning: research to decomposition depth, questions only about product forks and contradictions, one start approval, tasks carrying machine-checkable contracts grouped into waves by file-independence, validated by the shipped `plan-lint.mjs` before the start approval. Planning discipline adapted from Jesse Vincent's superpowers (MIT, attribution shipped). |
+| `orchestration` | `ship` | The pipeline conductor: one command from request to reviewed PR — super-plan → supervised waves on a feature branch → critical-review of the PR and its threads. Adds no machinery or gate of its own: the branch and the PR are stated in planning's one start approval, fixes routed by behavior change, and the merge always stays with the user. |
 | `orchestration` | `multi-model` | Model routing, effort selection, task-prompt template, review checklist, and supervised waves executed by native Claude/Codex drivers using the shipped policy — isolated executors judged against a machine-checkable contract by a different model, with the escalation ladder as tested code — plus an orchestrator-drift advisory hook that watches the orchestrator session itself. |
 | `code-review` | `critical-review` | Scope detection, PR description+threads protocol, tiered findings table (Blocker → Nit), and a post-review fix phase that answers and resolves the PR threads its findings came from. |
 
@@ -332,14 +332,17 @@ standalone.
 
 Type `/orch` or `/code` and let autocomplete fill in the namespaced name.
 
-**What to expect from planning.** `super-plan` researches the codebase, asks
-you ONE batched round of questions for what code cannot answer, and gates
-twice: Gate 1 on the design summary — which names the supervisor choice,
-premium or standard — and Gate 2 on the finished plan, shown with its shape
-(the waves, the tasks that run in parallel in each, the critical path in
-waves), which must pass the shipped linter (same-wave file overlap, contract
-completeness) before you ever see it. Neither gate — nor any table or report —
-carries a time or cost estimate.
+**What to expect from planning.** `super-plan` researches the codebase and
+asks you only about genuine product forks — collected in one batch — and
+contradictions in the feature; with none, it asks nothing. It chooses the
+supervisors and the review models itself and reports the design without
+waiting for an answer. Then it stops once: one message with a summary of the
+design and of the finished plan — its shape (the waves, the tasks that run in
+parallel in each, the critical path in waves) and the routes, plus, inside
+`ship`, the branch and the pull request — and waits for your approval to
+start. The plan must pass the shipped linter (same-wave file overlap, contract
+completeness) before you ever see it. No message, table or report carries a
+time or cost estimate.
 
 **What to expect from orchestration.** The orchestrator loads its profile,
 shows you a table (task | model | effort | rationale), then launches the waves
@@ -347,7 +350,9 @@ through the shipped runner: every executor works in its own worktree, and an
 independent judge model checks out the branch, re-runs the contract's commands
 itself and issues a verdict — executor self-reports are never trusted. Rework,
 model escalation and the unsatisfiable-contract stop are code, not judgment
-calls.
+calls. A Codex wave no longer stops when only the sandbox blocks a check: the
+runner runs that check outside the sandbox and the wave goes on; it stops for
+the environment only when the machine itself is broken.
 After each wave the orchestrator removes the merged tasks' worktrees and
 `wave/<id>` branches; the final report lists what is left under `Left behind:`
 together with the command to clean up after the merge. Once you confirm the
@@ -363,8 +368,9 @@ colleagues' threads, a push to a branch or pull request that is not yours, and
 the merge. A premium model is used only on your word, which you can give once
 as a line in your instruction files (`AGENTS.md`, `CLAUDE.md`).
 
-**What to expect from ship.** One confirmation up front — the feature branch
-will be pushed and a PR opened — then the flow stops only where the link
+**What to expect from ship.** No question of its own: that the feature branch
+will be pushed and a PR opened is stated in planning's single start approval.
+After that approval the flow stops only where the link
 skills' own gates and the questions listed above for orchestration apply. ship ends at a reviewed PR with its threads answered; the merge always
 stays with you.
 
@@ -386,7 +392,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.14.0, code-review 1.18.0):
+orchestration 4.15.0, code-review 1.19.0):
 
 | Before | After |
 |---|---|
