@@ -230,10 +230,10 @@ for (const task of result.tasks) {
     result.errors.push('mechanical checks still fail for ' + task.id)
   }
 }
-const afterIntegration = result.status === 'done'
-  ? 'node ' + join(here, 'wave-cleanup.mjs') + ' --repo ' + options.repo
-    + ' --plan ' + resolve(options.plan) + ' --wave ' + options.wave
-    + ' --summary ' + join(options.out, 'summary.json')
+const shellQuote = value => /^[A-Za-z0-9_@%+=:,.\/-]+$/.test(value) ? value : "'" + value.replaceAll("'", "'\\''") + "'"
+const afterIntegration = result.tasks.some(task => task.status === 'ok')
+  ? ['node', join(here, 'wave-cleanup.mjs'), '--repo', options.repo, '--plan', resolve(options.plan),
+    '--wave', options.wave, '--summary', join(options.out, 'summary.json')].map(part => shellQuote(String(part))).join(' ')
   : undefined
 const summary = { ...result, children, usage, recovery: makeRecoveryReceipt(scope, children, reports),
   ...(recovery ? { previousSummary: recovery.path } : {}), ...(afterIntegration ? { afterIntegration } : {}) }
