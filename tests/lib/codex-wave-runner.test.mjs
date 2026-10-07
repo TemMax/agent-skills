@@ -342,6 +342,44 @@ test('(b) --jobs 1 never overlaps children; --jobs 2 does', () => {
     + JSON.stringify(twoIntervals))
 })
 
+test('a merge-ready run carries the afterIntegration cleanup command; a stopped run does not', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const outPath = join(root, 'out')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    { CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  const expected = 'node ' + join(dirname(RUNNER), 'wave-cleanup.mjs') + ' --repo ' + repo
+    + ' --plan ' + planPath + ' --wave 1'
+  assert.equal(result.json.afterIntegration, expected)
+  const onDisk = JSON.parse(readFileSync(join(outPath, 'summary.json'), 'utf8'))
+  assert.equal(onDisk.afterIntegration, expected)
+
+  const stopRoot = makeRepo()
+  const stopPlan = writePlan(stopRoot.root, ['task-a'])
+  const verdict = JSON.stringify({
+    ok: false,
+    violations: [{
+      rule: 'must_run: true', class: 'must_run', evidence: 'no compliant change could pass this',
+      satisfiable: false,
+    }],
+    remarks: [],
+  })
+  const stopped = runRunner(
+    ['--plan', stopPlan, '--wave', '1', '--repo', stopRoot.repo, '--base', stopRoot.base, '--codex', STUB,
+      '--out', join(stopRoot.root, 'out')],
+    { CODEX_STUB_LOG: join(stopRoot.root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: verdict },
+  )
+  assert.equal(stopped.json.status, 'stop')
+  assert.equal(Object.hasOwn(stopped.json, 'afterIntegration'), false)
+  const stoppedDisk = JSON.parse(readFileSync(join(stopRoot.root, 'out', 'summary.json'), 'utf8'))
+  assert.equal(Object.hasOwn(stoppedDisk, 'afterIntegration'), false)
+})
+
 test('(c) an empty executor report is recorded as null-result and the loop continues', () => {
   const { root, repo, base } = makeRepo()
   const planPath = writePlan(root, ['task-a'])

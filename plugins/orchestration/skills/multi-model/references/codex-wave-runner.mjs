@@ -1191,6 +1191,12 @@ async function main() {
     ...(status === 'stop'
       ? { cleanup: buildCleanup(config.repoPath, stopped.map((s) => s.task), statePaths) }
       : {}),
+    ...(status === 'merge-ready'
+      ? {
+        afterIntegration: 'node ' + join(here, 'wave-cleanup.mjs') + ' --repo ' + config.repoPath
+          + ' --plan ' + config.planPath + ' --wave ' + config.waveNumber,
+      }
+      : {}),
   }
   if (summary.cleanup) {
     for (const line of summary.cleanup) process.stderr.write(line + '\n')
