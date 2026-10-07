@@ -18,9 +18,9 @@
       "26f8e26b2254d1a16f035a7df67a67da0ab5a93cc129333d507556e3af315a55",
       "36a629fab762de35d556db47b0b00751fa2273b475f7068e0787c88fa0b14e8d",
       "765d70c13440bc63bca46d7fa522337c28082fef5465d27ab8ecf9dde6644b7d",
-      "e929818f2d0e5d883cd587560bafa5ea378d7e7670f8e65fa441f04321d78b6c",
+      "94610a223a822b24435d178804e9c7ac2cfc60d1f4f3c43c5d2dc8f0107a9e9c",
       "0a6ae6aec66002dac2461e16bbe03aff6aa482a29e897a6071c62d254ae3d204",
-      "d31a4c6a0d69efc65a73693a0378cfe59a2bd4328a9f13caed8c70ab21487462",
+      "b5d6e8af6cf4db9584bee922440e36a571bf986130cf8693c24932a7bc7cb1eb",
       "7c3a44bafb90d5f7760852e9eaa03e72c5159b37441433da7eeadda993da2d22",
       "6ff13154451350a9e2299959c389f3103c4ddb6aa7dbb45e5bf92ba04d1224de",
       "b634df9671707efa5524d900c86e57ad6e441048d9928b225ca37681675e65d2",
@@ -34,7 +34,7 @@
       "900fee9c05647568ecf8eb7b61e52b0b6469cb3070df50db4e1aca5019bfc43b",
       "1e6ca273644d1c3b914de50d384d5affe588ccaafd21875a007c9b16d7e4a0e7",
       "d207e08fe5741bd2f5061a7fea9ac11a75fe0d17a908bba846d2bfe8b9b2265a",
-      "0ffba9f6bb71540cf0564f001a2fe0fa6d0bcd6425f387eca4133814803f3b66",
+      "5d5a31a8db0b54a8320f392df47a738c08c5a87c3f551f78fbb3279a51464a7e",
       "aa544eb163d111e5f554a62298e9e7795028d99d9573c4705c8e86310013b89e",
       "be6d095d459a7f9cb3beb58159c91551c1e72ddda3f01d69890a8d018baf07a6",
       "6839679b2d2cfaf1e2c929967bb04742a1d64ad48604895655a9df73d44e0f55",
@@ -44,7 +44,7 @@
       "a1746003c2604796177504ea14d2266202277fe91209bc910b82984a682c0311",
       "f99b4d191f7fdcea94d2360363f118a92c345c58a47a9de579eec8e870609ac2",
       "509c326343efd671a68e28561495fc453a5b0c79edd6e1b4555c8840ef06c78f",
-      "63184c4187701306476cddb58911074dd48ab09a2143f17e7616d95d65f18012",
+      "e42ef5e772b92c4a7f3e176f9ab3ab5b5581ce34ef7c3fdb071fbb6c82b8ebed",
       "cbf0a86f9120338822d7acf5050fd2cd1cd70dde3a85251d00d3c56b03b1278e",
       "fe52b5f4a1d07a7c59887d090219e43e8fd1bfddba31a02903924f1d076575a3",
       "7ae5dda02e2ce3545e9a7e18603fa58e4183108159de98575cff723dc4643057",
@@ -89,13 +89,13 @@
       "ed4a023ccb38167fb3ceb1f09fc46efbaaa676c94b2506e3067d4a673f8179aa",
       "f273a03d520343d93f36c20853301fbf26ea3e66ff833e34223d5f4f24e8881e",
       "92262b53dbb62f522c10cd6c89d8aa5ffa47ef4a5c341e18deb72370a87de419",
-      "49dc72f17728784ba93da40b8dc4f9b70b9f1b7dc7abebd6544b7ff15fda2d74",
+      "45cded94cc21430a430b8ef4d153903714f6d21f36d61a3213e3a0011e0d291f",
       "d8dfd79da4cbe9697e9b4258c29a90c4b0ef993265bdd643ff6f1d94148ec44b",
       "2c0dc45e1ddb28c7204b1d0ae13f0bd8cfb18ec95e026240dc3bf0a9940fbfa5",
-      "bf3ea3d7ca9cccadad2a575cfb6812e8ccc740f0c9b4cfc7d5f92094c901c89a",
-      "733c028561aa6b8aa2def90fa4075e9bbdb0e73d1f1737591d6c05eeeca7ae80",
+      "f94033e0d419e959131170c2e1ba3473ddd9ec5ac809b9503de49db1a913bf37",
+      "bd78934d11d9838be8cb57d5e27b5cf96c579abcc84d13def599a19a2231af15",
       "91fbd0d5ad0bb5087589175d71067b130c0dfc200f1e83017739bbbf61025280",
-      "1dbfb6ab8b33746f06e2ada96b9008521d0bdba44b0b060f378e56cd5848edbc",
+      "684583f8b0b0adce64072a95fcc2e3d82aa9c3a478b79a4197f21a01946ab3af",
       "33e5476bff6c92e50ed257563352aec535d7a496a390e0e7a181d73dc2dbee67",
       "04dac49c34add0723364c9d5956f42190238d67d0143716a4f9edc282be81e48",
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
@@ -104,9 +104,9 @@
       "a844229c947784d8cb1c2eb01726030d01d6fda5c826fc48911aeca92ec709d9",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
       "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
-      "8acbc31da03f9ec40cdbcbad590fe7a9a247c1aac093ff5a70f12ce74a155710",
+      "cc88d4a182447a7d99359b32ff5b65d50c7434455136dae135221153e2bfcb8b",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
-      "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125"
+      "2f7a898155f959dddf3dcbb12e9f77cea7de86aecb12afa43af381a3b4f1ecf0"
     ],
     "plugins/orchestration/skills-codex/super-plan/SKILL.md": [
       "94a2b05d69a873fbb894e7c44fec467306fb1d92b5b53d70356428ebde802bc7",
@@ -128,14 +128,14 @@
       "68786364d2000f34655b5ffb82f6a755c7faac43820bc70084a14432024377ff",
       "36a629fab762de35d556db47b0b00751fa2273b475f7068e0787c88fa0b14e8d",
       "0ca05a8a32784bfff97f96a9f60ba71485409ccc56a59d57236c70d8987bf698",
-      "1990ec9877398935908191cc2d56bffcd474c36ae33c5ce244dc0d9ab4c32453",
+      "6daaff48d88e4e8c0ca4831a6e7451d3a05e3182a771449e3be1c7c5727f4698",
       "0a6ae6aec66002dac2461e16bbe03aff6aa482a29e897a6071c62d254ae3d204",
-      "1c01b99ed2568221e2f3cdaa3edfb936218ae2aaf849a417055681d9d43bd74a",
-      "48c1d7e77d7d0b3dc1575fdcb99292a9ff88442910e35afe7c0924ecc869f381",
-      "6997b643c924677d17ce8295322c63232a074099603500075e7e5cbf8b1ab9be",
+      "e854ad9318719906ab583b4b65f2e53b76d4546bfd61309c73c31206d7b95fd6",
+      "b199d49e8fbf12537fdb957d1d70cc86fed871689982030d95d9def03d40f659",
+      "16b1e88914cf47ab31c944a308e53c6000eaea0fbb1fae72c44f3315419a7599",
       "c72d1dc3bc876526aafee98f3f1fe58421195bde8c7f7ff34b2b85bc9c6c6e3f",
-      "00e9f4a5e6548b230eb0a9139a9120ff44570bef6589eb67f33db18fcdd99fc4",
-      "818a0ea13cb9b4ebe790237afd9b6446b5ad71822a2e0b634dafc9acf4ff698a",
+      "e53f19333c0a875c31211315c3eee80b063cf02cbf49f477c9210bb1f70a91a1",
+      "e80f7f4eed0f9936a20a59d96d8b5e6f7f683c489697bf681224505225fb1a24",
       "3ef02274436e232b7d8a304e3d4e9bdffc55ec29c6f55b1641120e662c51d29c",
       "6ff13154451350a9e2299959c389f3103c4ddb6aa7dbb45e5bf92ba04d1224de",
       "b634df9671707efa5524d900c86e57ad6e441048d9928b225ca37681675e65d2",
@@ -149,7 +149,7 @@
       "900fee9c05647568ecf8eb7b61e52b0b6469cb3070df50db4e1aca5019bfc43b",
       "1e6ca273644d1c3b914de50d384d5affe588ccaafd21875a007c9b16d7e4a0e7",
       "aee515d18eab47fb1be55b3219e1c9006742b8f19deb7e9dc165360b5fcffed7",
-      "1a5544a7d798be1aa1595fbae28773b47789035b9f2a7725e35b76dbe15fc579",
+      "17276b0b76a4b8b977c5bf43713bb6deebd9ccb7aad970408bce0c7adad78413",
       "aa544eb163d111e5f554a62298e9e7795028d99d9573c4705c8e86310013b89e",
       "be6d095d459a7f9cb3beb58159c91551c1e72ddda3f01d69890a8d018baf07a6",
       "6839679b2d2cfaf1e2c929967bb04742a1d64ad48604895655a9df73d44e0f55",
@@ -205,13 +205,13 @@
       "e77395db7765bd75e3074eb1cdd92680b4e176df98de4d591e55b58e7ea2e975",
       "f273a03d520343d93f36c20853301fbf26ea3e66ff833e34223d5f4f24e8881e",
       "2825eeef2dcbfdae95d9c8aace467c1914171771c39bf1c84d5932a16d871c66",
-      "49dc72f17728784ba93da40b8dc4f9b70b9f1b7dc7abebd6544b7ff15fda2d74",
+      "45cded94cc21430a430b8ef4d153903714f6d21f36d61a3213e3a0011e0d291f",
       "d8dfd79da4cbe9697e9b4258c29a90c4b0ef993265bdd643ff6f1d94148ec44b",
       "2c0dc45e1ddb28c7204b1d0ae13f0bd8cfb18ec95e026240dc3bf0a9940fbfa5",
-      "bf3ea3d7ca9cccadad2a575cfb6812e8ccc740f0c9b4cfc7d5f92094c901c89a",
-      "733c028561aa6b8aa2def90fa4075e9bbdb0e73d1f1737591d6c05eeeca7ae80",
+      "f94033e0d419e959131170c2e1ba3473ddd9ec5ac809b9503de49db1a913bf37",
+      "bd78934d11d9838be8cb57d5e27b5cf96c579abcc84d13def599a19a2231af15",
       "91fbd0d5ad0bb5087589175d71067b130c0dfc200f1e83017739bbbf61025280",
-      "25f93a2f2fe819c37ff5efff52bacbb00e1fce5e0739f350d4e6add552b5a355",
+      "cca573e5c16b6bb9b9694c4718b486148b4d9719f3b8f3996b07bb13a8ad2093",
       "33e5476bff6c92e50ed257563352aec535d7a496a390e0e7a181d73dc2dbee67",
       "c395f99cced1c9cf182bfbd70e560e95fe8c642613a505da1f40736ea51e0c1e",
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
@@ -220,9 +220,9 @@
       "09dd7dd4734ea7fd881ef189468874b7ea0f03b69977dcb7fc20b0e6e4df1fa2",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
       "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
-      "ce5449684a5492583fc55a5e6ce6e8c53ea22bcc743aa137c6c1de3221032dab",
+      "6c46f62e350775719f2589a5121563e0e732066348f561e6b7331fa20303c563",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
-      "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125"
+      "2f7a898155f959dddf3dcbb12e9f77cea7de86aecb12afa43af381a3b4f1ecf0"
     ],
     "plugins/code-review/skills/critical-review/SKILL.md": [
       "c2ac9edf59db2a1bad9bc4203940fd19c3447e5fae04e0489a226eecb538beac",
@@ -685,6 +685,146 @@
       "old": "e2feb2590132374a9cba3210e04fad20ba49867fbb7487bc59754f5750443827",
       "new": "8cc6d05865da559cf8867af2a2a017b65d9ff005b5d560b72b8927db44db2c49",
       "reason": "Order of operations step 2 states what the user may be asked about: the five decisions, with step 6 gating the outward steps that are not the user's own."
+    }
+  ],
+  "planning_autonomy_amendment": [
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "e929818f2d0e5d883cd587560bafa5ea378d7e7670f8e65fa441f04321d78b6c",
+      "new": "94610a223a822b24435d178804e9c7ac2cfc60d1f4f3c43c5d2dc8f0107a9e9c",
+      "reason": "Step 0 routing paragraph: historical fixture failures no longer block a plan 'for the existing design and plan approvals' but 'for the one start approval' (A4: one stop)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "d31a4c6a0d69efc65a73693a0378cfe59a2bd4328a9f13caed8c70ab21487462",
+      "new": "b5d6e8af6cf4db9584bee922440e36a571bf986130cf8693c24932a7bc7cb1eb",
+      "reason": "Process steps 1-3 block: Decisions asks only product forks and contradictions (A2); routes are the coordinator's decision, standard by default, premium only on the user's word or a standing authorization recorded in approvals.premium with its source (A3); Gate 1 is a report point that does not wait (A4)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "0ffba9f6bb71540cf0564f001a2fe0fa6d0bcd6425f387eca4133814803f3b66",
+      "new": "5d5a31a8db0b54a8320f392df47a738c08c5a87c3f551f78fbb3279a51464a7e",
+      "reason": "Lint tail, Gate 2 and Handoff block: Gate 2 is the one start approval, its message names the design summary, the plan's path and shape, the routes and, inside ship, the branch, the pull request and the recovery allowance; Handoff follows that approval (A4)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "63184c4187701306476cddb58911074dd48ab09a2143f17e7616d95d65f18012",
+      "new": "e42ef5e772b92c4a7f3e176f9ab3ab5b5581ce34ef7c3fdb071fbb6c82b8ebed",
+      "reason": "Plan-format example: the approvals.premium reason names the user's instruction in this session instead of 'user chose the premium supervisor at Gate 1' (A3)."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "49dc72f17728784ba93da40b8dc4f9b70b9f1b7dc7abebd6544b7ff15fda2d74",
+      "new": "45cded94cc21430a430b8ef4d153903714f6d21f36d61a3213e3a0011e0d291f",
+      "reason": "Stage 0 heading: 'and the one gate ship adds' replaced by 'ship adds no gate of its own' (A1)."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "bf3ea3d7ca9cccadad2a575cfb6812e8ccc740f0c9b4cfc7d5f92094c901c89a",
+      "new": "f94033e0d419e959131170c2e1ba3473ddd9ec5ac809b9503de49db1a913bf37",
+      "reason": "Stage 0 gate paragraph: the yes/no branch gate is removed; ship asks nothing before planning and the branch and the pull request are stated in super-plan's one start approval (A1)."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "733c028561aa6b8aa2def90fa4075e9bbdb0e73d1f1737591d6c05eeeca7ae80",
+      "new": "bd78934d11d9838be8cb57d5e27b5cf96c579abcc84d13def599a19a2231af15",
+      "reason": "Recovery allowance paragraph: stated 'in that same start approval' instead of 'at this same gate' (A1)."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "1dbfb6ab8b33746f06e2ada96b9008521d0bdba44b0b060f378e56cd5848edbc",
+      "new": "684583f8b0b0adce64072a95fcc2e3d82aa9c3a478b79a4197f21a01946ab3af",
+      "reason": "Stage 1: 'Its two gates (design, lint-clean plan)' replaced by the design report and the one start approval, which also states the branch, the pull request and the recovery allowance (A4)."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "8acbc31da03f9ec40cdbcbad590fe7a9a247c1aac093ff5a70f12ce74a155710",
+      "new": "cc88d4a182447a7d99359b32ff5b65d50c7434455136dae135221153e2bfcb8b",
+      "reason": "Failure map: only the row 'The user declines a super-plan gate' changed, to 'The user declines super-plan's start approval'; the environment-blocked row is untouched."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125",
+      "new": "2f7a898155f959dddf3dcbb12e9f77cea7de86aecb12afa43af381a3b4f1ecf0",
+      "reason": "Common Mistakes: 'Adding a second ship-level gate mid-flow ... One gate up front' replaced by 'Adding a ship-level gate anywhere in the flow ... ship adds no gate' (A1)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "1990ec9877398935908191cc2d56bffcd474c36ae33c5ce244dc0d9ab4c32453",
+      "new": "6daaff48d88e4e8c0ca4831a6e7451d3a05e3182a771449e3be1c7c5727f4698",
+      "reason": "Step 0 routing paragraph: historical fixture failures no longer block a plan 'for the existing design and plan approvals' but 'for the one start approval' (A4: one stop)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "1c01b99ed2568221e2f3cdaa3edfb936218ae2aaf849a417055681d9d43bd74a",
+      "new": "e854ad9318719906ab583b4b65f2e53b76d4546bfd61309c73c31206d7b95fd6",
+      "reason": "Process steps 1-2 block: Decisions asks only product forks and contradictions (A2); the supervisor is the coordinator's decision, standard by default, premium only on the user's word or a standing authorization recorded in approvals.premium with its source, never a premium-or-standard choice put to the user (A3)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "48c1d7e77d7d0b3dc1575fdcb99292a9ff88442910e35afe7c0924ecc869f381",
+      "new": "b199d49e8fbf12537fdb957d1d70cc86fed871689982030d95d9def03d40f659",
+      "reason": "Review-key paragraph: the coordinator records the standard measured review route, premium only with authorization; the user is no longer offered a recommended and a cheaper option (A3)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "6997b643c924677d17ce8295322c63232a074099603500075e7e5cbf8b1ab9be",
+      "new": "16b1e88914cf47ab31c944a308e53c6000eaea0fbb1fae72c44f3315419a7599",
+      "reason": "Paragraph 'A premium model is used only when the user picks it ... re-ask the user before Gate 2' replaced: when the Tasks step changes a wave, the coordinator picks the fitting standard supervisor and says so in the Gate 2 message (A3)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "00e9f4a5e6548b230eb0a9139a9120ff44570bef6589eb67f33db18fcdd99fc4",
+      "new": "e53f19333c0a875c31211315c3eee80b063cf02cbf49f477c9210bb1f70a91a1",
+      "reason": "Single-task path: 'Ask one gate instead of two ... one approval counts as Gate 1 and Gate 2' replaced by one message carrying the Gate 1 report and the Gate 2 start approval (A4)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "818a0ea13cb9b4ebe790237afd9b6446b5ad71822a2e0b634dafc9acf4ff698a",
+      "new": "e80f7f4eed0f9936a20a59d96d8b5e6f7f683c489697bf681224505225fb1a24",
+      "reason": "Gate 1 block: 'One approval, then stop touching the design' replaced by a report point that goes on to the tasks without waiting unless a product fork or contradiction is open (A4)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "1a5544a7d798be1aa1595fbae28773b47789035b9f2a7725e35b76dbe15fc579",
+      "new": "17276b0b76a4b8b977c5bf43713bb6deebd9ccb7aad970408bce0c7adad78413",
+      "reason": "Lint tail, Gate 2 and Handoff block: Gate 2 is the one start approval, its message names the design summary, the plan's path and shape, the routes and, inside ship, the branch, the pull request and the recovery allowance; Handoff follows that approval (A4)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "49dc72f17728784ba93da40b8dc4f9b70b9f1b7dc7abebd6544b7ff15fda2d74",
+      "new": "45cded94cc21430a430b8ef4d153903714f6d21f36d61a3213e3a0011e0d291f",
+      "reason": "Stage 0 heading: 'and the one gate ship adds' replaced by 'ship adds no gate of its own' (A1)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "bf3ea3d7ca9cccadad2a575cfb6812e8ccc740f0c9b4cfc7d5f92094c901c89a",
+      "new": "f94033e0d419e959131170c2e1ba3473ddd9ec5ac809b9503de49db1a913bf37",
+      "reason": "Stage 0 gate paragraph: the yes/no branch gate is removed; ship asks nothing before planning and the branch and the pull request are stated in super-plan's one start approval (A1)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "733c028561aa6b8aa2def90fa4075e9bbdb0e73d1f1737591d6c05eeeca7ae80",
+      "new": "bd78934d11d9838be8cb57d5e27b5cf96c579abcc84d13def599a19a2231af15",
+      "reason": "Recovery allowance paragraph: stated 'in that same start approval' instead of 'at this same gate' (A1)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "25f93a2f2fe819c37ff5efff52bacbb00e1fce5e0739f350d4e6add552b5a355",
+      "new": "cca573e5c16b6bb9b9694c4718b486148b4d9719f3b8f3996b07bb13a8ad2093",
+      "reason": "Stage 1: 'Its two gates (design, lint-clean plan)' replaced by the design report and the one start approval, which also states the branch, the pull request and the recovery allowance (A4)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "ce5449684a5492583fc55a5e6ce6e8c53ea22bcc743aa137c6c1de3221032dab",
+      "new": "6c46f62e350775719f2589a5121563e0e732066348f561e6b7331fa20303c563",
+      "reason": "Failure map: only the row 'The user declines a super-plan gate' changed, to 'The user declines super-plan's start approval'; the environment-blocked row is untouched."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125",
+      "new": "2f7a898155f959dddf3dcbb12e9f77cea7de86aecb12afa43af381a3b4f1ecf0",
+      "reason": "Common Mistakes: 'Adding a second ship-level gate mid-flow ... One gate up front' replaced by 'Adding a ship-level gate anywhere in the flow ... ship adds no gate' (A1)."
     }
   ]
 }

@@ -72,7 +72,7 @@ PHRASES = {
         "Never load more than one active-seat profile",
         "merge stays with the user",
         "ship adds no machinery",
-        "the only one ship adds",
+        "ship adds no gate of its own and asks nothing before planning",
         "shared Post-Review Fix Protocol",
         "push → replies → resolves",
         "Not verified — manual QA needed",

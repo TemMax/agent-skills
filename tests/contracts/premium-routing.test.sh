@@ -30,8 +30,8 @@ section "codex-routing: ship's final review child is chosen by the plan's review
 
 check "codex-routing runs Stage 3 in a fresh child of the plan's review-key model" \
   "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'If the plan has no \`review\` key, use the standard measured review route \`gpt-6.1-sol\` without asking; a premium review model is used only on the user'\''s word.'"
-check "codex-routing states the review child is chosen by the user at Gate 1, never priced" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'chosen by the user at Gate 1:' && ! grep -qF 'estimated cost' '$CP_ROUTING'"
+check "codex-routing states the review child is chosen by the coordinator at Gate 1, never priced" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'chosen by the coordinator at Gate 1, never by a question to the user:' && ! grep -qF 'estimated cost' '$CP_ROUTING'"
 check "codex-routing keeps a premium review model on the user's word only" \
   "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'a premium review model is used only on the user'\''s word.'"
 

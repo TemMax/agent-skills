@@ -235,7 +235,8 @@ check "the linter is said to enforce ci, e2e and approvals.premium" \
   "grep -qF 'The linter enforces all three' $SP"
 check "the example wave-plan shows approvals.premium for its fable-5.1 supervisor" \
   "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"claude-fable-5-1\"' && sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"premium\"'"
-check "premium supervision needs the user's pick"      "grep -qF 'A premium model is used only' $SP"
+check "premium supervision needs the user's word or a standing authorization" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A premium model (Fable 5.1 / GPT-6 Astra, any role) is used only when the user said so in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`); record it in \`approvals.premium\` with the source in \`reason\`. Without an authorization, use the standard route.'"
 check "the Seam audit step exists"                     "grep -qF '**Seam audit.**' $SP"
 check "the Seam audit runs before lint"                "grep -qF 'Fix what it finds before lint' $SP"
 check "the Seam audit uses the cheap route" \
@@ -274,12 +275,12 @@ check "measurements record Opus 5"                     "grep -qF '| \`claude-opu
 check "measurements record Haiku 4.5"                  "grep -qF '| \`claude-haiku-4-5-20251001\` | 1 | 0.1 | 5 |' $WCM"
 check "Gate 1 fixes wave shape before the supervisor choice" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qiF \"fix each wave's executor tiers and ladder shape at Gate 1\""
-check "a changed wave shape re-asks the supervisor choice before Gate 2" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 're-ask the user before Gate 2'"
+check "a changed wave shape takes the fitting standard supervisor, said in the Gate 2 message" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'pick the fitting standard supervisor and say so in the Gate 2 message; when no standard supervisor fits and there is no premium authorization, apply the rule above for a task with no standard delegated route. Never carry the stale supervisor forward.'"
 check "a Codex Sol executor forces the Astra supervisor" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A Codex wave with a \`gpt-6.1-sol\` or \`gpt-6-sol\` executor has no standard supervisor'"
 check "super-plan records ship's Stage 3 review child in the plan's review key, Sol measured with a strict-gate line" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'as the recommended option, recorded in \`approvals.premium\` only when the user picks it, or, when the user instead chooses the cheaper option, \`gpt-6.1-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30 — disclosed at Gate 1 too.'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the standard measured review route \`gpt-6.1-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30 — or \`gpt-6-astra\` only with a premium authorization, recorded in \`approvals.premium\`. ship never picks one.'"
 check "super-plan documents the optional review key next to ci/e2e/approvals" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'optional (without it ship uses the standard measured review route without asking)' && grep -qF '\"review\"' $SP"
 check "super-plan says the linter also checks the review key" \
@@ -296,8 +297,8 @@ check "headless mode uses standard supervisors only" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A headless run uses'"
 check "headless mode invents no approvals.premium" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the plan carries no \`approvals.premium\` invented by the model'"
-check "Gate 1 names the supervisor choice without a price" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'named and never priced' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'named, never priced'"
+check "Gate 1 reports the routes without a price and does not wait" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'and the routes (the supervisor and, on Codex, the review model — named, never priced). Do not wait for an answer: go on to the tasks.'"
 check "Gate 2 shows the plan's shape, never a duration or a cost" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical path as a chain of waves' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Never a duration or a cost'"
 check "super-plan forbids time and cost estimates everywhere" \
@@ -316,7 +317,7 @@ check "Step 0 effort: Claude reads CLAUDE_EFFORT through the shell, never on Cod
 section "ship: the conductor that adds no machinery"
 check "the skill exists"                        "[ -f $SH ]"
 check "ship adds no machinery"                  "grep -q 'ship adds no machinery' $SH"
-check "exactly one ship-level gate"             "grep -q 'the only one ship adds' $SH"
+check "ship adds no gate of its own"            "tr '\\n' ' ' < $SH | tr -s ' ' | grep -qF 'ship adds no gate of its own and asks nothing before planning'"
 check "ship defers fix routing to critical-review" "grep -qF 'shared Post-Review Fix Protocol' $SH"
 check "the merge stays with the user"           "grep -q 'merge stays with the user' $SH"
 check "wave bases are copied, never typed"      "grep -q 'rev-parse' $SH"
