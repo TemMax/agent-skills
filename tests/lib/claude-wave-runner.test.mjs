@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 const runner = resolve('plugins/orchestration/skills/multi-model/references/claude-wave-runner.mjs')
 function fixture(t, limits, supervision, contractPatch = {}) {
@@ -90,6 +90,19 @@ test('native Claude runner spends two model calls, verifies independently and na
   assert.ok(!calls[1].argv[calls[1].argv.indexOf('--tools') + 1].includes('Edit'))
   assert.equal(r.summary.usage.output, 6)
   assert.ok(r.stdout.length < 2000)
+})
+
+test('a done run prints the cleanup command in stdout and summary.json; other statuses omit it', t => {
+  const f = fixture(t); const r = run(f)
+  assert.equal(r.status, 0, r.stderr)
+  const expected = 'node ' + join(dirname(runner), 'wave-cleanup.mjs') + ' --repo ' + f.repo
+    + ' --plan ' + resolve(f.plan) + ' --wave 1'
+  assert.equal(JSON.parse(r.stdout).afterIntegration, expected)
+  assert.equal(r.summary.afterIntegration, expected)
+  const g = fixture(t, { max_model_calls: 1 }); const b = run(g)
+  assert.equal(b.status, 1, b.stderr)
+  assert.ok(!('afterIntegration' in JSON.parse(b.stdout)))
+  assert.ok(!('afterIntegration' in b.summary))
 })
 
 test('a same-rung rework resumes the executor session with the continuation only', t => {
