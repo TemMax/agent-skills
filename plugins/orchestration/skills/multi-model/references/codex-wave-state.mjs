@@ -38,6 +38,11 @@ const COMMANDS = {
   'record-verdict': ['state', 'task'],
   summary: ['state'],
 }
+// Flags a command accepts but does not require.
+const OPTIONAL_FLAGS = {
+  init: ['outside-sandbox'],
+  'adopt-candidate': ['outside-sandbox'],
+}
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const SHA = /^[0-9a-f]{40}$/
 const MAX_EXECUTOR_ATTEMPTS = 6
@@ -73,7 +78,8 @@ export function parseCli(argv) {
     throw new NamedError('usage', 'expected one of ' + Object.keys(COMMANDS).join('|'))
   }
   const command = argv[0]
-  const allowed = COMMANDS[command]
+  const required = COMMANDS[command]
+  const allowed = [...required, ...(OPTIONAL_FLAGS[command] ?? [])]
   const options = {}
   for (let i = 1; i < argv.length; i += 2) {
     const flag = argv[i]
@@ -86,7 +92,7 @@ export function parseCli(argv) {
     if (Object.hasOwn(options, key)) throw new NamedError('usage', command + ': duplicate option --' + key)
     options[key] = value
   }
-  const missing = allowed.filter((key) => !Object.hasOwn(options, key))
+  const missing = required.filter((key) => !Object.hasOwn(options, key))
   if (missing.length) throw new NamedError('usage', command + ': missing --' + missing.join(', --'))
   return { command, options }
 }
@@ -394,6 +400,16 @@ function mergeReadyHasCleanHistories(task, spec) {
   })
 }
 
+const nonemptyStringList = (value) => Array.isArray(value)
+  && value.every((item) => typeof item === 'string' && item !== '')
+
+// The must_run commands of one task that the runner's preflight found blocked
+// inside the sandbox and clean outside it. A prompt names only these.
+function outsideSandboxCmds(state, spec) {
+  const listed = Array.isArray(state.outsideSandbox) ? state.outsideSandbox : []
+  return listed.filter((cmd) => spec.contract.must_run.some((entry) => entry.cmd === cmd))
+}
+
 function validateStoredState(state, statePath) {
   const errors = []
   const err = (field, message) => errors.push(field + ': ' + message)
@@ -402,8 +418,12 @@ function validateStoredState(state, statePath) {
   const hasWorktreeLinks = state && typeof state === 'object' && !Array.isArray(state)
     && Object.hasOwn(state, 'worktreeLinks')
   const hasRecovery = state && typeof state === 'object' && !Array.isArray(state) && Object.hasOwn(state, 'candidateRecovery')
+  // outsideSandbox is optional the same way: only a state initialised with
+  // --outside-sandbox has it, and its absence reads as an empty list.
+  const hasOutsideSandbox = state && typeof state === 'object' && !Array.isArray(state)
+    && Object.hasOwn(state, 'outsideSandbox')
   const expectedStateKeys = [...STATE_KEYS, ...(hasWorktreeLinks ? ['worktreeLinks'] : []),
-    ...(hasRecovery ? ['candidateRecovery'] : [])]
+    ...(hasRecovery ? ['candidateRecovery'] : []), ...(hasOutsideSandbox ? ['outsideSandbox'] : [])]
   if (hasRecovery && state.candidateRecovery !== true) err('candidateRecovery', 'must be true when present')
   if (!ownKeysAre(state, expectedStateKeys)) {
     return ['state: expected exact schema-1 top-level fields']
@@ -411,6 +431,9 @@ function validateStoredState(state, statePath) {
   if (hasWorktreeLinks && (!Array.isArray(state.worktreeLinks)
     || state.worktreeLinks.some((link) => typeof link !== 'string' || link === ''))) {
     err('worktreeLinks', 'array of non-empty strings required')
+  }
+  if (hasOutsideSandbox && !nonemptyStringList(state.outsideSandbox)) {
+    err('outsideSandbox', 'array of non-empty strings required')
   }
   if (state.schema !== 1) err('schema', 'expected 1')
   if (!nonemptyString(state.planPath)) err('planPath', 'non-empty string required')
@@ -596,6 +619,7 @@ function currentEffort(state, id, task) {
 
 function executorPrompt(state, id, task, spec) {
   const prior = task.verdicts.at(-1)
+  const outside = outsideSandboxCmds(state, spec)
   const astraException = task.rungs[task.rung] === ASTRA
   return [
     '# Task: ' + id,
@@ -634,6 +658,10 @@ function executorPrompt(state, id, task, spec) {
     'around the restriction, and do not pick an interpretation on the user\'s behalf.',
     'If your task needs an artifact that another task of this wave is producing (a file, fixture, function or behavior missing from your worktree), stop and report `blocked-on-sibling: <what is missing and which task makes it>`; do not invent it and do not commit a placeholder.',
     'If a build or tool cannot start because of the machine — permission denied on a cache directory or `.git`, SDK not found, a lock file, commit signing — stop and make the first line of your report `environment-blocked: <the verbatim error line>`; do not work around it.',
+    'A helper tool the sandbox denies is not a reason to stop when you can still make and commit the change; stop only when the change itself cannot be made or committed.',
+    outside.length > 0
+      ? 'These must_run commands cannot run inside your sandbox on this machine: ' + JSON.stringify(outside) + '. Do not run them and do not report `environment-blocked` for them: the runner runs them outside the sandbox after your commit, and its output is the evidence. Name them in your report as not run.'
+      : null,
     '',
     '## Prohibitions',
     'Do not spawn subagents. No force-push, no reset --hard, and no rm outside',
@@ -974,6 +1002,7 @@ export function buildSupervisorPrompt(state, id, promptText) {
     throw new NamedError('supervisor-prompt', 'prompt text is required')
   }
   const spec = taskSpec(state, id)
+  const outside = outsideSandboxCmds(state, spec)
   const executorModel = task.rungs[task.rung]
   const report = String(task.reports.at(-1)).split(executorModel)
     .join('[executor-model-redacted]')
@@ -1004,6 +1033,10 @@ export function buildSupervisorPrompt(state, id, promptText) {
     '',
     'CONTRACT:',
     JSON.stringify(spec.contract, null, 2),
+    outside.length > 0 ? '' : null,
+    outside.length > 0
+      ? 'Run outside the sandbox by the runner: ' + JSON.stringify(outside) + '. Judge these commands from the VERIFIER FACTS; do not run them yourself, and a missing paste for them in the REPORT is not a violation.'
+      : null,
     '',
     'REPO: ' + state.repoPath,
     'BASE: ' + state.base,
@@ -1244,6 +1277,15 @@ function initCommand(options, adoption = null) {
     throw new NamedError('wave-number', 'must be a positive integer')
   }
   if (!SHA.test(options.base)) throw new NamedError('base-sha', 'must be a full lowercase 40-hex SHA')
+  let outsideSandbox = null
+  if (Object.hasOwn(options, 'outside-sandbox')) {
+    try { outsideSandbox = JSON.parse(options['outside-sandbox']) } catch (error) {
+      throw new NamedError('outside-sandbox', 'JSON does not parse: ' + error.message)
+    }
+    if (!nonemptyStringList(outsideSandbox)) {
+      throw new NamedError('outside-sandbox', 'JSON array of non-empty strings required')
+    }
+  }
   let markdown
   try { markdown = readFileSync(options.plan, 'utf8') } catch (error) {
     throw new NamedError('plan-read', error.message)
@@ -1270,6 +1312,11 @@ function initCommand(options, adoption = null) {
   })
   if (adoption) state.candidateRecovery = true
   state.worktreeLinks = env.links
+  if (outsideSandbox) {
+    // Keep only what this state's own tasks must run.
+    state.outsideSandbox = outsideSandbox.filter((cmd, index) => outsideSandbox.indexOf(cmd) === index
+      && wave.tasks.some((task) => task.contract.must_run.some((entry) => entry.cmd === cmd)))
+  }
   const stateDir = join(options.repo, '.worktrees', 'codex-wave')
   const planName = basename(options.plan).replace(/\.[^.]+$/, '')
   const statePath = join(stateDir, planName + '-w' + waveNumber + '-' + options.base.slice(0, 12) + '.json')

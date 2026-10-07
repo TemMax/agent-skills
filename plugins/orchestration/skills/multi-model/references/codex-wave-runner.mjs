@@ -255,8 +255,12 @@ function runHelper(args, stdinObject) {
   return json
 }
 
-const helperInit = (planPath, waveNumber, repoPath, base) =>
-  runHelper(['init', '--plan', planPath, '--wave', String(waveNumber), '--repo', repoPath, '--base', base])
+// The preflight's sandbox-only commands, when there is such a list to pass on.
+const outsideSandboxArgs = (outsideSandbox) =>
+  outsideSandbox === null ? [] : ['--outside-sandbox', JSON.stringify(outsideSandbox)]
+const helperInit = (planPath, waveNumber, repoPath, base, outsideSandbox) =>
+  runHelper(['init', '--plan', planPath, '--wave', String(waveNumber), '--repo', repoPath, '--base', base,
+    ...outsideSandboxArgs(outsideSandbox)])
 const helperNext = (statePath) => runHelper(['next', '--state', statePath])
 const helperRecordExecutor = (statePath, taskId, payload) =>
   runHelper(['record-executor', '--state', statePath, '--task', taskId], payload)
@@ -465,10 +469,13 @@ function buildCleanup(repoPath, taskIds, statePaths) {
 // Preflight: before any model child starts, probe the checked-out base
 // commit with every distinct must_run command from the wave's tasks, in the
 // same sandbox an executor gets. A command whose output matches a known
-// machine-failure signature (detectEnvironmentBlock) means the run cannot
-// possibly succeed here, so it is caught once instead of letting every task
-// discover it independently. A plain red command with no signature is only
-// recorded, never treated as a stop, since it may be expected-red.
+// machine-failure signature (detectEnvironmentBlock) is run once more outside
+// the sandbox: a signature there too means the run cannot possibly succeed
+// here, so it is caught once instead of letting every task discover it
+// independently; no signature there means only the sandbox blocks the
+// command, and the wave goes on with that command left to the verification
+// that runs outside the sandbox. A plain red command with no signature is
+// only recorded, never treated as a stop, since it may be expected-red.
 // ---------------------------------------------------------------------------
 
 function tailLinesRaw(path, n) {
@@ -537,7 +544,9 @@ function preflightSandboxArgs({ writableRoots, networkOn, cmd }) {
 // now runs before --out exists at all (a stop here must leave nothing
 // behind). Always removes that worktree before returning (even when a
 // blocking signature was found), so the caller can report the stop with
-// nothing left to clean up.
+// nothing left to clean up. `blocks` holds the machine blocks only (signature
+// inside the sandbox and outside it); `outsideSandbox` holds the commands
+// blocked inside the sandbox and clean outside it.
 function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, networkOn, wave }) {
   const worktreesDir = join(repoPath, '.worktrees')
   mkdirSync(worktreesDir, { recursive: true })
@@ -550,6 +559,7 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
   const results = []
   let blocked = null
   const blocks = []
+  const outsideSandbox = []
   try {
     applyLinks(repoPath, preflightPath, env.links)
     const writableRoots = [worktreeGitDir(preflightPath), commonDir, ...env.writable]
@@ -561,10 +571,25 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
       })
       const seconds = (Date.now() - start) / 1000
       const exit = run.status === null ? -1 : run.status
-      results.push({ cmd, exit, seconds })
-      const detected = detectEnvironmentBlock((run.stdout || '') + '\n' + (run.stderr || ''))
+      const result = { cmd, exit, seconds, sandbox: 'ok' }
+      results.push(result)
+      if (!detectEnvironmentBlock((run.stdout || '') + '\n' + (run.stderr || ''))) continue
+      // Same command, same checkout, same timeout, no sandbox.
+      result.sandbox = 'blocked'
+      const outsideStart = Date.now()
+      const outsideRun = spawnSync('bash', ['-c', cmd], {
+        cwd: preflightPath, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024,
+      })
+      const detected = detectEnvironmentBlock((outsideRun.stdout || '') + '\n' + (outsideRun.stderr || ''))
+      result.outside = {
+        exit: outsideRun.status === null ? -1 : outsideRun.status,
+        seconds: (Date.now() - outsideStart) / 1000,
+        blocked: Boolean(detected),
+      }
       if (detected) {
         const entry = { cmd, id: detected.id, line: detected.line }; blocks.push(entry); blocked ??= entry
+      } else {
+        outsideSandbox.push(cmd)
       }
     }
   } finally {
@@ -575,7 +600,7 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
         + preflightPath + ': ' + (removed.stderr || removed.stdout) + '\n')
     }
   }
-  return { blocked, blocks, results }
+  return { blocked, blocks, results, outsideSandbox }
 }
 
 // ---------------------------------------------------------------------------
@@ -818,14 +843,22 @@ async function main() {
   // created its worktree, branch and state file. A red command with no
   // matching signature is only ever recorded (it may be expected-red), which
   // is why its result still rides along on the final summary.json below even
-  // when nothing is blocked.
+  // when nothing is blocked. A signature only inside the sandbox does not
+  // stop the run: those commands go to every task's state at `init` and onto
+  // the final summary.json. A resumed run skips the preflight and takes the
+  // list its previous summary recorded, when there is one.
   let preflightResults = null
-  if (config.preflightOn && !recovery) {
-    const { blocked, blocks, results } = runPreflight({
+  let outsideSandbox = null
+  if (recovery) {
+    const previous = recovery.summary.preflight?.outsideSandbox
+    if (previous !== undefined) outsideSandbox = previous
+  } else if (config.preflightOn) {
+    const { blocked, blocks, results, outsideSandbox: sandboxOnly } = runPreflight({
       codexBin: config.codexBin, repoPath: config.repoPath, base: config.base, timeoutMs: config.timeoutMs,
       env, commonDir, networkOn: config.executorNetworkOn, wave,
     })
     preflightResults = results
+    outsideSandbox = sandboxOnly
     if (blocked) {
       const summary = {
         status: 'stop',
@@ -890,9 +923,9 @@ async function main() {
     let initResult
     try {
       initResult = recovery ? runHelper(['adopt-candidate', '--plan', derivedPlanPath, '--wave', String(config.waveNumber),
-        '--repo', config.repoPath, '--base', config.base], { [taskId]: { ...recovery.tasks[taskId],
-          report: recoveredReport(recovery.tasks[taskId].report) } })
-        : helperInit(derivedPlanPath, config.waveNumber, config.repoPath, config.base)
+        '--repo', config.repoPath, '--base', config.base, ...outsideSandboxArgs(outsideSandbox)],
+      { [taskId]: { ...recovery.tasks[taskId], report: recoveredReport(recovery.tasks[taskId].report) } })
+        : helperInit(derivedPlanPath, config.waveNumber, config.repoPath, config.base, outsideSandbox)
     } catch (error) {
       const gitNotWritable = /cannot lock ref|unable to create directory|Operation not permitted/
         .test(error.message)
@@ -1192,7 +1225,10 @@ async function main() {
     recovery: makeRecoveryReceipt(scope, children, reports),
     ...(recovery ? { previousSummary: recovery.path } : {}),
     status, stopped, states, wave: config.waveNumber, tasks, children, wallSeconds,
-    ...(preflightResults ? { preflight: { results: preflightResults } } : {}),
+    ...(preflightResults || outsideSandbox
+      ? { preflight: { ...(preflightResults ? { results: preflightResults } : {}),
+        ...(outsideSandbox ? { outsideSandbox } : {}) } }
+      : {}),
     ...(status === 'stop'
       ? { cleanup: buildCleanup(config.repoPath, stopped.map((s) => s.task), statePaths) }
       : {}),
