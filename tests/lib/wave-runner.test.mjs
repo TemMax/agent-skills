@@ -439,6 +439,96 @@ test('S2 rework: same model, prior verdict travels in the prompt', async () => {
   assert.match(ex[1].prompt, /"class": "files"/)
 })
 
+// The text the rework section had before reworkSection() was factored out,
+// for task() and V.files(). The rework prompt must stay byte-identical.
+const REWORK_SECTION_FILES = [
+  '## Prior attempt was rejected',
+  'A supervisor checked your branch against the contract and rejected it.',
+  'The verdict, including the supervisor\'s own evidence:',
+  '',
+  '{',
+  '  "ok": false,',
+  '  "violations": [',
+  '    {',
+  '      "rule": "files_allowed: [src/**]",',
+  '      "class": "files",',
+  '      "evidence": "diff touches docs/readme.md",',
+  '      "quote": ""',
+  '    }',
+  '  ],',
+  '  "remarks": []',
+  '}',
+  '',
+  'Continue in the SAME worktree and branch (wave/t-one). Fix the',
+  'violations. Do not restart from scratch and do not delete the branch.',
+  'The dead-end protocol still applies: if the task still needs an artifact',
+  'another task of this wave produces, report `blocked-on-sibling` again',
+  'instead of committing a placeholder.',
+].join('\n')
+
+const CONTINUATION_FILES = REWORK_SECTION_FILES + '\n\n' + [
+  'Finish with a complete, self-contained REPORT in the format your task',
+  'requires: changed files, the gist of the change, the verbatim output of',
+  'every must_run command you ran, an answer to every report_must_answer',
+  'question, git log --oneline abc1234..HEAD and git status --porcelain.',
+  'The supervisor reads only this final report.',
+].join('\n')
+
+test('S2b the rework prompt is byte-identical to the executor prompt plus the pinned rework section', async () => {
+  for (const verifyStub of [undefined, async () => FACTS_GREEN()]) {
+    const { calls } = await runWorkflow(SCRIPT, {
+      args: waveArgs(),
+      agentStub: stub({ 't-one': [V.files(), V.ok()] }),
+      verifyStub,
+    })
+    const ex = execCalls(calls, 't-one')
+    assert.equal(ex.length, 2)
+    assert.equal(ex[1].prompt, ex[0].prompt + '\n\n' + REWORK_SECTION_FILES)
+  }
+})
+
+test('S2c native transport: a same-rung rework carries a continuation, the first attempt does not', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.files(), V.ok()] }),
+    verifyStub: async () => FACTS_GREEN(),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  const ex = execCalls(calls, 't-one')
+  assert.equal(ex.length, 2)
+  assert.ok(!('continuation' in ex[0].opts), 'first attempt has no continuation')
+  assert.ok(ex[1].opts.continuation.startsWith('## Prior attempt was rejected'))
+  assert.ok(ex[1].opts.continuation.includes('The supervisor reads only this final report'))
+  assert.equal(ex[1].opts.continuation, CONTINUATION_FILES)
+  assert.match(ex[1].prompt, /Prior attempt was rejected/, 'the prompt stays the full rework prompt')
+  assert.ok(ex[1].prompt.startsWith('# Task: t-one'))
+  assert.ok(supCalls(calls, 't-one').every((c) => !('continuation' in c.opts)), 'judge calls never carry it')
+})
+
+test('S2d native transport: the first attempt after an escalation carries no continuation', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.files(), V.files(), V.files(), V.ok()] }),
+    verifyStub: async () => FACTS_GREEN(),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  const ex = execCalls(calls, 't-one')
+  assert.deepEqual(ex.map((c) => c.opts.model),
+    ['claude-sonnet-5', 'claude-sonnet-5', 'claude-opus-5-5', 'claude-opus-5-5'])
+  assert.deepEqual(ex.map((c) => 'continuation' in c.opts), [false, true, false, true])
+  assert.match(ex[2].prompt, /Prior attempt was rejected/, 'the escalated call still gets the full rework prompt')
+})
+
+test('S2e Workflow fallback: without a verify function no call carries a continuation', async () => {
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs(),
+    agentStub: stub({ 't-one': [V.files(), V.files(), V.files(), V.ok()] }),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.equal(execCalls(calls, 't-one').length, 4)
+  assert.ok(calls.every((c) => !('continuation' in c.opts)))
+})
+
 test('S3 same (class, rule) twice → next rung, model actually changes', async () => {
   const { result, calls } = await runWorkflow(SCRIPT, {
     args: waveArgs(),

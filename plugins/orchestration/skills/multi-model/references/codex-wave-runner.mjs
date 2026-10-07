@@ -311,14 +311,51 @@ function sumUsage(eventsPath) {
   return usage
 }
 
-async function runCodexChild({ semaphore, codexBin, args, prompt, eventsPath, stderrPath, timeoutMs }) {
+// The thread id of a `codex exec --json` child: the first JSON line with
+// type "thread.started" carries it. '' when the child never printed one.
+function readThreadId(eventsPath) {
+  let text = ''
+  try { text = readFileSync(eventsPath, 'utf8') } catch { return '' }
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    let event
+    try { event = JSON.parse(trimmed) } catch { continue }
+    if (event && event.type === 'thread.started') {
+      return typeof event.thread_id === 'string' ? event.thread_id : ''
+    }
+  }
+  return ''
+}
+
+function hasTurnCompleted(eventsPath) {
+  let text = ''
+  try { text = readFileSync(eventsPath, 'utf8') } catch { return false }
+  return text.split('\n').some((line) => {
+    try { return JSON.parse(line.trim())?.type === 'turn.completed' } catch { return false }
+  })
+}
+
+// A resumed thread reports thread-cumulative usage, so a resumed child's own
+// usage is what the thread grew by since the previous child (never below 0).
+function usageSince(cumulative, previous) {
+  const usage = {}
+  for (const key of Object.keys(cumulative)) {
+    usage[key] = Math.max(0, cumulative[key] - (typeof previous[key] === 'number' ? previous[key] : 0))
+  }
+  return usage
+}
+
+async function runCodexChild({ semaphore, codexBin, args, prompt, eventsPath, stderrPath, timeoutMs, cwd }) {
   await semaphore.acquire()
   try {
     const start = Date.now()
     const outcome = await new Promise((resolve_) => {
       let child
       try {
-        child = spawn(codexBin, args, { detached: true, stdio: ['pipe', 'pipe', 'pipe'] })
+        child = spawn(codexBin, args, {
+          detached: true, stdio: ['pipe', 'pipe', 'pipe'], ...(cwd ? { cwd } : {}),
+        })
       } catch (error) {
         resolve_({
           exitCode: null, timedOut: false, wallSeconds: (Date.now() - start) / 1000,
@@ -879,7 +916,16 @@ async function main() {
   // helper itself only ever receives {error:{kind:'environment'}}).
   const environmentBlocks = {}
 
-  async function handleExecutor(taskId, statePath, action) {
+  // taskId -> { threadId, model, effort, usage } of the task's last executor
+  // child that exited 0 in time with a non-empty report, in this runner
+  // process only. `usage` is that thread's cumulative usage so far.
+  const executorSessions = new Map()
+
+  // One executor child. With `session` it resumes that thread on
+  // action.continuation; without, it starts a fresh thread on action.prompt.
+  // Returns the payload for record-executor and whether an environment block
+  // was found; the caller records exactly one payload per state attempt.
+  async function launchExecutor(taskId, action, session, fallbackFrom) {
     const taskDir = join(config.outPath, taskId)
     mkdirSync(taskDir, { recursive: true })
     const attempt = (children.filter((c) => c.task === taskId && c.role === 'executor').length) + 1
@@ -887,45 +933,104 @@ async function main() {
     const reportPath = join(taskDir, 'executor-' + attempt + '.report.md')
     const eventsPath = join(taskDir, 'executor-' + attempt + '.events.jsonl')
     const stderrPath = join(taskDir, 'executor-' + attempt + '.stderr')
-    writeFileSync(promptPath, action.prompt)
-    const args = [
-      'exec', '--ephemeral', '--skip-git-repo-check', '-C', action.worktree,
+    const prompt = session ? action.continuation : action.prompt
+    writeFileSync(promptPath, prompt)
+    const writableRoots = 'sandbox_workspace_write.writable_roots='
+      + JSON.stringify([worktreeGitDir(action.worktree), commonDir, ...env.writable])
+    // `codex exec resume` accepts neither --sandbox, -C nor --add-dir: the
+    // sandbox is set through -c overrides and the worktree through cwd.
+    const args = session ? [
+      'exec', 'resume', session.threadId, '--skip-git-repo-check',
+      '-c', 'sandbox_mode="workspace-write"',
+      '-c', writableRoots,
+      ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
+      '--model', action.model,
+      '-c', 'model_reasoning_effort=' + action.effort,
+      '--json', '-o', reportPath, '-',
+    ] : [
+      'exec', '--skip-git-repo-check', '-C', action.worktree,
       '--sandbox', 'workspace-write',
       '--add-dir', commonDir,
       ...env.writable.flatMap((d) => ['--add-dir', d]),
-      '-c', 'sandbox_workspace_write.writable_roots=' + JSON.stringify([worktreeGitDir(action.worktree), commonDir, ...env.writable]),
+      '-c', writableRoots,
       ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
       '--model', action.model,
       '-c', 'model_reasoning_effort=' + action.effort,
       '--json', '-o', reportPath, '-',
     ]
     const result = await runCodexChild({
-      semaphore, codexBin: config.codexBin, args, prompt: action.prompt,
+      semaphore, codexBin: config.codexBin, args, prompt,
       eventsPath, stderrPath, timeoutMs: config.timeoutMs,
+      ...(session ? { cwd: action.worktree } : {}),
     })
+    const threadId = session ? session.threadId : readThreadId(eventsPath)
     children.push({
       task: taskId, role: 'executor', attempt, model: action.model, effort: action.effort,
-      exit: result.exitCode, seconds: result.wallSeconds, usage: result.usage,
+      exit: result.exitCode, seconds: result.wallSeconds,
+      usage: session ? usageSince(result.usage, session.usage) : result.usage,
       promptFile: promptPath, eventsFile: eventsPath, stderrFile: stderrPath,
+      ...(session ? { resumed: true } : {}),
+      ...(threadId ? { threadId } : {}),
+      ...(fallbackFrom ? { fallbackFrom } : {}),
       ...(result.timedOut ? { timedOut: true, eventsTail: tailLines(eventsPath, 10, 500) } : {}),
     })
     let payload
+    let envBlock = null
     if (result.timedOut || result.exitCode !== 0) {
-      const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
-      if (envBlock) environmentBlocks[taskId] = { source: 'executor', id: envBlock.id, line: envBlock.line }
+      envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
       payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'transport' } }
     } else {
       let report = ''
       try { report = readFileSync(reportPath, 'utf8') } catch { report = '' }
       if (report === '') {
-        const envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
-        if (envBlock) environmentBlocks[taskId] = { source: 'executor', id: envBlock.id, line: envBlock.line }
+        envBlock = checkEnvironmentBlock(stderrPath, eventsPath)
         payload = envBlock ? { error: { kind: 'environment' } } : { error: { kind: 'null-result' } }
       } else {
         payload = { report }
       }
     }
-    helperRecordExecutor(statePath, taskId, payload)
+    if (Object.hasOwn(payload, 'report')) {
+      // The stored cumulative usage only ever moves forward, and only on a
+      // child that actually reported a completed turn.
+      const advanced = !session || (hasTurnCompleted(eventsPath)
+        && Object.keys(result.usage).every((key) => result.usage[key] >= (session.usage[key] ?? 0)))
+      executorSessions.set(taskId, {
+        threadId, model: action.model, effort: action.effort,
+        usage: advanced ? result.usage : session.usage,
+      })
+    } else {
+      executorSessions.delete(taskId)
+    }
+    return { payload, envBlock }
+  }
+
+  // The per-task model-call cap: every child of the task counts, whatever
+  // its role. It applies only with an explicit limit or on a recovery run.
+  const modelCallCapReached = (taskId) => (wave.limits?.max_model_calls !== undefined || recovery)
+    && children.filter(child => child.task === taskId).length >= (wave.limits?.max_model_calls ?? 24)
+
+  async function handleExecutor(taskId, statePath, action) {
+    const stored = executorSessions.get(taskId)
+    // Resume only the same rung's own thread: same model and effort as the
+    // task's previous executor child, with a thread id read in this process.
+    const session = typeof action.continuation === 'string' && action.continuation !== ''
+      && stored && stored.model === action.model && stored.effort === action.effort
+      && typeof stored.threadId === 'string' && stored.threadId !== ''
+      ? stored : null
+    let outcome = await launchExecutor(taskId, action, session, null)
+    // A resume that failed for no machine reason is retried at once as a
+    // fresh thread within the same state attempt: only the fresh child's
+    // payload is recorded, so the state's attempt counters never see it.
+    // At the model-call cap there is no fallback: the failed resume's own
+    // payload is recorded and the dispatch loop stops the task.
+    if (session && !Object.hasOwn(outcome.payload, 'report') && !outcome.envBlock
+      && !modelCallCapReached(taskId)) {
+      outcome = await launchExecutor(taskId, action, null, 'resume')
+    }
+    if (outcome.envBlock) {
+      environmentBlocks[taskId] = { source: 'executor', id: outcome.envBlock.id, line: outcome.envBlock.line }
+    }
+    helperRecordExecutor(statePath, taskId, outcome.payload)
   }
 
   function stripNullViolationKeys(verdict) {
@@ -1047,9 +1152,7 @@ async function main() {
         if (recovery && action.action === 'merge-ready') candidate(config.repoPath, config.base, taskId, recovery.tasks[taskId].head)
         if (action.action === 'merge-ready') return { task: taskId, status: 'merge-ready' }
         if (action.action === 'stop') return { task: taskId, status: 'stop', reason: action.reason }
-        if (['spawn-executor', 'spawn-supervisor'].includes(action.action)
-          && (wave.limits?.max_model_calls !== undefined || recovery)
-          && children.filter(child => child.task === taskId).length >= (wave.limits?.max_model_calls ?? 24)) {
+        if (['spawn-executor', 'spawn-supervisor'].includes(action.action) && modelCallCapReached(taskId)) {
           return { task: taskId, status: 'stop', reason: 'budget-exhausted' }
         }
         if (recovery && action.action === 'spawn-executor') return { task: taskId, status: 'stop', reason: 'candidate-rejected' }

@@ -31,16 +31,19 @@ function fixture(t, limits, supervision, contractPatch = {}) {
     + '\n```\n\n## Task one\n\nCreate src/one.txt.\n')
   const cli = join(root, 'claude-stub')
   writeFileSync(cli, `#!/usr/bin/env node
-import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 const argv=process.argv.slice(2), prompt=readFileSync(0,'utf8');
 appendFileSync(process.env.NATIVE_TEST_CALLS,JSON.stringify({argv,prompt})+'\\n');
 if(process.env.NATIVE_TEST_MODE==='bad'){console.log('not json');process.exit(0)}
+const seen=readFileSync(process.env.NATIVE_TEST_CALLS,'utf8').trim().split('\\n').map(l=>JSON.parse(l));
+if(argv.includes('--resume')&&process.env.NATIVE_TEST_MODE==='resume-exit')process.exit(1);
+if(argv.includes('--resume')&&process.env.NATIVE_TEST_MODE==='resume-bad-json'){console.log('not json');process.exit(0)}
 if(!argv.includes('--json-schema')){
  const repo=process.cwd(), wt=repo+'/.worktrees/one';
  const git=(cwd,...a)=>{const r=spawnSync('git',['-C',cwd,...a],{encoding:'utf8'});if(r.status!==0)throw Error(r.stderr)};
- git(repo,'worktree','add','-b','wave/one',wt,'${base}');
- mkdirSync(wt+'/src',{recursive:true});writeFileSync(wt+'/src/one.txt','done');git(wt,'add','.');git(wt,'-c','commit.gpgsign=false','commit','-m','task');
+ if(!existsSync(wt))git(repo,'worktree','add','-b','wave/one',wt,'${base}');
+ mkdirSync(wt+'/src',{recursive:true});writeFileSync(wt+'/src/one.txt','done');writeFileSync(wt+'/src/call-'+seen.length+'.txt','done');git(wt,'add','.');git(wt,'-c','commit.gpgsign=false','commit','-m','task');
  console.log(JSON.stringify({type:'result',is_error:false,result:'done',usage:{input_tokens:2,cache_creation_input_tokens:10,cache_read_input_tokens:50,output_tokens:3}}));
 }else{
  if(process.env.NATIVE_TEST_MODE==='mutate')writeFileSync(process.cwd()+'/src/one.txt','tampered');
@@ -48,7 +51,9 @@ if(!argv.includes('--json-schema')){
   writeFileSync(process.cwd()+'/src/one.txt','tampered');
   spawnSync('git',['add','.']);spawnSync('git',['-c','commit.gpgsign=false','commit','-m','judge mutation']);
  }
- const reject=process.env.NATIVE_TEST_MODE==='reject' || process.env.NATIVE_TEST_MODE==='missing-invariant';
+ const firstJudge=seen.filter(c=>c.argv.includes('--json-schema')).length===1;
+ const reject=process.env.NATIVE_TEST_MODE==='reject' || process.env.NATIVE_TEST_MODE==='missing-invariant'
+  || (firstJudge && ['reject-once','resume-exit','resume-bad-json'].includes(process.env.NATIVE_TEST_MODE));
  console.log(JSON.stringify({type:'result',is_error:false,structured_output:{ok:!reject,violations:reject?[{class:'report',rule:'answer',evidence:'missing'}]:[],remarks:[]},usage:{input_tokens:2,cache_creation_input_tokens:10,cache_read_input_tokens:50,output_tokens:3}}));
 }
 `, { mode: 0o755 })
@@ -62,17 +67,77 @@ function run(f, mode, extra = []) {
   return { ...r, summary: existsSync(join(f.out, 'summary.json')) ? JSON.parse(readFileSync(join(f.out, 'summary.json'))) : null }
 }
 
+const isJudge = c => c.argv.includes('--json-schema')
+const flag = (c, name) => c.argv.includes(name) ? c.argv[c.argv.indexOf(name) + 1] : undefined
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const readCalls = f => readFileSync(f.calls, 'utf8').trim().split('\n').map(JSON.parse)
+
 test('native Claude runner spends two model calls, verifies independently and narrows child tools', t => {
   const f = fixture(t); const r = run(f)
   assert.equal(r.status, 0, r.stderr)
   assert.equal(r.summary.status, 'done')
   assert.equal(r.summary.children.length, 2)
   const calls = readFileSync(f.calls, 'utf8').trim().split('\n').map(JSON.parse)
-  assert.ok(calls.every(c => c.argv.includes('--no-session-persistence') && c.argv.includes('--tools') && !c.argv.includes('--resume')))
+  assert.ok(calls.every(c => c.argv.includes('--tools')))
+  assert.ok(isJudge(calls[1]) && !isJudge(calls[0]))
+  assert.ok(calls.filter(isJudge).every(c => c.argv.includes('--no-session-persistence')
+    && !c.argv.includes('--resume') && !c.argv.includes('--session-id')))
+  assert.match(flag(calls[0], '--session-id'), UUID)
+  assert.ok(!calls[0].argv.includes('--no-session-persistence') && !calls[0].argv.includes('--resume'))
+  assert.equal(r.summary.children[0].sessionId, flag(calls[0], '--session-id'))
+  assert.ok(!('resumed' in r.summary.children[0]) && !('sessionId' in r.summary.children[1]))
   assert.ok(calls[1].prompt.includes('VERIFIER FACTS'))
   assert.ok(!calls[1].argv[calls[1].argv.indexOf('--tools') + 1].includes('Edit'))
   assert.equal(r.summary.usage.output, 6)
   assert.ok(r.stdout.length < 2000)
+})
+
+test('a same-rung rework resumes the executor session with the continuation only', t => {
+  const f = fixture(t); const r = run(f, 'reject-once')
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.summary.tasks[0].status, 'ok')
+  const calls = readCalls(f), exec = calls.filter(c => !isJudge(c)), judge = calls.filter(isJudge)
+  assert.equal(exec.length, 2); assert.equal(judge.length, 2)
+  const first = flag(exec[0], '--session-id')
+  assert.match(first, UUID)
+  assert.ok(exec[0].prompt.startsWith('# Task: one') && !exec[0].argv.includes('--resume'))
+  assert.equal(flag(exec[1], '--resume'), first)
+  assert.ok(!exec[1].argv.includes('--session-id') && !exec[1].argv.includes('--no-session-persistence'))
+  assert.equal(flag(exec[1], '--model'), flag(exec[0], '--model'))
+  assert.equal(flag(exec[1], '--effort'), flag(exec[0], '--effort'))
+  assert.ok(exec[1].prompt.startsWith('## Prior attempt was rejected'))
+  assert.ok(exec[1].prompt.includes('The supervisor reads only this final report'))
+  assert.ok(exec[1].prompt.includes('git log --oneline ' + f.base + '..HEAD'))
+  assert.ok(!exec[1].prompt.includes('# Task:'))
+  assert.ok(judge.every(c => c.argv.includes('--no-session-persistence')
+    && !c.argv.includes('--resume') && !c.argv.includes('--session-id')))
+  const children = r.summary.children.filter(c => c.role === 'exec')
+  assert.deepEqual(children.map(c => [c.sessionId, c.resumed, c.ok]), [[first, undefined, true], [first, true, true]])
+  assert.equal(readFileSync(children[1].prompt, 'utf8'), exec[1].prompt, '.prompt.md holds exactly the text sent')
+  assert.equal(r.summary.usage.output, 12, 'usage is summed per call, resumed or not')
+})
+
+test('a failed resume drops the session and the retry starts fresh with the full rework prompt', t => {
+  for (const mode of ['resume-exit', 'resume-bad-json']) {
+    const f = fixture(t); const r = run(f, mode)
+    assert.equal(r.status, 0, r.stderr)
+    assert.equal(r.summary.tasks[0].status, 'ok')
+    const calls = readCalls(f), exec = calls.filter(c => !isJudge(c))
+    assert.equal(exec.length, 3); assert.equal(calls.filter(isJudge).length, 2)
+    const first = flag(exec[0], '--session-id'), fresh = flag(exec[2], '--session-id')
+    assert.equal(flag(exec[1], '--resume'), first)
+    assert.ok(!exec[1].prompt.includes('# Task:'))
+    assert.match(fresh, UUID); assert.notEqual(fresh, first)
+    assert.ok(!exec[2].argv.includes('--resume') && !exec[2].argv.includes('--no-session-persistence'))
+    assert.ok(exec[2].prompt.startsWith('# Task: one'))
+    assert.ok(exec[2].prompt.includes('## Prior attempt was rejected'))
+    assert.ok(!exec[2].prompt.includes('The supervisor reads only this final report'))
+    const children = r.summary.children.filter(c => c.role === 'exec')
+    assert.deepEqual(children.map(c => [c.sessionId, c.resumed, c.ok]),
+      [[first, undefined, true], [first, true, false], [fresh, undefined, true]])
+    assert.equal(readFileSync(children[2].prompt, 'utf8'), exec[2].prompt)
+    assert.equal(r.summary.tasks[0].attempts.filter(a => a.kind === 'agent-error').length, 1)
+  }
 })
 
 test('native budget bounds stop before excess calls and preserve review artifacts', t => {

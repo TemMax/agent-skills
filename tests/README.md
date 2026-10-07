@@ -638,10 +638,13 @@ the matrix's actual effort are preserved separately as
 
 For an already authorized live wave run, set `EVAL_CODEX_ROLLOUTS=1` alongside
 `EVAL_PROVIDER=codex` and a fresh `EVAL_RESULTS_DIR`. This affects only
-`tests/eval/wave.sh`: it omits `--ephemeral` and adds
-`raw/<cell>/rollouts/report.json` plus private raw snapshots under
-`raw/<cell>/rollouts/rollouts/`. Default runs remain ephemeral; other evaluation
-tiers and Claude are unchanged. Enabling capture does not add model calls or
+`tests/eval/wave.sh`: it omits `--ephemeral` from the driver's own Codex calls
+and adds `raw/<cell>/rollouts/report.json` plus private raw snapshots under
+`raw/<cell>/rollouts/rollouts/`. Without it those driver calls stay ephemeral.
+The switch does not govern the shipped Codex wave runner: its executor children
+never get `--ephemeral`, so their threads persist (a same-rung rework resumes
+them) with or without the switch, while its supervisor children always run
+`--ephemeral`. Other evaluation tiers and Claude are unchanged. Enabling capture does not add model calls or
 retries. Invalid flag values and reused capture destinations stop before launch.
 The session-retention switch is documented in the
 [official non-interactive-mode guide](https://learn.chatgpt.com/docs/non-interactive-mode).

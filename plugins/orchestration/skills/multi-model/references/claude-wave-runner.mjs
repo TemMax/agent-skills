@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Claude CLI transport for the shipped Workflow policy. Verification is code.
 import { spawn, spawnSync } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, openSync, closeSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -54,6 +55,8 @@ if (recovery) {
 const reports = Object.fromEntries(Object.entries(recovery?.tasks || {}).map(([id, t]) => [id, t.report]))
 const children = recovery ? [...recovery.summary.children] : []
 const factsCache = new Map(), latestFacts = new Map(), verificationCounts = new Map(), roleCounts = new Map()
+// task id → { sessionId, model, effort } of the last accepted executor call.
+const executorSessions = new Map()
 const usage = recovery ? { ...recovery.summary.usage } : { input: 0, cacheCreation: 0, cacheRead: 0, output: 0 }
 const childEnv = { ...process.env }; delete childEnv.CLAUDECODE
 const save = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 })
@@ -83,23 +86,33 @@ async function processRun(executable, argv, stdin, stdoutPath, stderrPath, cwd =
 
 async function agent(prompt, opts) {
   await slot()
-  let checkout
+  let checkout, execTask, accepted = false
   try {
     const [role, id] = opts.label.split(':')
+    if (role === 'exec') execTask = id
     const countKey = role + ':' + id, n = (roleCounts.get(countKey) || 0) + 1
     roleCounts.set(countKey, n)
     const directory = join(options.out, id); mkdirSync(directory, { recursive: true })
     const prefix = join(directory, role + '-' + n)
-    writeFileSync(prefix + '.prompt.md', prompt, { mode: 0o600 })
+    // A same-rung rework continues the executor's own session: only the
+    // continuation is sent. Any other executor call starts a named session.
+    const session = role === 'exec' ? executorSessions.get(id) : undefined
+    const resumed = typeof opts.continuation === 'string' && opts.continuation !== ''
+      && session !== undefined && session.model === opts.model && session.effort === opts.effort
+    const sessionId = role !== 'exec' ? undefined : resumed ? session.sessionId : randomUUID()
+    const input = resumed ? opts.continuation : prompt
+    writeFileSync(prefix + '.prompt.md', input, { mode: 0o600 })
     const tools = role === 'exec' ? 'Read,Glob,Grep,Edit,Write,Bash' : 'Read,Glob,Grep,Bash'
     const argv = ['-p', '--model', opts.model, '--effort', opts.effort,
-      '--no-session-persistence', '--output-format', 'json', '--tools', tools,
+      ...(role !== 'exec' ? ['--no-session-persistence'] : resumed ? ['--resume', sessionId] : ['--session-id', sessionId]),
+      '--output-format', 'json', '--tools', tools,
       '--allowedTools', tools, '--permission-mode', role === 'exec' ? 'acceptEdits' : 'dontAsk',
       '--permission-prompts', 'none']
     if (opts.schema) argv.push('--json-schema', JSON.stringify(opts.schema))
     if (role !== 'exec') argv.push('--disallowedTools', 'Edit,Write,NotebookEdit')
     const entry = { task: id, role, model: opts.model, effort: opts.effort,
-      prompt: prefix + '.prompt.md', result: prefix + '.result.json', stderr: prefix + '.stderr', ok: false }
+      prompt: prefix + '.prompt.md', result: prefix + '.result.json', stderr: prefix + '.stderr', ok: false,
+      ...(resumed ? { resumed: true } : {}), ...(sessionId ? { sessionId } : {}) }
     children.push(entry)
     let branchHead
     const git = args => {
@@ -115,7 +128,7 @@ async function agent(prompt, opts) {
       git(['worktree', 'add', '--detach', checkout, branchHead])
       applyLinks(options.repo, checkout, wave.worktree?.links || [])
     }
-    const transportOk = await processRun(options.claude || 'claude', argv, prompt, entry.result, entry.stderr, checkout || options.repo)
+    const transportOk = await processRun(options.claude || 'claude', argv, input, entry.result, entry.stderr, checkout || options.repo)
     let result
     try { result = JSON.parse(readFileSync(entry.result, 'utf8')) } catch { return null }
     const u = result.usage || {}
@@ -146,9 +159,16 @@ async function agent(prompt, opts) {
           || (['must_run', 'forbidden-move'].includes(v.class) && typeof v.satisfiable !== 'boolean'))) return null
     } else if (typeof answer !== 'string' || answer.trim() === '') return null
     entry.ok = true
-    if (role === 'exec') reports[id] = answer
+    if (role === 'exec') {
+      reports[id] = answer
+      executorSessions.set(id, { sessionId, model: opts.model, effort: opts.effort })
+      accepted = true
+    }
     return answer
   } finally {
+    // A failed executor call forfeits its session: the policy's single retry
+    // then starts fresh with the full rework prompt.
+    if (execTask !== undefined && !accepted) executorSessions.delete(execTask)
     if (checkout) spawnSync('git', ['-C', options.repo, 'worktree', 'remove', '--force', checkout], { encoding: 'utf8', timeout: 30000 })
     release()
   }

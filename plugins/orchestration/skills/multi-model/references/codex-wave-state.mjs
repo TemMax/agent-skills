@@ -662,6 +662,19 @@ function executorPrompt(state, id, task, spec) {
   ].filter((line) => line !== null).join('\n')
 }
 
+function continuationPrompt(state, prior) {
+  return [
+    'PRIOR VERDICT:',
+    JSON.stringify(prior.verdict, null, 2),
+    'Continue in the same worktree and branch; fix the violations.',
+    'Finish with a complete, self-contained REPORT in the format your task requires:',
+    'the changed files, the gist of the change, the verbatim output of every must_run',
+    'command you ran, an answer to every report_must_answer question,',
+    '`git log --oneline ' + state.base + '..HEAD` (non-empty) and `git status --porcelain` (empty).',
+    'The supervisor reads only this final report.',
+  ].join('\n')
+}
+
 export function nextAction(state) {
   const entries = Object.entries(state.tasks ?? {})
   let firstMergeReady = null
@@ -680,6 +693,7 @@ export function nextAction(state) {
           ? { astraExecutorReason: spec.astra_executor_reason } : {}),
         ...(latest && latest.escalation ? { reason: latest.escalation } : {}),
         prompt: executorPrompt(state, id, task, spec),
+        ...(latest ? { continuation: continuationPrompt(state, latest) } : {}),
       }
     }
     if (task.status === 'reported') return { ...common, action: 'verify' }
