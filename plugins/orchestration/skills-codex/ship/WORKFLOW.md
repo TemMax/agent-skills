@@ -227,6 +227,24 @@ estimate — not for the run, not for what is left open. The report also
 carries the same `Runtime pass: ran with <capability>` /
 `Runtime pass: skipped — <reason>` line the PR body carries.
 
+The handoff report also carries a `Left behind:` line — every branch,
+worktree, run record and temporary directory this run created that still
+exists, taken from the cleanup script (`../../skills/multi-model/references/wave-cleanup.mjs`) run
+with `--dry-run --records` plus any scratch directory the orchestrator itself
+created outside the repository — or `Left behind: nothing`. Ending the run
+without that line leaves the user to find the leftovers by hand.
+
+**After the merge.** When the user confirms the pull request is merged, clean
+up at once and report, without asking again — fetch, switch the main checkout
+to the default branch and fast-forward it, then run the cleanup script with
+`--repo <repo>`, one `--plan` per plan this run executed (fix plans
+included), `--into origin/<default branch>`, `--records` and
+`--branch <feature branch>`. Delete the remote feature branch only if the
+script reported the local feature branch removed and the remote branch tip
+equals the `tip` it printed. Remove temporary directories this run created
+outside the repository. Everything the script kept, and anything this run did
+not create, is named in the report and asked about — never deleted.
+
 ## Failure map
 
 Every stop below ends with one recommended next action, phrased as a

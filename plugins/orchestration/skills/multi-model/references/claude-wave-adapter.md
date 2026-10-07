@@ -146,7 +146,19 @@ status handling below describes the legacy Workflow fallback, whose cached
 reports use different recovery semantics.
 
 4. Act on the returned statuses, task by task:
-   - `ok` — merge `wave/<id>` per the wave plan.
+   - `ok` — merge `wave/<id>` per the wave plan. After the wave's `ok`
+     branches are merged, run the `afterIntegration` command the runner printed
+     (`node <this skill's base directory>/references/wave-cleanup.mjs --repo
+     <repo> --plan <plan> --wave <n> --summary <summary.json>`; on the legacy
+     Workflow fallback, which prints no hint and writes no run record, build the
+     command yourself with one `--accepted <id>` per task the Workflow result
+     marks `ok` in place of `--summary`). `wave-cleanup.mjs` (same directory)
+     removes a task's worktree and `wave/<id>` branch only when a finished run
+     accepted the task, the worktree is clean and the branch is already
+     contained in the checked-out branch, and prints what it kept and why. With
+     parallel single-task invocations run each printed command as its task is
+     merged: siblings that are still running are kept. Report every kept
+     entry; never remove a kept entry yourself — name it and ask.
    - `contract-unsatisfiable` — run the amendment flow (multi-model WORKFLOW.md → Escalation ladder → `references/contract-amendment.md`) (one amendment
      per task; removing or weakening a check goes to the user as a yes/no),
      regenerate the launch script from the edited plan with the same command,
