@@ -233,6 +233,7 @@ for (const task of result.tasks) {
 const afterIntegration = result.status === 'done'
   ? 'node ' + join(here, 'wave-cleanup.mjs') + ' --repo ' + options.repo
     + ' --plan ' + resolve(options.plan) + ' --wave ' + options.wave
+    + ' --summary ' + join(options.out, 'summary.json')
   : undefined
 const summary = { ...result, children, usage, recovery: makeRecoveryReceipt(scope, children, reports),
   ...(recovery ? { previousSummary: recovery.path } : {}), ...(afterIntegration ? { afterIntegration } : {}) }
