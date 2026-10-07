@@ -86,34 +86,34 @@
       "0983c72aebf84105e6a4cb36e3b10d8444a3e4f9157b2d186cec59bd74b0622c",
       "26f8e26b2254d1a16f035a7df67a67da0ab5a93cc129333d507556e3af315a55",
       "36a629fab762de35d556db47b0b00751fa2273b475f7068e0787c88fa0b14e8d",
-      "daa9e3b10f0ea574e3031eaa058e878e4ff66656b9d191233be53847939191e7",
+      "d8a896933a0161a7d9d584066dad67b6bcdc33bce723a4cc6cbc2b06762aab8d",
       "f273a03d520343d93f36c20853301fbf26ea3e66ff833e34223d5f4f24e8881e",
       "92262b53dbb62f522c10cd6c89d8aa5ffa47ef4a5c341e18deb72370a87de419",
       "49dc72f17728784ba93da40b8dc4f9b70b9f1b7dc7abebd6544b7ff15fda2d74",
       "d8dfd79da4cbe9697e9b4258c29a90c4b0ef993265bdd643ff6f1d94148ec44b",
       "2c0dc45e1ddb28c7204b1d0ae13f0bd8cfb18ec95e026240dc3bf0a9940fbfa5",
       "bf3ea3d7ca9cccadad2a575cfb6812e8ccc740f0c9b4cfc7d5f92094c901c89a",
-      "6090aa293f5f496b288fe4594f37b88e7d9e4e40fc4ac48e38cef47284a84dae",
+      "733c028561aa6b8aa2def90fa4075e9bbdb0e73d1f1737591d6c05eeeca7ae80",
       "91fbd0d5ad0bb5087589175d71067b130c0dfc200f1e83017739bbbf61025280",
       "1dbfb6ab8b33746f06e2ada96b9008521d0bdba44b0b060f378e56cd5848edbc",
       "33e5476bff6c92e50ed257563352aec535d7a496a390e0e7a181d73dc2dbee67",
-      "0b26c97f697d3bb2aad7a7807723d6cb6430183408cfebe6985d51b142c68e9e",
+      "04dac49c34add0723364c9d5956f42190238d67d0143716a4f9edc282be81e48",
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
-      "af29f63d40c35ebe8aae4ac26d398916bc879f09fa01f91328873ed4a5757570",
+      "6e5b8e7c6aa6232d2cac15c20b26c1a8ad3df3ce600f70e835a0b3a830cf8589",
       "166a972b26b78d526948781d2ceda0751c90548a240f3076f73c61ebb3198932",
       "a844229c947784d8cb1c2eb01726030d01d6fda5c826fc48911aeca92ec709d9",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
-      "145593ef1613e22ca36986c1eabbbb66761a20fca728a2025b8ce17c725fc0aa",
-      "5b19866308ac3e44241ec2bc11478758d6c0c115829e6f4db492f327ac35faac",
+      "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
+      "38a7951432a7b5162ec92d32e17d09fede2d76a4e812270713cf9e50eb190c90",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
-      "65e7c173acfd68ba924938a2dfa39dc169a9f5964055008623d3a887ce8cee59"
+      "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125"
     ],
     "plugins/orchestration/skills-codex/super-plan/SKILL.md": [
       "94a2b05d69a873fbb894e7c44fec467306fb1d92b5b53d70356428ebde802bc7",
       "fd78bf29024208fdea0d0fdfebdc9fa725a35231126670cec5f165411daa518f",
       "94352790aa739129874e2ccf7ce06cd3eb4e36040f6b0bfa8e2286153f3e3296",
       "f38ace80dc794ce71e17b7c4f91d67be1987d758e4846f02991d5addc3e6d77d",
-      "2a9e79361a4676c0d500ed73f87f2e8abe76e5bba03f86308bb402189e4d00fe",
+      "d004b8e52d3a5b983c4e05a6b4cb9eb663ea5263fc0e18a2aeda88d59824a0d6",
       "5a5c8adb6e54a6b6ad8f32a0fe0e637e542cd63a6cf1be303b99041b85403c7f",
       "d0c6a8f1fdb20c856fd49aa040dcd3c39ff32b67531b7c98818f57fe4c52f255",
       "9e43dd8b6b4af484dad0b3a48f005e6575441f0231d28807361c4ad552df8819",
@@ -134,7 +134,7 @@
       "48c1d7e77d7d0b3dc1575fdcb99292a9ff88442910e35afe7c0924ecc869f381",
       "6997b643c924677d17ce8295322c63232a074099603500075e7e5cbf8b1ab9be",
       "c72d1dc3bc876526aafee98f3f1fe58421195bde8c7f7ff34b2b85bc9c6c6e3f",
-      "c1b792dc7538476fa930b2d6b767ac5f9b8bf3dffae1f2c1cf4ad3252e43df5f",
+      "00e9f4a5e6548b230eb0a9139a9120ff44570bef6589eb67f33db18fcdd99fc4",
       "818a0ea13cb9b4ebe790237afd9b6446b5ad71822a2e0b634dafc9acf4ff698a",
       "3ef02274436e232b7d8a304e3d4e9bdffc55ec29c6f55b1641120e662c51d29c",
       "6ff13154451350a9e2299959c389f3103c4ddb6aa7dbb45e5bf92ba04d1224de",
@@ -188,7 +188,7 @@
       "fd78bf29024208fdea0d0fdfebdc9fa725a35231126670cec5f165411daa518f",
       "823aa4586ed5241cd481c74881dbde0a06c37c9a10ec13ad08098ccf4fb7fa87",
       "f38ace80dc794ce71e17b7c4f91d67be1987d758e4846f02991d5addc3e6d77d",
-      "2a9e79361a4676c0d500ed73f87f2e8abe76e5bba03f86308bb402189e4d00fe",
+      "d004b8e52d3a5b983c4e05a6b4cb9eb663ea5263fc0e18a2aeda88d59824a0d6",
       "5a5c8adb6e54a6b6ad8f32a0fe0e637e542cd63a6cf1be303b99041b85403c7f",
       "d0c6a8f1fdb20c856fd49aa040dcd3c39ff32b67531b7c98818f57fe4c52f255",
       "9e43dd8b6b4af484dad0b3a48f005e6575441f0231d28807361c4ad552df8819",
@@ -202,27 +202,27 @@
       "0983c72aebf84105e6a4cb36e3b10d8444a3e4f9157b2d186cec59bd74b0622c",
       "68786364d2000f34655b5ffb82f6a755c7faac43820bc70084a14432024377ff",
       "36a629fab762de35d556db47b0b00751fa2273b475f7068e0787c88fa0b14e8d",
-      "eaf043ee6741b870f510bf5e4669a18a2c7ee43eb5870d7c9c5cdc0d3b042d8a",
+      "4e88e5d8711f84e7c792a6923ed9b43c1ff8d83aa55273874283d914ca9ab2cf",
       "f273a03d520343d93f36c20853301fbf26ea3e66ff833e34223d5f4f24e8881e",
       "2825eeef2dcbfdae95d9c8aace467c1914171771c39bf1c84d5932a16d871c66",
       "49dc72f17728784ba93da40b8dc4f9b70b9f1b7dc7abebd6544b7ff15fda2d74",
       "d8dfd79da4cbe9697e9b4258c29a90c4b0ef993265bdd643ff6f1d94148ec44b",
       "2c0dc45e1ddb28c7204b1d0ae13f0bd8cfb18ec95e026240dc3bf0a9940fbfa5",
       "bf3ea3d7ca9cccadad2a575cfb6812e8ccc740f0c9b4cfc7d5f92094c901c89a",
-      "6090aa293f5f496b288fe4594f37b88e7d9e4e40fc4ac48e38cef47284a84dae",
+      "733c028561aa6b8aa2def90fa4075e9bbdb0e73d1f1737591d6c05eeeca7ae80",
       "91fbd0d5ad0bb5087589175d71067b130c0dfc200f1e83017739bbbf61025280",
       "25f93a2f2fe819c37ff5efff52bacbb00e1fce5e0739f350d4e6add552b5a355",
       "33e5476bff6c92e50ed257563352aec535d7a496a390e0e7a181d73dc2dbee67",
-      "0167a1786b264c5c9a787d7bf0bf39ab0351f0686b9e669963cff89ac3af59e6",
+      "c395f99cced1c9cf182bfbd70e560e95fe8c642613a505da1f40736ea51e0c1e",
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
-      "54782f7bc4ba75957ffbbf75fe38ed31d941254ae87dde7f31d1bd092b36bd46",
+      "fe6211432b8bf4bc9a4658b06b4a3fc72558eceff7351b471df7a372b070aaa1",
       "166a972b26b78d526948781d2ceda0751c90548a240f3076f73c61ebb3198932",
       "09dd7dd4734ea7fd881ef189468874b7ea0f03b69977dcb7fc20b0e6e4df1fa2",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
-      "145593ef1613e22ca36986c1eabbbb66761a20fca728a2025b8ce17c725fc0aa",
-      "78c86aff9759f14cb6e1d6f97486720160164973dc168f9e0739c30219c33c36",
+      "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
+      "d7e4139e7bec6914ec37cb83a1b497048869472e6bd172b17b304ef96bf8bbc9",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
-      "65e7c173acfd68ba924938a2dfa39dc169a9f5964055008623d3a887ce8cee59"
+      "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125"
     ],
     "plugins/code-review/skills/critical-review/SKILL.md": [
       "c2ac9edf59db2a1bad9bc4203940fd19c3447e5fae04e0489a226eecb538beac",
@@ -328,7 +328,7 @@
       "9fdc6c9f38dccbd0f00893bfaf49451b2158dfc4289cd3434aaeedea01ed6e95",
       "fd78bf29024208fdea0d0fdfebdc9fa725a35231126670cec5f165411daa518f",
       "f38ace80dc794ce71e17b7c4f91d67be1987d758e4846f02991d5addc3e6d77d",
-      "da3ec12872496e875b69374ffd265ff2a02a4769f36accbaed12fb04adb5fd6e",
+      "141d92533acb470cd14df1a28486a027c607ba66c2347cf60d1de3607e946619",
       "5a5c8adb6e54a6b6ad8f32a0fe0e637e542cd63a6cf1be303b99041b85403c7f",
       "d0c6a8f1fdb20c856fd49aa040dcd3c39ff32b67531b7c98818f57fe4c52f255",
       "9e43dd8b6b4af484dad0b3a48f005e6575441f0231d28807361c4ad552df8819",
@@ -493,6 +493,114 @@
       "old": "d7cee1dfe256ba12023d5b945b7ff563141e3cd9879253db4b1ea440e20b2e18",
       "new": "e2c1d2a275bc5487c8d95b89098a8de9fc0a8c587f4135238eb3d104a82b5bbb",
       "reason": "Failure rows aligned with the narrowed gate and the direct fix on a missing delegated capability."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "daa9e3b10f0ea574e3031eaa058e878e4ff66656b9d191233be53847939191e7",
+      "new": "d8a896933a0161a7d9d584066dad67b6bcdc33bce723a4cc6cbc2b06762aab8d",
+      "reason": "A plan without a review key uses the standard measured review route without asking; a premium review model only on the user's word."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "6090aa293f5f496b288fe4594f37b88e7d9e4e40fc4ac48e38cef47284a84dae",
+      "new": "733c028561aa6b8aa2def90fa4075e9bbdb0e73d1f1737591d6c05eeeca7ae80",
+      "reason": "The recovery allowance defaults to 3 and is stated, not asked; a re-run after an environment fix needs no new approval; the ask-only list and the premium rule follow in the next paragraph."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "0b26c97f697d3bb2aad7a7807723d6cb6430183408cfebe6985d51b142c68e9e",
+      "new": "04dac49c34add0723364c9d5956f42190238d67d0143716a4f9edc282be81e48",
+      "reason": "Stage 2 step 7: the user's direct instruction covers exactly what the user named, review fixes included; otherwise the coordinator chooses the route itself."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "af29f63d40c35ebe8aae4ac26d398916bc879f09fa01f91328873ed4a5757570",
+      "new": "6e5b8e7c6aa6232d2cac15c20b26c1a8ad3df3ce600f70e835a0b3a830cf8589",
+      "reason": "Stage 3 steps 5-6: review-fix rules apply only to a requested review; the coordinator chooses the fix route; own pull request is pushed without a question, other people's threads and branches are asked once."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "145593ef1613e22ca36986c1eabbbb66761a20fca728a2025b8ce17c725fc0aa",
+      "new": "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
+      "reason": "Failure map lead: a row the coordinator can resolve itself is resolved and reported without a question; only a stop that needs the user ends with a yes/no question."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "5b19866308ac3e44241ec2bc11478758d6c0c115829e6f4db492f327ac35faac",
+      "new": "38a7951432a7b5162ec92d32e17d09fede2d76a4e812270713cf9e50eb190c90",
+      "reason": "Failure map rows for a red suite and a red ci.commands command: show the output, then fix without asking, directly or by a one-task supervised fix wave on the feature branch only."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "65e7c173acfd68ba924938a2dfa39dc169a9f5964055008623d3a887ce8cee59",
+      "new": "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125",
+      "reason": "Common Mistakes: the fix route is chosen by multi-model's step 8 conditions, not by habit."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "2a9e79361a4676c0d500ed73f87f2e8abe76e5bba03f86308bb402189e4d00fe",
+      "new": "d004b8e52d3a5b983c4e05a6b4cb9eb663ea5263fc0e18a2aeda88d59824a0d6",
+      "reason": "Codex session rule 3 rewritten: the user's direct instruction wins, otherwise the coordinator chooses the route itself, runs the covering checks and shows the diff."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "c1b792dc7538476fa930b2d6b767ac5f9b8bf3dffae1f2c1cf4ad3252e43df5f",
+      "new": "00e9f4a5e6548b230eb0a9139a9120ff44570bef6589eb67f33db18fcdd99fc4",
+      "reason": "Single-task path no longer cites the removed exception of rule 3: the coordinator edits task code only under the new rule 3."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "2a9e79361a4676c0d500ed73f87f2e8abe76e5bba03f86308bb402189e4d00fe",
+      "new": "d004b8e52d3a5b983c4e05a6b4cb9eb663ea5263fc0e18a2aeda88d59824a0d6",
+      "reason": "Codex session rule 3 rewritten: the user's direct instruction wins, otherwise the coordinator chooses the route itself, runs the covering checks and shows the diff."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "eaf043ee6741b870f510bf5e4669a18a2c7ee43eb5870d7c9c5cdc0d3b042d8a",
+      "new": "4e88e5d8711f84e7c792a6923ed9b43c1ff8d83aa55273874283d914ca9ab2cf",
+      "reason": "A plan without a review key uses the standard measured review route without asking; a premium review model only on the user's word."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "6090aa293f5f496b288fe4594f37b88e7d9e4e40fc4ac48e38cef47284a84dae",
+      "new": "733c028561aa6b8aa2def90fa4075e9bbdb0e73d1f1737591d6c05eeeca7ae80",
+      "reason": "The recovery allowance defaults to 3 and is stated, not asked; a re-run after an environment fix needs no new approval; the ask-only list and the premium rule follow in the next paragraph."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "0167a1786b264c5c9a787d7bf0bf39ab0351f0686b9e669963cff89ac3af59e6",
+      "new": "c395f99cced1c9cf182bfbd70e560e95fe8c642613a505da1f40736ea51e0c1e",
+      "reason": "Stage 2 step 7: the user's direct instruction covers exactly what the user named, review fixes included; otherwise the coordinator chooses the route itself."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "54782f7bc4ba75957ffbbf75fe38ed31d941254ae87dde7f31d1bd092b36bd46",
+      "new": "fe6211432b8bf4bc9a4658b06b4a3fc72558eceff7351b471df7a372b070aaa1",
+      "reason": "Stage 3 steps 5-6: review-fix rules apply only to a requested review; the coordinator chooses the fix route; own pull request is pushed without a question, other people's threads and branches are asked once."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "145593ef1613e22ca36986c1eabbbb66761a20fca728a2025b8ce17c725fc0aa",
+      "new": "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
+      "reason": "Failure map lead: a row the coordinator can resolve itself is resolved and reported without a question; only a stop that needs the user ends with a yes/no question."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "78c86aff9759f14cb6e1d6f97486720160164973dc168f9e0739c30219c33c36",
+      "new": "d7e4139e7bec6914ec37cb83a1b497048869472e6bd172b17b304ef96bf8bbc9",
+      "reason": "Failure map rows for a red suite and a red ci.commands command: show the output, then fix without asking, directly or by a one-task supervised fix wave on the feature branch only."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "65e7c173acfd68ba924938a2dfa39dc169a9f5964055008623d3a887ce8cee59",
+      "new": "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125",
+      "reason": "Common Mistakes: the fix route is chosen by multi-model's step 8 conditions, not by habit."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "old": "da3ec12872496e875b69374ffd265ff2a02a4769f36accbaed12fb04adb5fd6e",
+      "new": "141d92533acb470cd14df1a28486a027c607ba66c2347cf60d1de3607e946619",
+      "reason": "Codex session rule 3 rewritten: the user's direct instruction wins, otherwise the coordinator chooses the route itself, runs the covering checks and shows the diff."
     }
   ]
 }

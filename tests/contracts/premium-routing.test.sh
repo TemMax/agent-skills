@@ -29,11 +29,11 @@ check "codex-routing states Astra execution needs astra_executor_reason and appr
 section "codex-routing: ship's final review child is chosen by the plan's review key"
 
 check "codex-routing runs Stage 3 in a fresh child of the plan's review-key model" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'If the plan has no \`review\` key, stop and ask the user before invoking the review; never pick.'"
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'If the plan has no \`review\` key, use the standard measured review route \`gpt-6.1-sol\` without asking; a premium review model is used only on the user'\''s word.'"
 check "codex-routing states the review child is chosen by the user at Gate 1, never priced" \
   "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'chosen by the user at Gate 1:' && ! grep -qF 'estimated cost' '$CP_ROUTING'"
-check "codex-routing never-pick sentence is present for the review child" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'never pick.'"
+check "codex-routing keeps a premium review model on the user's word only" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'a premium review model is used only on the user'\''s word.'"
 
 section "codex-wave-protocol: the supervisor is the one chosen at Gate 1"
 
@@ -45,7 +45,7 @@ check "codex-wave-protocol requires astra_executor_reason and approvals.premium 
 section "ship: Stage 3 critical-review child is chosen by the plan's review key"
 
 check "ship runs Stage 3 in a fresh child of the plan's review-key model" \
-  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'if the plan has no \`review\` key, stop and ask the user before invoking the review; never pick.'"
+  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'if the plan has no \`review\` key, use the standard measured review route \`gpt-6.1-sol\` without asking; a premium review model is used only on the user'\''s word.'"
 check "ship's PR body line for a gpt-6-sol review child reads Review route: gpt-6-sol" \
   "grep -qF 'Review route: gpt-6-sol' '$SH' && ! grep -qi 'uncalibrated' '$SH'"
 
@@ -56,8 +56,8 @@ check "ship Stage 2 step 4 runs ci.commands after the final wave, before push" \
 
 section "ship: Failure map covers a red ci.commands command after the final wave"
 
-check "ship Failure map stops before the push when a plan ci.commands command is red" \
-  "grep -qF '| A plan \`ci.commands\` command is red after the final wave | Stop before the push; hand the output over. The fix follows the row above: on the user'\''s yes, a one-task supervised fix wave from the red tip pushed to the feature branch only. |' '$SH'"
+check "ship Failure map holds the push when a plan ci.commands command is red, and fixes without asking" \
+  "grep -qF '| A plan \`ci.commands\` command is red after the final wave | Hold the push and show the output. The fix follows the row above, without asking: a direct fix, or a one-task supervised fix wave from the red tip pushed to the feature branch only. Never to the default branch. |' '$SH' && grep -qF '| The suite is red after a merge | Show the output, then fix without asking, by multi-model'\''s step 8: directly when its conditions hold; otherwise push the red tip to the feature branch only, say so, and run a one-task supervised fix wave from that pushed tip. Never push it to the default branch. |' '$SH'"
 
 section "Sol 6.1 standard supervisor: review route is gpt-6.1-sol"
 

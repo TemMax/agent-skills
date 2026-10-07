@@ -7,9 +7,9 @@ MM="$(mktemp)"
 trap 'rm -f "$MM"' EXIT
 python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL.md > "$MM"
 
-section "coordinator never authors code — review fixes always route to a supervised wave"
+section "the coordinator chooses the fix route — a single delegated defect goes to a one-task supervised wave"
 
-check "SKILL.md requires review defects, however small, to go to a one-task supervised wave" \
+check "SKILL.md routes a single delegated defect to a one-task supervised wave" \
   "grep -qF 'one-task supervised wave' '$MM'"
 
 section "stop handling names environment-blocked and a recommended next action"
@@ -19,9 +19,9 @@ check "SKILL.md adds environment-blocked next to failed/error/contract-unsatisfi
 check "SKILL.md requires every stop to end with a recommended next action" \
   "grep -qF 'recommended next action' '$MM'"
 
-section "an implement-directly bypass is scoped to its recorded waves, never to review fixes"
+section "an implement-directly instruction covers exactly what the user named, review fixes included"
 
-check "SKILL.md states the bypass does not cover review fixes" \
-  "grep -qF 'does not cover review fixes' '$MM'"
+check "SKILL.md states the instruction covers what the user named, review fixes included" \
+  "grep -qF 'exactly what the user named, review fixes included' '$MM'"
 
 summary
