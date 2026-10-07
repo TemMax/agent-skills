@@ -329,8 +329,8 @@ check "ship does not take over provider execution" \
   "grep -qF 'Only multi-model selects that adapter and owns all subagent execution' $SH && grep -qF 'ship never invokes provider CLIs, adapter workflows, or state helpers itself' $SH"
 check "post-review fixes include own findings without threads" \
   "grep -qF 'every approved finding that produces a fix, including an \`own\` finding with no PR threads' $SH"
-check "review fix commits remain unpublished until critical-review approval" \
-  "grep -qF 'Critical-review keeps every resulting fix commit local' $SH && grep -qF 'Only after that approval does publication run in that order' $SH"
+check "review fix commits are verified first, then pushed to the user's own pull request without a question" \
+  "grep -qF 'Critical-review commits and verifies every resulting fix before publication' $SH && grep -qF 'branch of the user'\''s own pull request without a question and reports what' $SH && grep -qF 'The order is always \`push → replies → resolves\`' $SH"
 check "post-review behavior fixes are not pushed like ordinary waves" \
   "! sed -n '/^## Stage 3 — Review$/,/^## Stage 4 — Handoff$/p' $SH | grep -qF 'pushed like any wave'"
 check "ship does not duplicate review-fix routing" \

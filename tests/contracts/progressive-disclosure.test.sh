@@ -12,7 +12,7 @@ for tree in ['skills', 'skills-codex']:
     path = Path('plugins/orchestration') / tree / 'multi-model/SKILL.md'
     entry = path.read_text()
     assert len(entry.encode()) < 12000, f'{path}: hot entrypoint expanded'
-    for phrase in ['Skip Step 0,', 'This exception does not cover review fixes',
+    for phrase in ['Skip Step 0,', 'Review-fix rules apply only to findings of a review the user asked for in',
                    'load [WORKFLOW.md](WORKFLOW.md) once.',
                    'approval, recovery and integration rules are mandatory.']:
         assert phrase in entry, f'{path}: missing task boundary {phrase!r}'

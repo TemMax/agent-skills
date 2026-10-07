@@ -40,7 +40,7 @@ the base for the profile and reference paths below.
 
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
 2. Select the active-seat profile silently at Step 0. Update it only when newer runtime context changes the model or effort; follow User-facing communication below.
-3. The coordinator never authors code. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. Changes reach the repository only through a supervised wave; your own git work is integrating approved wave branches and publishing. Exception: a small standalone edit the user asks for directly, outside any active wave plan — one file, a few lines, nothing beyond what the user named (a config value, a typo, a version string) — you may make yourself and show the diff. The exception never covers a fix for a defect that a review, a supervisor or the final review found, nor any part of an approved plan's tasks.
+3. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. The user's direct instruction wins: when the user tells you in this session how to carry out a change — "fix it yourself", "do it and check it yourself", "no agents", "use agents", "use this model" — do exactly that, whatever the change is (a review finding, a supervisor's or the final review's defect, part of an approved plan), and never answer with a request to approve another route. Without such an instruction choose the route yourself and never ask the user to approve it: author the change yourself when you can state the exact change before making it, it stays inside the task already agreed with the user and inside one module or subsystem, no new public interface, data format or product behavior has to be decided, and checks that cover it exist or are added with it and can be run here; anything else goes to a supervised wave on the standard route. When you author a change, run the covering checks and show the diff.
 4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output.
 5. Recover a clean committed candidate with the runner's `--resume-from <summary.json>` and a new `--out` before considering a restart. It verifies and reviews without an executor and preserves call caps. Use the runner's own `--reset` only when intentionally discarding the candidate for a newly authorized implementation; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
 6. Executor commits are unsigned by design. Integration squashes each task into one commit made outside the sandbox, which the user's git configuration signs (codex-wave-protocol.md, step 9). Never disable commit signing in the user's configuration.
@@ -55,9 +55,12 @@ it again. Required repository instructions still apply.
 Keep one owner of the current phase. Inside an approved parent workflow, this
 skill performs its assigned phase without starting another design/plan gate.
 Reuse confirmed decisions and authorization for the same task, roles, access
-and delivery scope. Ask only for a new decision or an actual scope/budget change.
-For a directly requested standalone edit, finish within the named files and
-stop when the requested change is verified. Report related inconsistencies as
+and delivery scope. Ask the user only for: a contradiction in the feature; a
+change of the agreed scope; weakening or removing a test or check; an
+irreversible action on something this run did not create; an action only the
+user can take. Everything else: decide, act, report.
+For a change you make yourself, stay within the task agreed with the user and
+stop when the change is verified. Report related inconsistencies as
 findings, without proposing extra edits or ending with "shall I update it?".
 "Continue in the same scope" keeps the same file boundary; it does not approve
 a suggested follow-up. The planning/decomposition process in WORKFLOW.md applies
@@ -67,10 +70,15 @@ and expand reads when needed to establish evidence.
 
 ## Choose the current task path
 
-For a read-only explanation, lookup, or the directly requested small standalone
-edit allowed above, keep the named scope and verify that result. Skip Step 0,
-profiles, routing, calibration evidence, and WORKFLOW.md: no agents are needed.
-This exception does not cover review fixes or any task in an approved wave.
+For a read-only explanation, lookup, or a change you make yourself under
+session rule 3, keep the agreed scope and verify that result. Skip Step 0,
+profiles, routing, calibration evidence, and WORKFLOW.md. A behavior change
+you made yourself also gets one independent check of the diff from a fresh
+agent on the standard review route when the host can spawn one; the report
+says plainly when no independent check ran. One logical fix per commit.
+Review-fix rules apply only to findings of a review the user asked for in
+this session; a plain request to change code is implementation work, not a
+review fix.
 
 Before researching for decomposition, authoring or amending a wave plan, launching
 agents, supervising, recovering, integrating or publishing a delegated task,
