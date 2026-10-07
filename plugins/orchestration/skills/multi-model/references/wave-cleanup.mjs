@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Removes what a wave left behind — task worktrees, `wave/<id>` branches and,
-// on request, run records — and only what is provably safe to remove: a
+// on request, run records (a task's verification logs among them) — and
+// only what is provably safe to remove: a
 // task must be accepted (a finished run's summary.json marks it `ok` at the
 // branch's current tip, or --accepted names it), its branch proven integrated
 // into the target and its worktree clean. Anything not proven is kept and
@@ -27,7 +28,9 @@ const USAGE = [
   '                   directories; repeatable',
   '  --accepted <id>  this task was accepted although no run record says so',
   '                   (a host that leaves none); repeatable',
-  '  --records        also remove the run records of the given plans',
+  '  --records        also remove the run records of the given plans, the',
+  '                   verification-logs/<id> directories of their tasks among',
+  '                   them',
   '  --dry-run        run every check, change nothing',
   '',
   'A task is removed only when it is accepted: a summary.json — one named',
@@ -46,6 +49,8 @@ const REPEATABLE = ['plan', 'summary', 'accepted']
 const SWITCHES = ['records', 'dry-run']
 const RUNNER_DIRS = ['claude-runner', 'codex-runner']
 const STATE_DIR = 'codex-wave'
+// One directory per task, named exactly by the task id.
+const LOGS_DIR = 'verification-logs'
 // A task id becomes a path segment and a ref segment; anything else is a
 // malformed plan, never a path to act on.
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
@@ -427,7 +432,7 @@ function cleanRecords() {
   if (root.isSymbolicLink()) return kept.push({ kind: 'other', path: worktreesDir, reason: 'symbolic link' })
   if (!root.isDirectory()) return
 
-  const known = new Set([...RUNNER_DIRS, STATE_DIR, ...taskIds.map((id) => 'wave-' + id)])
+  const known = new Set([...RUNNER_DIRS, STATE_DIR, LOGS_DIR, ...taskIds.map((id) => 'wave-' + id)])
   for (const name of [...RUNNER_DIRS, STATE_DIR]) {
     const dir = join(worktreesDir, name)
     const stat = lstat(dir)
@@ -455,11 +460,27 @@ function cleanRecords() {
       }
     }
   }
+  const logs = join(worktreesDir, LOGS_DIR)
+  const logsStat = lstat(logs)
+  if (logsStat !== null && logsStat.isSymbolicLink()) kept.push({ kind: 'other', path: logs, reason: 'symbolic link' })
+  else if (logsStat !== null && !logsStat.isDirectory()) kept.push({ kind: 'other', path: logs, reason: UNRECOGNIZED })
+  else if (logsStat !== null) {
+    for (const child of children(logs)) {
+      const path = join(logs, child)
+      const childStat = lstat(path)
+      if (childStat === null) continue
+      if (childStat.isSymbolicLink()) kept.push({ kind: 'record', path, reason: 'symbolic link' })
+      else {
+        cleanRecord('record', path, childStat.isDirectory() ? [child] : null,
+          (target) => rmSync(target, { recursive: true }))
+      }
+    }
+  }
   for (const child of children(worktreesDir)) {
     if (!known.has(child)) kept.push({ kind: 'other', path: join(worktreesDir, child), reason: UNRECOGNIZED })
   }
   if (dryRun) return
-  for (const dir of [...RUNNER_DIRS, STATE_DIR].map((name) => join(worktreesDir, name)).concat(worktreesDir)) {
+  for (const dir of [...RUNNER_DIRS, STATE_DIR, LOGS_DIR].map((name) => join(worktreesDir, name)).concat(worktreesDir)) {
     const stat = lstat(dir)
     if (stat === null || !stat.isDirectory() || children(dir).length > 0) continue
     try {

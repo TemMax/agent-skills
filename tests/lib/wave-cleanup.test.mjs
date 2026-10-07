@@ -430,6 +430,135 @@ test('without --records no run record is removed', () => {
   assert.equal(existsSync(join(record, 'summary.json')), true)
 })
 
+// Verification output the way the Codex wave state helper lays it out.
+function writeLogs(repo, id) {
+  const dir = join(repo, '.worktrees', 'verification-logs', id)
+  mkdirSync(join(dir, '1'), { recursive: true })
+  writeFileSync(join(dir, '1', 'check.log'), 'ok\n')
+  return dir
+}
+
+test('--records removes verification-logs/<id> of a cleaned task, then the emptied directory', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  accept(repo, 'a')
+  const logs = writeLogs(repo, 'a')
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(entry(r.json.removed, 'record', 'path', logs), { kind: 'record', path: logs })
+  assert.deepEqual(r.json.kept, [])
+  assert.equal(existsSync(join(repo, '.worktrees', 'verification-logs')), false)
+  assert.equal(existsSync(join(repo, '.worktrees')), false)
+})
+
+test('--records keeps verification-logs/<id> of a task that still has its branch', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a', 'b']]])
+  addTask(repo, 'a', base)
+  addTask(repo, 'b', base)
+  merge(repo, 'a') // b stays unintegrated, so it keeps its branch
+  accept(repo, 'a', 'b')
+  const logsA = writeLogs(repo, 'a')
+  const logsB = writeLogs(repo, 'b')
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(entry(r.json.removed, 'record', 'path', logsA), { kind: 'record', path: logsA })
+  assert.equal(existsSync(logsA), false)
+  assert.deepEqual(entry(r.json.kept, 'record', 'path', logsB),
+    { kind: 'record', path: logsB, reason: 'task b still has a branch or worktree' })
+  assert.equal(existsSync(join(logsB, '1', 'check.log')), true)
+  assert.equal(branchExists(repo, 'wave/b'), true)
+  assert.equal(entry(r.json.kept, 'other', 'path', join(repo, '.worktrees', 'verification-logs')), undefined)
+})
+
+test('--records keeps a verification-logs entry that is not a plan task id, and the parent', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  accept(repo, 'a')
+  const parent = join(repo, '.worktrees', 'verification-logs')
+  const foreign = writeLogs(repo, 'zzz')
+  const file = join(parent, 'a.log')
+  writeFileSync(file, 'not a directory\n')
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records')
+  assert.equal(r.status, 0, r.stderr)
+  const reason = 'not a run record of the given plans'
+  assert.deepEqual(entry(r.json.kept, 'record', 'path', foreign), { kind: 'record', path: foreign, reason })
+  assert.deepEqual(entry(r.json.kept, 'record', 'path', file), { kind: 'record', path: file, reason })
+  assert.equal(existsSync(join(foreign, '1', 'check.log')), true)
+  assert.equal(existsSync(file), true)
+  assert.equal(existsSync(parent), true)
+  assert.equal(entry(r.json.kept, 'other', 'path', parent), undefined)
+})
+
+test('--records keeps a symlinked verification-logs entry and a symlinked verification-logs', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a', 'b']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  accept(repo, 'a')
+  const outside = join(root, 'outside-logs')
+  mkdirSync(join(outside, 'b'), { recursive: true })
+  writeFileSync(join(outside, 'b', 'check.log'), 'ok\n')
+  const parent = join(repo, '.worktrees', 'verification-logs')
+  mkdirSync(parent, { recursive: true })
+  const link = join(parent, 'a')
+  symlinkSync(outside, link)
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(entry(r.json.kept, 'record', 'path', link), { kind: 'record', path: link, reason: 'symbolic link' })
+  assert.equal(existsSync(link), true)
+  assert.equal(existsSync(join(outside, 'b', 'check.log')), true)
+
+  // the directory itself a link: kept, never entered (b has no branch or worktree)
+  rmSync(parent, { recursive: true })
+  symlinkSync(outside, parent)
+  const again = cleanup('--repo', repo, '--plan', plan, '--records')
+  assert.equal(again.status, 0, again.stderr)
+  assert.deepEqual(again.json.removed, [])
+  assert.deepEqual(entry(again.json.kept, 'other', 'path', parent), { kind: 'other', path: parent, reason: 'symbolic link' })
+  assert.equal(existsSync(join(outside, 'b', 'check.log')), true)
+})
+
+test('without --records verification-logs is untouched and not listed', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  accept(repo, 'a')
+  const logs = writeLogs(repo, 'a')
+
+  const r = cleanup('--repo', repo, '--plan', plan)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed.map((item) => item.kind), ['worktree', 'branch'])
+  assert.deepEqual(r.json.kept, [])
+  assert.equal(existsSync(join(logs, '1', 'check.log')), true)
+})
+
+test('--dry-run --records lists the verification-logs removal and changes nothing', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  accept(repo, 'a')
+  const logs = writeLogs(repo, 'a')
+  const before = snapshot(repo)
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', '--dry-run')
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.json.dryRun, true)
+  assert.deepEqual(entry(r.json.removed, 'record', 'path', logs), { kind: 'record', path: logs })
+  assert.deepEqual(r.json.kept, [])
+  assert.deepEqual(snapshot(repo), before)
+})
+
 test('--branch: integrated deleted, checked out kept, unintegrated kept, missing silent', () => {
   const { root, repo, base, main } = makeRepo()
   const plan = writePlan(root, 'plan.md', [[1, ['a']]])
