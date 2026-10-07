@@ -19,8 +19,8 @@ check "fix wave base cites the measured 15-agent-call refusal cause" \
 check "fix-wave plan tasks are appended as a new plan or via inherits, never by flipping done back to active" \
   "one_line '$SKILL' | grep -qF 'appended as a new plan, or as a plan with \`inherits\` pointing at the shipped plan' && one_line '$SKILL' | grep -qF 'never by flipping the shipped plan'\''s \`done\` status back to \`active\`'"
 
-check "fixes start only after the user saw the findings table of this review" \
-  "one_line '$SKILL' | grep -qF 'Review findings are a separate gate every time: the user sees the findings table produced by this review, and only then do fixes start'"
+check "for a review asked for on its own, fixes start only after the user saw the findings table of this review" \
+  "one_line '$SKILL' | grep -qF 'The findings are always shown before or with the fixes, never hidden. For a review the user asked for on its own, the findings are a separate gate every time: the user sees the findings table produced by this review, and only then do fixes start'"
 
 check "the user's direct instruction about how to fix wins" \
   "one_line '$SKILL' | grep -qF 'The user'\''s direct instruction wins. When the user tells the coordinator in this session how to carry out a change' && one_line '$SKILL' | grep -qF 'do exactly that, whatever the change is, and never answer with a request to approve another route'"

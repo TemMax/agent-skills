@@ -1,14 +1,19 @@
 ## Post-Review Fix Protocol
 
-Everything in this section applies **only after the user, having seen the
-findings table, asked for the findings to be fixed.** Until then the review
-is read-only, as Review Method item 6 requires.
+For a review the user asked for on its own, everything in this section
+applies **only after the user, having seen the findings table, asked for the
+findings to be fixed.** Until then the review is read-only, as Review Method
+item 6 requires. When the review runs as a stage of ship on the pipeline's
+own pull request, the user already asked for a reviewed pull request: the
+findings table is shown and the fixes start without a separate request.
 
-Review findings are a separate gate every time: the user sees the findings
-table produced by this review, and only then do fixes start. Measured cause:
-an orchestrator fixed final-review findings inline and pushed twice without
-showing findings. After the user asked for the fixes, the user's direct
-instruction about how to make them wins (step 2).
+The findings are always shown before or with the fixes, never hidden. For a
+review the user asked for on its own, the findings are a separate gate
+every time: the user sees the findings table produced by this review, and
+only then do fixes start. Measured cause: an orchestrator fixed
+final-review findings inline and pushed twice without showing findings.
+Once the fixes start, the user's direct instruction about how to make them
+wins (step 2).
 
 These rules apply only to findings of a review the user asked for in this
 session. A plain request to change code is implementation work, not a review
@@ -21,7 +26,11 @@ never authors code.
 1. **Record the starting point**: `git rev-parse HEAD`. Note whether the
    working tree already had uncommitted changes before this phase began.
 2. **Choose the fix route yourself.** Never ask the user to approve a route or
-   a model. The first rule decides whenever it applies:
+   a model. Ask the user only for a contradiction in the feature, a change of
+   the agreed scope, weakening or removing a test or check, an irreversible
+   action on something this run did not create, or an action only the user
+   can take; step 6 gates the outward steps that are not the user's own. The
+   first rule decides whenever it applies:
    - **Instruction.** The user's direct instruction wins. When the user tells
      the coordinator in this session how to carry out a change — "fix it
      yourself", "do it and check it yourself", "no agents", "use agents", "use
