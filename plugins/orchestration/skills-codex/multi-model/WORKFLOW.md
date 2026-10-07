@@ -46,16 +46,18 @@ English does not mean English replies.
 
 ### Single-task path
 
-Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution uses the runner and independent verification, followed by integration by the coordinator. Model supervision remains the default; the explicit mechanical mode follows the shared cost controls. On this path the executor writes the task's code; the coordinator edits it only under rule 3. When the change grows to a second task, return to the full process. A change that rule 3 lets the coordinator make itself needs no plan at all.
+Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. The Gate 1 report and the Gate 2 start approval are one message: show the design summary and the lint-clean plan together, then wait for one approval. Execution uses the runner and independent verification, followed by integration by the coordinator. Model supervision remains the default; the explicit mechanical mode follows the shared cost controls. On this path the executor writes the task's code; the coordinator edits it only under rule 3. When the change grows to a second task, return to the full process. A change that rule 3 lets the coordinator make itself needs no plan at all.
 
 4. **Table.** Before launching, show the user: task | model | effort | rationale.
    The table also shows, per wave, the supervisor and whether it is premium.
+   When the plan comes from super-plan, the table is part of super-plan's
+   start approval (its Gate 2): show it there, and wait on nothing else.
    Never a time or cost estimate — not in the table, a progress update or the
    completion summary (super-plan: "No time or cost estimates"). Premium
    models are never the subject of a question. A premium model (GPT-6 Astra,
-   any role) is used only when the user said so: in this session — for a new
-   feature plan that is super-plan's Gate 1 — or through a standing
-   authorization written in the user's or the repository's instruction files
+   any role) is used only when the user said so: in this session, or
+   through a standing authorization written in the user's or the
+   repository's instruction files
    (`AGENTS.md`, `CLAUDE.md`), which counts as the user's choice and is
    recorded in `approvals.premium` with its source — never filled in by the
    orchestrator for a choice the user did not make. Without an authorization
@@ -144,7 +146,11 @@ scope, not a free-text status in place of `done`.
 **`environment-blocked`** — the environment itself is broken, not the
 contract or the task's work: name the failing command and its exact error
 line, fix the machine, and re-run, rather than treating a broken environment
-as a contract defect (diagnose first — Codex session rules, rule 4). A stop
+as a contract defect (diagnose first — Codex session rules, rule 4). For a wave run by the Codex runner, `environment-blocked` means a machine
+block: a sandbox-only block — a `must_run` command blocked inside the sandbox
+and clean outside it — is handled by that runner and never reaches the
+coordinator as a stop.
+A stop
 the coordinator can resolve itself is resolved and reported without a
 question: an environment fix and a relaunch of the same approved plan or
 route, and recovery inside the approved plan, need no new approval. A stop
@@ -367,8 +373,8 @@ Details: `../../skills/multi-model/references/execution-cost-controls.md`.
   rejected.
 - **Premium models.** `gpt-6-astra` is premium, in any role. Premium models are
   never the subject of a question. It is used only when the user said so: in
-  this session (for a new feature plan that is super-plan's Gate 1), or
-  through a standing authorization written in the user's or the repository's
+  this session, or through a standing authorization written in the user's or
+  the repository's
   instruction files (`AGENTS.md`, `CLAUDE.md`), which counts as the user's
   choice. The plan records it in `approvals.premium`; the linter enforces it. `approvals.premium` keeps its
   four fields — `models`, `reason`, `approved_by`, `date`: the source of the

@@ -104,12 +104,14 @@ English does not mean English replies.
    explicitly.
 4. **Table.** Before launching, show the user: task | model | effort | rationale.
    The table also shows, per wave, the supervisor and whether it is premium.
+   When the plan comes from super-plan, the table is part of super-plan's
+   start approval (its Gate 2): show it there, and wait on nothing else.
    Never a time or cost estimate — not in the table, a progress update or the
    completion summary (super-plan: "No time or cost estimates"). Premium
    models are never the subject of a question. A premium model (Fable 5.1 /
    GPT-6 Astra, any role) is used only when the user said so: in this
-   session — for a new feature plan that is super-plan's Gate 1 — or through
-   a standing authorization written in the user's or the repository's
+   session, or through a standing authorization written in the user's or the
+   repository's
    instruction files (`AGENTS.md`, `CLAUDE.md`), which counts as the user's
    choice and is recorded in `approvals.premium` with its source — never
    filled in by the orchestrator for a choice the user did not make. Without
@@ -201,7 +203,11 @@ scope, not a free-text status in place of `done`.
 **`environment-blocked`** — the environment itself is broken, not the
 contract or the task's work: name the failing command and its exact error
 line, fix the machine, and re-run, rather than treating a broken environment
-as a contract defect. A stop the coordinator can resolve itself is resolved
+as a contract defect. For a wave run by the Codex runner, `environment-blocked` means a machine
+block: a sandbox-only block — a `must_run` command blocked inside the sandbox
+and clean outside it — is handled by that runner and never reaches the
+coordinator as a stop.
+A stop the coordinator can resolve itself is resolved
 and reported without a question: an environment fix and a relaunch of the
 same approved plan or route, and recovery inside the approved plan, need no
 new approval. A stop that needs the user ends with one recommended next action,
@@ -559,9 +565,9 @@ empty one — it inherits the runner's default ladder, which reaches
 
 **Premium models.** Fable 5.1 and GPT-6 Astra are premium. Premium models are
 never the subject of a question. They are used — as supervisor, executor or
-ladder rung — only when the user said so: in this session (for a new feature
-plan that is super-plan's Gate 1), or through a standing authorization written
-in the user's or the repository's instruction files (`AGENTS.md`,
+ladder rung — only when the user said so: in this session, or through a
+standing authorization written in the user's or the repository's
+instruction files (`AGENTS.md`,
 `CLAUDE.md`), which counts as the user's choice. The plan records it in
 `approvals.premium`; the linter enforces it. `approvals.premium` keeps its
 four fields — `models`, `reason`, `approved_by`, `date`: the source of the

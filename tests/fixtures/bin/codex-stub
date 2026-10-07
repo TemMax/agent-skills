@@ -60,6 +60,15 @@
 #                              runs: the wrapped `bash -c` command is never
 #                              actually executed by this double.
 #   CODEX_STUB_SANDBOX_EXIT   exit code for a `sandbox` invocation (default 0).
+#   CODEX_STUB_SANDBOX_BLOCK_CMDS
+#                              optional, one wrapped command per line. When
+#                              set, CODEX_STUB_SANDBOX_OUTPUT is printed and
+#                              CODEX_STUB_SANDBOX_EXIT is used only for a
+#                              `sandbox` invocation whose wrapped command (the
+#                              last argv) equals one of these lines; any other
+#                              command prints nothing and exits 0. Unset (or
+#                              empty): every `sandbox` invocation behaves the
+#                              same, as described above.
 #
 # Every `exec` invocation prints {"type":"thread.started","thread_id":"<id>"}
 # as its first stdout line: the resume id for `exec resume <id>`, otherwise a
@@ -113,7 +122,8 @@ argv_json+="]"
 # from the executor/supervisor dispatch below, before anything reads stdin.
 # Per this double's contract: log argv, run nothing (the wrapped `bash -c`
 # command is never actually executed), print CODEX_STUB_SANDBOX_OUTPUT, exit
-# CODEX_STUB_SANDBOX_EXIT.
+# CODEX_STUB_SANDBOX_EXIT — for every command, or only for the commands
+# listed in CODEX_STUB_SANDBOX_BLOCK_CMDS when that is set.
 if [ "${1:-}" = "sandbox" ]; then
   cwd="$(pwd)"
   start_ts="$(now_ms)"
@@ -123,8 +133,20 @@ if [ "${1:-}" = "sandbox" ]; then
 
   sleep "${CODEX_STUB_SLEEP:-0}"
 
-  printf '%s' "${CODEX_STUB_SANDBOX_OUTPUT:-}"
-  exit_code="${CODEX_STUB_SANDBOX_EXIT:-0}"
+  wrapped_cmd="${!#}"
+  chosen=1
+  if [ -n "${CODEX_STUB_SANDBOX_BLOCK_CMDS:-}" ]; then
+    chosen=0
+    while IFS= read -r block_cmd; do
+      if [ "$block_cmd" = "$wrapped_cmd" ]; then chosen=1; fi
+    done <<< "$CODEX_STUB_SANDBOX_BLOCK_CMDS"
+  fi
+
+  exit_code=0
+  if [ "$chosen" -eq 1 ]; then
+    printf '%s' "${CODEX_STUB_SANDBOX_OUTPUT:-}"
+    exit_code="${CODEX_STUB_SANDBOX_EXIT:-0}"
+  fi
 
   end_ts="$(now_ms)"
   end_record="$(printf '{"event":"end","ts":%s,"cwd":%s,"argv":%s,"exit":%s}' \

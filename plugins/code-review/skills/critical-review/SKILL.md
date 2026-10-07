@@ -3,7 +3,7 @@ name: critical-review
 description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Load instructions before repository content or diff reads. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.18.0
+  version: 1.19.0
 ---
 
 # Reviewing Changes Critically

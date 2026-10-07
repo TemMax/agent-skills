@@ -66,8 +66,7 @@ before choosing children. It governs routing across profiles: use available
 explicit executors and the supervisor chosen at Gate 1 (premium Astra with
 `approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves) without a
 separate calibration gate. Historical fixture failures inform verification;
-they do not block writing a concrete plan for the existing design and plan
-approvals.
+they do not block writing a concrete plan for the one start approval.
 
 ## Process
 
@@ -99,40 +98,57 @@ approvals.
 2. **Decisions.** Everything derivable from the codebase you decide and
    record. A new explicit planning request authorizes its stated planning scope;
    do not ask the user to authorize that scope again because the preceding task
-   was different. Clarify unresolved requirements or work beyond the new request.
+   was different. Ask the user only genuine product forks — a requirement the
+   request leaves open whose answer changes what ships — and contradictions in
+   the feature (the plan, the design, the code or a new instruction disagree
+   and the choice changes what ships). With none, ask nothing. Never decide a
+   product fork silently.
    Collect genuine product forks in one batch. Use the host-native structured input tool
    when it is available; otherwise ask one concise direct
    question and wait. In headless mode, record the unresolved choices under
    `Assumptions (would ask)` without silently deciding them. Resolve those
-   product forks before choosing executor tiers or asking about supervisor and
+   product forks before choosing executor tiers or the supervisor and
    review routes. While a product fork remains unresolved (including headless
    assumptions), ask or record only the product questions; defer route choices
    and model names until the scope supports a concrete wave sketch. Then fix each wave's
-   executor tiers and ladder shape at Gate 1 — the supervisor choice depends
-   on them — then decide and present the supervisor choice, named and never
-   priced: premium (Fable 5.1 /
-   GPT-6 Astra) vs standard (Claude: Opus 5.5 supervising Sonnet/Haiku
+   executor tiers and ladder shape at Gate 1 — the supervisor depends
+   on them. Routes are your decision: executor tiers, the supervisor and, on
+   Codex, the review model. Never present a premium-or-standard choice to the
+   user, and never ask the user to approve a route or a model. Use the
+   standard route by default (Claude: Opus 5.5 supervising Sonnet/Haiku
    waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6.1-sol` for waves whose executors and rungs are only
    `gpt-6-luna` — supervisor fixture 9/9 on 2026-09-29; its predecessor
    `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24
    and three real small waves merge-ready first try — toy waves, correct
-   work only). A Codex
+   work only). A premium model (Fable 5.1 / GPT-6 Astra, any role) is used
+   only when the user said so in this session, or through a standing
+   authorization written in the user's or the repository's instruction files
+   (`AGENTS.md`, `CLAUDE.md`); record it in `approvals.premium` with the
+   source in `reason`. Without an authorization, use the standard route. A Codex
    wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
-   supervisor — it needs `gpt-6-astra`. Record the model for ship's Stage 3
-   critical-review child in the plan's `review` key here too: `gpt-6-astra` as the recommended option, recorded in `approvals.premium` only when the user picks it, or, when the user instead chooses the cheaper option,
+   supervisor — it needs `gpt-6-astra`. When a task has no standard delegated
+   route and there is no premium authorization, cut it into tasks that have
+   one, or mark it for the coordinator's own implementation under
+   multi-model's step 8 — when that step's conditions hold — with one
+   independent check of the diff on the standard review route, and name it
+   with the routes in the Gate 2 message. Only when neither is possible, ask
+   the user once, and name the standing authorization as the way to avoid
+   the question. Record the model for ship's Stage 3
+   critical-review child in the plan's `review` key here too: the standard measured review route
    `gpt-6.1-sol` — strict review gate clean 10/10, planted 10/10; PR support
-   3/4 on 2026-09-30 — disclosed at Gate 1 too. Only the user's choice is recorded; ship never picks one.
-   A premium model is used only when the user picks it; record the
-   approval in `approvals.premium`. If
+   3/4 on 2026-09-30 — or `gpt-6-astra` only with a premium authorization, recorded in `approvals.premium`. ship never picks one. If
    the Tasks step later changes a wave so the chosen supervisor no longer
    fits (for example it adds a `claude-opus-5-5` ladder rung, or a Codex
-   wave gains a `gpt-6.1-sol` executor), re-ask the user before Gate 2 rather
-   than carry the stale supervisor forward.
-3. **Gate 1 — design.** Present a compact summary: architecture, the wave
-   sketch (which tasks, which waves, why), decisions taken, forks the user
-   answered, and the supervisor choice (premium or standard, named, never
-   priced). One
-   approval, then stop touching the design.
+   wave gains a `gpt-6.1-sol` executor), pick the fitting standard supervisor
+   and say so in the Gate 2 message; when no standard supervisor fits and
+   there is no premium authorization, apply the rule above for a task with no
+   standard delegated route. Never carry the stale supervisor forward.
+3. **Gate 1 — design.** A report point, not an approval. Report a compact
+   summary: architecture, the wave sketch (which tasks, which waves, why),
+   decisions taken, forks the user answered, and the routes (the supervisor
+   and, on Codex, the review model — named, never priced). Do not wait for
+   an answer: go on to the tasks. Stop here only while a product fork or a
+   contradiction is still open.
 4. **Tasks.** Write them by multi-model's rules: closed (no "decide what's
    best"), self-contained (the executor sees nothing but its prompt), full
    code included where the solution is known. Each task carries the
@@ -303,12 +319,21 @@ approvals.
 
    Warnings are judgment calls; errors are not negotiable. A plan that
    fails lint is not presented to the user.
-7. **Gate 2 — plan.** Show the lint-clean plan file and its shape: the
-   number of waves, which tasks run in parallel in each wave, and the
-   critical path as a chain of waves with the tasks on it. Never a
-   duration or a cost — see "No time or cost estimates" below. One
-   approval.
-8. **Handoff.** "Execute with multi-model (supervised waves)." The plan
+7. **Gate 2 — plan.** The start approval, and the only approval. In one
+   message give: the compact design summary (architecture, the wave sketch,
+   decisions taken, forks the user answered); the lint-clean plan file's
+   path and its shape — the number of waves, which tasks run in parallel in
+   each wave, and the critical path as a chain of waves with the tasks on
+   it; and the routes (executor tiers, each wave's supervisor and, on Codex,
+   the review model — named, never priced). When ship runs this skill, the
+   same message also states the branch that will be created and pushed, the
+   pull request that will be opened at the end, and the recovery allowance.
+   Never a duration or a cost — see "No time or cost estimates" below. Then
+   wait for the user's approval to start. One approval. After it the run
+   goes on — inside ship, to the pull request — without another approval. A
+   new instruction from the user that contradicts the plan is a
+   contradiction: ask.
+8. **Handoff.** After the start approval: "Execute with multi-model (supervised waves)." The plan
    file IS the wave-plan artifact: the json block feeds the runner directly —
    each runner task is the json entry plus its `## Task` prose as
    `description` (the runner rejects a task without one, by name). The
@@ -374,7 +399,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    "approvals": {
      "premium": {
        "models": ["claude-fable-5-1"],
-       "reason": "user chose the premium supervisor at Gate 1 for this wave's cross-file retry change",
+       "reason": "user's instruction in this session: premium supervisor for this wave's cross-file retry change",
        "approved_by": "user",
        "date": "2026-09-24" } } }
    ```

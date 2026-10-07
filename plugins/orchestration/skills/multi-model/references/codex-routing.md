@@ -13,14 +13,19 @@ effort stays unknown; available exact child IDs can still establish a route.
 ## Authoring decision
 
 Choose from the host's actually available children and supported efforts.
-The wave's supervisor is chosen at Gate 1 — the premium `gpt-6-astra` at
-`high` (requires `approvals.premium`) or, for a wave whose executors and
-rungs are all `gpt-6-luna`, the standard `gpt-6.1-sol` at `high` (see
-Verification and stops); then use the task table below. Availability is a
+The wave's supervisor is chosen at Gate 1 by the coordinator, and is never
+put to the user as a premium-or-standard choice: by default the standard
+`gpt-6.1-sol` at `high`, for a wave whose executors and rungs are all
+`gpt-6-luna` (see Verification and stops); the premium `gpt-6-astra` at
+`high` only with authorization — the user's word in this session or a
+standing authorization in instruction files (`AGENTS.md`, `CLAUDE.md`),
+recorded in `approvals.premium` with the source in `reason`. Then use the
+task table below. Availability is a
 capability check, not a reliability claim. Missing historical reports or
 pairings with no dated local measurement do not
-require separate calibration permission. Normal scope, design and lint-clean
-plan approvals still apply; existing authorization remains valid.
+require separate calibration permission. The one start approval, given
+after the design and the lint-clean plan are written, still applies;
+existing authorization remains valid.
 
 | Task class | Initial executor | Effort | Optional ladder, in order |
 |---|---|---|---|
@@ -36,10 +41,12 @@ so a wave containing either task class has no standard supervisor: the
 standard-supervisor option is available only when every executor and rung is
 `gpt-6-luna`, and a Sol executor already breaks that condition. Such a wave
 needs the premium `gpt-6-astra` supervisor. Without the user's premium
-authorization the coordinator does not ask for one: it makes such a change
+authorization the coordinator presents no premium-or-standard choice: it cuts
+the work into mechanical tasks for the standard route, or makes such a change
 directly when the direct-fix conditions of multi-model's step 8 hold, with one
-independent check of the diff on the standard review route, or cuts the work
-into mechanical tasks for the standard route.
+independent check of the diff on the standard review route. Only when neither
+is possible, it asks the user once and names the standing authorization as
+the way to avoid the question.
 
 Mechanical means a narrow edit with complete instructions and checkable output;
 ordinary means a closed implementation across call sites; difficult means a
@@ -120,14 +127,17 @@ Astra supervisor; it is not an automatic fallback. Astra execution needs its
 `astra_executor_reason` and `approvals.premium`.
 
 This route grants no additional authority for out-of-task edits, discovered
-credentials, destructive actions, publication, merge or deploy. Keep ship's
-branch/publication approval and feature-branch discipline, super-plan's gates,
+credentials, destructive actions, publication, merge or deploy. Keep
+super-plan's one start approval (its Gate 2; ship asks no branch approval of
+its own), ship's feature-branch discipline,
 and critical-review's fix/publication gates. A failed integration suite stops
 publication. Ship never merges the PR or deploys. Ship's final critical-review
 runs in a fresh child of the model the plan's `review` key names — chosen by
-the user at Gate 1: `gpt-6-astra` (premium, recorded
+the coordinator at Gate 1, never by a question to the user: `gpt-6-astra`
+(premium, only with authorization, recorded
 in `approvals.premium`) or `gpt-6.1-sol` (measured 2026-09-30: clean 10/10,
-planted 10/10, PR support 3/4; the PR says so). If the plan has no `review`
+planted 10/10, PR support 3/4; the PR says so), the standard route and the
+default. If the plan has no `review`
 key, use the standard measured review route `gpt-6.1-sol` without asking; a
 premium review model is used only on the user's word. The fresh
 child keeps a GPT-5.6 main seat

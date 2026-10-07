@@ -4,6 +4,22 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.15.0
+
+### Highlights
+
+**super-plan**
+- Ask once: one start approval after the design and the plan
+- Choose supervisors and review models without asking
+
+**ship**
+- Fold the branch question into the single start approval
+
+**multi-model**
+- Keep a Codex wave going when only the sandbox blocks a check
+
+Orchestration 4.15.0 and code-review 1.19.0 apply to Claude Code and Codex.
+
 ## 4.14.0
 
 ### Highlights

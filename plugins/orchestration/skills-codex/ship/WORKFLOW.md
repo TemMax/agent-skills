@@ -11,7 +11,7 @@ commit per task) is part of the pipeline and needs no extra approval.
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
 2. Select the active-seat profile silently at Step 0. Update it only when newer runtime context changes the model or effort; follow User-facing communication below.
 3. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. The user's direct instruction wins: when the user tells you in this session how to carry out a change — "fix it yourself", "do it and check it yourself", "no agents", "use agents", "use this model" — do exactly that, whatever the change is (a review finding, a supervisor's or the final review's defect, part of an approved plan), and never answer with a request to approve another route. Without such an instruction choose the route yourself and never ask the user to approve it: author the change yourself when you can state the exact change before making it, it stays inside the task already agreed with the user and inside one module or subsystem, no new public interface, data format or product behavior has to be decided, and checks that cover it exist or are added with it and can be run here; anything else goes to a supervised wave on the standard route. When you author a change, run the covering checks and show the diff.
-4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output.
+4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output. The runner already keeps going when only the sandbox blocks a `must_run` command, so an `environment-blocked` stop means the machine itself is broken: fix it in the plan's `worktree` key or on the machine and relaunch the same plan without asking.
 5. Recover a clean committed candidate with the runner's `--resume-from <summary.json>` and a new `--out` before considering a restart. It verifies and reviews without an executor and preserves call caps. Use the runner's own `--reset` only when intentionally discarding the candidate for a newly authorized implementation; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
 6. Executor commits are unsigned by design. Integration squashes each task into one commit made outside the sandbox, which the user's git configuration signs (codex-wave-protocol.md, step 9). Never disable commit signing in the user's configuration.
 
@@ -88,7 +88,7 @@ between stages, and the routing of review findings. If you are tempted to
 re-implement a stage inline instead of invoking its skill, stop — that is
 how tested behavior silently diverges.
 
-## Stage 0 — Preflight, and the one gate ship adds
+## Stage 0 — Preflight; ship adds no gate of its own
 
 Checks, in order, before anything is created:
 
@@ -99,14 +99,15 @@ Checks, in order, before anything is created:
   if it is not, say so now — the run can still proceed to a pushed branch,
   with the PR left for the user.
 
-Derive a kebab-case feature branch name from the request. Then the gate —
-the only one ship adds: tell the user, in one message, that branch
+Derive a kebab-case feature branch name from the request. ship adds no gate
+of its own and asks nothing before planning: never ask the user to approve
+the branch, the pull request or the recovery allowance as a question of its
+own. super-plan's one start approval (its Gate 2) states them: that branch
 `<name>` will be created and pushed to origin, that the waves will fork from
-it, and that a PR into the default branch will be opened at the end. One
-yes/no. After yes, ship itself never stops the flow again — only the link
-skills' own gates do.
+it, and that a PR into the default branch will be opened at the end. After
+that approval the run goes to the pull request without another approval.
 
-At this same gate, state the standing recovery allowance; do not ask for
+In that same start approval, state the standing recovery allowance; do not ask for
 it: up to 3 one-task recovery or fix waves within the approved files and
 contracts, same supervisor tier, unless the user sets another number.
 Record the number in the plan. Within that allowance, ship launches such
@@ -129,7 +130,9 @@ source. Without an authorization, use the standard route.
 
 ## Stage 1 — Plan
 
-Invoke `super-plan`. Its two gates (design, lint-clean plan) run inside it.
+Invoke `super-plan`. Its design report (Gate 1) and its one start approval
+(Gate 2) run inside it, and that approval also states the branch, the pull
+request and the recovery allowance.
 The output is the plan file; its `status:` stays `draft` — transitions belong
 to execution. ship's canonical entry begins here: do not broaden it to resume
 from a pre-approved plan. After approval, consume the approved plan’s provider and preserve its exact model and effort ids verbatim; ship never re-routes or rewrites them.
@@ -299,8 +302,8 @@ and branch names — never a bare list of options with no recommendation.
 
 | Where it broke | What ship does |
 |---|---|
-| A preflight check fails | Stop before the gate; name the missing piece |
-| The user declines a super-plan gate | Stop; nothing was created yet |
+| A preflight check fails | Stop before planning; name the missing piece |
+| The user declines super-plan's start approval | Stop; nothing was created yet |
 | A wave returns `failed` / `error` | Stop with verdicts and branch names (multi-model's rule) |
 | The suite is red after a merge | Show the output, then fix without asking, by multi-model's step 8: directly when its conditions hold; otherwise push the red tip to the feature branch only, say so, and run a one-task supervised fix wave from that pushed tip. Never push it to the default branch. |
 | A plan `ci.commands` command is red after the final wave | Hold the push and show the output. The fix follows the row above, without asking: a direct fix, or a one-task supervised fix wave from the red tip pushed to the feature branch only. Never to the default branch. |
@@ -317,7 +320,7 @@ and branch names — never a bare list of options with no recommendation.
 | Re-implementing a stage inline | Silent divergence from tested behavior | Invoke the link skill |
 | Merging the PR yourself | The one decision that is not yours | The merge stays with the user |
 | Choosing a fix route by habit — always inline, or always a wave | A wide change ships unchecked, or a one-line fix waits on a wave and a question | Choose by the conditions of multi-model's step 8: direct when all hold, otherwise a supervised wave; never ask the user to approve the route |
-| Adding a second ship-level gate mid-flow | The pipeline stops being automatic | One gate up front; the links keep their own |
+| Adding a ship-level gate anywhere in the flow | The pipeline stops being automatic | ship adds no gate: super-plan's one start approval, then on to the pull request |
 | Basing a wave on a hand-typed sha | A corrupted base already burned a wave once | Copy the tip verbatim from `git rev-parse` output |
 | Opening the PR before the suite is green | The reviewers review a broken branch | Suite first, PR second |
 | Dropping unverified Acceptance References from the PR body | They resurface as production defects found by hand | The "Not verified" section is mandatory whenever references exist |

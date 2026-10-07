@@ -58,7 +58,12 @@ function makeRepo() {
 // the kept-object and the rewritten-to-not-applicable cases, and approvals
 // carries the premium sign-off required whenever gpt-6-astra is used (the
 // fixture's supervisor, always).
-function planText(taskIds) {
+//
+// cmd is every task's must_run: one command, a list of commands, or a
+// function from a task id to either.
+function planText(taskIds, cmd = 'true') {
+  const mustRun = (id) => '[' + [].concat(typeof cmd === 'function' ? cmd(id) : cmd)
+    .map((c) => '{ "cmd": ' + JSON.stringify(c) + ', "evidence": "required" }').join(', ') + ']'
   const tasks = taskIds.map((id) => [
     '      { "id": "' + id + '", "branch": "wave/' + id + '",',
     '        "executor": { "model": "gpt-6-luna", "effort": "medium" },',
@@ -66,7 +71,7 @@ function planText(taskIds) {
     '        "contract": {',
     '          "files_allowed": ["src/' + id + '/**"],',
     '          "files_forbidden": [],',
-    '          "must_run": [{ "cmd": "true", "evidence": "required" }],',
+    '          "must_run": ' + mustRun(id) + ',',
     '          "forbidden_moves": [],',
     '          "report_must_answer": ["What did the stub change?"] } }',
   ].join('\n')).join(',\n')
@@ -97,9 +102,9 @@ function planText(taskIds) {
   ].join('\n')
 }
 
-function writePlan(root, taskIds) {
+function writePlan(root, taskIds, cmd) {
   const path = join(root, 'plan.md')
-  writeFileSync(path, planText(taskIds))
+  writeFileSync(path, planText(taskIds, cmd))
   return path
 }
 
@@ -897,13 +902,23 @@ test('(o) a gitignored local.properties is linked into the supervisor checkout, 
 
 // ---------------------------------------------------------------------------
 // --preflight (default on): probes every distinct must_run command,
-// sandboxed at the base commit, before any model child starts.
+// sandboxed at the base commit, before any model child starts. A command
+// that shows a machine signature there is run once more outside the sandbox,
+// by real `bash` — the stub never executes a wrapped command — so a test
+// steers that second run through the command itself.
 // ---------------------------------------------------------------------------
+
+const SIGNATURE = 'bash: Operation not permitted'
+// Blocked outside the sandbox too, wherever it runs.
+const MACHINE_BLOCKED_CMD = 'echo "' + SIGNATURE + '" >&2; exit 1'
+// Blocked outside the sandbox only inside a preflight checkout; a plain
+// success in an executor's worktree or a verification checkout.
+const PREFLIGHT_BLOCKED_CMD = 'case "$PWD" in *codex-preflight-*) echo "' + SIGNATURE + '" >&2; exit 1;; esac'
 
 test('(p) a signature in the preflight output stops with environment-blocked, before init: no --out, no '
   + 'state file, no task worktree/branch, and an immediate re-run proceeds', () => {
   const { root, repo, base } = makeRepo()
-  const planPath = writePlan(root, ['task-a'])
+  const planPath = writePlan(root, ['task-a'], PREFLIGHT_BLOCKED_CMD)
   const logPath = join(root, 'codex.log')
   const outPath = join(root, 'out')
   const runArgs = ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
@@ -918,10 +933,10 @@ test('(p) a signature in the preflight output stops with environment-blocked, be
   assert.equal(result.json.status, 'stop')
   assert.deepEqual(result.json.stopped, [{ task: '*', reason: 'environment-blocked' }])
   assert.ok(result.json.preflight, 'expected a preflight field on the stop summary')
-  assert.equal(result.json.preflight.blocked.cmd, 'true')
+  assert.equal(result.json.preflight.blocked.cmd, PREFLIGHT_BLOCKED_CMD)
   assert.equal(result.json.preflight.blocked.id, 'permission-denied')
   assert.match(result.json.preflight.blocked.line, /Operation not permitted/)
-  assert.deepEqual(result.json.preflight.results.map((r) => r.cmd), ['true'])
+  assert.deepEqual(result.json.preflight.results.map((r) => r.cmd), [PREFLIGHT_BLOCKED_CMD])
   assert.equal(result.json.preflight.results[0].exit, 1)
 
   // The preflight now runs before `init`, so nothing was ever created:
@@ -955,6 +970,182 @@ test('(p) a signature in the preflight output stops with environment-blocked, be
   assert.equal(rerun.status, 0, 'a re-run with the same --out must succeed once the block is gone: '
     + rerun.stdout + rerun.stderr)
   assert.equal(rerun.json.status, 'merge-ready')
+})
+
+test('(p1) a command blocked in the sandbox and clean outside it does not stop the wave: it is listed as '
+  + 'outsideSandbox and named in its own task\'s executor and supervisor prompts', () => {
+  const { root, repo, base } = makeRepo()
+  const cleanCmd = 'test -e README.md'
+  const planPath = writePlan(root, ['task-a', 'task-b'], (id) => (id === 'task-a' ? 'true' : cleanCmd))
+  const logPath = join(root, 'codex.log')
+  const outPath = join(root, 'out')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    {
+      CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good',
+      CODEX_STUB_SANDBOX_OUTPUT: SIGNATURE + '\n', CODEX_STUB_SANDBOX_EXIT: '1',
+      CODEX_STUB_SANDBOX_BLOCK_CMDS: 'true',
+    },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready', 'a sandbox-only block must never stop the wave')
+  assert.deepEqual(result.json.preflight.outsideSandbox, ['true'])
+  const summary = JSON.parse(readFileSync(join(outPath, 'summary.json'), 'utf8'))
+  assert.deepEqual(summary.preflight.outsideSandbox, ['true'])
+  assert.equal(Object.hasOwn(summary.preflight, 'blocked'), false)
+
+  const [blockedResult, cleanResult] = summary.preflight.results
+  assert.equal(blockedResult.cmd, 'true')
+  assert.equal(blockedResult.exit, 1)
+  assert.equal(blockedResult.sandbox, 'blocked')
+  assert.deepEqual(Object.keys(blockedResult.outside).sort(), ['blocked', 'exit', 'seconds'])
+  assert.equal(blockedResult.outside.blocked, false)
+  assert.equal(blockedResult.outside.exit, 0)
+  assert.equal(typeof blockedResult.outside.seconds, 'number')
+  assert.equal(cleanResult.cmd, cleanCmd)
+  assert.equal(cleanResult.sandbox, 'ok')
+  assert.equal(Object.hasOwn(cleanResult, 'outside'), false)
+
+  const executorLine = 'These must_run commands cannot run inside your sandbox on this machine: ["true"]. '
+    + 'Do not run them and do not report `environment-blocked` for them: the runner runs them outside the '
+    + 'sandbox after your commit, and its output is the evidence. Name them in your report as not run.'
+  const supervisorLine = 'Run outside the sandbox by the runner: ["true"]. Judge these commands from the '
+    + 'VERIFIER FACTS; do not run them yourself, and a missing paste for them in the REPORT is not a violation.'
+  const helperToolLine = 'A helper tool the sandbox denies is not a reason to stop when you can still make and '
+    + 'commit the change; stop only when the change itself cannot be made or committed.'
+  const promptOf = (task, role) => readFileSync(
+    summary.children.find((child) => child.task === task && child.role === role).promptFile, 'utf8')
+  assert.ok(promptOf('task-a', 'executor').includes(executorLine), promptOf('task-a', 'executor'))
+  assert.ok(promptOf('task-a', 'supervisor').includes(supervisorLine))
+  // The sibling task does not run the sandbox-only command, so its prompts
+  // do not name it; the helper-tool sentence is in every executor prompt.
+  assert.doesNotMatch(promptOf('task-b', 'executor'), /cannot run inside your sandbox/)
+  assert.doesNotMatch(promptOf('task-b', 'supervisor'), /Run outside the sandbox by the runner/)
+  assert.ok(promptOf('task-a', 'executor').includes(helperToolLine))
+  assert.ok(promptOf('task-b', 'executor').includes(helperToolLine))
+
+  // Each task's state keeps only its own commands from the list.
+  const stateOf = (task) => JSON.parse(readFileSync(
+    summary.states[summary.tasks.findIndex((entry) => entry.id === task)], 'utf8'))
+  assert.deepEqual(stateOf('task-a').outsideSandbox, ['true'])
+  assert.deepEqual(stateOf('task-b').outsideSandbox, [])
+})
+
+test('(p2) a command blocked in the sandbox and outside it stops the wave as a machine block', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'], MACHINE_BLOCKED_CMD)
+  const logPath = join(root, 'codex.log')
+  const outPath = join(root, 'out')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    {
+      CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good',
+      // What the sandbox printed is not what classifies the block: the
+      // signature that is reported comes from the run outside it.
+      CODEX_STUB_SANDBOX_OUTPUT: 'SDK location not found\n', CODEX_STUB_SANDBOX_EXIT: '1',
+    },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop')
+  assert.deepEqual(result.json.stopped, [{ task: '*', reason: 'environment-blocked' }])
+  const machineBlock = { cmd: MACHINE_BLOCKED_CMD, id: 'permission-denied', line: SIGNATURE }
+  assert.deepEqual(result.json.preflight.blocks, [machineBlock])
+  assert.deepEqual(result.json.preflight.blocked, machineBlock)
+  assert.deepEqual(Object.keys(result.json.preflight).sort(), ['blocked', 'blocks', 'results'])
+  assert.equal(result.json.preflight.results[0].sandbox, 'blocked')
+  assert.equal(result.json.preflight.results[0].outside.blocked, true)
+  assert.equal(result.json.preflight.results[0].outside.exit, 1)
+  assert.match(result.stderr, /Operation not permitted/)
+  assert.deepEqual(result.json.cleanup, [])
+  assert.equal(existsSync(outPath), false, 'no --out directory may be left on a machine block')
+  assert.equal(git(repo, 'branch', '--list', 'wave/*'), '')
+  const starts = readLog(logPath).filter((entry) => entry.event === 'start')
+  assert.equal(starts.filter((entry) => entry.prompt?.startsWith('# Task: ')).length, 0)
+  assert.equal(git(repo, 'worktree', 'list', '--porcelain').includes('preflight'), false)
+})
+
+test('(p3) one sandbox-only command and one machine block: the stop lists only the machine block', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'], ['true', MACHINE_BLOCKED_CMD])
+  const logPath = join(root, 'codex.log')
+  const outPath = join(root, 'out')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--out', outPath],
+    {
+      CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good',
+      CODEX_STUB_SANDBOX_OUTPUT: SIGNATURE + '\n', CODEX_STUB_SANDBOX_EXIT: '1',
+    },
+  )
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'stop')
+  assert.deepEqual(result.json.stopped, [{ task: '*', reason: 'environment-blocked' }])
+  const machineBlock = { cmd: MACHINE_BLOCKED_CMD, id: 'permission-denied', line: SIGNATURE }
+  assert.deepEqual(result.json.preflight.blocks, [machineBlock])
+  assert.deepEqual(result.json.preflight.blocked, machineBlock)
+  assert.deepEqual(
+    result.json.preflight.results.map((r) => ({ cmd: r.cmd, sandbox: r.sandbox, outside: r.outside.blocked })),
+    [{ cmd: 'true', sandbox: 'blocked', outside: false },
+      { cmd: MACHINE_BLOCKED_CMD, sandbox: 'blocked', outside: true }])
+  assert.equal(existsSync(outPath), false)
+})
+
+test('(p4) a command with no signature inside the sandbox is run once and never outside it', () => {
+  const { root, repo, base } = makeRepo()
+  // Leaves a marker only when real bash runs it in a preflight checkout —
+  // which is exactly the second, unsandboxed run a clean command must not get.
+  const marker = join(root, 'ran-outside-the-sandbox')
+  const cmd = 'case "$PWD" in *codex-preflight-*) echo ran >> "' + marker + '";; esac'
+  const planPath = writePlan(root, ['task-a'], cmd)
+  const logPath = join(root, 'codex.log')
+
+  const result = runRunner(
+    ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--out', join(root, 'out')],
+    { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' },
+  )
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  const sandboxStarts = readLog(logPath)
+    .filter((entry) => entry.event === 'start' && entry.argv[0] === 'sandbox')
+  assert.equal(sandboxStarts.length, 1, JSON.stringify(sandboxStarts))
+  assert.deepEqual(sandboxStarts[0].argv.slice(-3), ['bash', '-c', cmd])
+  assert.equal(result.json.preflight.results.length, 1)
+  assert.equal(result.json.preflight.results[0].sandbox, 'ok')
+  assert.equal(Object.hasOwn(result.json.preflight.results[0], 'outside'), false)
+  assert.deepEqual(result.json.preflight.outsideSandbox, [])
+  assert.equal(existsSync(marker), false, 'a clean command must not be run again outside the sandbox')
+})
+
+test('(p5) --resume-from carries the previous summary\'s outsideSandbox list into the state, the '
+  + 'supervisor prompt and the new summary, without a new preflight', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const firstOut = join(root, 'first')
+  const args = ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB]
+  const env = { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' }
+
+  const first = runRunner([...args, '--out', firstOut],
+    { ...env, CODEX_STUB_SANDBOX_OUTPUT: SIGNATURE + '\n', CODEX_STUB_SANDBOX_EXIT: '1' })
+  assert.equal(first.status, 0, first.stdout + first.stderr)
+  assert.deepEqual(first.json.preflight.outsideSandbox, ['true'])
+  const sandboxStartsBefore = readLog(logPath)
+    .filter((entry) => entry.event === 'start' && entry.argv[0] === 'sandbox').length
+
+  const secondOut = join(root, 'second')
+  const second = runRunner([...args, '--out', secondOut, '--resume-from', join(firstOut, 'summary.json')], env)
+  assert.equal(second.status, 0, second.stdout + second.stderr)
+  assert.equal(second.json.status, 'merge-ready')
+  assert.deepEqual(second.json.preflight, { outsideSandbox: ['true'] })
+  assert.equal(readLog(logPath).filter((entry) => entry.event === 'start' && entry.argv[0] === 'sandbox').length,
+    sandboxStartsBefore, 'a resumed wave must not probe again')
+  assert.deepEqual(JSON.parse(readFileSync(second.json.states[0], 'utf8')).outsideSandbox, ['true'])
+  assert.equal(second.json.children.filter((child) => child.role === 'executor').length, 1)
+  assert.match(readFileSync(second.json.children.at(-1).promptFile, 'utf8'),
+    /Run outside the sandbox by the runner: \["true"\]\./)
 })
 
 test('(q) a plain red preflight command does not stop the run', () => {

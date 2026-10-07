@@ -100,7 +100,8 @@ function init(over = {}) {
   const env = over.repoEnv ?? makeRepo()
   if (over.planText) writeFileSync(env.plan, over.planText(readFileSync(env.plan, 'utf8')))
   const result = invoke(['init', '--plan', env.plan, '--wave', '1', '--repo', env.repo,
-    '--base', env.base])
+    '--base', env.base,
+    ...(over.outsideSandbox === undefined ? [] : ['--outside-sandbox', over.outsideSandbox])])
   if (!over.invalid) {
     assert.equal(result.status, 0, result.stderr || result.stdout)
     assert.ok(result.json)
@@ -1750,6 +1751,124 @@ test('E12 summary carries a typed-error environment block as child-error', () =>
   const summary = ok(['summary', '--state', env.statePath])
   assert.equal(summary.tasks[0].status, 'environment-blocked')
   assert.deepEqual(summary.tasks[0].environment, { id: 'child-error' })
+})
+
+const FIXTURE_CMD = 'python3 -m unittest discover -s tests -t .'
+const HELPER_TOOL_LINE = 'A helper tool the sandbox denies is not a reason to stop when you can still make and commit the change; stop only when the change itself cannot be made or committed.'
+const outsideExecutorLine = (cmds) => 'These must_run commands cannot run inside your sandbox on this machine: '
+  + JSON.stringify(cmds) + '. Do not run them and do not report `environment-blocked` for them: the runner runs them outside the sandbox after your commit, and its output is the evidence. Name them in your report as not run.'
+const outsideSupervisorLine = (cmds) => 'Run outside the sandbox by the runner: ' + JSON.stringify(cmds)
+  + '. Judge these commands from the VERIFIER FACTS; do not run them yourself, and a missing paste for them in the REPORT is not a violation.'
+
+test('E13 init --outside-sandbox stores only the task\'s own must_run commands, once each', () => {
+  const env = init({ outsideSandbox: JSON.stringify(['bash other.sh', FIXTURE_CMD, FIXTURE_CMD, 'true']) })
+  assert.deepEqual(state(env.statePath).outsideSandbox, [FIXTURE_CMD])
+  assert.equal(next(env.statePath).action, 'spawn-executor')
+
+  const foreign = init({ outsideSandbox: JSON.stringify(['bash other.sh']) })
+  assert.deepEqual(state(foreign.statePath).outsideSandbox, [])
+  assert.equal(next(foreign.statePath).action, 'spawn-executor')
+
+  const both = init({ planText: withSecondTask, outsideSandbox: JSON.stringify(['true', 'bash other.sh']) })
+  assert.deepEqual(state(both.statePath).outsideSandbox, ['true'])
+})
+
+test('E13b a malformed --outside-sandbox value is rejected before anything is created', () => {
+  for (const value of ['not json', '"true"', '{"cmd":"true"}', '[1]', '[""]', '["true", null]', 'null']) {
+    const env = init({ outsideSandbox: value, invalid: true })
+    assert.equal(env.result.status, 1, value + ': ' + env.result.stdout)
+    assert.equal(env.result.json.status, 'invalid')
+    assert.match(env.result.json.errors[0], /^outside-sandbox: /, value)
+    assert.equal(existsSync(join(env.repo, '.worktrees')), false, value + ': nothing may be created')
+    assert.equal(git(env.repo, 'branch', '--list', 'wave/*'), '', value)
+  }
+  const env = makeRepo()
+  const duplicate = invoke(['init', '--plan', env.plan, '--wave', '1', '--repo', env.repo, '--base', env.base,
+    '--outside-sandbox', '[]', '--outside-sandbox', '[]'])
+  assert.equal(duplicate.status, 2)
+  assert.match(duplicate.json.errors[0], /duplicate option --outside-sandbox/)
+  const elsewhere = init()
+  const notAccepted = invoke(['next', '--state', elsewhere.statePath, '--outside-sandbox', '[]'])
+  assert.equal(notAccepted.status, 2)
+  assert.match(notAccepted.json.errors[0], /unknown option --outside-sandbox/)
+})
+
+test('E13c the executor and supervisor prompts name the task\'s sandbox-only commands', () => {
+  const env = init({ outsideSandbox: JSON.stringify([FIXTURE_CMD]) })
+  const prompt = next(env.statePath).prompt
+  assert.ok(prompt.includes(outsideExecutorLine([FIXTURE_CMD])), prompt)
+  const deadEnd = prompt.slice(prompt.indexOf('## Dead-end protocol'), prompt.indexOf('## Prohibitions'))
+  assert.ok(deadEnd.trimEnd().endsWith([
+    'stop and make the first line of your report `environment-blocked: <the verbatim error line>`; do not work around it.',
+    HELPER_TOOL_LINE,
+    outsideExecutorLine([FIXTURE_CMD]),
+  ].join('\n')), deadEnd)
+  prepareAttempt(env)
+  const supervisor = ok(['supervisor-prompt', '--state', env.statePath, '--task', 'divide-guard']).prompt
+  assert.ok(supervisor.includes('\n' + outsideSupervisorLine([FIXTURE_CMD]) + '\n'), supervisor)
+  assert.ok(supervisor.indexOf(outsideSupervisorLine([FIXTURE_CMD])) < supervisor.indexOf('VERIFIER FACTS:\n'))
+  JSON.parse(supervisor.split('VERIFIER FACTS:\n')[1].split('\nREPORT:')[0])
+
+  // A rework prompt of the same task still names them.
+  recordVerdict(env.statePath, failed())
+  const rework = next(env.statePath)
+  assert.ok(rework.prompt.includes(outsideExecutorLine([FIXTURE_CMD])))
+  assert.doesNotMatch(rework.continuation, /cannot run inside your sandbox/)
+})
+
+test('E13d without a sandbox-only command the prompts gain only the helper-tool sentence', () => {
+  for (const over of [{}, { outsideSandbox: '[]' }, { outsideSandbox: JSON.stringify(['bash other.sh']) }]) {
+    const env = init(over)
+    const prompt = next(env.statePath).prompt
+    const deadEnd = prompt.slice(prompt.indexOf('## Dead-end protocol'), prompt.indexOf('## Prohibitions'))
+    assert.ok(deadEnd.trimEnd().endsWith(
+      'stop and make the first line of your report `environment-blocked: <the verbatim error line>`; do not work around it.\n'
+      + HELPER_TOOL_LINE), deadEnd)
+    assert.doesNotMatch(prompt, /cannot run inside your sandbox/)
+    prepareAttempt(env)
+    const supervisor = ok(['supervisor-prompt', '--state', env.statePath, '--task', 'divide-guard']).prompt
+    assert.doesNotMatch(supervisor, /Run outside the sandbox by the runner/)
+  }
+})
+
+test('E13e a prompt lists only the commands its own task must run', () => {
+  const env = init({ planText: withSecondTask, outsideSandbox: JSON.stringify(['true']) })
+  const first = next(env.statePath)
+  assert.equal(first.task, 'divide-guard')
+  assert.doesNotMatch(first.prompt, /cannot run inside your sandbox/)
+  prepareAttempt(env)
+  const template = '# Supervisor Prompt\n'
+  assert.doesNotMatch(buildSupervisorPrompt(state(env.statePath), 'divide-guard', template),
+    /Run outside the sandbox by the runner/)
+  prepareAttempt(env, 'implemented guard', 'multiply-guard')
+  assert.ok(buildSupervisorPrompt(state(env.statePath), 'multiply-guard', template)
+    .includes(outsideSupervisorLine(['true'])))
+
+  // A stored command that is not one of the task's must_run commands is never named.
+  const solo = init()
+  const saved = state(solo.statePath)
+  writeFileSync(solo.statePath, JSON.stringify({ ...saved, outsideSandbox: ['bash other.sh'] }, null, 2) + '\n')
+  assert.doesNotMatch(next(solo.statePath).prompt, /cannot run inside your sandbox/)
+})
+
+test('E13f a state file without outsideSandbox still validates; a malformed one is rejected', () => {
+  const env = init()
+  const saved = state(env.statePath)
+  assert.equal(Object.hasOwn(saved, 'outsideSandbox'), false, 'init without the flag stores no key')
+  assert.equal(next(env.statePath).action, 'spawn-executor')
+  // The oldest shape: neither optional key.
+  const { worktreeLinks, ...oldest } = saved
+  writeFileSync(env.statePath, JSON.stringify(oldest, null, 2) + '\n')
+  assert.equal(next(env.statePath).action, 'spawn-executor')
+  for (const bad of ['true', [1], [''], null, {}]) {
+    writeFileSync(env.statePath, JSON.stringify({ ...saved, outsideSandbox: bad }, null, 2) + '\n')
+    const rejected = invoke(['next', '--state', env.statePath])
+    assert.notEqual(rejected.status, 0, JSON.stringify(bad))
+    assert.match(rejected.json.errors.join('\n'), /outsideSandbox: array of non-empty strings required/,
+      JSON.stringify(bad))
+  }
+  writeFileSync(env.statePath, JSON.stringify({ ...saved, outsideSandbox: [FIXTURE_CMD] }, null, 2) + '\n')
+  assert.ok(next(env.statePath).prompt.includes(outsideExecutorLine([FIXTURE_CMD])))
 })
 
 let failedCount = 0

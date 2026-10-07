@@ -9,7 +9,7 @@ the output format and every contract rule are this plugin's own.
 1. Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.
 2. Select the active-seat profile silently at Step 0. Update it only when newer runtime context changes the model or effort; follow User-facing communication below.
 3. Applying a patch a subagent prepared, running `apply_patch`, or editing a tracked file yourself is authoring code, whoever wrote the text. The user's direct instruction wins: when the user tells you in this session how to carry out a change — "fix it yourself", "do it and check it yourself", "no agents", "use agents", "use this model" — do exactly that, whatever the change is (a review finding, a supervisor's or the final review's defect, part of an approved plan), and never answer with a request to approve another route. Without such an instruction choose the route yourself and never ask the user to approve it: author the change yourself when you can state the exact change before making it, it stays inside the task already agreed with the user and inside one module or subsystem, no new public interface, data format or product behavior has to be decided, and checks that cover it exist or are added with it and can be run here; anything else goes to a supervised wave on the standard route. When you author a change, run the covering checks and show the diff.
-4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output.
+4. On `environment-blocked`, diagnose before you ask the user for anything. Reproduce the failing step yourself outside the sandbox with a side-effect-free probe — for commit signing, `git commit-tree -S -m probe "HEAD^{tree}"`; for a cache directory, `test -w <dir>`. If the probe passes outside the sandbox, the sandbox cannot reach that resource: fix it in the plan's `worktree` key or on the machine, never by asking the user to restart an app or the session. Ask the user only for an action only they can take, and quote the probe's output. The runner already keeps going when only the sandbox blocks a `must_run` command, so an `environment-blocked` stop means the machine itself is broken: fix it in the plan's `worktree` key or on the machine and relaunch the same plan without asking.
 5. Recover a clean committed candidate with the runner's `--resume-from <summary.json>` and a new `--out` before considering a restart. It verifies and reviews without an executor and preserves call caps. Use the runner's own `--reset` only when intentionally discarding the candidate for a newly authorized implementation; never with hand-written `rm`, `git worktree remove` or `git branch -D` commands.
 6. Executor commits are unsigned by design. Integration squashes each task into one commit made outside the sandbox, which the user's git configuration signs (codex-wave-protocol.md, step 9). Never disable commit signing in the user's configuration.
 
@@ -69,8 +69,8 @@ once, before choosing children. It governs routing across profiles: use
 available explicit executors and the supervisor chosen at Gate 1 (premium
 Astra with `approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves)
 without a separate calibration gate. Historical fixture failures inform
-verification; they do not block writing a concrete plan for the existing
-design and plan approvals.
+verification; they do not block writing a concrete plan for the one start
+approval.
 
 ## Process
 
@@ -100,48 +100,68 @@ design and plan approvals.
 2. **Decisions.** Everything derivable from the codebase you decide and
    record. A new explicit planning request authorizes its stated planning scope;
    do not ask the user to authorize that scope again because the preceding task
-   was different. Clarify unresolved requirements or work beyond the new request.
+   was different. Ask the user only genuine product forks — a requirement the
+   request leaves open whose answer changes what ships — and contradictions in
+   the feature (the plan, the design, the code or a new instruction disagree
+   and the choice changes what ships). With none, ask nothing. Never decide a
+   product fork silently.
    Collect genuine product forks in one batch. Use the host-native
    structured input tool when it is available; otherwise ask one concise
    direct question and wait. In headless mode, record the unresolved choices
    under `Assumptions (would ask)` without silently deciding them. Resolve those
-   product forks before choosing executor tiers or asking about supervisor and
+   product forks before choosing executor tiers or the supervisor and
    review routes. While a product fork remains unresolved (including headless
    assumptions), ask or record only the product questions; defer route choices
    and model names until the scope supports a concrete wave sketch. Then fix each
-   wave's executor tiers and ladder shape at Gate 1 — the supervisor choice
-   depends on them — then decide and present the supervisor choice, named
-   and never priced:
-   - standard: `gpt-6.1-sol` for waves whose executors and rungs are only
+   wave's executor tiers and ladder shape at Gate 1 — the supervisor depends
+   on them. Routes are your decision: executor tiers, the supervisor and the
+   review model. Never present a premium-or-standard choice to the user, and
+   never ask the user to approve a route or a model. The supervisor is:
+   - standard, the default: `gpt-6.1-sol` for waves whose executors and rungs are only
      `gpt-6-luna` — supervisor fixture 9/9 on 2026-09-29; its predecessor
      `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and
      2026-09-24 and three real small waves merge-ready first try — toy
      waves, correct work only;
-   - premium: `gpt-6-astra`, recorded in `approvals.premium`;
+   - premium: `gpt-6-astra`, used only when the user said so in this session,
+     or through a standing authorization written in the user's or the
+     repository's instruction files (`AGENTS.md`, `CLAUDE.md`); record it in
+     `approvals.premium` with the source in `reason`. Without an
+     authorization, use the standard route;
    - a wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
      supervisor — it needs `gpt-6-astra`.
 
-   Record the model for ship's Stage 3 critical-review child in the plan's
-   `review` key here too, and disclose it at Gate 1:
-   - `gpt-6-astra` as the recommended option, recorded in `approvals.premium` only when the user picks it;
-   - `gpt-6.1-sol` when the user picks it to save that cost — strict review
-     gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30.
-     Only the user's choice is recorded; ship never picks one.
+   When a task has no standard delegated route and there is no premium
+   authorization, cut it into tasks that have one, or mark it for the
+   coordinator's own implementation under multi-model's step 8 — when that
+   step's conditions hold — with one independent check of the diff on the
+   standard review route, and name it with the routes in the Gate 2 message.
+   Only when neither is possible, ask the user once, and name the standing
+   authorization as the way to avoid the question.
 
-   A premium model is used only when the user picks it; record the approval
-   in `approvals.premium`. If the Tasks step later changes a wave so the
-   chosen supervisor no longer fits (for example the wave gains a
-   `gpt-6.1-sol` executor), re-ask the user before Gate 2 rather than carry
-   the stale supervisor forward.
+   Record the model for ship's Stage 3 critical-review child in the plan's
+   `review` key here too, and name it in the Gate 1 report:
+   - `gpt-6.1-sol`, the standard measured review route — strict review
+     gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30;
+   - `gpt-6-astra` only with a premium authorization, recorded in `approvals.premium`.
+     ship never picks one.
+
+   If the Tasks step later changes a wave so the chosen supervisor no longer
+   fits (for example the wave gains a `gpt-6.1-sol` executor), pick the
+   fitting standard supervisor and say so in the Gate 2 message; when no
+   standard supervisor fits and there is no premium authorization, apply the
+   rule above for a task with no standard delegated route. Never carry the
+   stale supervisor forward.
 
 ### Single-task path
 
-Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. Ask one gate instead of two: show the design summary and the lint-clean plan together; one approval counts as Gate 1 and Gate 2. Execution uses the runner and independent verification, followed by integration by the coordinator. Model supervision remains the default; the explicit mechanical mode follows the shared cost controls. On this path the executor writes the task's code; the coordinator edits it only under rule 3. When the change grows to a second task, return to the full process. A change that rule 3 lets the coordinator make itself needs no plan at all.
+Use it when the whole change is one task: one deliverable, one executor, `files_allowed` inside one module, and no second task in any wave. It changes only planning. Write the same plan file (one wave, one task) and lint it as usual. Skip the seam audit: with one task there are no seams between tasks, and the runner's preflight probes every `must_run` command at the base before any executor starts. The Gate 1 report and the Gate 2 start approval are one message: show the design summary and the lint-clean plan together, then wait for one approval. Execution uses the runner and independent verification, followed by integration by the coordinator. Model supervision remains the default; the explicit mechanical mode follows the shared cost controls. On this path the executor writes the task's code; the coordinator edits it only under rule 3. When the change grows to a second task, return to the full process. A change that rule 3 lets the coordinator make itself needs no plan at all.
 
-3. **Gate 1 — design.** Present a compact summary: architecture, the wave
-   sketch (which tasks, which waves, why), decisions taken, forks the user
-   answered, and the supervisor choice (premium or standard, named, never
-   priced). One approval, then stop touching the design.
+3. **Gate 1 — design.** A report point, not an approval. Report a compact
+   summary: architecture, the wave sketch (which tasks, which waves, why),
+   decisions taken, forks the user answered, and the routes (the supervisor
+   and the review model — named, never priced). Do not wait for an answer:
+   go on to the tasks. Stop here only while a product fork or a
+   contradiction is still open.
 4. **Tasks.** Write them by multi-model's rules: closed (no "decide what's
    best"), self-contained (the executor sees nothing but its prompt), full
    code included where the solution is known. Each task carries the
@@ -304,12 +324,21 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    The linter path is relative to this file's directory; resolve it to an
    absolute path before you run it. Warnings are judgment calls; errors are
    not negotiable. A plan that fails lint is not presented to the user.
-7. **Gate 2 — plan.** Show the lint-clean plan file and its shape: the
-   number of waves, which tasks run in parallel in each wave, and the
-   critical path as a chain of waves with the tasks on it. Never a
-   duration or a cost — see "No time or cost estimates" below. One
-   approval.
-8. **Handoff.** "Execute with multi-model (supervised waves)." The plan
+7. **Gate 2 — plan.** The start approval, and the only approval. In one
+   message give: the compact design summary (architecture, the wave sketch,
+   decisions taken, forks the user answered); the lint-clean plan file's
+   path and its shape — the number of waves, which tasks run in parallel in
+   each wave, and the critical path as a chain of waves with the tasks on
+   it; and the routes (executor tiers, each wave's supervisor and the
+   review model — named, never priced). When ship runs this skill, the
+   same message also states the branch that will be created and pushed, the
+   pull request that will be opened at the end, and the recovery allowance.
+   Never a duration or a cost — see "No time or cost estimates" below. Then
+   wait for the user's approval to start. One approval. After it the run
+   goes on — inside ship, to the pull request — without another approval. A
+   new instruction from the user that contradicts the plan is a
+   contradiction: ask.
+8. **Handoff.** After the start approval: "Execute with multi-model (supervised waves)." The plan
    file IS the wave-plan artifact: the json block feeds the runner directly —
    each runner task is the json entry plus its `## Task` prose as
    `description` (the runner rejects a task without one, by name). The
