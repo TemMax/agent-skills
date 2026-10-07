@@ -399,7 +399,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      "...", "date": "..."}`, required whenever `claude-fable-5-1` or
      `gpt-6-astra` appears in any role — supervisor, executor, or ladder
      rung. The example above shows it for the `claude-fable-5-1` supervisor.
-   - `review`: required for a Codex plan that goes through ship (ship stops and asks without it), optional otherwise — Claude plans never carry it, since Claude's Stage 3 review runs in the
+   - `review`: optional (without it ship uses the standard measured review route without asking) — Claude plans never carry it, since Claude's Stage 3 review runs in the
      session. Names the model and effort for ship's Stage 3
      critical-review child, as an object, e.g.:
      `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,

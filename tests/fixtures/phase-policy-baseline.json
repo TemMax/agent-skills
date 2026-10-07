@@ -46,7 +46,7 @@
       "509c326343efd671a68e28561495fc453a5b0c79edd6e1b4555c8840ef06c78f",
       "63184c4187701306476cddb58911074dd48ab09a2143f17e7616d95d65f18012",
       "cbf0a86f9120338822d7acf5050fd2cd1cd70dde3a85251d00d3c56b03b1278e",
-      "553c83cf46aeec1d6fa2e015530aa4438150be7ef5aef58a441e6e8ce23cac8f",
+      "fe52b5f4a1d07a7c59887d090219e43e8fd1bfddba31a02903924f1d076575a3",
       "7ae5dda02e2ce3545e9a7e18603fa58e4183108159de98575cff723dc4643057",
       "e40559dc13ca40fe134205558b9ef67943c823032b33659e05d9faed5fe9c0d2",
       "21ffe2b7b3f6afceffd0eef45702711d6b57f879dead936c29a2ff276a677fa3",
@@ -161,7 +161,7 @@
       "509c326343efd671a68e28561495fc453a5b0c79edd6e1b4555c8840ef06c78f",
       "418cda22d73d700b5733011c4cbfa614fbf5c24bc731b3976592b7d5900ff491",
       "3936420480ae9c7983d61d3d651b69e53c293f9b01c9656d5907473b701ccddb",
-      "46547d1c511e6ad79f7ac2f9731156122cc0b470382bc911276d14c1bab6deb3",
+      "3b008b1617e8feab4c24366ef0e837b87dfb39dfa2a292178cd227ed756fef13",
       "22e9786ea6249fc63ba6138eeb3ea83f72589562c2a7c4cc557cdb7711c57477",
       "2fb28dafbb7ba11dae61eab211b5c9617595ebb6b439d051d9b2427c72f2960e",
       "50d30d12f05d65911048ca998b5c55d27b711ab33cf015a0ad2715c12fb668a0",
@@ -601,6 +601,18 @@
       "old": "da3ec12872496e875b69374ffd265ff2a02a4769f36accbaed12fb04adb5fd6e",
       "new": "141d92533acb470cd14df1a28486a027c607ba66c2347cf60d1de3607e946619",
       "reason": "Codex session rule 3 rewritten: the user's direct instruction wins, otherwise the coordinator chooses the route itself, runs the covering checks and shows the diff."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/WORKFLOW.md",
+      "old": "46547d1c511e6ad79f7ac2f9731156122cc0b470382bc911276d14c1bab6deb3",
+      "new": "3b008b1617e8feab4c24366ef0e837b87dfb39dfa2a292178cd227ed756fef13",
+      "reason": "The plan's review key is optional: without it ship uses the standard measured review route without asking."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/WORKFLOW.md",
+      "old": "553c83cf46aeec1d6fa2e015530aa4438150be7ef5aef58a441e6e8ce23cac8f",
+      "new": "fe52b5f4a1d07a7c59887d090219e43e8fd1bfddba31a02903924f1d076575a3",
+      "reason": "The plan's review key is optional: without it ship uses the standard measured review route without asking."
     }
   ]
 }

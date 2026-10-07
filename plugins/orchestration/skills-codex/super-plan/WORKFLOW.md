@@ -395,7 +395,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      role — supervisor, executor, ladder rung, or `review`. The example
      above has none: its standard `gpt-6.1-sol` supervisor needs no
      approval.
-   - `review`: required for a Codex plan that goes through ship (ship stops and asks without it), optional otherwise. Names the model
+   - `review`: optional (without it ship uses the standard measured review route without asking). Names the model
      and effort for ship's Stage 3 critical-review child, as an object,
      e.g.: `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,
      recorded in `approvals.premium`) or
