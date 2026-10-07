@@ -600,6 +600,151 @@ test('--branch: integrated deleted, checked out kept, unintegrated kept, missing
   assert.equal(branchExists(repo, 'feature'), false)
 })
 
+// A remote the way a clone records it, without any network: the URL is never
+// contacted, the remote-tracking ref is written directly.
+function addRemote(repo, branch, commit) {
+  git(repo, 'remote', 'add', 'origin', join(repo, '..', 'no-such-remote.git'))
+  git(repo, 'update-ref', 'refs/remotes/origin/' + branch, commit)
+}
+
+test('--branch never deletes the integration target, however --into spells it', () => {
+  const { root, repo, base, main } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addRemote(repo, main, base)
+  git(repo, 'checkout', '-q', '--detach')
+  const before = snapshot(repo)
+
+  for (const target of [main, 'refs/heads/' + main, 'origin/' + main, 'refs/remotes/origin/' + main]) {
+    for (const extra of [[], ['--dry-run']]) {
+      const r = cleanup('--repo', repo, '--plan', plan, '--branch', main, '--into', target, ...extra)
+      assert.equal(r.status, 0, r.stderr)
+      assert.deepEqual(r.json.removed, [], target)
+      assert.deepEqual(r.json.kept, [{ kind: 'branch', branch: main, reason: 'is the integration target' }], target)
+      assert.deepEqual(snapshot(repo), before)
+    }
+  }
+})
+
+test('--branch never deletes the branch a remote HEAD points at, even when --into is a commit id', () => {
+  const { root, repo, base, main } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  git(repo, 'branch', 'trunk', base)
+  addRemote(repo, 'trunk', base)
+  git(repo, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk')
+  git(repo, 'checkout', '-q', '--detach')
+  const before = snapshot(repo)
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--branch', 'trunk', '--into', base)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [])
+  assert.deepEqual(r.json.kept, [{ kind: 'branch', branch: 'trunk', reason: 'is the default branch' }])
+  assert.deepEqual(snapshot(repo), before)
+
+  // the other local branch is neither the target nor the default: deleted
+  const other = cleanup('--repo', repo, '--plan', plan, '--branch', main, '--into', base)
+  assert.equal(other.status, 0, other.stderr)
+  assert.deepEqual(other.json.removed, [{ kind: 'branch', branch: main, tip: base }])
+  assert.equal(branchExists(repo, 'trunk'), true)
+})
+
+test('--branch still deletes a feature branch whose tip equals the target tip (a fast-forward merge)', () => {
+  const { root, repo, base, main } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  git(repo, 'checkout', '-q', '-b', 'feature')
+  const tip = commitFile(repo, 'feature.txt', 'feature\n', 'feature work')
+  git(repo, 'checkout', '-q', main)
+  git(repo, 'merge', '--ff-only', 'feature')
+  addRemote(repo, main, tip)
+  git(repo, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/' + main)
+  assert.notEqual(tip, base)
+  assert.equal(git(repo, 'rev-parse', 'origin/' + main), tip)
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--branch', 'feature', '--into', 'origin/' + main)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [{ kind: 'branch', branch: 'feature', tip }])
+  assert.deepEqual(r.json.kept, [])
+  assert.equal(branchExists(repo, 'feature'), false)
+  assert.equal(branchExists(repo, main), true)
+})
+
+// A judge's detached checkout inside a run record, left registered the way a
+// killed runner leaves it.
+function addJudgeCheckout(repo, record, commit) {
+  const path = join(record, 't', 'judge-1.checkout')
+  git(repo, 'worktree', 'add', '--detach', path, commit)
+  return path
+}
+
+function registered(repo, path) {
+  return git(repo, 'worktree', 'list', '--porcelain').split('\n').includes('worktree ' + realpathSync(path))
+}
+
+test('--records prunes the worktree registration a removed record directory held', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const record = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
+  const parent = realpathSync(join(record, '..'))
+  const checkout = addJudgeCheckout(repo, record, base)
+  assert.equal(registered(repo, checkout), true)
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records')
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.stderr, '')
+  assert.deepEqual(entry(r.json.removed, 'record', 'path', record), { kind: 'record', path: record })
+  assert.deepEqual(r.json.kept, [])
+  assert.equal(existsSync(record), false)
+  const listed = git(repo, 'worktree', 'list', '--porcelain')
+  assert.equal(listed.includes(join(parent, '1-abc')), false, listed)
+  assert.doesNotMatch(listed, /judge-1\.checkout/)
+  assert.equal(listed.split('\n').filter((line) => line.startsWith('worktree ')).length, 1)
+})
+
+test('--dry-run --records and a run without --records leave the registration listed', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const record = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
+  const checkout = addJudgeCheckout(repo, record, base)
+  // a second registration whose directory is already gone: only a prune drops it
+  const stale = join(root, 'stale-checkout')
+  git(repo, 'worktree', 'add', '--detach', stale, base)
+  rmSync(stale, { recursive: true })
+  const before = snapshot(repo)
+  assert.match(before.worktrees, /stale-checkout/)
+
+  let r = cleanup('--repo', repo, '--plan', plan, '--records', '--dry-run')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(entry(r.json.removed, 'record', 'path', record), { kind: 'record', path: record })
+  assert.deepEqual(snapshot(repo), before)
+  assert.equal(registered(repo, checkout), true)
+
+  r = cleanup('--repo', repo, '--plan', plan)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed.map((item) => item.kind), ['worktree', 'branch'])
+  assert.equal(existsSync(join(record, 'summary.json')), true)
+  assert.equal(registered(repo, checkout), true)
+  assert.match(git(repo, 'worktree', 'list', '--porcelain'), /stale-checkout/)
+})
+
+test('--records that removes no record directory prunes nothing', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  const record = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
+  const stale = join(root, 'stale-checkout')
+  git(repo, 'worktree', 'add', '--detach', stale, base)
+  rmSync(stale, { recursive: true })
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [])
+  assert.equal(existsSync(record), true)
+  assert.match(git(repo, 'worktree', 'list', '--porcelain'), /stale-checkout/)
+})
+
 test('worktree states that prove nothing are kept with their reason', () => {
   const { root, repo, base } = makeRepo()
   const plan = writePlan(root, 'plan.md', [[1, ['plain', 'nobranch', 'moved', 'bare', 'absent']]])
