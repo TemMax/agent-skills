@@ -96,7 +96,7 @@ test('a done run prints the cleanup command in stdout and summary.json; other st
   const f = fixture(t); const r = run(f)
   assert.equal(r.status, 0, r.stderr)
   const expected = 'node ' + join(dirname(runner), 'wave-cleanup.mjs') + ' --repo ' + f.repo
-    + ' --plan ' + resolve(f.plan) + ' --wave 1'
+    + ' --plan ' + resolve(f.plan) + ' --wave 1 --summary ' + join(f.out, 'summary.json')
   assert.equal(JSON.parse(r.stdout).afterIntegration, expected)
   assert.equal(r.summary.afterIntegration, expected)
   const g = fixture(t, { max_model_calls: 1 }); const b = run(g)

@@ -1194,7 +1194,8 @@ async function main() {
     ...(status === 'merge-ready'
       ? {
         afterIntegration: 'node ' + join(here, 'wave-cleanup.mjs') + ' --repo ' + config.repoPath
-          + ' --plan ' + config.planPath + ' --wave ' + config.waveNumber,
+          + ' --plan ' + config.planPath + ' --wave ' + config.waveNumber
+          + ' --summary ' + join(config.outPath, 'summary.json'),
       }
       : {}),
   }

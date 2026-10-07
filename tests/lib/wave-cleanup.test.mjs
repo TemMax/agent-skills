@@ -115,11 +115,27 @@ function entry(list, kind, key, value) {
   return list.find((item) => item.kind === kind && item[key] === value)
 }
 
+function writeRecord(repo, runner, name, ids, status = 'done') {
+  const dir = join(repo, '.worktrees', runner, name)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'summary.json'), JSON.stringify({ tasks: ids.map((id) => ({ id, status })) }))
+  writeFileSync(join(dir, 'a.report.md'), 'report\n')
+  return dir
+}
+
+// The run record of a finished run that accepted these tasks.
+function accept(repo, ...ids) {
+  return writeRecord(repo, 'claude-runner', 'accepted', ids, 'ok')
+}
+
+const NOT_ACCEPTED = 'no finished run record marks this task ok'
+
 test('a task merged with a plain merge: worktree and branch removed, tip reported', () => {
   const { root, repo, base } = makeRepo()
   const plan = writePlan(root, 'plan.md', [[1, ['a']]])
   const tip = addTask(repo, 'a', base)
   merge(repo, 'a')
+  accept(repo, 'a')
 
   const r = cleanup('--repo', repo, '--plan', plan)
   assert.equal(r.status, 0, r.stderr)
@@ -146,6 +162,7 @@ test('a task integrated with merge --squash plus a commit: removed', () => {
   const plan = writePlan(root, 'plan.md', [[1, ['a']]])
   const tip = addTask(repo, 'a', base)
   squash(repo, 'a')
+  accept(repo, 'a')
   // the target moving on elsewhere does not undo the proof
   commitFile(repo, 'later.txt', 'later\n', 'later')
   assert.notEqual(spawnSync('git', ['-C', repo, 'merge-base', '--is-ancestor', tip, 'HEAD']).status, 0)
@@ -163,6 +180,7 @@ test('a task not integrated: both kept, the reason names the target, nothing cha
   const { root, repo, base, main } = makeRepo()
   const plan = writePlan(root, 'plan.md', [[1, ['a']]])
   addTask(repo, 'a', base)
+  accept(repo, 'a')
   const before = snapshot(repo)
 
   for (const [args, ref] of [[[], 'HEAD'], [['--into', main], main]]) {
@@ -182,6 +200,7 @@ test('--into decides against that commit, not against HEAD', () => {
   const plan = writePlan(root, 'plan.md', [[1, ['a']]])
   addTask(repo, 'a', base)
   merge(repo, 'a')
+  accept(repo, 'a')
   const before = snapshot(repo)
 
   const r = cleanup('--repo', repo, '--plan', plan, '--into', base)
@@ -199,6 +218,7 @@ test('an integrated task with an untracked file or a modified tracked file is ke
   addTask(repo, 'b', base)
   merge(repo, 'a')
   merge(repo, 'b')
+  accept(repo, 'a', 'b')
   writeFileSync(join(worktreePath(repo, 'a'), 'notes.txt'), 'not committed\n')
   writeFileSync(join(worktreePath(repo, 'b'), 'b.txt'), 'edited after the commit\n')
   const before = snapshot(repo)
@@ -220,6 +240,7 @@ test('an integrated task whose worktree holds only an ignored file: removed', ()
   const plan = writePlan(root, 'plan.md', [[1, ['a']]])
   addTask(repo, 'a', base)
   merge(repo, 'a')
+  accept(repo, 'a')
   mkdirSync(join(worktreePath(repo, 'a'), 'build'))
   writeFileSync(join(worktreePath(repo, 'a'), 'build', 'out.o'), 'object\n')
 
@@ -236,6 +257,7 @@ test('a target that changed the same lines again after integration: kept', () =>
   addTask(repo, 'a', base, 'shared.txt', 'one\ntask\nthree\n')
   squash(repo, 'a')
   commitFile(repo, 'shared.txt', 'one\ntarget again\nthree\n', 'change the same line again')
+  accept(repo, 'a')
   const before = snapshot(repo)
 
   const r = cleanup('--repo', repo, '--plan', plan)
@@ -255,6 +277,7 @@ test('--wave touches only the tasks of that wave', () => {
     addTask(repo, id, base)
     merge(repo, id)
   }
+  accept(repo, 'a', 'b', 'c')
 
   const r = cleanup('--repo', repo, '--plan', plan, '--wave', '2')
   assert.equal(r.status, 0, r.stderr)
@@ -276,6 +299,7 @@ test('two --plan files: the union of their tasks is handled, in plan order', () 
     addTask(repo, id, base)
     merge(repo, id)
   }
+  accept(repo, 'a', 'b', 'outside')
 
   const r = cleanup('--repo', repo, '--plan', first, '--plan', second)
   assert.equal(r.status, 0, r.stderr)
@@ -286,14 +310,6 @@ test('two --plan files: the union of their tasks is handled, in plan order', () 
   assert.equal(branchExists(repo, 'wave/outside'), true)
   assert.equal(existsSync(worktreePath(repo, 'outside')), true)
 })
-
-function writeRecord(repo, runner, name, ids) {
-  const dir = join(repo, '.worktrees', runner, name)
-  mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, 'summary.json'), JSON.stringify({ tasks: ids.map((id) => ({ id, status: 'done' })) }))
-  writeFileSync(join(dir, 'a.report.md'), 'report\n')
-  return dir
-}
 
 function writeState(repo, name, repoPath, ids) {
   const dir = join(repo, '.worktrees', 'codex-wave')
@@ -310,7 +326,7 @@ test('--dry-run changes nothing and lists the removals', () => {
   addTask(repo, 'b', base)
   merge(repo, 'a')
   git(repo, 'branch', 'feature', base)
-  const record = writeRecord(repo, 'claude-runner', '1-abc', ['a'])
+  const record = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
   const state = writeState(repo, 'p.json', repo, ['a'])
   const before = snapshot(repo)
 
@@ -335,10 +351,10 @@ test('--records removes only the run records of the given plans', () => {
   addTask(repo, 'b', base)
   merge(repo, 'a') // b stays unintegrated, so it keeps its branch
 
-  const mineClaude = writeRecord(repo, 'claude-runner', '1-abc', ['a'])
+  const mineClaude = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
   const mineCodex = writeRecord(repo, 'codex-runner', '1-abc', ['a'])
   const foreign = writeRecord(repo, 'claude-runner', '1-other', ['a', 'zzz'])
-  const busy = writeRecord(repo, 'codex-runner', '2-abc', ['a', 'b'])
+  const busy = writeRecord(repo, 'codex-runner', '2-abc', ['a', 'b'], 'ok')
   const noSummary = join(repo, '.worktrees', 'codex-runner', 'scratch')
   mkdirSync(noSummary)
   const empty = writeRecord(repo, 'claude-runner', '3-empty', [])
@@ -382,6 +398,7 @@ test('--records removes only the run records of the given plans', () => {
   assert.equal(existsSync(join(outside, 'summary.json')), true)
   // step A's own leftovers are not reported a second time as `other`
   assert.equal(entry(r.json.kept, 'other', 'path', worktreePath(repo, 'b')), undefined)
+  assert.equal(entry(r.json.kept, 'branch', 'task', 'b').reason, 'not integrated into HEAD')
 })
 
 test('--records removes the emptied parent directories, .worktrees included', () => {
@@ -389,7 +406,7 @@ test('--records removes the emptied parent directories, .worktrees included', ()
   const plan = writePlan(root, 'plan.md', [[1, ['a']]])
   addTask(repo, 'a', base)
   merge(repo, 'a')
-  writeRecord(repo, 'claude-runner', '1-abc', ['a'])
+  writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
   writeRecord(repo, 'codex-runner', '1-abc', ['a'])
   writeState(repo, 'p.json', repo, ['a'])
 
@@ -400,12 +417,12 @@ test('--records removes the emptied parent directories, .worktrees included', ()
   assert.equal(git(repo, 'status', '--porcelain', '--untracked-files=all'), '')
 })
 
-test('without --records no run record is read or removed', () => {
+test('without --records no run record is removed', () => {
   const { root, repo, base } = makeRepo()
   const plan = writePlan(root, 'plan.md', [[1, ['a']]])
   addTask(repo, 'a', base)
   merge(repo, 'a')
-  const record = writeRecord(repo, 'claude-runner', '1-abc', ['a'])
+  const record = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
 
   const r = cleanup('--repo', repo, '--plan', plan)
   assert.equal(r.status, 0, r.stderr)
@@ -472,7 +489,8 @@ test('worktree states that prove nothing are kept with their reason', () => {
   // an integrated branch with no worktree at all
   git(repo, 'branch', 'wave/bare', base)
 
-  const r = cleanup('--repo', repo, '--plan', plan)
+  const r = cleanup('--repo', repo, '--plan', plan,
+    ...['plain', 'nobranch', 'moved', 'bare'].flatMap((id) => ['--accepted', id]))
   assert.equal(r.status, 0, r.stderr)
   assert.deepEqual(r.json.removed, [{ kind: 'branch', task: 'bare', branch: 'wave/bare', tip: base }])
   assert.deepEqual(r.json.kept, [
@@ -497,6 +515,7 @@ test('a failing removal is kept with the error, the other tasks continue, exit 1
   addTask(repo, 'b', base)
   merge(repo, 'a')
   merge(repo, 'b')
+  accept(repo, 'a', 'b')
   git(repo, 'worktree', 'lock', worktreePath(repo, 'a')) // one --force does not remove a locked worktree
 
   const r = cleanup('--repo', repo, '--plan', plan)
@@ -523,7 +542,7 @@ test('every usage error exits 2 with one line on stderr and changes nothing', ()
   const other = writePlan(root, 'other.md', [[1, ['b']]])
   addTask(repo, 'a', base)
   merge(repo, 'a') // a valid run would remove this
-  writeRecord(repo, 'claude-runner', '1-abc', ['a'])
+  writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
   mkdirSync(join(repo, 'sub'))
   const notGit = join(root, 'not-a-repo')
   mkdirSync(notGit)
@@ -560,6 +579,11 @@ test('every usage error exits 2 with one line on stderr and changes nothing', ()
     'plan without waves': ['--repo', repo, '--plan', noWaves],
     'plan with an unsafe task id': ['--repo', repo, '--plan', badId],
     'one bad plan among good ones': ['--repo', repo, '--plan', plan, '--plan', noBlock],
+    '--summary without its value': ['--repo', repo, '--plan', plan, '--summary'],
+    '--summary that does not exist': ['--repo', repo, '--plan', plan, '--summary', join(root, 'missing.json')],
+    '--summary that is a directory': ['--repo', repo, '--plan', plan, '--summary', root],
+    '--accepted without its value': ['--repo', repo, '--plan', plan, '--accepted'],
+    '--accepted naming no task of the plans': ['--repo', repo, '--plan', plan, '--accepted', 'b'],
   }
   for (const [name, args] of Object.entries(cases)) {
     const r = cleanup(...args, '--records')
@@ -568,4 +592,239 @@ test('every usage error exits 2 with one line on stderr and changes nothing', ()
     assert.match(r.stderr, /^wave-cleanup: [^\n]+\n$/, name)
     assert.deepEqual(snapshot(repo), before, name)
   }
+})
+
+// A task the way the runners create it that has not committed yet.
+function addIdleTask(repo, id, base) {
+  git(repo, 'worktree', 'add', worktreePath(repo, id), '-b', 'wave/' + id, base)
+}
+
+function keptUnaccepted(repo, id) {
+  return [
+    { kind: 'worktree', task: id, path: worktreePath(repo, id), reason: NOT_ACCEPTED },
+    { kind: 'branch', task: id, branch: 'wave/' + id, reason: NOT_ACCEPTED },
+  ]
+}
+
+function writeSummary(file, summary) {
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify(summary))
+  return file
+}
+
+test('a task with no commits, a clean worktree and no run record is kept, nothing changed', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addIdleTask(repo, 'a', base)
+  // the old proof alone would have passed: the tip is an ancestor, the tree is clean
+  assert.equal(git(repo, 'rev-parse', 'wave/a'), git(repo, 'rev-parse', 'HEAD'))
+  assert.equal(git(worktreePath(repo, 'a'), 'status', '--porcelain', '--untracked-files=all'), '')
+  const before = snapshot(repo)
+
+  for (const extra of [[], ['--dry-run'], ['--records'], ['--wave', '1']]) {
+    const r = cleanup('--repo', repo, '--plan', plan, ...extra)
+    assert.equal(r.status, 0, r.stderr)
+    assert.deepEqual(r.json.removed, [])
+    assert.deepEqual(r.json.kept, keptUnaccepted(repo, 'a'))
+    assert.deepEqual(snapshot(repo), before)
+  }
+})
+
+test('an accepted, integrated sibling is removed; the unaccepted task of the same wave is untouched', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['done', 'running']]])
+  const tip = addTask(repo, 'done', base)
+  merge(repo, 'done')
+  addIdleTask(repo, 'running', git(repo, 'rev-parse', 'HEAD'))
+  const record = writeRecord(repo, 'codex-runner', '1-abc', ['done'], 'ok')
+  const runningTip = git(repo, 'rev-parse', 'wave/running')
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--wave', '1')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [
+    { kind: 'worktree', task: 'done', path: worktreePath(repo, 'done') },
+    { kind: 'branch', task: 'done', branch: 'wave/done', tip },
+  ])
+  assert.deepEqual(r.json.kept, keptUnaccepted(repo, 'running'))
+  assert.equal(existsSync(worktreePath(repo, 'done')), false)
+  assert.equal(branchExists(repo, 'wave/done'), false)
+  assert.equal(existsSync(worktreePath(repo, 'running')), true)
+  assert.equal(git(repo, 'rev-parse', 'wave/running'), runningTip)
+  assert.equal(git(worktreePath(repo, 'running'), 'rev-parse', 'HEAD'), runningTip)
+  assert.equal(git(worktreePath(repo, 'running'), 'symbolic-ref', '--short', 'HEAD'), 'wave/running')
+  assert.equal(existsSync(join(record, 'summary.json')), true)
+})
+
+test('a summary that marks an integrated, clean task failed is not acceptance', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'failed')
+  writeRecord(repo, 'codex-runner', '1-abc', ['other'], 'ok')
+  const before = snapshot(repo)
+
+  const r = cleanup('--repo', repo, '--plan', plan)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [])
+  assert.deepEqual(r.json.kept, keptUnaccepted(repo, 'a'))
+  assert.deepEqual(snapshot(repo), before)
+})
+
+test('an ok summary whose recorded head differs from the branch tip is not acceptance; the matching head is', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  const accepted = addTask(repo, 'a', base)
+  const tip = commitFile(worktreePath(repo, 'a'), 'more.txt', 'more\n', 'work after the accepted run')
+  merge(repo, 'a')
+  const file = join(repo, '.worktrees', 'codex-runner', '1-abc', 'summary.json')
+  const summary = (head) => ({ tasks: [{ id: 'a', status: 'ok' }], recovery: { tasks: { a: { head } } } })
+  writeSummary(file, summary(accepted))
+  const before = snapshot(repo)
+
+  let r = cleanup('--repo', repo, '--plan', plan)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [])
+  assert.deepEqual(r.json.kept, keptUnaccepted(repo, 'a'))
+  assert.deepEqual(snapshot(repo), before)
+
+  writeSummary(file, summary(tip))
+  r = cleanup('--repo', repo, '--plan', plan)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.kept, [])
+  assert.deepEqual(r.json.removed, [
+    { kind: 'worktree', task: 'a', path: worktreePath(repo, 'a') },
+    { kind: 'branch', task: 'a', branch: 'wave/a', tip },
+  ])
+  assert.equal(branchExists(repo, 'wave/a'), false)
+})
+
+test('an ok summary does not accept a worktree whose branch is gone', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  git(worktreePath(repo, 'a'), 'checkout', '-q', '--detach')
+  git(repo, 'branch', '-D', 'wave/a')
+  accept(repo, 'a')
+  const before = snapshot(repo)
+
+  const r = cleanup('--repo', repo, '--plan', plan)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [])
+  assert.deepEqual(r.json.kept, [
+    { kind: 'worktree', task: 'a', path: worktreePath(repo, 'a'), reason: NOT_ACCEPTED },
+  ])
+  assert.deepEqual(snapshot(repo), before)
+})
+
+test('--summary outside the default directories accepts the task; an unreadable one exits 2', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a', 'b']]])
+  const tipA = addTask(repo, 'a', base)
+  const tipB = addTask(repo, 'b', base)
+  merge(repo, 'a')
+  merge(repo, 'b')
+  const forA = writeSummary(join(root, 'out-a', 'summary.json'), { tasks: [{ id: 'a', status: 'ok' }] })
+  const forB = writeSummary(join(root, 'out-b', 'summary.json'),
+    { tasks: [{ id: 'b', status: 'ok' }], recovery: { tasks: { b: { head: tipB } } } })
+  const broken = join(root, 'broken.json')
+  writeFileSync(broken, '{ "tasks": [')
+  const noTasks = writeSummary(join(root, 'no-tasks.json'), { status: 'done' })
+  const before = snapshot(repo)
+
+  let r = cleanup('--repo', repo, '--plan', plan, '--summary', forA, '--summary', join(root, 'missing', 'summary.json'))
+  assert.equal(r.status, 2, r.stderr)
+  assert.equal(r.stdout, '')
+  assert.match(r.stderr, /^wave-cleanup: cannot read --summary [^\n]+\n$/)
+  assert.deepEqual(snapshot(repo), before)
+
+  // a summary that does not parse or has no tasks array marks nothing
+  r = cleanup('--repo', repo, '--plan', plan, '--summary', broken, '--summary', noTasks)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [])
+  assert.deepEqual(r.json.kept, [...keptUnaccepted(repo, 'a'), ...keptUnaccepted(repo, 'b')])
+  assert.deepEqual(snapshot(repo), before)
+
+  r = cleanup('--repo', repo, '--plan', plan, '--summary', forA)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [
+    { kind: 'worktree', task: 'a', path: worktreePath(repo, 'a') },
+    { kind: 'branch', task: 'a', branch: 'wave/a', tip: tipA },
+  ])
+  assert.deepEqual(r.json.kept, keptUnaccepted(repo, 'b'))
+
+  r = cleanup('--repo', repo, '--plan', plan, '--summary', forA, '--summary', forB)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed.map((item) => [item.kind, item.task]), [['worktree', 'b'], ['branch', 'b']])
+  assert.deepEqual(r.json.kept, [])
+  // the summaries named on the command line are left where they are
+  for (const file of [forA, forB, broken, noTasks]) assert.equal(existsSync(file), true, file)
+})
+
+test('--accepted accepts a task without any record; an id outside the plans exits 2', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']], [2, ['b']]])
+  const tip = addTask(repo, 'a', base)
+  addTask(repo, 'b', base)
+  addTask(repo, 'outside', base)
+  for (const id of ['a', 'b', 'outside']) merge(repo, id)
+  const before = snapshot(repo)
+
+  let r = cleanup('--repo', repo, '--plan', plan, '--accepted', 'a', '--accepted', 'outside')
+  assert.equal(r.status, 2, r.stderr)
+  assert.equal(r.stdout, '')
+  assert.equal(r.stderr, 'wave-cleanup: --accepted names no task of the given plans: outside\n')
+  assert.deepEqual(snapshot(repo), before)
+
+  r = cleanup('--repo', repo, '--plan', plan, '--accepted', 'a')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [
+    { kind: 'worktree', task: 'a', path: worktreePath(repo, 'a') },
+    { kind: 'branch', task: 'a', branch: 'wave/a', tip },
+  ])
+  assert.deepEqual(r.json.kept, keptUnaccepted(repo, 'b'))
+  assert.equal(existsSync(worktreePath(repo, 'outside')), true)
+
+  // acceptance does not replace the integration proof or the clean worktree
+  git(repo, 'worktree', 'add', worktreePath(repo, 'a'), '-b', 'wave/a', base)
+  commitFile(worktreePath(repo, 'a'), 'again.txt', 'again\n', 'unmerged work')
+  writeFileSync(join(worktreePath(repo, 'b'), 'notes.txt'), 'not committed\n')
+  r = cleanup('--repo', repo, '--plan', plan, '--accepted', 'a', '--accepted', 'b')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [])
+  assert.deepEqual(r.json.kept.map((item) => [item.task, item.reason]), [
+    ['a', 'not integrated into HEAD'], ['a', 'not integrated into HEAD'],
+    ['b', 'uncommitted changes'], ['b', 'uncommitted changes'],
+  ])
+})
+
+test('a summary reached through a symbolic link under a runner directory is ignored', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const ok = { tasks: [{ id: 'a', status: 'ok' }] }
+  const outside = join(root, 'outside-run')
+  writeSummary(join(outside, 'summary.json'), ok)
+  // a run directory that is a link
+  mkdirSync(join(repo, '.worktrees', 'claude-runner'), { recursive: true })
+  symlinkSync(outside, join(repo, '.worktrees', 'claude-runner', 'linked'))
+  // a summary.json that is a link
+  mkdirSync(join(repo, '.worktrees', 'codex-runner', '1-abc'), { recursive: true })
+  symlinkSync(join(outside, 'summary.json'), join(repo, '.worktrees', 'codex-runner', '1-abc', 'summary.json'))
+  const before = snapshot(repo)
+
+  let r = cleanup('--repo', repo, '--plan', plan)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, [])
+  assert.deepEqual(r.json.kept, keptUnaccepted(repo, 'a'))
+  assert.deepEqual(snapshot(repo), before)
+
+  // the same summary as a real file in a real run directory does accept
+  writeSummary(join(repo, '.worktrees', 'claude-runner', 'real', 'summary.json'), ok)
+  r = cleanup('--repo', repo, '--plan', plan)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed.map((item) => item.kind), ['worktree', 'branch'])
+  assert.equal(existsSync(join(outside, 'summary.json')), true)
 })

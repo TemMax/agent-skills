@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // Removes what a wave left behind — task worktrees, `wave/<id>` branches and,
 // on request, run records — and only what is provably safe to remove: a
-// branch must be proven integrated into the target and its worktree clean.
-// Anything not proven is kept and listed with the reason. Host-neutral: no
-// model, no network, nothing outside <repo>/.worktrees.
+// task must be accepted (a finished run's summary.json marks it `ok` at the
+// branch's current tip, or --accepted names it), its branch proven integrated
+// into the target and its worktree clean. Anything not proven is kept and
+// listed with the reason. Host-neutral: no model, no network, nothing
+// outside <repo>/.worktrees.
 import { spawnSync } from 'node:child_process'
 import { lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
@@ -12,6 +14,7 @@ import { readPlanJson } from './worktree-env.mjs'
 const USAGE = [
   'node wave-cleanup.mjs --repo <abs> --plan <file> [--plan <file> ...]',
   '                      [--wave <n>] [--into <ref>] [--branch <name>]',
+  '                      [--summary <file> ...] [--accepted <id> ...]',
   '                      [--records] [--dry-run]',
   'node wave-cleanup.mjs --help',
   '',
@@ -20,8 +23,18 @@ const USAGE = [
   '  --wave <n>       only the tasks of wave <n> (with exactly one --plan)',
   '  --into <ref>     integration target (default HEAD of --repo)',
   '  --branch <name>  also delete this local branch when it is integrated',
+  '  --summary <file> a run\'s summary.json kept outside the two default',
+  '                   directories; repeatable',
+  '  --accepted <id>  this task was accepted although no run record says so',
+  '                   (a host that leaves none); repeatable',
   '  --records        also remove the run records of the given plans',
   '  --dry-run        run every check, change nothing',
+  '',
+  'A task is removed only when it is accepted: a summary.json — one named',
+  'with --summary, or <repo>/.worktrees/{claude-runner,codex-runner}/*/',
+  'summary.json — lists it with status "ok" and, when that summary records',
+  'the task\'s head, the head is the current tip of wave/<id>; or --accepted',
+  'names it. An accepted task still has to be integrated and clean.',
   '',
   'Prints one JSON object: { into, dryRun, removed, kept }.',
   'Exit 0: completed (kept entries are not an error); 1: a removal command',
@@ -29,12 +42,14 @@ const USAGE = [
 ].join('\n')
 
 const SINGLE = ['repo', 'wave', 'into', 'branch']
+const REPEATABLE = ['plan', 'summary', 'accepted']
 const SWITCHES = ['records', 'dry-run']
 const RUNNER_DIRS = ['claude-runner', 'codex-runner']
 const STATE_DIR = 'codex-wave'
 // A task id becomes a path segment and a ref segment; anything else is a
 // malformed plan, never a path to act on.
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const NOT_ACCEPTED = 'no finished run record marks this task ok'
 
 class UsageError extends Error {}
 
@@ -75,7 +90,7 @@ function real(path) {
 }
 
 function parseArgs(argv) {
-  const options = { plan: [] }
+  const options = { plan: [], summary: [], accepted: [] }
   if (argv.includes('--help')) return { help: true }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -84,12 +99,12 @@ function parseArgs(argv) {
       options[name] = true
       continue
     }
-    if (name !== 'plan' && !SINGLE.includes(name)) throw new UsageError('unknown argument: ' + arg)
+    if (!REPEATABLE.includes(name) && !SINGLE.includes(name)) throw new UsageError('unknown argument: ' + arg)
     const value = argv[i + 1]
     if (value === undefined || value.startsWith('--')) throw new UsageError(arg + ' needs a value')
     i += 1
-    if (name === 'plan') {
-      options.plan.push(value)
+    if (REPEATABLE.includes(name)) {
+      options[name].push(value)
       continue
     }
     if (name in options) throw new UsageError(arg + ' given more than once')
@@ -130,6 +145,57 @@ function unique(ids) {
   return [...new Set(ids)]
 }
 
+function parseJson(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+function readJson(path) {
+  const stat = lstat(path)
+  if (stat === null || !stat.isFile()) return null
+  try {
+    return parseJson(readFileSync(path, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function children(dir) {
+  try {
+    return readdirSync(dir).sort()
+  } catch {
+    return []
+  }
+}
+
+// The summaries acceptance is read from: every --summary file, then every
+// run directory under the two default runner directories. A symbolic link
+// on the way to a default summary is never followed.
+function readSummaries(files, worktrees) {
+  const summaries = files.map((file) => {
+    try {
+      return parseJson(readFileSync(file, 'utf8'))
+    } catch (error) {
+      throw new UsageError('cannot read --summary ' + file + ': ' + error.message)
+    }
+  })
+  const root = lstat(worktrees)
+  for (const name of root !== null && root.isDirectory() ? RUNNER_DIRS : []) {
+    const dir = join(worktrees, name)
+    const stat = lstat(dir)
+    if (stat === null || !stat.isDirectory()) continue
+    for (const child of children(dir)) {
+      const childStat = lstat(join(dir, child))
+      if (childStat === null || !childStat.isDirectory()) continue
+      summaries.push(readJson(join(dir, child, 'summary.json')))
+    }
+  }
+  return summaries.filter((summary) => summary !== null && typeof summary === 'object' && Array.isArray(summary.tasks))
+}
+
 function fail(message) {
   process.stderr.write('wave-cleanup: ' + oneLine(message) + '\n')
   process.exit(2)
@@ -143,6 +209,7 @@ let planIds
 let taskIds
 let into
 let intoTree
+let summaries
 try {
   options = parseArgs(process.argv.slice(2))
   if (options.help) {
@@ -161,6 +228,9 @@ try {
     if (waves.length === 0) throw new UsageError('--wave ' + options.wave + ' names no wave of ' + options.plan[0])
     taskIds = unique(waves.flatMap((wave) => wave.tasks.map((task) => task.id)))
   }
+  const stranger = options.accepted.find((id) => !planIds.includes(id))
+  if (stranger !== undefined) throw new UsageError('--accepted names no task of the given plans: ' + stranger)
+  summaries = readSummaries(options.summary, join(repo, '.worktrees'))
 
   options.into ??= 'HEAD'
   const commit = git(repo, 'rev-parse', '--verify', '--quiet', '--end-of-options', options.into + '^{commit}')
@@ -206,6 +276,24 @@ function isRepoWorktree(path, stat) {
   return own.ok && main.ok && real(own.out) === real(main.out)
 }
 
+// Accepted: --accepted names the task, or a summary marks it `ok` — and, when
+// that summary recorded the task's head, the branch still sits on it. Without
+// a branch there is no tip to hold a summary against, so only --accepted counts.
+function accepted(id, tip) {
+  if (options.accepted.includes(id)) return true
+  if (tip === null) return false
+  return summaries.some((summary) => {
+    const ok = summary.tasks.some((task) => task !== null && typeof task === 'object'
+      && task.id === id && task.status === 'ok')
+    if (!ok) return false
+    const recorded = summary.recovery !== null && typeof summary.recovery === 'object'
+      && summary.recovery.tasks !== null && typeof summary.recovery.tasks === 'object'
+      && Object.hasOwn(summary.recovery.tasks, id) ? summary.recovery.tasks[id] : null
+    const head = recorded !== null && typeof recorded === 'object' ? recorded.head : undefined
+    return typeof head !== 'string' || head === tip
+  })
+}
+
 // Step A. `left` records, per task, whether a branch or a worktree remains
 // after this step (in a dry run: would remain) — step C decides on that.
 const left = new Map()
@@ -223,6 +311,10 @@ function cleanTask(id) {
     if (tip !== null) kept.push({ kind: 'branch', task: id, branch, reason: branchReason })
   }
 
+  // First of all: a branch without commits of its own is an ancestor of the
+  // target, so integration alone cannot tell a finished task from one that
+  // has not committed yet.
+  if (!accepted(id, tip)) return keep(NOT_ACCEPTED)
   if (tip !== null && !integrated(tip)) return keep('not integrated into ' + options.into)
   if (stat !== null) {
     if (!isRepoWorktree(path, stat)) return keep('not a git worktree')
@@ -286,29 +378,11 @@ function cleanBranch(name) {
   removed.push({ kind: 'branch', branch: name, tip })
 }
 
-function readJson(path) {
-  const stat = lstat(path)
-  if (stat === null || !stat.isFile()) return null
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'))
-  } catch {
-    return null
-  }
-}
-
 function stillLeft(id) {
   if (!left.has(id)) {
     left.set(id, branchTip('wave/' + id) !== null || lstat(join(worktreesDir, 'wave-' + id)) !== null)
   }
   return left.get(id)
-}
-
-function children(dir) {
-  try {
-    return readdirSync(dir).sort()
-  } catch {
-    return []
-  }
 }
 
 // One run record or state file: `ids` is null when it is not this plan's.

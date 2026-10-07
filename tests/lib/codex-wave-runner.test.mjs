@@ -354,7 +354,7 @@ test('a merge-ready run carries the afterIntegration cleanup command; a stopped 
   assert.equal(result.status, 0, result.stdout + result.stderr)
   assert.equal(result.json.status, 'merge-ready')
   const expected = 'node ' + join(dirname(RUNNER), 'wave-cleanup.mjs') + ' --repo ' + repo
-    + ' --plan ' + planPath + ' --wave 1'
+    + ' --plan ' + planPath + ' --wave 1 --summary ' + join(outPath, 'summary.json')
   assert.equal(result.json.afterIntegration, expected)
   const onDisk = JSON.parse(readFileSync(join(outPath, 'summary.json'), 'utf8'))
   assert.equal(onDisk.afterIntegration, expected)
