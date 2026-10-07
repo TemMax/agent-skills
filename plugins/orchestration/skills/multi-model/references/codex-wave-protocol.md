@@ -426,7 +426,19 @@ init  next  record-executor  verify  supervisor-prompt  record-verdict  summary
    `wave/<id>` branch only when a finished run accepted the task, the worktree
    is clean and the branch is already contained in the checked-out branch, and
    prints what it kept and why. Report every kept entry; never remove a kept
-   entry yourself — name it and ask. Branch
+   entry yourself — name it and ask.
+   End the completion summary with a `Left behind:` line: every branch,
+   worktree, run record and temporary directory this run created that still
+   exists, taken from `wave-cleanup.mjs --dry-run --records` plus any scratch
+   directory you created outside the repository, or `Left behind: nothing`.
+   Whenever something is left behind, also add an `After the merge:` line with
+   the ready command: `wave-cleanup.mjs` with absolute paths, `--repo <repo>`,
+   one `--plan` per plan this run executed, `--into origin/<default branch>`,
+   `--records`, and `--branch <feature branch>` when the wave was integrated
+   into a feature branch of its own. These two lines are required even when the
+   request asks for a short final message or a fixed last line: put them before
+   that line.
+   Branch
    final integration on multi-model's publication contract, never on host or
    model. In normal `publication: push` mode, multi-model pushes and then
    derives the next wave’s exact base from the pushed branch and initializes its

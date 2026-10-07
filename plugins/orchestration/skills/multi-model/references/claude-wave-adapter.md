@@ -162,6 +162,17 @@ reports use different recovery semantics.
      runner prints `afterIntegration` whenever at least one task ended `ok`, a
      partly accepted wave included; the command touches only tasks the run
      accepted.
+     End the completion summary with a `Left behind:` line: every branch,
+     worktree, run record and temporary directory this run created that still
+     exists, taken from `wave-cleanup.mjs --dry-run --records` plus any scratch
+     directory you created outside the repository, or `Left behind: nothing`.
+     Whenever something is left behind, also add an `After the merge:` line with
+     the ready command: `wave-cleanup.mjs` with absolute paths, `--repo <repo>`,
+     one `--plan` per plan this run executed, `--into origin/<default branch>`,
+     `--records`, and `--branch <feature branch>` when the wave was integrated
+     into a feature branch of its own. These two lines are required even when the
+     request asks for a short final message or a fixed last line: put them before
+     that line.
    - `contract-unsatisfiable` — run the amendment flow (multi-model WORKFLOW.md → Escalation ladder → `references/contract-amendment.md`) (one amendment
      per task; removing or weakening a check goes to the user as a yes/no),
      regenerate the launch script from the edited plan with the same command,

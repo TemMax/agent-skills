@@ -35,6 +35,8 @@ for r in claude-wave-adapter codex-wave-protocol; do
   F=$P/skills/multi-model/references/$r.md
   check "$r names afterIntegration" "grep -qF afterIntegration '$F'"
   check "$r names wave-cleanup.mjs" "grep -qF wave-cleanup.mjs '$F'"
+  check "$r carries the Left behind: line" "one_line '$F' | grep -qF 'Left behind:'"
+  check "$r carries the After the merge: line" "one_line '$F' | grep -qF 'After the merge:'"
 done
 
 check "the cleanup script exists" "[ -f $P/skills/multi-model/references/wave-cleanup.mjs ]"
