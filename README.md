@@ -348,6 +348,11 @@ independent judge model checks out the branch, re-runs the contract's commands
 itself and issues a verdict — executor self-reports are never trusted. Rework,
 model escalation and the unsatisfiable-contract stop are code, not judgment
 calls.
+After each wave the orchestrator removes the merged tasks' worktrees and
+`wave/<id>` branches; the final report lists what is left under `Left behind:`
+together with the command to clean up after the merge. Once you confirm the
+merge, it removes the run records and deletes the feature branch, locally and
+on the remote — only what the run created, clean and already merged.
 
 **What to expect from ship.** One confirmation up front — the feature branch
 will be pushed and a PR opened — then only the link skills' own gates stop the
@@ -506,6 +511,7 @@ plugins/
       multi-model/
         SKILL.md
         references/
+          wave-cleanup.mjs           # removes merged tasks' worktrees and branches, then the run records
           worktree-env.mjs           # shared worktree links, writable caches, environment-block detection
           wave-runner.workflow.mjs   # the escalation ladder as code
           wave-launch.mjs            # generates the Claude wave launch script
