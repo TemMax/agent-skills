@@ -217,7 +217,7 @@ check "ship leaves adapter selection and subagent execution to multi-model" \
 check "ship does not own provider invocation machinery" \
   "grep -qF 'ship never invokes provider CLIs, adapter workflows, or state helpers itself' '$SH'"
 check "ship fixes own findings even without review threads" \
-  "grep -qF 'every approved finding that produces a fix, including an \`own\` finding with no PR threads' '$SH'"
+  "grep -qF 'without waiting for a request, for every finding that produces a fix, including an \`own\` finding with no PR threads' '$SH'"
 check "ship defers fix routing to critical-review" \
   "grep -qF 'shared Post-Review Fix Protocol' '$SH' && grep -qF 'ship never adds inline prose routing or a parallel routing table' '$SH'"
 check "review fixes reach the user's own pull request without a question, in the fixed order" \

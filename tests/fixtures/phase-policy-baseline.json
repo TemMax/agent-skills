@@ -86,7 +86,7 @@
       "0983c72aebf84105e6a4cb36e3b10d8444a3e4f9157b2d186cec59bd74b0622c",
       "26f8e26b2254d1a16f035a7df67a67da0ab5a93cc129333d507556e3af315a55",
       "36a629fab762de35d556db47b0b00751fa2273b475f7068e0787c88fa0b14e8d",
-      "d8a896933a0161a7d9d584066dad67b6bcdc33bce723a4cc6cbc2b06762aab8d",
+      "ed4a023ccb38167fb3ceb1f09fc46efbaaa676c94b2506e3067d4a673f8179aa",
       "f273a03d520343d93f36c20853301fbf26ea3e66ff833e34223d5f4f24e8881e",
       "92262b53dbb62f522c10cd6c89d8aa5ffa47ef4a5c341e18deb72370a87de419",
       "49dc72f17728784ba93da40b8dc4f9b70b9f1b7dc7abebd6544b7ff15fda2d74",
@@ -99,12 +99,12 @@
       "33e5476bff6c92e50ed257563352aec535d7a496a390e0e7a181d73dc2dbee67",
       "04dac49c34add0723364c9d5956f42190238d67d0143716a4f9edc282be81e48",
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
-      "6e5b8e7c6aa6232d2cac15c20b26c1a8ad3df3ce600f70e835a0b3a830cf8589",
+      "a23942430913dbd19d70b9a026f26471db7b56c6e33aab83f551d25f074eee5e",
       "166a972b26b78d526948781d2ceda0751c90548a240f3076f73c61ebb3198932",
       "a844229c947784d8cb1c2eb01726030d01d6fda5c826fc48911aeca92ec709d9",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
       "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
-      "38a7951432a7b5162ec92d32e17d09fede2d76a4e812270713cf9e50eb190c90",
+      "8acbc31da03f9ec40cdbcbad590fe7a9a247c1aac093ff5a70f12ce74a155710",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
       "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125"
     ],
@@ -202,7 +202,7 @@
       "0983c72aebf84105e6a4cb36e3b10d8444a3e4f9157b2d186cec59bd74b0622c",
       "68786364d2000f34655b5ffb82f6a755c7faac43820bc70084a14432024377ff",
       "36a629fab762de35d556db47b0b00751fa2273b475f7068e0787c88fa0b14e8d",
-      "4e88e5d8711f84e7c792a6923ed9b43c1ff8d83aa55273874283d914ca9ab2cf",
+      "e77395db7765bd75e3074eb1cdd92680b4e176df98de4d591e55b58e7ea2e975",
       "f273a03d520343d93f36c20853301fbf26ea3e66ff833e34223d5f4f24e8881e",
       "2825eeef2dcbfdae95d9c8aace467c1914171771c39bf1c84d5932a16d871c66",
       "49dc72f17728784ba93da40b8dc4f9b70b9f1b7dc7abebd6544b7ff15fda2d74",
@@ -215,12 +215,12 @@
       "33e5476bff6c92e50ed257563352aec535d7a496a390e0e7a181d73dc2dbee67",
       "c395f99cced1c9cf182bfbd70e560e95fe8c642613a505da1f40736ea51e0c1e",
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
-      "fe6211432b8bf4bc9a4658b06b4a3fc72558eceff7351b471df7a372b070aaa1",
+      "a80d64ef61835d6357c2bf22204bbdd18f2f23a35ea0dfbfc1609e92949c7691",
       "166a972b26b78d526948781d2ceda0751c90548a240f3076f73c61ebb3198932",
       "09dd7dd4734ea7fd881ef189468874b7ea0f03b69977dcb7fc20b0e6e4df1fa2",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
       "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
-      "d7e4139e7bec6914ec37cb83a1b497048869472e6bd172b17b304ef96bf8bbc9",
+      "ce5449684a5492583fc55a5e6ce6e8c53ea22bcc743aa137c6c1de3221032dab",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
       "e0555d31f60ae55944f716b7d1133d77aaa1b95875036319d176a94a60efe125"
     ],
@@ -281,10 +281,10 @@
       "ba0e47e28df60aefeffc612ef767374a52e89561cc2a19ea4193133412716c48",
       "0b9fb206af25c91c523a7c9a1dd74a0e00f4b5b4774e6930e514418ed6d6cb6f",
       "89faf2b7eb313e74d1db77817dcd992bfded68dcf96e3238c227171efc4b9d3a",
-      "9005510b247f80b616d96de5b0ce1747867d9b7639e83731c4abb08a56b00b02",
-      "2494b479ab637cf6a16c04ee773d5804066f8492d910f39da59892ca4d947ca3",
+      "9f4092e429ae160c845204df87f5ec68a2b22269602bc91ae454482c0ff0e4c8",
+      "22bf2afb098167f14cd08889e5c4dfba1a77816219b605978cc7980c1ab81c4c",
       "1bc9a1dccbc3c3170f928a5318013176bfec5c82c29e3a50201f75d3c4ad9a27",
-      "fba43aa3603e67645fbbdd2863bcef1aa3ce031c8e657c65039ed4127be507fd",
+      "efe8ab8022fe190c933e01356d5ad9e6eaa241f8939daf19704ad5bcf12b12f5",
       "445f0dba1af1d18cf58c1765f2caf73eeae6fd54e7c0d2aa25c1e808b4612016",
       "e6289f63403e3adeb1cf6a9966df0b5a2626fba801292cfeb502b8fbc1d0a8f8",
       "f9b7b24e4e9561acee901ccac58cdf25da281eaf92a6111cf7d8fb2d92a4cfc2",
@@ -384,10 +384,10 @@
       "ba0e47e28df60aefeffc612ef767374a52e89561cc2a19ea4193133412716c48",
       "0b9fb206af25c91c523a7c9a1dd74a0e00f4b5b4774e6930e514418ed6d6cb6f",
       "89faf2b7eb313e74d1db77817dcd992bfded68dcf96e3238c227171efc4b9d3a",
-      "9005510b247f80b616d96de5b0ce1747867d9b7639e83731c4abb08a56b00b02",
-      "2494b479ab637cf6a16c04ee773d5804066f8492d910f39da59892ca4d947ca3",
+      "9f4092e429ae160c845204df87f5ec68a2b22269602bc91ae454482c0ff0e4c8",
+      "22bf2afb098167f14cd08889e5c4dfba1a77816219b605978cc7980c1ab81c4c",
       "1bc9a1dccbc3c3170f928a5318013176bfec5c82c29e3a50201f75d3c4ad9a27",
-      "e2feb2590132374a9cba3210e04fad20ba49867fbb7487bc59754f5750443827",
+      "8cc6d05865da559cf8867af2a2a017b65d9ff005b5d560b72b8927db44db2c49",
       "445f0dba1af1d18cf58c1765f2caf73eeae6fd54e7c0d2aa25c1e808b4612016",
       "e6289f63403e3adeb1cf6a9966df0b5a2626fba801292cfeb502b8fbc1d0a8f8",
       "f9b7b24e4e9561acee901ccac58cdf25da281eaf92a6111cf7d8fb2d92a4cfc2",
@@ -613,6 +613,78 @@
       "old": "553c83cf46aeec1d6fa2e015530aa4438150be7ef5aef58a441e6e8ce23cac8f",
       "new": "fe52b5f4a1d07a7c59887d090219e43e8fd1bfddba31a02903924f1d076575a3",
       "reason": "The plan's review key is optional: without it ship uses the standard measured review route without asking."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/WORKFLOW.md",
+      "old": "d8a896933a0161a7d9d584066dad67b6bcdc33bce723a4cc6cbc2b06762aab8d",
+      "new": "ed4a023ccb38167fb3ceb1f09fc46efbaaa676c94b2506e3067d4a673f8179aa",
+      "reason": "A missing review capability no longer stops ship: the pull request opens with the line `independent review not performed`, and the review and the merge stay with the user."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/WORKFLOW.md",
+      "old": "6e5b8e7c6aa6232d2cac15c20b26c1a8ad3df3ce600f70e835a0b3a830cf8589",
+      "new": "a23942430913dbd19d70b9a026f26471db7b56c6e33aab83f551d25f074eee5e",
+      "reason": "Stage 3: the body line for a missing review capability, the skipped review steps, and step 5 \u2014 inside ship the pipeline's own findings are shown and fixed without a request, except the decisions the user is asked about and threads started by someone else."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/WORKFLOW.md",
+      "old": "38a7951432a7b5162ec92d32e17d09fede2d76a4e812270713cf9e50eb190c90",
+      "new": "8acbc31da03f9ec40cdbcbad590fe7a9a247c1aac093ff5a70f12ce74a155710",
+      "reason": "Failure map gains the row for a missing review capability: no stop, no question, the explicit line in the body and the handoff report."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/WORKFLOW.md",
+      "old": "4e88e5d8711f84e7c792a6923ed9b43c1ff8d83aa55273874283d914ca9ab2cf",
+      "new": "e77395db7765bd75e3074eb1cdd92680b4e176df98de4d591e55b58e7ea2e975",
+      "reason": "A missing review capability no longer stops ship: the pull request opens with the line `independent review not performed`, and the review and the merge stay with the user."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/WORKFLOW.md",
+      "old": "fe6211432b8bf4bc9a4658b06b4a3fc72558eceff7351b471df7a372b070aaa1",
+      "new": "a80d64ef61835d6357c2bf22204bbdd18f2f23a35ea0dfbfc1609e92949c7691",
+      "reason": "Stage 3: the body line for a missing review capability, the skipped review steps, and step 5 \u2014 inside ship the pipeline's own findings are shown and fixed without a request, except the decisions the user is asked about and threads started by someone else."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/WORKFLOW.md",
+      "old": "d7e4139e7bec6914ec37cb83a1b497048869472e6bd172b17b304ef96bf8bbc9",
+      "new": "ce5449684a5492583fc55a5e6ce6e8c53ea22bcc743aa137c6c1de3221032dab",
+      "reason": "Failure map gains the row for a missing review capability: no stop, no question, the explicit line in the body and the handoff report."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/FIXES.md",
+      "old": "9005510b247f80b616d96de5b0ce1747867d9b7639e83731c4abb08a56b00b02",
+      "new": "9f4092e429ae160c845204df87f5ec68a2b22269602bc91ae454482c0ff0e4c8",
+      "reason": "Opening scoped: the request gate stays for a review the user asked for on its own; as a stage of ship on the pipeline's own pull request the findings table is shown and the fixes start without a separate request."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/FIXES.md",
+      "old": "2494b479ab637cf6a16c04ee773d5804066f8492d910f39da59892ca4d947ca3",
+      "new": "22bf2afb098167f14cd08889e5c4dfba1a77816219b605978cc7980c1ab81c4c",
+      "reason": "Findings gate scoped to a review the user asked for on its own; the findings are always shown before or with the fixes, never hidden; the measured cause is kept."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/FIXES.md",
+      "old": "fba43aa3603e67645fbbdd2863bcef1aa3ce031c8e657c65039ed4127be507fd",
+      "new": "efe8ab8022fe190c933e01356d5ad9e6eaa241f8939daf19704ad5bcf12b12f5",
+      "reason": "Order of operations step 2 states what the user may be asked about: the five decisions, with step 6 gating the outward steps that are not the user's own."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/FIXES.md",
+      "old": "9005510b247f80b616d96de5b0ce1747867d9b7639e83731c4abb08a56b00b02",
+      "new": "9f4092e429ae160c845204df87f5ec68a2b22269602bc91ae454482c0ff0e4c8",
+      "reason": "Opening scoped: the request gate stays for a review the user asked for on its own; as a stage of ship on the pipeline's own pull request the findings table is shown and the fixes start without a separate request."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/FIXES.md",
+      "old": "2494b479ab637cf6a16c04ee773d5804066f8492d910f39da59892ca4d947ca3",
+      "new": "22bf2afb098167f14cd08889e5c4dfba1a77816219b605978cc7980c1ab81c4c",
+      "reason": "Findings gate scoped to a review the user asked for on its own; the findings are always shown before or with the fixes, never hidden; the measured cause is kept."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/FIXES.md",
+      "old": "e2feb2590132374a9cba3210e04fad20ba49867fbb7487bc59754f5750443827",
+      "new": "8cc6d05865da559cf8867af2a2a017b65d9ff005b5d560b72b8927db44db2c49",
+      "reason": "Order of operations step 2 states what the user may be asked about: the five decisions, with step 6 gating the outward steps that are not the user's own."
     }
   ]
 }

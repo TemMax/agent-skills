@@ -72,8 +72,11 @@ a fresh child of the model the plan's `review` key names (chosen at Gate 1;
 measured 2026-09-30: clean 10/10, planted 10/10, PR support 3/4);
 if the plan has no `review` key, use the standard measured review route
 `gpt-6.1-sol` without asking; a premium review model is used only on the
-user's word. Missing required review capability stops the route; it
-never authorizes self-review or publication.
+user's word. When the review capability is missing, ship does not stop
+and does not ask: it opens the pull request with the explicit line
+`independent review not performed` in the body and in the handoff report,
+and leaves the review and the merge to the user. It never presents its
+own check as an independent review.
 
 ## What ship owns — and what it does not
 
@@ -206,7 +209,9 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    when step 3's pass ran, naming the capability used, or
    `Runtime pass: skipped — <reason>` when it did not — including when no
    Acceptance References exist. Measured: a runtime pass was skipped
-   silently, with a device capability available.
+   silently, with a device capability available. When the review
+   capability is missing, the body also carries the line
+   `independent review not performed`.
 3. If the plan carries Acceptance References and this session has a tool or
    skill whose **described capability** is running the product and
    observing it — launching the app, driving its UI, capturing screenshots —
@@ -220,13 +225,24 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    head, acceptance requirements, plan path and verification-output paths;
    do not fork executor conversations or replay all wave transcripts. The child
    reads PR discussion and code through critical-review's own protocol.
-5. Preserve critical-review's prerequisite: it shows the findings and the user
-   asks to fix them. Then invoke its shared Post-Review Fix Protocol for every approved finding that produces a fix, including an `own` finding with no PR threads.
+   When the review capability is missing, do not stop and do not ask: skip
+   this step and steps 5 and 6, put the line
+   `independent review not performed` in the handoff report too, and leave
+   the review and the merge to the user. Step 1 is ship's own check; never
+   present it as an independent review.
+5. Inside ship the user already asked for a reviewed pull request. Show the
+   findings table in the report, then invoke critical-review's shared Post-Review Fix Protocol
+   without waiting for a request, for every finding that produces a fix, including an `own` finding with no PR threads.
+   The findings are always shown before or with the fixes, never hidden. A
+   finding whose fix needs one of the decisions Stage 0 says to ask the
+   user about is not fixed: list it and ask. A finding that answers a
+   thread started by someone else keeps that protocol's gate.
    ship never adds inline prose routing or a parallel routing table. That
    protocol applies only to findings of a review the user asked for in this
-   session; a plain request to change code is implementation work, not a
-   review fix. Under it the coordinator chooses the fix route itself and
-   never asks the user to approve a route or a model.
+   session, and the review of the pipeline's own pull request is one; a
+   plain request to change code is implementation work, not a review fix.
+   Under it the coordinator chooses the fix route itself and never asks the
+   user to approve a route or a model.
 6. Critical-review commits and verifies every resulting fix before publication.
    After verification is green it pushes the fix commits to the feature
    branch of the user's own pull request without a question and reports what
@@ -290,6 +306,7 @@ and branch names — never a bare list of options with no recommendation.
 | A plan `ci.commands` command is red after the final wave | Hold the push and show the output. The fix follows the row above, without asking: a direct fix, or a one-task supervised fix wave from the red tip pushed to the feature branch only. Never to the default branch. |
 | A `must_run` command is `environment-blocked` | Stop, name the blocked command and its error line, diagnose per rule 4, fix the machine, then re-run the wave after `--reset`; never an amendment, never a reason to bypass supervised execution |
 | `gh` loses write capability mid-flow | critical-review degrades per its own protocol; prepared texts go to the user |
+| The review capability is missing | Do not stop and do not ask: open the PR with the line `independent review not performed` in the body and in the handoff report, and leave the review and the merge to the user. Never present ship's own check as an independent review |
 | The user declines critical-review's gate | Cancel per that skill; the PR stays open |
 | The runtime QA capability is missing or fails mid-pass | Not a ship failure: the affected references go to the PR's "Not verified — manual QA needed" section |
 

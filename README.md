@@ -359,9 +359,9 @@ agents, and your direct instruction ("fix it yourself", "use agents") wins; it
 does not ask you to approve a route or a model. It asks only about a
 contradiction in the feature, a change of scope, weakening or removing a test,
 an irreversible action on something the run did not create, replies in
-colleagues' threads, and the merge. A premium model is used only on your word,
-which you can give once as a line in your instruction files (`AGENTS.md`,
-`CLAUDE.md`).
+colleagues' threads, a push to a branch or pull request that is not yours, and
+the merge. A premium model is used only on your word, which you can give once
+as a line in your instruction files (`AGENTS.md`, `CLAUDE.md`).
 
 **What to expect from ship.** One confirmation up front — the feature branch
 will be pushed and a PR opened — then the flow stops only where the link
