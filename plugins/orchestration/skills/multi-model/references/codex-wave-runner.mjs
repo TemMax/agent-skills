@@ -171,6 +171,11 @@ function parseArgv(argv) {
 // ---------------------------------------------------------------------------
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
+
+function shellQuote(value) {
+  return /^[A-Za-z0-9_@%+=:,.\/-]+$/.test(value) ? value : "'" + value.replace(/'/g, "'\\''") + "'"
+}
+
 const WAVE_PLAN_BLOCK = /```json wave-plan\r?\n([\s\S]*?)\r?\n```/
 
 function replaceWavePlanBlock(text, planObject) {
@@ -1193,9 +1198,13 @@ async function main() {
       : {}),
     ...(status === 'merge-ready'
       ? {
-        afterIntegration: 'node ' + join(here, 'wave-cleanup.mjs') + ' --repo ' + config.repoPath
-          + ' --plan ' + config.planPath + ' --wave ' + config.waveNumber
-          + ' --summary ' + join(config.outPath, 'summary.json'),
+        afterIntegration: [
+          'node', join(here, 'wave-cleanup.mjs'),
+          '--repo', config.repoPath,
+          '--plan', config.planPath,
+          '--wave', Number.isInteger(wave.wave) ? wave.wave : config.waveNumber,
+          '--summary', join(config.outPath, 'summary.json'),
+        ].map((part) => shellQuote(String(part))).join(' '),
       }
       : {}),
   }
