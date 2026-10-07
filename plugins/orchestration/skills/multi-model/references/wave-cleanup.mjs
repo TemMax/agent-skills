@@ -23,14 +23,17 @@ const USAGE = [
   '  --plan <file>    wave plan; repeatable, the task ids are the union',
   '  --wave <n>       only the tasks of wave <n> (with exactly one --plan)',
   '  --into <ref>     integration target (default HEAD of --repo)',
-  '  --branch <name>  also delete this local branch when it is integrated',
+  '  --branch <name>  also delete this local branch when it is integrated;',
+  '                   never the integration target itself and never the',
+  '                   default branch of a remote',
   '  --summary <file> a run\'s summary.json kept outside the two default',
   '                   directories; repeatable',
   '  --accepted <id>  this task was accepted although no run record says so',
   '                   (a host that leaves none); repeatable',
   '  --records        also remove the run records of the given plans, the',
   '                   verification-logs/<id> directories of their tasks among',
-  '                   them',
+  '                   them; when a record directory was removed, worktree',
+  '                   registrations whose directories are gone are pruned',
   '  --dry-run        run every check, change nothing',
   '',
   'A task is removed only when it is accepted: a summary.json — one named',
@@ -363,6 +366,24 @@ function checkedOutIn(name) {
   return {}
 }
 
+// Why a branch must stay whatever the integration check says: it is the
+// integration target itself (trivially integrated into its own
+// remote-tracking branch) or the default branch of a remote. `into` is the
+// --into value as given, not the commit it resolved to.
+function protectedBranch(name, into) {
+  const list = git(repo, 'remote')
+  if (!list.ok) return { error: list.error }
+  const remotes = list.out.split('\n').filter(Boolean)
+  const targets = [name, 'refs/heads/' + name]
+  for (const remote of remotes) targets.push(remote + '/' + name, 'refs/remotes/' + remote + '/' + name)
+  if (targets.includes(into)) return { reason: 'is the integration target' }
+  for (const remote of remotes) {
+    const head = git(repo, 'symbolic-ref', '--quiet', 'refs/remotes/' + remote + '/HEAD')
+    if (head.ok && head.out === 'refs/remotes/' + remote + '/' + name) return { reason: 'is the default branch' }
+  }
+  return {}
+}
+
 // Step B.
 function cleanBranch(name) {
   if (taskIds.some((id) => 'wave/' + id === name)) return // step A decided it
@@ -372,6 +393,9 @@ function cleanBranch(name) {
   const where = checkedOutIn(name)
   if (where.error !== undefined) return keep(where.error)
   if (where.path !== undefined) return keep('checked out in ' + where.path)
+  const guard = protectedBranch(name, options.into)
+  if (guard.error !== undefined) return keep(guard.error)
+  if (guard.reason !== undefined) return keep(guard.reason)
   if (!integrated(tip)) return keep('not integrated into ' + options.into)
   if (!dryRun) {
     const gone = git(repo, 'branch', '-D', name)
@@ -432,6 +456,7 @@ function cleanRecords() {
   if (root.isSymbolicLink()) return kept.push({ kind: 'other', path: worktreesDir, reason: 'symbolic link' })
   if (!root.isDirectory()) return
 
+  const removedBefore = removed.length
   const known = new Set([...RUNNER_DIRS, STATE_DIR, LOGS_DIR, ...taskIds.map((id) => 'wave-' + id)])
   for (const name of [...RUNNER_DIRS, STATE_DIR]) {
     const dir = join(worktreesDir, name)
@@ -488,6 +513,13 @@ function cleanRecords() {
     } catch {
       // Not empty after all (a concurrent writer): leaving it is the safe outcome.
     }
+  }
+  // A removed record directory may have held a judge's or supervisor's
+  // checkout that a killed runner left registered; prune drops only the
+  // registrations whose directories no longer exist.
+  if (removed.slice(removedBefore).some((item) => item.kind === 'record')) {
+    const pruned = git(repo, 'worktree', 'prune')
+    if (!pruned.ok) process.stderr.write('wave-cleanup: git worktree prune failed: ' + pruned.error + '\n')
   }
 }
 
