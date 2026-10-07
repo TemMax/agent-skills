@@ -4,6 +4,22 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.14.0
+
+### Highlights
+
+**multi-model**
+- Decide the fix route without asking; your direct instruction wins
+- Use premium models only on your word, given once in instructions
+
+**ship**
+- Push fixes to your own pull request without a confirmation step
+
+**critical-review**
+- Fix findings directly when the change is small and well understood
+
+Orchestration 4.14.0 and code-review 1.18.0 apply to Claude Code and Codex.
+
 ## 4.13.0
 
 ### Highlights

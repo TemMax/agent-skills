@@ -281,7 +281,7 @@ check "a Codex Sol executor forces the Astra supervisor" \
 check "super-plan records ship's Stage 3 review child in the plan's review key, Sol measured with a strict-gate line" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'as the recommended option, recorded in \`approvals.premium\` only when the user picks it, or, when the user instead chooses the cheaper option, \`gpt-6.1-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30 — disclosed at Gate 1 too.'"
 check "super-plan documents the optional review key next to ci/e2e/approvals" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'required for a Codex plan that goes through ship' && grep -qF '\"review\"' $SP"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'optional (without it ship uses the standard measured review route without asking)' && grep -qF '\"review\"' $SP"
 check "super-plan says the linter also checks the review key" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the optional \`review\` key'"
 check "the review key is documented as an object with model and effort" \
