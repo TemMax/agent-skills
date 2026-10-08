@@ -97,7 +97,10 @@ only buys worse advice at the same price.
 spends its context window on definitions it cannot call: measured on
 2026-10-08, the previous judge's call carried 133,224 prompt tokens before
 the transcript and failed with a prompt-too-long error on an ordinary
-transcript tail (decision 014).
+transcript tail (decision 014). The prompt goes in on stdin: a large transcript
+tail does not fit into a command-line argument. Prompt caching is off for the
+call (`DISABLE_PROMPT_CACHING=1`): it is a single request, and a cached prompt
+is billed at the cache-write rate.
 
 **The check does not repeat itself.** Each invocation is stateless, so during a
 live wave it would hand the orchestrator the identical note on every

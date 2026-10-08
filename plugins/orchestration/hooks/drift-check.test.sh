@@ -443,6 +443,7 @@ cat > "$STUBBIN/claude" <<'EOF'
 #!/bin/sh
 python3 -c 'import json,os,sys; json.dump(sys.argv[1:], open(os.environ["CLAUDE_ARGS"], "w"))' "$@"
 cat > "$CLAUDE_STDIN"
+printf '%s\n' "${DISABLE_PROMPT_CACHING:-unset}" > "${CLAUDE_CACHING:-/dev/null}"
 printf '%s\n' "${CLAUDE_STUB_ANSWER:-NOTHING}"
 EOF
 chmod +x "$STUBBIN/timeout" "$STUBBIN/codex" "$STUBBIN/claude"
@@ -450,7 +451,7 @@ chmod +x "$STUBBIN/timeout" "$STUBBIN/codex" "$STUBBIN/claude"
 invoke_provider_stub() {
   local session="$1" model="$2"
   ( cd "$WORK/repo" && printf '{"hook_event_name":"Stop","model":"%s","stop_hook_active":false,"last_assistant_message":"Summary: all tasks done, nothing remaining.","session_id":"%s"}' "$model" "$session" \
-    | PATH="$STUBBIN:$PATH" TIMEOUT_ARGS="$WORK/timeout.args" CODEX_ARGS="$WORK/codex.args" CODEX_STDIN="$WORK/codex.stdin" CODEX_CWD_KIND="$WORK/codex.cwd-kind" CODEX_ACCEPTED="$WORK/codex.accepted" CLAUDE_ARGS="$WORK/claude.args" CLAUDE_STDIN="$WORK/claude.stdin" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )
+    | PATH="$STUBBIN:$PATH" TIMEOUT_ARGS="$WORK/timeout.args" CODEX_ARGS="$WORK/codex.args" CODEX_STDIN="$WORK/codex.stdin" CODEX_CWD_KIND="$WORK/codex.cwd-kind" CODEX_ACCEPTED="$WORK/codex.accepted" CLAUDE_ARGS="$WORK/claude.args" CLAUDE_STDIN="$WORK/claude.stdin" CLAUDE_CACHING="$WORK/claude.caching" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )
 }
 
 rm -f "$WORK/timeout.args" "$WORK/codex.args" "$WORK/codex.stdin" \
@@ -504,7 +505,7 @@ else
   echo "FAIL  Codex judge did not receive the complete prompt on stdin"; fail=1
 fi
 
-rm -f "$WORK/claude.args" "$WORK/claude.stdin"
+rm -f "$WORK/claude.args" "$WORK/claude.stdin" "$WORK/claude.caching"
 expect "Claude judge clean answer remains silent" "{}" \
   "$(CLAUDE_STUB_ANSWER=NOTHING invoke_provider_stub claude-cli claude-fable-5-1)"
 if [ -s "$WORK/claude.args" ] && python3 -c '
@@ -527,6 +528,7 @@ if [ -s "$WORK/claude.stdin" ] && grep -qF 'Plan (' "$WORK/claude.stdin" \
 else
   echo "FAIL  Claude judge did not receive the complete prompt on stdin"; fail=1
 fi
+expect "Claude judge runs with prompt caching off" "1" "$(cat "$WORK/claude.caching" 2>/dev/null)"
 
 # A transcript tail larger than the operating system accepts as one command-line
 # argument must still reach the judge.

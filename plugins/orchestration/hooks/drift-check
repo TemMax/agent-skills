@@ -366,7 +366,11 @@ else
     # only reads and answers, so it needs no tools. Verified 2026-09-22 that
     # `claude -p --tools ""` answers normally. --strict-mcp-config: without it
     # every configured MCP tool schema is loaded into a session that has no tools.
+    # DISABLE_PROMPT_CACHING: the call is one request whose prompt is never read
+    # again, and a cached prompt is billed at the cache-write rate — measured
+    # 2026-10-08 on the same call, $0.00105 with caching and $0.00058 without.
     ( cd "$neutral_dir" && DRIFT_CHECK_ACTIVE=1 CLAUDE_DRIFT_CHECK_ACTIVE=1 \
+      DISABLE_PROMPT_CACHING=1 \
       claude -p \
         --model "$judge" \
         --effort low \
