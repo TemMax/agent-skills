@@ -11,7 +11,7 @@ check "identifiers table has the Sonnet 5.5 row with the sonnet alias and the pr
   "grep -qF '| Sonnet 5.5 | \`claude-sonnet-5-5\` | \`sonnet\` |' '$MM' && grep -qF '| Model | Full ID | Agent-tool alias (probed 2026-10-08, Claude Code 2.1.293) |' '$MM'"
 check "identifiers table marks Sonnet 5 as a retired route" \
   "grep -F '| Sonnet 5 (retired route; ID valid for approved plans) | \`claude-sonnet-5\` |' '$MM' | grep -qF 'retired route'"
-check "Agent-tool exception routes Sonnet 5.5 through a one-agent Workflow" \
+check "Agent-tool exception keeps the one-agent Workflow example for a repeated spawn" \
   "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'one-agent Workflow \`agent()\` call with the full ID, for example \`agent(prompt, { model: '\\''claude-sonnet-5-5'\\'', effort: '\\''medium'\\'' })\`. That is not a wave script.'"
 check "routing prose states claude-sonnet-5 is retired as a route" \
   "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF '\`claude-sonnet-5\` is retired as a route (2026-09-28); the ID stays valid so that approved plans still execute.'"
