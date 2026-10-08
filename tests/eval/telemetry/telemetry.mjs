@@ -12,6 +12,18 @@
 // the orchestrator's own wall-clock time into model / tool:<name> / waiting
 // / user buckets, and reports per-child role, model, tokens and cost. Never
 // calls a model; pure log analysis.
+//
+// prices.json maps a model ID to its price row, in dollars per million
+// tokens, in one of two shapes:
+//   [input, cached, output]            one flat row for every request
+//   { "prompt_limit": N, "up_to_limit": [input, cached, output],
+//     "over_limit": [input, cached, output] }
+//                                      a Claude request whose prompt (input +
+//                                      cache creation + cache read tokens) is
+//                                      at most N is billed whole at up_to_limit,
+//                                      a larger one whole at over_limit
+// Any other value is no row: the model is reported as unpriced. The Codex
+// cost accepts only the flat shape.
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -288,11 +300,12 @@ function sumTokensClaude(rows) {
     })) counters[field] = Math.max(counters[field], usage[source] || 0)
     messages.set(id, counters)
   }
-  for (const counters of messages.values()) {
+  const requests = [...messages.values()]
+  for (const counters of requests) {
     for (const field of Object.keys(totals)) totals[field] += counters[field]
     requestInputs.push(counters.input + counters.cacheCreation + counters.cacheRead)
   }
-  return { totals, requestInputs }
+  return { totals, requestInputs, requests }
 }
 
 function lastAssistantModel(rows) {
@@ -321,14 +334,34 @@ function classifyRoleClaude(meta) {
   return 'other'
 }
 
-// Cache writes (cache_creation_input_tokens) are priced as input; cache
-// reads (cache_read_input_tokens) get the cached/discounted price.
-function costForClaude(prices, model, tokens) {
-  const p = priceFor(prices, model)
-  if (!p) return null
-  const [inputPrice, cachedPrice, outputPrice] = p
-  const billableInput = tokens.input + tokens.cacheCreation
-  return billableInput / 1e6 * inputPrice + tokens.cacheRead / 1e6 * cachedPrice + tokens.output / 1e6 * outputPrice
+const isPriceTriple = v => Array.isArray(v) && v.length === 3 && v.every(n => typeof n === 'number' && Number.isFinite(n))
+
+// The price row for one request of `promptTokens`, or null when the entry is
+// neither a flat triple nor a well-formed tier object.
+function requestPriceRow(entry, promptTokens) {
+  if (isPriceTriple(entry)) return entry
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null
+  const { prompt_limit: limit, up_to_limit: upTo, over_limit: over } = entry
+  if (typeof limit !== 'number' || !Number.isFinite(limit) || limit <= 0) return null
+  if (!isPriceTriple(upTo) || !isPriceTriple(over)) return null
+  return promptTokens > limit ? over : upTo
+}
+
+// Each request is billed whole at its own row. Cache writes
+// (cache_creation_input_tokens) are priced as input; cache reads
+// (cache_read_input_tokens) get the cached/discounted price. Any request
+// without a row leaves the whole group unpriced.
+function costForClaude(prices, model, requests) {
+  const entry = Object.hasOwn(prices, model) ? prices[model] : undefined
+  if (!requests.length) return requestPriceRow(entry, 0) ? 0 : null
+  let cost = 0
+  for (const r of requests) {
+    const p = requestPriceRow(entry, r.input + r.cacheCreation + r.cacheRead)
+    if (!p) return null
+    const [inputPrice, cachedPrice, outputPrice] = p
+    cost += (r.input + r.cacheCreation) / 1e6 * inputPrice + r.cacheRead / 1e6 * cachedPrice + r.output / 1e6 * outputPrice
+  }
+  return cost
 }
 
 // ---------------------------------------------------------------------------
@@ -494,7 +527,7 @@ export function buildClaudeReport(run, opts) {
   const rootBucketsMs = timeBucketsMsClaude(rootRows)
   const rootMinutes = {}
   for (const [name, ms] of Object.entries(rootBucketsMs)) rootMinutes[name] = round(ms / 60000, 4)
-  const { totals: rootTokenTotals, requestInputs: rootRequestInputs } = sumTokensClaude(rootRows)
+  const { totals: rootTokenTotals, requestInputs: rootRequestInputs, requests: rootRequests } = sumTokensClaude(rootRows)
   const rootModel = lastAssistantModel(rootRows)
 
   const childNodes = run.children.map(node => {
@@ -504,7 +537,7 @@ export function buildClaudeReport(run, opts) {
     const timestamps = rowTimestamps(rows)
     const interval = timestamps.length ? [Math.min(...timestamps), Math.max(...timestamps)] : null
     const wallMs = interval ? interval[1] - interval[0] : 0
-    const { totals, requestInputs } = sumTokensClaude(rows)
+    const { totals, requestInputs, requests } = sumTokensClaude(rows)
     const buckets = timeBucketsMsClaude(rows)
     const modelMs = buckets.model || 0
     let toolMs = 0
@@ -520,9 +553,10 @@ export function buildClaudeReport(run, opts) {
       modelMinutes: round(modelMs / 60000, 4),
       toolMinutes: round(toolMs / 60000, 4),
       interval,
+      requestCounters: requests,
     }
   })
-  const children = childNodes.map(({ interval, ...rest }) => rest)
+  const children = childNodes.map(({ interval, requestCounters, ...rest }) => rest)
 
   const concurrency = concurrencyMs(childNodes.filter(c => c.interval).map(c => c.interval), from, to)
   const concurrencyMinutes = {}
@@ -530,22 +564,23 @@ export function buildClaudeReport(run, opts) {
 
   // Cost by role x model.
   const groups = new Map()
-  const bump = (role, model, totals) => {
+  const bump = (role, model, totals, requests) => {
     const key = `${role}\u0000${model ?? '(unknown)'}`
-    if (!groups.has(key)) groups.set(key, { role, model, tokens: { input: 0, cacheCreation: 0, cacheRead: 0, output: 0 } })
+    if (!groups.has(key)) groups.set(key, { role, model, tokens: { input: 0, cacheCreation: 0, cacheRead: 0, output: 0 }, requests: [] })
     const g = groups.get(key)
+    g.requests.push(...requests)
     g.tokens.input += totals.input
     g.tokens.cacheCreation += totals.cacheCreation
     g.tokens.cacheRead += totals.cacheRead
     g.tokens.output += totals.output
   }
-  bump('orchestrator', rootModel, rootTokenTotals)
-  for (const c of children) bump(c.role, c.model, c.tokens)
+  bump('orchestrator', rootModel, rootTokenTotals, rootRequests)
+  for (const c of childNodes) bump(c.role, c.model, c.tokens, c.requestCounters)
 
   const byRoleModel = [], unpriced = []
   let total = 0
   for (const g of groups.values()) {
-    const cost = g.model ? costForClaude(prices, g.model, g.tokens) : null
+    const cost = g.model ? costForClaude(prices, g.model, g.requests) : null
     const tokens = { ...g.tokens, total: g.tokens.input + g.tokens.cacheCreation + g.tokens.cacheRead + g.tokens.output }
     if (cost === null) {
       unpriced.push({ role: g.role, model: g.model, tokens })

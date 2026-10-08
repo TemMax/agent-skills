@@ -6,7 +6,7 @@
 // minute-spaced timestamps) in a temp directory and asserts exact minutes,
 // tokens, costs and concurrency. Never reads real ~/.claude transcripts.
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -282,7 +282,7 @@ test('report: claude-sonnet-5-5 usage is priced from its prices.json row', t => 
   const rootPath = join(projectDir, `${session}.jsonl`)
   writeFileSync(rootPath, jsonl(rootRows))
 
-  // claude-sonnet-5-5 row is [2, 0.2, 10] ($/MTok): (1000*2 + 200*10) / 1e6
+  // claude-sonnet-5-5 row is [2, 0.1, 10] ($/MTok): (1000*2 + 200*10) / 1e6
   const result = spawnSync(process.execPath, [CLI, 'claude', '--transcript', rootPath, '--json'], { encoding: 'utf8', timeout: 10000 })
   assert.equal(result.status, 0, result.stderr)
   const report = JSON.parse(result.stdout)
@@ -292,6 +292,73 @@ test('report: claude-sonnet-5-5 usage is priced from its prices.json row', t => 
   assert.ok(group, 'expected a priced orchestrator/claude-sonnet-5-5 group')
   assert.equal(group.role, 'orchestrator')
   assert.equal(group.cost, 0.004)
+})
+
+function singleSessionReport(t, prefix, model, usages, prices) {
+  const dir = mktempDir()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const projectDir = join(dir, 'projects', prefix)
+  mkdirSync(projectDir, { recursive: true })
+  const rootPath = join(projectDir, `session-${prefix}.jsonl`)
+  const rows = [userText(0, 'go')]
+  usages.forEach((u, i) => {
+    const r = assistant(i + 1, model, u, [{ type: 'text', text: 'done' }])
+    r.message.id = `msg-${i}`
+    rows.push(r)
+  })
+  writeFileSync(rootPath, jsonl(rows))
+  const args = [CLI, 'claude', '--transcript', rootPath, '--json']
+  if (prices) {
+    const pricesPath = join(dir, 'prices.json')
+    writeFileSync(pricesPath, JSON.stringify(prices))
+    args.push('--prices', pricesPath)
+  }
+  const result = spawnSync(process.execPath, args, { encoding: 'utf8', timeout: 10000 })
+  assert.equal(result.status, 0, result.stderr)
+  return JSON.parse(result.stdout)
+}
+
+test('report: claude-sonnet-5-5 cache reads are priced at 0.1 per million', t => {
+  const report = singleSessionReport(t, 'sonnet-cache', 'claude-sonnet-5-5', [usage(0, 0, 1000000, 0)])
+  assert.equal(report.cost.unpriced.length, 0)
+  assert.equal(report.cost.byRoleModel.find(g => g.model === 'claude-sonnet-5-5').cost, 0.1)
+})
+
+test('report: claude-haiku-5-5 prices each request by its own prompt length', t => {
+  // 60,000-token prompt at up_to_limit [0.1, 0.01, 0.5]: $0.0025
+  // 150,000-token prompt at over_limit [0.5, 0.05, 2.5]: $0.0145
+  const report = singleSessionReport(t, 'haiku-tiers', 'claude-haiku-5-5',
+    [usage(1000, 9000, 50000, 2000), usage(2000, 8000, 140000, 1000)])
+  assert.equal(report.cost.unpriced.length, 0)
+  const group = report.cost.byRoleModel.find(g => g.model === 'claude-haiku-5-5')
+  assert.equal(group.cost, 0.017)
+  assert.equal(report.cost.total, 0.017)
+  assert.deepEqual(group.tokens, { input: 3000, cacheCreation: 17000, cacheRead: 190000, output: 3000, total: 213000 })
+  assert.equal(report.orchestrator.requests, 2)
+  assert.ok(!JSON.stringify(report).includes('"requestCounters"'))
+})
+
+test('report: a prompt of exactly prompt_limit tokens is priced at up_to_limit', t => {
+  const report = singleSessionReport(t, 'haiku-limit', 'claude-haiku-5-5', [usage(1000, 9000, 90000, 1000)])
+  // up_to_limit: 10,000*0.1 + 90,000*0.01 + 1,000*0.5 = 1000 + 900 + 500 (micro-dollars)
+  assert.equal(report.cost.byRoleModel.find(g => g.model === 'claude-haiku-5-5').cost, 0.0024)
+})
+
+test('report: a malformed tier object leaves the model unpriced', t => {
+  const report = singleSessionReport(t, 'haiku-bad-tier', 'claude-haiku-5-5', [usage(1000, 0, 0, 100)], {
+    'claude-haiku-5-5': { prompt_limit: 100000, up_to_limit: [0.1, 0.01, 0.5] },
+  })
+  assert.equal(report.cost.byRoleModel.length, 0)
+  assert.deepEqual(report.cost.unpriced.map(g => g.model), ['claude-haiku-5-5'])
+  assert.equal(report.cost.total, 0)
+})
+
+test('shipped prices.json holds the Haiku 5.5 tiers and the Sonnet 5.5 cache-read rate', () => {
+  const prices = JSON.parse(readFileSync(fileURLToPath(new URL('./prices.json', import.meta.url)), 'utf8'))
+  assert.deepEqual(prices['claude-haiku-5-5'], {
+    prompt_limit: 100000, up_to_limit: [0.1, 0.01, 0.5], over_limit: [0.5, 0.05, 2.5],
+  })
+  assert.deepEqual(prices['claude-sonnet-5-5'], [2, 0.1, 10])
 })
 
 test('readable table output (non-JSON) mentions the key sections', t => {
