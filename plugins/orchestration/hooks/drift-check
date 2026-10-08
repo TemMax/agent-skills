@@ -258,7 +258,8 @@ fi
 judge=""
 case "$host" in
   claude)
-    judge="claude-haiku-4-5-20251001"
+    # The judge is Haiku 5.5 at `medium` (decision 014).
+    judge="claude-haiku-5-5"
     ;;
   codex)
     if ! judge="$(codex_judge_for "$model")"; then
@@ -357,12 +358,15 @@ else
     # Plan mode injects its own system prompt (write the plan, call
     # ExitPlanMode), which crowds out the judge's instructions; the judge
     # only reads and answers, so it needs no tools. Verified 2026-09-22 that
-    # `claude -p --tools ""` answers normally.
+    # `claude -p --tools ""` answers normally. --strict-mcp-config: without it
+    # every configured MCP tool schema is loaded into a session that has no tools.
     ( cd "$neutral_dir" && DRIFT_CHECK_ACTIVE=1 CLAUDE_DRIFT_CHECK_ACTIVE=1 \
       claude -p "$full_prompt" \
         --model "$judge" \
+        --effort medium \
         --permission-mode dontAsk \
         --tools '' \
+        --strict-mcp-config \
         --permission-prompts none \
         --no-session-persistence \
         </dev/null >"$tmp_out" 2>/dev/null ) &

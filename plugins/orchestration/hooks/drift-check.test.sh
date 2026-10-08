@@ -510,11 +510,11 @@ expect "Claude judge clean answer remains silent" "{}" \
 if [ -s "$WORK/claude.args" ] && python3 -c '
 import json,sys
 args=json.load(open(sys.argv[1]))
-ok=(len(args) == 11 and args[0] == "-p" and "Plan (" in args[1]
+ok=(len(args) == 14 and args[0] == "-p" and "Plan (" in args[1]
     and "Summary: all tasks done, nothing remaining." in args[1]
-    and args[2:] == ["--model", "claude-haiku-4-5-20251001",
+    and args[2:] == ["--model", "claude-haiku-5-5", "--effort", "medium",
                     "--permission-mode", "dontAsk", "--tools", "",
-                    "--permission-prompts", "none",
+                    "--strict-mcp-config", "--permission-prompts", "none",
                     "--no-session-persistence"]
     and "bypassPermissions" not in args)
 sys.exit(0 if ok else 1)
