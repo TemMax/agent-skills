@@ -874,7 +874,7 @@
       "path": "plugins/orchestration/skills/super-plan/SKILL.md",
       "old": "eecf62f15aa7e61373408c7f350d009fa045c022c92fdb5166279c52a8ef7261",
       "new": "11a5c91ee692bc6ea1e1873ded9163753f4e5bf6ea223bf9e3e2177066e49f47",
-      "reason": "Step 5 Seam audit: the Claude audit agent is spawned through the Agent tool with the `sonnet` alias and the effort parameter set to `medium` (now resolving to Sonnet 5.5, probed 2026-10-08) or as a one-agent Workflow `agent()`; the in-session fallback applies when neither is available."
+      "reason": "Step 5 Seam audit: the Claude audit agent is spawned through the Agent tool with the `sonnet` alias (now resolving to Sonnet 5.5, probed 2026-10-08) and the effort parameter set to `medium` or as a one-agent Workflow `agent()`; the in-session fallback applies when neither is available."
     },
     {
       "path": "plugins/orchestration/skills/super-plan/SKILL.md",
