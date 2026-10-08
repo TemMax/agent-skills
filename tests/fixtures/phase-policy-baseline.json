@@ -20,8 +20,8 @@
       "765d70c13440bc63bca46d7fa522337c28082fef5465d27ab8ecf9dde6644b7d",
       "94610a223a822b24435d178804e9c7ac2cfc60d1f4f3c43c5d2dc8f0107a9e9c",
       "0a6ae6aec66002dac2461e16bbe03aff6aa482a29e897a6071c62d254ae3d204",
-      "b5d6e8af6cf4db9584bee922440e36a571bf986130cf8693c24932a7bc7cb1eb",
-      "7c3a44bafb90d5f7760852e9eaa03e72c5159b37441433da7eeadda993da2d22",
+      "717fd8077eedb038c14903d56b9def66f2daccd0680b0358880ff1449f12ed65",
+      "0e39a3d6f193d1258137576dc8d9030969e1cbda29c458cb9d11d08ec63c8bde",
       "6ff13154451350a9e2299959c389f3103c4ddb6aa7dbb45e5bf92ba04d1224de",
       "b634df9671707efa5524d900c86e57ad6e441048d9928b225ca37681675e65d2",
       "034b1bd433372eacfb82a152b46657c001d00b0e199f318b65eb7c05e3283ab3",
@@ -30,7 +30,7 @@
       "13f3d8c123f7caf1a329b9acfe4b18ac8a7c46293251d66c872a092a5742b8be",
       "641011500e15846f839fce932578b5f9832fd68d6cee81bf08fb4c658eba1d23",
       "976b15fc576a0cfe03381870b0df4cfcb3e4bfd7351a108d3ec9ec3dc6ffc92f",
-      "eecf62f15aa7e61373408c7f350d009fa045c022c92fdb5166279c52a8ef7261",
+      "11a5c91ee692bc6ea1e1873ded9163753f4e5bf6ea223bf9e3e2177066e49f47",
       "900fee9c05647568ecf8eb7b61e52b0b6469cb3070df50db4e1aca5019bfc43b",
       "1e6ca273644d1c3b914de50d384d5affe588ccaafd21875a007c9b16d7e4a0e7",
       "d207e08fe5741bd2f5061a7fea9ac11a75fe0d17a908bba846d2bfe8b9b2265a",
@@ -51,8 +51,8 @@
       "e40559dc13ca40fe134205558b9ef67943c823032b33659e05d9faed5fe9c0d2",
       "21ffe2b7b3f6afceffd0eef45702711d6b57f879dead936c29a2ff276a677fa3",
       "6812dba16aeca96bc0f84ae6fe1abdcd72930b197a5654a7902e1dde1e3ffc46",
-      "4a6aacd054c4baeaf3854f93ff9551c102a93cf437f8d933822f7d196e8fba4f",
-      "5be7a0a99e480e9698a827a24bb9e3c45af20371c2c56a00ac54346b8f96ba15",
+      "cc7fa6545d46c4c90f6557c6e039550e90abd0bd71de518704509e360c60097e",
+      "e4bfa6837a8ca22110c2638a9ae18a2c4fdc7274052ceb5c17d072ffecbdab29",
       "6231fda04b0aa6e65aa85123719e2912b065c338d64f867b5153069fde63d7ef",
       "06286c7616bc7aee1b4be2a44b67eaeccf1e9ebafb2ac06ffbb0511f86c07cd6",
       "401ad0e7d301bec73a724bec6cc3ed0f1a3efa8d3b2f8b5d143174f00b33f5b0",
@@ -855,6 +855,38 @@
       "old": "141d92533acb470cd14df1a28486a027c607ba66c2347cf60d1de3607e946619",
       "new": "37692d37ac4b96cf86eef38433c6cf55cbbaa506f9b9815b8d9d1f727d6db8ac",
       "reason": "Codex session rules block: the environment-blocked rule adds that the runner keeps going when only the sandbox blocks a must_run command, so the stop means the machine itself is broken; fix and relaunch the same plan without asking."
+    }
+  ],
+  "haiku_5_5_amendment": [
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "b5d6e8af6cf4db9584bee922440e36a571bf986130cf8693c24932a7bc7cb1eb",
+      "new": "717fd8077eedb038c14903d56b9def66f2daccd0680b0358880ff1449f12ed65",
+      "reason": "Step 2 Decisions, standard-route parenthesis: adds Sonnet 5.5 as the standard supervisor for a wave whose tasks are all `claude-haiku-5-5` with an empty ladder (results 2026-10-08, sonnet-supervisor: adopted)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "7c3a44bafb90d5f7760852e9eaa03e72c5159b37441433da7eeadda993da2d22",
+      "new": "0e39a3d6f193d1258137576dc8d9030969e1cbda29c458cb9d11d08ec63c8bde",
+      "reason": "Execution cost controls: adds that a `claude-haiku-5-5` task is always a mechanical-supervision task, routed only to work whose acceptance independent commands fully establish (results 2026-10-08, executor-lane: widened)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "eecf62f15aa7e61373408c7f350d009fa045c022c92fdb5166279c52a8ef7261",
+      "new": "11a5c91ee692bc6ea1e1873ded9163753f4e5bf6ea223bf9e3e2177066e49f47",
+      "reason": "Step 5 Seam audit: the Claude audit agent is spawned through the Agent tool with the `sonnet` alias (now resolving to Sonnet 5.5, probed 2026-10-08) and the effort parameter set to `medium` or as a one-agent Workflow `agent()`; the in-session fallback applies when neither is available."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "4a6aacd054c4baeaf3854f93ff9551c102a93cf437f8d933822f7d196e8fba4f",
+      "new": "cc7fa6545d46c4c90f6557c6e039550e90abd0bd71de518704509e360c60097e",
+      "reason": "Plan Format allowed-model table: the Claude row gains `claude-haiku-5-5`."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "5be7a0a99e480e9698a827a24bb9e3c45af20371c2c56a00ac54346b8f96ba15",
+      "new": "e4bfa6837a8ca22110c2638a9ae18a2c4fdc7274052ceb5c17d072ffecbdab29",
+      "reason": "Plan Format, sentence under the table: new Claude plans route Haiku work to `claude-haiku-5-5`; `claude-haiku-4-5-20251001` remains valid on the same terms as `claude-sonnet-5`."
     }
   ]
 }

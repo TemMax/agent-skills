@@ -73,7 +73,7 @@ fi
 . tests/lib.sh
 . tests/eval/model-cli.sh
 
-MODEL="${EVAL_MODEL:-claude-haiku-4-5-20251001}"
+MODEL="${EVAL_MODEL:-claude-haiku-5-5}"
 PROMPT_FILE=plugins/orchestration/skills/multi-model/references/supervisor-prompt.md
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 R="$W/repo"; mkdir -p "$R/src" "$R/tests"

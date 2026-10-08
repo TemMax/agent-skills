@@ -21,7 +21,7 @@ const CODEX_SUPERVISORS = [...CODEX_MODELS, ASTRA]
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 export const ACTIONS = ['spawn-executor', 'verify', 'spawn-supervisor', 'merge-ready', 'stop']
 
-const CLAUDE_MODELS = ['claude-haiku-4-5-20251001', 'claude-sonnet-5', 'claude-sonnet-5-5',
+const CLAUDE_MODELS = ['claude-haiku-5-5', 'claude-haiku-4-5-20251001', 'claude-sonnet-5', 'claude-sonnet-5-5',
   'claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-fable-5-1']
 const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const isClaudeModel = (model) => CLAUDE_MODELS.includes(model) || CLAUDE_ALIASES.includes(model)

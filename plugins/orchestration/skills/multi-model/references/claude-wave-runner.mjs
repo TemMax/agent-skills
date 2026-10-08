@@ -107,7 +107,7 @@ async function agent(prompt, opts) {
       ...(role !== 'exec' ? ['--no-session-persistence'] : resumed ? ['--resume', sessionId] : ['--session-id', sessionId]),
       '--output-format', 'json', '--tools', tools,
       '--allowedTools', tools, '--permission-mode', role === 'exec' ? 'acceptEdits' : 'dontAsk',
-      '--permission-prompts', 'none']
+      '--permission-prompts', 'none', '--strict-mcp-config']
     if (opts.schema) argv.push('--json-schema', JSON.stringify(opts.schema))
     if (role !== 'exec') argv.push('--disallowedTools', 'Edit,Write,NotebookEdit')
     const entry = { task: id, role, model: opts.model, effort: opts.effort,

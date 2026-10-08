@@ -91,6 +91,20 @@ exclusive here, so the ~8s model call is paid inside the turn or not at all.
 Gate it; do not shorten it — the cost *is* the model call, and cutting it short
 only buys worse advice at the same price.
 
+**The Claude judge.** On Claude Code the judge is `claude-haiku-5-5` at
+`low` effort, started with no tools and no MCP servers (`--tools ''`,
+`--strict-mcp-config`). A session that loads every configured MCP tool schema
+spends its context window on definitions it cannot call: measured on
+2026-10-08, the previous judge's call carried 133,224 prompt tokens before
+the transcript and failed with a prompt-too-long error on an ordinary
+transcript tail (decision 014). The prompt goes in on stdin: a large transcript
+tail does not fit into a command-line argument. Prompt caching is off for the
+call (`DISABLE_PROMPT_CACHING=1`): it is a single request, and a cached prompt
+is billed at the cache-write rate. The hook waits 45 seconds for the answer and
+then stops the judge process itself, killing it two seconds later if it ignores
+the signal: a judge left running after the hook has returned is still billed,
+and nobody reads its answer.
+
 **The check does not repeat itself.** Each invocation is stateless, so during a
 live wave it would hand the orchestrator the identical note on every
 claim-shaped turn. A per-session memo holds a digest of the last advice actually

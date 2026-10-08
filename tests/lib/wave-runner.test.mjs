@@ -299,14 +299,14 @@ test('S10a every alias is rejected by name as executor, ladder rung, supervisor 
       assert.equal(result.status, 'invalid-args', alias + ' as ' + field)
       const hit = result.errors.find((e) => e.includes(field + ': "' + alias + '" is an alias'))
       assert.ok(hit, alias + ' as ' + field + ' → ' + result.errors.join('; '))
-      assert.match(hit, /claude-haiku-4-5-20251001\/claude-sonnet-5\/claude-sonnet-5-5\/claude-opus-5-5/)
+      assert.match(hit, /claude-haiku-5-5\/claude-haiku-4-5-20251001\/claude-sonnet-5\/claude-sonnet-5-5\/claude-opus-5-5/)
       assert.equal(calls.length, 0)
     }
   }
 })
 
-test('S10b the default ladder from claude-haiku-4-5-20251001 climbs to claude-sonnet-5-5, then claude-opus-5-5', async () => {
-  const t = task({ executor: { model: 'claude-haiku-4-5-20251001', effort: 'medium' } })
+test('S10b the default ladder from claude-haiku-5-5 climbs to claude-sonnet-5-5, then claude-opus-5-5', async () => {
+  const t = task({ executor: { model: 'claude-haiku-5-5', effort: 'medium' } })
   delete t.ladder
   const { result, calls } = await runWorkflow(SCRIPT, {
     args: waveArgs({ tasks: [t] }),
@@ -314,7 +314,7 @@ test('S10b the default ladder from claude-haiku-4-5-20251001 climbs to claude-so
   })
   assert.equal(result.tasks[0].status, 'ok')
   assert.deepEqual(execCalls(calls, 't-one').map((c) => c.opts.model), [
-    'claude-haiku-4-5-20251001', 'claude-haiku-4-5-20251001',
+    'claude-haiku-5-5', 'claude-haiku-5-5',
     'claude-sonnet-5-5', 'claude-sonnet-5-5',
     'claude-opus-5-5',
   ])
@@ -370,6 +370,19 @@ test('S10f the legacy claude-sonnet-5 ladder is still [claude-opus-5-5]', async 
 })
 
 test("S10g Haiku's default ladder is [claude-sonnet-5-5, claude-opus-5-5]", async () => {
+  const t = task({ executor: { model: 'claude-haiku-5-5', effort: 'medium' } })
+  delete t.ladder
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: waveArgs({ tasks: [t] }),
+    agentStub: stub({ 't-one': [V.files(), V.files(), V.files(), V.files(), V.ok()] }),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  const models = execCalls(calls, 't-one').map((c) => c.opts.model)
+  assert.deepEqual([...new Set(models)],
+    ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'])
+})
+
+test('S10g2 retired claude-haiku-4-5-20251001 keeps the default ladder [claude-sonnet-5-5, claude-opus-5-5]', async () => {
   const t = task({ executor: { model: 'claude-haiku-4-5-20251001', effort: 'medium' } })
   delete t.ladder
   const { result, calls } = await runWorkflow(SCRIPT, {

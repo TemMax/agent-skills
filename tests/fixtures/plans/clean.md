@@ -20,7 +20,7 @@ base: pending
           "report_must_answer": ["Which call sites now retry?"] } },
       { "id": "docs-sync",
         "branch": "wave/docs-sync",
-        "executor": { "model": "claude-haiku-4-5-20251001" },
+        "executor": { "model": "claude-haiku-5-5" },
         "ladder": [],
         "contract": {
           "files_allowed": ["docs/**"],

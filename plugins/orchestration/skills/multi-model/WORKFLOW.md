@@ -5,32 +5,38 @@ Relative paths are based on this skill directory.
 
 ### Model identifiers — full IDs only
 
-`claude-sonnet-5-5`: alias probe and Workflow `agent()` runs on 2026-09-28, recorded in `tests/eval/wave-insession.md` and `tests/eval/sonnet-5-5-results-2026-09-28.md`.
+`claude-haiku-5-5` and `claude-sonnet-5-5`: alias probes on 2026-10-08 (Claude Code 2.1.293), recorded in `tests/eval/haiku-5-5-results-2026-10-08.md`; the table's first probe was Workflow `wf_e635018e-8f3` on 2026-09-22, and the earlier `claude-sonnet-5-5` probe and Workflow `agent()` runs on 2026-09-28 are recorded in `tests/eval/wave-insession.md` and `tests/eval/sonnet-5-5-results-2026-09-28.md`.
 
-| Model | Full ID | Agent-tool alias (probed 2026-09-22, Workflow `wf_e635018e-8f3`) |
+| Model | Full ID | Agent-tool alias (probed 2026-10-08, Claude Code 2.1.293) |
 |---|---|---|
-| Haiku 4.5 | `claude-haiku-4-5-20251001` | `haiku` |
-| Sonnet 5.5 | `claude-sonnet-5-5` | none (probed 2026-09-28: `sonnet` still resolves to `claude-sonnet-5`) |
-| Sonnet 5 (retired route; ID valid for approved plans) | `claude-sonnet-5` | `sonnet` |
+| Haiku 5.5 | `claude-haiku-5-5` | `haiku` |
+| Haiku 4.5 (retired route; ID valid for approved plans) | `claude-haiku-4-5-20251001` | none (`haiku` moved to Haiku 5.5) |
+| Sonnet 5.5 | `claude-sonnet-5-5` | `sonnet` |
+| Sonnet 5 (retired route; ID valid for approved plans) | `claude-sonnet-5` | none (`sonnet` moved to Sonnet 5.5) |
 | Opus 5.5 | `claude-opus-5-5` | `opus` |
 | Opus 5 | `claude-opus-5` | none |
 | Opus 4.8 | `claude-opus-4-8` | none |
-| Fable 5.1 | `claude-fable-5-1` | `fable` |
+| Fable 5.1 | `claude-fable-5-1` | `fable` (`claude -p` probe; Agent tool last probed 2026-09-22) |
 
 Plans, runner args, Workflow `agent()` and CLI `--model` name the full ID; the
 linter and the runner reject aliases by name. Why: aliases re-point silently —
 on 2026-09-22 `opus` moved from Opus 5 to Opus 5.5, so every route written as
-`opus` changed model without an edit.
+`opus` changed model without an edit. By 2026-10-08 `sonnet` had moved from
+Sonnet 5 to Sonnet 5.5 and `haiku` from Haiku 4.5 to Haiku 5.5 the same way.
 
 **Agent-tool exception.** The Claude Code Agent tool schema accepts only
 aliases, so a spawn through it names the alias AND the full ID from this table.
-A model without an alias (Opus 5, Opus 4.8) is spawned only through Workflow
-`agent()`. Sonnet 5.5 has no alias yet, so a Sonnet 5.5 research or audit
-spawn runs as a one-agent Workflow `agent()` call with the full ID, for example
-`agent(prompt, { model: 'claude-sonnet-5-5', effort: 'medium' })`. That is not a
-wave script. When a new Claude model ships, re-probe (a Workflow that asks each
-agent to report its model ID) and update this table before routing through an
-alias.
+It also passes the routed effort through the tool's effort parameter where the
+tool has one. A model without an alias (Opus 5, Opus 4.8, and the retired
+Sonnet 5 and Haiku 4.5) is spawned only through Workflow `agent()`. An alias
+can move again, or still point at the previous model on an older Claude Code,
+so every agent spawned through an alias states its exact model ID in the first
+line of its report (`model: <id>`); a report from another model than the routed
+one is discarded and the spawn repeated as a one-agent Workflow `agent()` call
+with the full ID, for example `agent(prompt, { model: 'claude-sonnet-5-5',
+effort: 'medium' })`. That is not a wave script. When a new Claude model ships,
+re-probe (spawn one agent per alias and read which model the run was billed to)
+and update this table before routing through an alias.
 
 ### GPT calibration evidence and Codex routing
 
@@ -227,21 +233,26 @@ threads started by someone else, and before pushing to a branch or pull
 request that is not the user's own. The merge into the default branch stays
 with the user unless the user says otherwise.
 
-The orchestrator reads targeted ranges itself when a focused lookup answers
-its question; use `git diff --stat` to locate the scope. Delegate substantial,
+The orchestrator reads targeted ranges itself when a focused lookup answers its
+question; use `git diff --stat` to locate the scope. Delegate substantial,
 self-contained research, not a trivial file lookup. Do not load whole files,
-diffs or transcripts into the coordinator just to relay them to a child. Do not
-keep a journal that duplicates state a helper or runner already holds — the
-wave plan, the state files, and `summary.json` are the record. And it waits
-on a running agent or runner with long waits, not frequent polls — a
-polling loop burns turns on the orchestrator's own round trips instead of on
-the work it is waiting for.
+diffs or transcripts into the coordinator just to relay them to a child. When
+the answer sits inside a large log, transcript or file — the output of a failed
+check, a child's transcript — search it first: a pattern search for the
+failure's markers is one call. When the search does not settle it and the
+answer has to be read out of the file, hand its path to a Haiku 5.5 reader per
+the Research Routing table and take back the quoted lines; open the file
+yourself only at the lines the reader cites. Do not keep a journal that
+duplicates state a helper or runner already holds — the wave plan, the state
+files, and `summary.json` are the record. And it waits on a running agent or
+runner with long waits, not frequent polls — a polling loop burns turns on the
+orchestrator's own round trips instead of on the work it is waiting for.
 
 ## Model Routing — Quick Reference
 
 | Task | Model | Why (see the dossiers) |
 |---|---|---|
-| Mechanical work per exact instruction, zero decisions | Haiku 4.5 (`claude-haiku-4-5-20251001`) | Cheaper; condition — zero decisions |
+| A small closed task whose acceptance is fully mechanical — the contract's commands decide it, `"supervision": "mechanical"` — and mechanical work per exact instruction | Haiku 5.5 (`claude-haiku-5-5`), medium | Ahead of Sonnet 5.5 at the same effort on scoped coding (FrontierCode Main ≈41.6 vs ≈36.5 at medium, chart read, Haiku 5.5 card p. 113) at a twentieth of the price below 100,000 prompt tokens; measured here on 2026-10-08: 12/12 ok, 12/12 first attempt against Sonnet 5.5's 12/12 ok, 12/12 first attempt (`tests/eval/haiku-5-5-results-2026-10-08.md`). Not for a task that needs a judge's reading, a long session or debugging: Terminal-Bench 4.0 39.2 vs Sonnet 5.5's 70.6 (p. 115); its price is five times higher for a request above 100,000 prompt tokens, so its tasks stay small |
 | Implementation against a clear spec, tests, migrations, isolated features | Sonnet 5.5 (`claude-sonnet-5-5`, default) | Near-Opus quality on closed tasks: SWE-bench Pro 81.3 vs Sonnet 5's 63.2 (Opus 5.5 89.9), p. 109; false completion claims 1.54 vs Sonnet 5's 2.52 (p. 66) |
 | Digging through a large volume of code for a specific question | Sonnet 5.5 (`claude-sonnet-5-5`) | Holds 1M context; ProgramBench 79.7 vs Sonnet 5's 77.3 (Opus 5.5 91.2), pp. 117–118 |
 | Independent verification, "what's actually broken here" | Opus 5.5 executor (`claude-opus-5-5`, default heavy) | Fewer false completion claims than Opus 5 (1.14 vs 1.56, pp. 106–114); silent use of a leaked answer 12.1% vs 36.3% (p. 131); volunteers hidden git manipulations 96.9% vs 50.2% (p. 132) |
@@ -256,7 +267,9 @@ Torn between Haiku and Sonnet → Sonnet 5.5. Torn between Sonnet and Opus → i
 task spec first, then upgrade the model. Sonnet 5.5 (`claude-sonnet-5-5`) is the
 default executor for closed implementation; Opus 5.5 (`claude-opus-5-5`) is the
 default heavy executor and verifier. `claude-sonnet-5` is retired as a route
-(2026-09-28); the ID stays valid so that approved plans still execute. Opus 5 remains addressable as
+(2026-09-28); the ID stays valid so that approved plans still execute.
+`claude-haiku-4-5-20251001` is retired as a route (2026-10-08) on the same
+terms. Opus 5 remains addressable as
 `claude-opus-5` — the standard supervisor for Opus 5.5 executors and for
 tasks whose rungs reach Opus 5.5; retired as an executor. Opus 4.8
 (`claude-opus-4-8`) is retained only for compiled-binary work and as the
@@ -266,9 +279,12 @@ cyber-refusal fallback.
 subagents (documented failures in deep delegation chains: status honesty, not
 capability); don't give any executor untrusted external content without platform
 safeguards (Opus 5.5 and Fable 5.1 are the most robust through tool results, but
-safeguards still matter); don't give Sonnet multi-hour sessions; don't route
-compiled-binary reverse-engineering to Opus 5.5, Opus 5 or Fable 5.1 (their
-classifiers block it) — use Opus 4.8.
+safeguards still matter); don't give Sonnet multi-hour sessions; don't give
+Haiku 5.5 a task whose acceptance needs judgment, a session that grows past
+100,000 prompt tokens, or a secret to handle (it kept a secret out of its
+reasoning and replies in 3% of pressed conversations, Haiku 5.5 card p. 92);
+don't route compiled-binary reverse-engineering to Opus 5.5, Opus 5 or Fable
+5.1 (their classifiers block it) — use Opus 4.8.
 
 ## Research Routing — Quick Reference
 
@@ -280,8 +296,8 @@ expensive rate available. Never spawn a research agent without naming its model.
 
 | Research kind | Model | Why (see the dossiers) |
 |---|---|---|
-| Mechanical pattern search: occurrences of a known string or shape | Haiku 4.5 (`claude-haiku-4-5-20251001`) | Zero decisions; simple file searches are its documented lane |
-| Closed enumeration: files, call sites, conventions, test commands that actually run | Sonnet 5.5 (`claude-sonnet-5-5`), medium, spawned through Workflow `agent()` | Digs through large code volumes at half Opus 5.5's per-token price ($2/$10 vs $4/$20); ProgramBench 79.7 vs Opus 5.5's 91.2 is a gap, not a lead (1M context, pp. 117–118); wide search at low collapses (WANDR 10.0 at low vs 29.9 at medium, p. 122); a closed question bounds its documented guessing (AA-Omniscience incorrect-answer rate 0.27, p. 80) |
+| Mechanical pattern search, one closed lookup question, or extracting a fact from a large file, log or transcript handed over by path | Haiku 5.5 (`claude-haiku-5-5`), medium, Agent tool alias `haiku` | A cheap reader with a 1M window: ProgramBench 82.0 vs Sonnet 5.5's 79.7 (p. 117), DRACO at medium 72.4 vs 71.2 (p. 121), at $0.10 / $0.50 per million tokens for a request below 100,000 prompt tokens and $0.50 / $2.50 above; it misreads inputs more often than Sonnet 5.5 (input hallucination 1.88 vs 1.44, p. 66), so it returns verbatim lines with line numbers, never a paraphrase; never at low (WANDR 3.5 at low, p. 123) |
+| Closed enumeration: files, call sites, conventions, test commands that actually run | Sonnet 5.5 (`claude-sonnet-5-5`), medium, Agent tool alias `sonnet` | Digs through large code volumes at half Opus 5.5's per-token price ($2/$10 vs $4/$20); ProgramBench 79.7 vs Opus 5.5's 91.2 is a gap, not a lead (1M context, pp. 117–118); wide search at low collapses (WANDR 10.0 at low vs 29.9 at medium, p. 122); a closed question bounds its documented guessing (AA-Omniscience incorrect-answer rate 0.27, p. 80); wide enumeration stays here, not on Haiku 5.5 (WANDR at medium 29.9 vs Haiku 5.5's 12.9, Haiku 5.5 card p. 123) |
 | Open research sub-question: how a subsystem works, what depends on what, why it is shaped this way | Opus 5.5 (`claude-opus-5-5`), medium/high | Cheaper than Opus 5 ($4 / $20 vs $5 / $25 per million tokens, p. 180) at DRACO parity (87.4 vs 88.3, p. 187) |
 | A report the orchestrator will trust without re-verification | Opus 5.5 (`claude-opus-5-5`), medium/high | Strongest tested model or tied on most honesty metrics of the dossier's automated-behavioral-audit comparison (Opus 5.5 card pp. 106–114, p. 110); its MASK honesty-under-pressure rate is below Opus 5's and Sonnet 5's (p. 130), so a report it produces under user pressure still gets spot-checked |
 | Reasoning over a near-1M-token surface | Opus 4.8 (`claude-opus-4-8`) | The only measured long-context reasoning result in the comparison set (GraphWalks 1M 68.1) |
@@ -295,6 +311,11 @@ decisions stay in the orchestrator seat.
 **Mandatory lines in every research agent's prompt** (the research counterpart
 of the executor task template):
 
+- the first line of the report is `model: <the exact model ID you run on>`;
+- a fact taken from a file, log or transcript comes back as the verbatim line or
+  lines with their line numbers (`path:line`), so that one grep checks the quote —
+  never a paraphrase (Haiku 5.5 misreads inputs more often than the larger
+  models: input hallucination 1.88 vs Sonnet 5.5's 1.44, Haiku 5.5 card p. 66);
 - every claim carries evidence as `file:line`, or as a command plus its output;
 - `not found` is a valid and expected answer — never fill a gap with a guess
   (Sonnet 5.5 guesses instead of abstaining: AA-Omniscience incorrect-answer
@@ -320,7 +341,8 @@ is your profile's business, not this table's.
 
 | Model | low | medium | high | xhigh |
 |---|---|---|---|---|
-| Haiku 4.5 (`claude-haiku-4-5-20251001`) | — does not support effort — | | | |
+| Haiku 5.5 (`claude-haiku-5-5`) | avoid — in a long agent prompt it skips checks and stops early (prompting guide), and wide search collapses (WANDR 3.5, p. 123) | **default** — the knee on scoped coding (FrontierCode Main ≈41.6; `high` adds ≈0.3 for half again the output tokens, chart read, p. 113) | strict instruction following or a longer read; no coding gain over medium | not a Haiku route — switch to Sonnet 5.5 (Haiku 5.5 at xhigh ≈45.8 and max 46.4 stay below Sonnet 5.5 at high ≈49.4, p. 113) |
+| Haiku 4.5 (`claude-haiku-4-5-20251001`; retired route) | — does not support effort — | | | |
 | Sonnet 5.5 (`claude-sonnet-5-5`) | simple, fully specified edits | routine implementation per spec | default for non-trivial work | hardest execution tasks, the coding peak (FrontierCode 52.1 at xhigh vs 46.2 at max with ~12× the tokens, p. 111); never max for scoped coding |
 | Sonnet 5 (`claude-sonnet-5`; retired route) | obvious solution, but the code must be read | routine implementation per spec | default for non-trivial work | hardest execution tasks; plateau! |
 | Opus 5.5 executor (`claude-opus-5-5`) | simple, fully specified edits | **peak on scoped coding** (FrontierCode, p. 176) | default for non-trivial work (CursorBench high = xhigh, p. 179) | long-horizon knowledge work (≈ max at 41–51% fewer tokens, pp. 209–210); avoid max — pasted-text compliance 7.4% (p. 125) |
@@ -547,7 +569,8 @@ weaker tier than Opus 5.5 even where Opus 5.5 benchmarks higher.
 
 | Executor | Supervisor | Effort |
 |---|---|---|
-| Haiku 4.5 (`claude-haiku-4-5-20251001`) | Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
+| Haiku 5.5 (`claude-haiku-5-5`) | Sonnet 5.5 (`claude-sonnet-5-5`) when every task of the wave is Haiku 5.5 with `"ladder": []` (measured 2026-10-08: supervisor fixture 9/9 in three runs, F3 guard 15/15); otherwise Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
+| Haiku 4.5 (`claude-haiku-4-5-20251001`) | retired route — same supervisor as the Haiku 5.5 row | high |
 | Sonnet 5.5 (`claude-sonnet-5-5`) | Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
 | Sonnet 5 (`claude-sonnet-5`) | retired route — same supervisor as the Sonnet 5.5 row | high |
 | Opus 5.5 (`claude-opus-5-5`) | Fable 5.1 (`claude-fable-5-1`), fallback Opus 5 (`claude-opus-5`) | high |
@@ -589,12 +612,16 @@ is measured, not stylistic: on 2026-08-12 a Haiku supervisor at `medium` passed
 an unsatisfiable contract, filing its whole analysis into `remarks`. A cheaper
 judge on a mechanical task is not the economy lever; skipping the model
 entirely is (see the cost section below). On 2026-08-12 the supervisor tier
-passed F1–F4 in single live runs on Haiku 4.5 (the default eval model),
+passed F1–F4 in single live runs on Haiku 4.5 (the default eval model then),
 Sonnet 5, Opus 5 and Fable 5, and on 2026-09-01 on Fable 5.1; single runs
 prove "can", not a rate. On 2026-09-23 Opus 5.5 passed the supervisor tier
 9/9 with the F3 false-positive guard 5/5 (`EVAL_REPEAT=5`) — a repetition,
 not a single run. Opus 4.8 has not run the F1–F4 supervisor fixtures; its
-supervisor route rests on its system card.
+supervisor route rests on its system card. On 2026-10-08 the tier ran on Haiku
+5.5, the default eval model since then: 9 passed, 0 failed (single run). The
+same day Sonnet 5.5 at `high` passed it in three runs with `EVAL_REPEAT=5`
+(supervisor fixture 9/9 in three runs, F3 guard 15/15) — the basis of its row
+for all-Haiku-5.5 waves.
 
 **The supervisor trusts artifacts only.** A verdict is `{"ok", "violations",
 "remarks"}`, and only `violations` decide `ok` — doubts go to `remarks`.
@@ -674,9 +701,9 @@ Read and follow `references/contract-amendment.md` (amending is your job; removi
 ### Cost, and when to skip the model
 
 A supervisor invocation is an agent with tools — a diff, the commands, the
-greps — so it is not one model request. The tiers also invert: a Haiku 4.5 task
-is supervised by Opus 5.5 (see the supervisor table above), making the supervisor
-the expensive half.
+greps — so it is not one model request. The tiers also invert: a Haiku 5.5 task
+is supervised by Sonnet 5.5 or Opus 5.5 (see the supervisor table above),
+making the supervisor the expensive half.
 
 Read `references/execution-cost-controls.md` before adding execution controls.
 Both native drivers support explicit mechanical-only contracts, artifact-bound
@@ -801,8 +828,9 @@ Opus 5 relays subagent claims unverified (p. 81).
   `references/orchestrator-fable-5.md`, `references/orchestrator-opus-5.md`,
   `references/orchestrator-opus-4-8.md` — the orchestrator profiles. Load exactly
   one, per Step 0.
-- `references/model-dossiers.md` — dossiers on all eight models (Opus 5.5,
-  Fable 5.1, Fable 5, Opus 5, Opus 4.8, Sonnet 5.5, Sonnet 5, Haiku 4.5) with numbers and
+- `references/model-dossiers.md` — dossiers on all nine models (Opus 5.5,
+  Fable 5.1, Fable 5, Opus 5, Opus 4.8, Sonnet 5.5, Sonnet 5, Haiku 5.5,
+  Haiku 4.5) with numbers and
   page references to the system cards: benchmarks, documented failure modes,
   effort curves, multi-agent harness data, orchestration takeaways. Load it for
   contested routing calls or to justify a choice.

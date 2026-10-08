@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Gate tests for drift-check. Every case runs in dry-run, so the suite is
-# offline, deterministic and costs nothing. The live end-to-end path is checked
-# separately — see the last case, which is skipped unless LIVE=1.
+# Gate tests for drift-check. Every case runs in dry-run or against a stub, so
+# the suite is offline, deterministic and makes no model call; one watchdog case
+# waits about 47 seconds. The live end-to-end path is checked separately — see
+# the last case, which is skipped unless LIVE=1.
 set -uo pipefail
 cd "$(dirname "$0")/../../.." || exit 1
 . tests/test-env.sh
@@ -443,6 +444,7 @@ cat > "$STUBBIN/claude" <<'EOF'
 #!/bin/sh
 python3 -c 'import json,os,sys; json.dump(sys.argv[1:], open(os.environ["CLAUDE_ARGS"], "w"))' "$@"
 cat > "$CLAUDE_STDIN"
+printf '%s\n' "${DISABLE_PROMPT_CACHING:-unset}" > "${CLAUDE_CACHING:-/dev/null}"
 printf '%s\n' "${CLAUDE_STUB_ANSWER:-NOTHING}"
 EOF
 chmod +x "$STUBBIN/timeout" "$STUBBIN/codex" "$STUBBIN/claude"
@@ -450,7 +452,7 @@ chmod +x "$STUBBIN/timeout" "$STUBBIN/codex" "$STUBBIN/claude"
 invoke_provider_stub() {
   local session="$1" model="$2"
   ( cd "$WORK/repo" && printf '{"hook_event_name":"Stop","model":"%s","stop_hook_active":false,"last_assistant_message":"Summary: all tasks done, nothing remaining.","session_id":"%s"}' "$model" "$session" \
-    | PATH="$STUBBIN:$PATH" TIMEOUT_ARGS="$WORK/timeout.args" CODEX_ARGS="$WORK/codex.args" CODEX_STDIN="$WORK/codex.stdin" CODEX_CWD_KIND="$WORK/codex.cwd-kind" CODEX_ACCEPTED="$WORK/codex.accepted" CLAUDE_ARGS="$WORK/claude.args" CLAUDE_STDIN="$WORK/claude.stdin" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )
+    | env -u DISABLE_PROMPT_CACHING PATH="$STUBBIN:$PATH" TIMEOUT_ARGS="$WORK/timeout.args" CODEX_ARGS="$WORK/codex.args" CODEX_STDIN="$WORK/codex.stdin" CODEX_CWD_KIND="$WORK/codex.cwd-kind" CODEX_ACCEPTED="$WORK/codex.accepted" CLAUDE_ARGS="$WORK/claude.args" CLAUDE_STDIN="$WORK/claude.stdin" CLAUDE_CACHING="$WORK/claude.caching" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )
 }
 
 rm -f "$WORK/timeout.args" "$WORK/codex.args" "$WORK/codex.stdin" \
@@ -504,24 +506,81 @@ else
   echo "FAIL  Codex judge did not receive the complete prompt on stdin"; fail=1
 fi
 
-rm -f "$WORK/claude.args" "$WORK/claude.stdin"
+rm -f "$WORK/claude.args" "$WORK/claude.stdin" "$WORK/claude.caching"
 expect "Claude judge clean answer remains silent" "{}" \
   "$(CLAUDE_STUB_ANSWER=NOTHING invoke_provider_stub claude-cli claude-fable-5-1)"
 if [ -s "$WORK/claude.args" ] && python3 -c '
 import json,sys
 args=json.load(open(sys.argv[1]))
-ok=(len(args) == 11 and args[0] == "-p" and "Plan (" in args[1]
-    and "Summary: all tasks done, nothing remaining." in args[1]
-    and args[2:] == ["--model", "claude-haiku-4-5-20251001",
-                    "--permission-mode", "dontAsk", "--tools", "",
-                    "--permission-prompts", "none",
-                    "--no-session-persistence"]
+ok=(args == ["-p", "--model", "claude-haiku-5-5", "--effort", "low",
+             "--permission-mode", "dontAsk", "--tools", "",
+             "--strict-mcp-config", "--permission-prompts", "none",
+             "--no-session-persistence"]
     and "bypassPermissions" not in args)
 sys.exit(0 if ok else 1)
 ' "$WORK/claude.args"; then
-  echo "PASS  Claude judge keeps complete-prompt safe no-tools invocation"
+  echo "PASS  Claude judge keeps the safe no-tools invocation with no prompt argument"
 else
   echo "FAIL  Claude judge invocation was incomplete or unsafe"; fail=1
+fi
+if [ -s "$WORK/claude.stdin" ] && grep -qF 'Plan (' "$WORK/claude.stdin" \
+   && grep -qF 'Summary: all tasks done, nothing remaining.' "$WORK/claude.stdin"; then
+  echo "PASS  Claude judge receives the complete prompt on stdin"
+else
+  echo "FAIL  Claude judge did not receive the complete prompt on stdin"; fail=1
+fi
+expect "Claude judge runs with prompt caching off" "1" "$(cat "$WORK/claude.caching" 2>/dev/null)"
+
+# A transcript tail larger than the operating system accepts as one command-line
+# argument must still reach the judge.
+BIG_TRANSCRIPT="$WORK/big-transcript.jsonl"
+python3 -c '
+import sys
+line = "{\"type\":\"tool_result\",\"content\":\"" + "x" * 6000 + "\"}\n"
+open(sys.argv[1], "w").write(line * 200)
+' "$BIG_TRANSCRIPT"
+rm -f "$WORK/claude.args" "$WORK/claude.stdin"
+big_out="$( cd "$WORK/repo" && printf '{"hook_event_name":"Stop","model":"claude-fable-5-1","stop_hook_active":false,"last_assistant_message":"Summary: all tasks done, nothing remaining.","session_id":"claude-big-tail","transcript_path":"%s"}' "$BIG_TRANSCRIPT" \
+  | PATH="$STUBBIN:$PATH" CLAUDE_ARGS="$WORK/claude.args" CLAUDE_STDIN="$WORK/claude.stdin" CLAUDE_STUB_ANSWER=NOTHING CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )"
+expect "Claude judge with a tail above 1 MB stays silent on a clean answer" "{}" "$big_out"
+if [ -s "$WORK/claude.stdin" ] && [ "$(wc -c < "$WORK/claude.stdin")" -gt 1200000 ]; then
+  echo "PASS  Claude judge receives a prompt above 1 MB"
+else
+  echo "FAIL  Claude judge was not called with the prompt above 1 MB"; fail=1
+fi
+
+# The watchdog must stop the judge itself, not only the shell around it, and must
+# not wait for a judge that ignores the first signal: a judge that outlives the
+# hook is still billed, and its answer is thrown away. This check takes about 47
+# seconds, the watchdog's own wait.
+HANGBIN="$WORK/hang-stub"
+mkdir -p "$HANGBIN"
+cat > "$HANGBIN/claude" <<'EOF'
+#!/bin/sh
+trap '' TERM
+echo $$ > "$CLAUDE_PID_FILE"
+cat > /dev/null
+exec sleep 120
+EOF
+chmod +x "$HANGBIN/claude"
+HANG_SESSION=claude-hang
+rm -f "${TMPDIR:-/tmp}/claude-drift-log/${HANG_SESSION}.jsonl" "$WORK/claude.pid"
+hang_started=$SECONDS
+hang_out="$( cd "$WORK/repo" && printf '{"hook_event_name":"Stop","model":"claude-fable-5-1","stop_hook_active":false,"last_assistant_message":"Summary: all tasks done, nothing remaining.","session_id":"%s"}' "$HANG_SESSION" \
+  | PATH="$HANGBIN:$PATH" CLAUDE_PID_FILE="$WORK/claude.pid" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )"
+hang_seconds=$((SECONDS - hang_started))
+expect "a Claude judge that hangs past the watchdog leaves the hook silent" "{}" "$hang_out"
+assert_unavailable "a Claude judge that hangs past the watchdog is audited" "$HANG_SESSION"
+if [ -s "$WORK/claude.pid" ] && ! kill -0 "$(cat "$WORK/claude.pid")" 2>/dev/null; then
+  echo "PASS  the watchdog stops a Claude judge that ignores the first signal"
+else
+  echo "FAIL  the Claude judge process outlived the watchdog"; fail=1
+  kill -KILL "$(cat "$WORK/claude.pid" 2>/dev/null)" 2>/dev/null
+fi
+if [ "$hang_seconds" -lt 60 ]; then
+  echo "PASS  the hook returns within a minute of a hanging Claude judge"
+else
+  echo "FAIL  the hook waited ${hang_seconds}s for a hanging Claude judge"; fail=1
 fi
 
 UNAVAILABLE_SESSION=codex-unavailable

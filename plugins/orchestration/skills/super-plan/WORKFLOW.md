@@ -116,7 +116,9 @@ they do not block writing a concrete plan for the one start approval.
    Codex, the review model. Never present a premium-or-standard choice to the
    user, and never ask the user to approve a route or a model. Use the
    standard route by default (Claude: Opus 5.5 supervising Sonnet/Haiku
-   waves, Opus 5 for Opus 5.5 executors; Codex: `gpt-6.1-sol` for waves whose executors and rungs are only
+   waves, Opus 5 for Opus 5.5 executors, Sonnet 5.5 for a wave whose tasks
+   are all `claude-haiku-5-5` with `"ladder": []`; Codex: `gpt-6.1-sol` for
+   waves whose executors and rungs are only
    `gpt-6-luna` — supervisor fixture 9/9 on 2026-09-29; its predecessor
    `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24
    and three real small waves merge-ready first try — toy waves, correct
@@ -172,7 +174,10 @@ they do not block writing a concrete plan for the one start approval.
    `../multi-model/references/execution-cost-controls.md`. Optional wave limits,
    artifact-cache declarations and task `supervision` belong in the approved
    plan. Default to model supervision; choose mechanical mode only for substantive
-   acceptance obligations fully established by independent commands.
+   acceptance obligations fully established by independent commands. A
+   `claude-haiku-5-5` task is always such a task: route to Haiku 5.5 only work
+   whose acceptance those commands fully establish, and give it
+   `"supervision": "mechanical"`.
 
    **Design for width.** Waves exist to run tasks side by side; a plan
    whose waves each hold one task is a serial script that pays wave
@@ -265,13 +270,15 @@ they do not block writing a concrete plan for the one start approval.
    expectation; a mismatch is a contract defect caught before any executor
    is spawned.
 5. **Seam audit.** Between Tasks and Lint, one read-only audit agent on the
-   cheap route — Claude: `claude-sonnet-5-5` at `medium`, spawned as a
-   one-agent Workflow `agent()` with that full ID (the Agent tool's
-   `sonnet` alias still resolves to Sonnet 5); Codex: `gpt-6.1-sol`
+   cheap route — Claude: `claude-sonnet-5-5` at `medium`, spawned through the
+   Agent tool with the alias `sonnet`, the effort parameter set to `medium`
+   and that full ID named in the prompt (multi-model's alias table, probed
+   2026-10-08), or as a one-agent Workflow `agent()` with that full ID and
+   effort; Codex: `gpt-6.1-sol`
    at `medium` — checks every contract against the code: each `must_run`
    command exists and runs the way CI runs it, every referenced path or API
    exists, the interfaces passed between tasks agree, and every recorded
-   base expectation is plausible. If Workflow is unavailable in this host or session, run the audit
+   base expectation is plausible. If neither is available in this host or session, run the audit
    in-session on the current model and say so in the Gate 2 message. It also checks the same-task rule
    explicitly: for every changed format, signature or fixture, find every
    reader of it and require that reader be in the same task as the change.
@@ -470,11 +477,13 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 
    | Plan host | Allowed model fields |
    |---|---|
-   | Claude | `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
+   | Claude | `claude-haiku-5-5`, `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
    | Codex | `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 
    New Claude plans route Sonnet work to `claude-sonnet-5-5`; `claude-sonnet-5`
-   remains valid only so that already approved plans still execute.
+   remains valid only so that already approved plans still execute. New Claude
+   plans route Haiku work to `claude-haiku-5-5`; `claude-haiku-4-5-20251001`
+   remains valid on the same terms.
 
    New Codex plans route executors to `gpt-6.1-sol` and `gpt-6-luna` per
    shared Codex routing. `gpt-6-sol` remains valid so that already approved

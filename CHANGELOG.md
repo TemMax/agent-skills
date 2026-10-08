@@ -4,6 +4,31 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.16.0
+
+### Highlights
+
+**multi-model**
+- Add Claude Haiku 5.5 with a dossier; Haiku 4.5 stays for old plans
+- Hand logs that need reading to a Haiku 5.5 reader that quotes lines
+- Start runner and drift-judge sessions without MCP servers
+
+**super-plan**
+- Accept claude-haiku-5-5 in plans; the default ladder starts from it
+
+Orchestration 4.16.0 and code-review 1.19.0 apply to Claude Code and Codex.
+
+**Measured.** A child session of the native Claude runner started with 137,137
+prompt tokens on a machine with MCP servers configured and starts with 10,047
+now. The drift judge on Claude Code is Haiku 5.5 at `low`; the previous judge
+failed with a prompt-too-long error on ordinary transcript tails. Its prompt
+goes in on stdin and is not cached: one check was reported at $0.055 on a
+175 KB transcript tail and at $0.250 on a 1.1 MB tail. The outcomes
+of the live runs are in `tests/eval/haiku-5-5-results-2026-10-08.md`, the
+decisions in `docs/decisions/014-haiku-5-5.md`. Haiku 5.5 takes small closed
+tasks whose acceptance is fully mechanical. A wave whose tasks are all Haiku
+5.5 may be supervised by Sonnet 5.5.
+
 ## 4.15.0
 
 ### Highlights

@@ -16,6 +16,7 @@ import { limitsErrors, supervisionErrors } from '../../multi-model/references/me
 // a model ships (probe wf_e635018e-8f3, 2026-09-22: `opus` moved to Opus
 // 5.5). Codex models use exact IDs; Astra execution is an explicit exception.
 const CLAUDE_MODELS = [
+  'claude-haiku-5-5',
   'claude-haiku-4-5-20251001',
   'claude-sonnet-5',
   'claude-sonnet-5-5',
@@ -26,11 +27,12 @@ const CLAUDE_MODELS = [
 ]
 // The runner's default escalation ladder for a Claude task with no explicit
 // `ladder` key: the models after the executor in this order. The retired
-// `claude-sonnet-5` no longer appears in this ordering — it is handled as
-// an explicit special case below so approved plans still lint.
-const CLAUDE_DEFAULT_LADDER_ORDER = ['claude-haiku-4-5-20251001', 'claude-sonnet-5-5', 'claude-opus-5-5']
+// `claude-sonnet-5` and `claude-haiku-4-5-20251001` no longer appear in this
+// ordering — both retired IDs are special-cased below so approved plans still lint.
+const CLAUDE_DEFAULT_LADDER_ORDER = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']
 const defaultLadderFor = (execModel) => {
   if (execModel === 'claude-sonnet-5') return ['claude-opus-5-5'] // retired route; approved plans keep their Opus 5.5 rung
+  if (execModel === 'claude-haiku-4-5-20251001') return ['claude-sonnet-5-5', 'claude-opus-5-5'] // retired route; approved plans keep their ladder
   const i = CLAUDE_DEFAULT_LADDER_ORDER.indexOf(execModel)
   return i === -1 ? [] : CLAUDE_DEFAULT_LADDER_ORDER.slice(i + 1)
 }
@@ -173,6 +175,8 @@ if (plan) {
       warn('retired route: Opus 5 is no longer an executor route (use claude-opus-5-5)')
     } else if (model === 'claude-sonnet-5') {
       warn('retired route: claude-sonnet-5 is no longer an executor route (use claude-sonnet-5-5); approved plans still run')
+    } else if (model === 'claude-haiku-4-5-20251001') {
+      warn('retired route: claude-haiku-4-5-20251001 is no longer an executor route (use claude-haiku-5-5); approved plans still run')
     } else if (model === 'gpt-6-sol') {
       warn('retired route: gpt-6-sol is no longer an executor route (use gpt-6.1-sol); approved plans still run')
     } else if (model === 'claude-opus-4-8') {

@@ -4,7 +4,7 @@
 eval_model() {
   local cwd="$1" sandbox="$2" prompt_file="$3" answer_file="$4"
   local provider="${EVAL_PROVIDER:-claude}"
-  local model="${EVAL_MODEL:-claude-haiku-4-5-20251001}"
+  local model="${EVAL_MODEL:-claude-haiku-5-5}"
   local effort="${EVAL_EFFORT:-medium}"
   local limit="${EVAL_TIMEOUT:-600}"
 

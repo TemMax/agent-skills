@@ -1763,7 +1763,7 @@ codex_probe() {
 
 claude_probe() {
   # Retained Claude Workflow boundary probe.
-  local model="${EVAL_MODEL:-claude-haiku-4-5-20251001}"
+  local model="${EVAL_MODEL:-claude-haiku-5-5}"
   local runner="$ROOT/plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs"
   local work repo base default_branch out
   work="$(mktemp -d)"; trap 'rm -rf "$work"' RETURN
@@ -1806,7 +1806,7 @@ json.dump({
             "forbidden_moves": ["weakening, deleting or skipping an existing test"],
             "report_must_answer": ["What happens when the divisor is zero?"]
         },
-        "executor": {"model": "claude-haiku-4-5-20251001", "effort": "medium"}, "ladder": []
+        "executor": {"model": "claude-haiku-5-5", "effort": "medium"}, "ladder": []
     }]
 }, open(out, "w"))
 PY
