@@ -271,9 +271,10 @@ they do not block writing a concrete plan for the one start approval.
    is spawned.
 5. **Seam audit.** Between Tasks and Lint, one read-only audit agent on the
    cheap route — Claude: `claude-sonnet-5-5` at `medium`, spawned through the
-   Agent tool with the alias `sonnet` and that full ID named in the prompt
-   (multi-model's alias table, probed 2026-10-08), or as a one-agent Workflow
-   `agent()` with that full ID; Codex: `gpt-6.1-sol`
+   Agent tool with the alias `sonnet`, the effort parameter set to `medium`
+   and that full ID named in the prompt (multi-model's alias table, probed
+   2026-10-08), or as a one-agent Workflow `agent()` with that full ID and
+   effort; Codex: `gpt-6.1-sol`
    at `medium` — checks every contract against the code: each `must_run`
    command exists and runs the way CI runs it, every referenced path or API
    exists, the interfaces passed between tasks agree, and every recorded

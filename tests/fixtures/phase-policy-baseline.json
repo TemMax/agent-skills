@@ -30,7 +30,7 @@
       "13f3d8c123f7caf1a329b9acfe4b18ac8a7c46293251d66c872a092a5742b8be",
       "641011500e15846f839fce932578b5f9832fd68d6cee81bf08fb4c658eba1d23",
       "976b15fc576a0cfe03381870b0df4cfcb3e4bfd7351a108d3ec9ec3dc6ffc92f",
-      "bc1e24e6825039588e6afbf91fb2192f078f4ccb0cfa01bd7dac146f11c663a0",
+      "11a5c91ee692bc6ea1e1873ded9163753f4e5bf6ea223bf9e3e2177066e49f47",
       "900fee9c05647568ecf8eb7b61e52b0b6469cb3070df50db4e1aca5019bfc43b",
       "1e6ca273644d1c3b914de50d384d5affe588ccaafd21875a007c9b16d7e4a0e7",
       "d207e08fe5741bd2f5061a7fea9ac11a75fe0d17a908bba846d2bfe8b9b2265a",
@@ -873,8 +873,8 @@
     {
       "path": "plugins/orchestration/skills/super-plan/SKILL.md",
       "old": "eecf62f15aa7e61373408c7f350d009fa045c022c92fdb5166279c52a8ef7261",
-      "new": "bc1e24e6825039588e6afbf91fb2192f078f4ccb0cfa01bd7dac146f11c663a0",
-      "reason": "Step 5 Seam audit: the Claude audit agent is spawned through the Agent tool with the `sonnet` alias (now resolving to Sonnet 5.5, probed 2026-10-08) or as a one-agent Workflow `agent()`; the in-session fallback applies when neither is available."
+      "new": "11a5c91ee692bc6ea1e1873ded9163753f4e5bf6ea223bf9e3e2177066e49f47",
+      "reason": "Step 5 Seam audit: the Claude audit agent is spawned through the Agent tool with the `sonnet` alias and the effort parameter set to `medium` (now resolving to Sonnet 5.5, probed 2026-10-08) or as a one-agent Workflow `agent()`; the in-session fallback applies when neither is available."
     },
     {
       "path": "plugins/orchestration/skills/super-plan/SKILL.md",
