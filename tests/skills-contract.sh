@@ -430,9 +430,9 @@ OP5=plugins/orchestration/skills/multi-model/references/orchestrator-opus-5.md
 check "the runner accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $WR"
 check "the linter accepts the pinned ID"            "grep -qF \"'claude-opus-4-8'\" $PL"
 check "every full ID in the runner is one of the seven" \
-  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|sonnet-5-5|opus-5-5|opus-5|opus-4-8|fable-5-1)' | grep -q ."
+  "! grep -o 'claude-[a-z0-9.-]*' $WR | grep -vxE 'claude-(haiku-5-5|haiku-4-5-20251001|sonnet-5|sonnet-5-5|opus-5-5|opus-5|opus-4-8|fable-5-1)' | grep -q ."
 check "the simulator tier guards the seven-ID rule" \
-  "grep -qF \"grep -vxE 'claude-(haiku-4-5-20251001|sonnet-5|sonnet-5-5|opus-5-5|opus-5|opus-4-8|fable-5-1)'\" tests/wave-runner.test.sh"
+  "grep -qF \"grep -vxE 'claude-(haiku-5-5|haiku-4-5-20251001|sonnet-5|sonnet-5-5|opus-5-5|opus-5|opus-4-8|fable-5-1)'\" tests/wave-runner.test.sh"
 check "the runner rejects aliases by name"         "grep -qF 'is an alias' $WR"
 check "the linter tier rejects the bare short form" \
   "grep -qF '\"model\": \"opus-4-8\"' tests/plan-lint.test.sh"
@@ -449,7 +449,7 @@ check "the Model identifiers section names its probe" \
   "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | grep -qF 'wf_e635018e-8f3'"
 check "the Agent-tool exception names alias and full ID" \
   "sed -n '/^### Model identifiers — full IDs only$/,/^### GPT calibration evidence/p' $MM | tr '\\n' ' ' | tr -s ' ' | grep -qF 'a spawn through it names the alias AND the full ID from this table.'"
-for id in claude-haiku-4-5-20251001 claude-sonnet-5 claude-sonnet-5-5 claude-opus-5-5 claude-opus-5 claude-opus-4-8 claude-fable-5-1; do
+for id in claude-haiku-5-5 claude-haiku-4-5-20251001 claude-sonnet-5 claude-sonnet-5-5 claude-opus-5-5 claude-opus-5 claude-opus-4-8 claude-fable-5-1; do
   check "the linter accepts $id" "grep -qF \"'$id'\" $PL"
 done
 check "the linter rejects aliases by name"         "grep -qF 'is an alias' $PL"
