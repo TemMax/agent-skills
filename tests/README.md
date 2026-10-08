@@ -35,7 +35,7 @@ Prior dated measurements apply to their recorded versions only.
 | `critical-review.sh` | Clean code and deliberately planted defects; gated PR thread flow | Live semantic review through either provider |
 | `supervisor.sh` | Real small repository: correct change, missing guard, unsatisfiable contract | Live independent supervision through either provider |
 | `super-plan.sh`, `seam-audit*.sh` | File overlap, product fork, broken cross-task seams and clean decoys | Live planning and audit; several fixed mini repositories |
-| `skill-navigation.sh` | Five process decision points and required reference reads | Live skill application through either provider |
+| `skill-navigation.sh` | Six process decision points (five on Codex) and required reference reads | Live skill application through either provider |
 | `ship-smoke.sh` | Two tasks in a disposable repository with a local bare origin | Codex execution, correctness and telemetry |
 | `skill-session-ab.sh` | Scripted multi-turn task removing duplicate tests, then a narrow CI edit | Codex session behavior and before/after comparison |
 | `claude-skill-session-ab.py` | Same duplicate-test fixture and eight turns; a cheaper two-turn smoke | Claude Code sessions, normal plugin loading, resume and before/after comparison |
@@ -223,6 +223,13 @@ hook. It is offline-tested by `drift-fixtures.test.sh` and excluded from
 mapping; pass `--judge <model>` to measure another listed Codex judge)
 outside any sandbox that blocks Codex.
 
+A Claude seat is supported: `bash tests/eval/drift-fixtures.sh --set all
+--seat claude-opus-5-5 --repeat 3` (any seat starting with `claude-`). Its
+ready line is `would-call`. `--judge` is refused with a Claude seat, because
+the hook ignores a judge override on Claude Code. `DRIFT_FIXTURES_HOOK` and
+`DRIFT_FIXTURES_PLUGIN_ROOT` point the driver at another checkout's hook and
+plugin root, to compare two judges on the same cases.
+
 [Post-review fix routing](eval/fix-routing-insession.md) is a small simulated
 continuation fixture. It records the frozen 5/5 direct-fix baseline and leaves
 post-change simulated probe outcomes; it is neither a live result nor a release
@@ -262,10 +269,12 @@ exec`, it must run outside any sandbox; skip a part whose CLI is missing from
 PATH rather than fail it.
 
 The skill-navigation tier (`tests/eval/skill-navigation.sh`) asks whether an
-agent applying the multi-model skill takes the right action at five decision
-points — launching a Claude-only wave, a contract amendment that widens
-`files_allowed` and one that would delete a `must_run` entry, a failed verdict
-with `pasteReproduced: false`, and drift advice from the Stop hook — and,
+agent applying the multi-model skill takes the right action at six decision
+points (five on Codex) — launching a Claude-only wave, a contract amendment
+that widens `files_allowed` and one that would delete a `must_run` entry, a
+failed verdict with `pasteReproduced: false`, drift advice from the Stop hook,
+and (Claude provider only) N6, the log-reader route: how to get the failing
+test and exact error out of a ~9,000-line verification log — and,
 where the rule lives in a reference file, whether the agent actually opened
 it (read from the `Read` tool calls in the `stream-json` events; a reference
 file absent from the layout under test prints `SKIP read-check` and passes).
@@ -374,7 +383,71 @@ reports each child's role, model, tokens and cost; its `claude` subcommand
 (`--transcript <file>`) does the same for a Claude Code session transcript
 and its subagent transcripts. Both subcommands price tokens from
 `tests/eval/telemetry/prices.json` and are covered offline by
-`tests/eval/telemetry/telemetry.test.mjs` and `claude.test.mjs`.
+`tests/eval/telemetry/telemetry.test.mjs` and `claude.test.mjs`. A
+`prices.json` row, in dollars per million tokens, is either `[input, cached,
+output]` or an object `{"prompt_limit", "up_to_limit", "over_limit"}` priced
+per request by its prompt size (input + cache creation + cache read tokens): a
+prompt of at most `prompt_limit` tokens is billed whole at the `up_to_limit`
+triple, a larger one whole at `over_limit`. The `codex` subcommand accepts only
+the flat triple.
+
+## executor-lane
+
+`tests/eval/executor-lane.py` is a by-hand live driver that measures an
+executor model: one real wave of four small closed tasks (`duration`,
+`paginate`, `slug`, `report`; each is a single module `lane/<id>.py` with a
+frozen test) run through the candidate native Claude runner. It measures; it
+does not decide whether the model is good enough. The runner and plugin are
+taken from a frozen snapshot of this checkout's `plugins/orchestration`, never
+from the working tree or an installed copy.
+
+```bash
+python3 tests/eval/executor-lane.py --executor claude-haiku-5-5 --out /tmp/lane-haiku
+```
+
+`--executor` and `--out` are required; `--out` must be new or empty. Optional:
+`--effort` (default `medium`), `--supervisor` (`claude-opus-5-5`),
+`--supervision mechanical|model` (`mechanical`), `--max-attempts` (2),
+`--jobs` (4), `--timeout-min` (20), `--claude` (the CLI, default `claude`),
+`--user-settings` and `--prepare-only`.
+
+`--prepare-only` makes no model call. It freezes the inputs and stops: the
+plugin snapshot with a SHA-256 per file, the metadata, the fixture repository
+with a bare origin, the generated plan (which must pass the snapshot's
+`plan-lint.mjs`) and the expectations — each task's module and `must_run`
+command, which must be red at the base.
+
+Files of a run directory: `package/` (the snapshot) and `snapshot.json` (its
+hashes), `meta.json` (plugin version, git head, whether the tree was dirty,
+models, supervision mode, CLI version, start time), `repo/` and `origin.git/`,
+`plan.md`, `expected.json` (base commit and the per-task expectations),
+`lint.log` (only when the plan fails the linter); after a full run also
+`claude-wrapper.sh` (unless `--user-settings`), `run/` (the runner's output
+including `summary.json`), `runner.stdout`, `runner.stderr`, `runner.json`
+(exit code and wall seconds) and `outcomes.json` (per task: status, executor
+and judge calls, first-attempt success, an independent re-run of `must_run` in
+a fresh worktree and a check that the branch changed only its own module; plus
+usage, reported cost, whether the snapshot stayed unchanged, and totals).
+
+Exit codes: 0 measured (task statuses may be anything; a failed task is a
+measurement), 1 blocked (the runner left no readable `summary.json`, or the
+snapshot changed during the run), 65 the generated plan failed the linter,
+70 fixture defect (a task is green at the base), 73 `--out` exists and is not
+empty.
+
+Hermetic by default: the CLI is called through a generated `claude-wrapper.sh`
+that appends `--setting-sources ''`, so user settings are not loaded, and
+`CLAUDECODE` is removed from the environment. `--user-settings` passes the
+CLI through unchanged, letting it load user settings, hooks and installed
+plugins.
+
+Offline test, no model and no network: `python3 -B tests/eval/executor-lane.test.py`
+checks that every task is red at the base and green with its reference
+solution, the `--prepare-only` files, the plan shapes, exit 73, first-attempt
+success with a stub CLI, a wrong solution being a measurement, the wrapper
+with and without `--user-settings`, and a blocked run without a summary. The
+2026-10-08 live runs are in
+[haiku-5-5-results-2026-10-08.md](eval/haiku-5-5-results-2026-10-08.md).
 
 ## ship-smoke
 
@@ -735,12 +808,14 @@ inside the repository. Requires `node`.
 fixture one defect at a time and asserts the shipped `plan-lint.mjs` names
 each error class; warnings are asserted non-fatal. Requires `node`. Both the
 linter and the runner accept Claude models by full ID only —
-`claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5` (a retired
+`claude-haiku-5-5`, `claude-haiku-4-5-20251001` (a retired route that stays
+valid), `claude-sonnet-5-5`, `claude-sonnet-5` (a retired
 route that stays valid), `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`,
 `claude-fable-5-1` — and reject the aliases
 `haiku`, `sonnet`, `opus` and `fable` by name, because an alias re-points
 silently when a model ships (probe wf_e635018e-8f3, 2026-09-22, in
-`tests/eval/wave-insession.md`).
+`tests/eval/wave-insession.md`). The aliases were re-probed on 2026-10-08
+(`tests/eval/haiku-5-5-results-2026-10-08.md`).
 
 ## Repeating the guards
 
@@ -769,7 +844,10 @@ Worth stating plainly, because a green run is easy to over-read.
   failure. Apply the adjudication rules above rather than adjusting expectations
   to protect a prompt.
 - **Default model is the cheapest one that measured reliable.** Every
-  evaluation runs on Haiku 4.5 unless `EVAL_MODEL` says otherwise, with two
+  evaluation runs on Haiku 5.5 (`claude-haiku-5-5`; moved from Haiku 4.5 on
+  2026-10-08, the measurements in this paragraph predate the move; the
+  2026-10-08 runs are in
+  `tests/eval/haiku-5-5-results-2026-10-08.md`) unless `EVAL_MODEL` says otherwise, with two
   exceptions: the super-plan and seam-audit tiers default to Sonnet 5.5
   (`claude-sonnet-5-5`; super-plan moved from Sonnet 5 on 2026-09-28, the
   measurements below predate the move).

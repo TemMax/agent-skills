@@ -105,7 +105,7 @@ def fixture(out, case, provider):
         (out / 'machine-ready').write_text('ready\n')
         # The machine check is external to committed product code, so verification is never cached.
         command = f'test -f {out}/machine-ready || {{ echo "SDK location not found: injected fixture environment"; exit 2; }}; python3 -B -m unittest discover -s tests'
-        executor = 'claude-haiku-4-5-20251001' if provider == 'claude' else 'gpt-6-luna'
+        executor = 'claude-haiku-5-5' if provider == 'claude' else 'gpt-6-luna'
         supervisor = 'claude-opus-5-5' if provider == 'claude' else 'gpt-6.1-sol'
         plan = {'waves': [{'wave': 1, 'limits': {'max_attempts': 1, 'max_model_calls': 2},
             'supervisor': {'model': supervisor, 'effort': 'high'},
