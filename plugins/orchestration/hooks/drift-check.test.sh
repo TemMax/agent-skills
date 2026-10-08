@@ -510,18 +510,40 @@ expect "Claude judge clean answer remains silent" "{}" \
 if [ -s "$WORK/claude.args" ] && python3 -c '
 import json,sys
 args=json.load(open(sys.argv[1]))
-ok=(len(args) == 14 and args[0] == "-p" and "Plan (" in args[1]
-    and "Summary: all tasks done, nothing remaining." in args[1]
-    and args[2:] == ["--model", "claude-haiku-5-5", "--effort", "low",
-                    "--permission-mode", "dontAsk", "--tools", "",
-                    "--strict-mcp-config", "--permission-prompts", "none",
-                    "--no-session-persistence"]
+ok=(args == ["-p", "--model", "claude-haiku-5-5", "--effort", "low",
+             "--permission-mode", "dontAsk", "--tools", "",
+             "--strict-mcp-config", "--permission-prompts", "none",
+             "--no-session-persistence"]
     and "bypassPermissions" not in args)
 sys.exit(0 if ok else 1)
 ' "$WORK/claude.args"; then
-  echo "PASS  Claude judge keeps complete-prompt safe no-tools invocation"
+  echo "PASS  Claude judge keeps the safe no-tools invocation with no prompt argument"
 else
   echo "FAIL  Claude judge invocation was incomplete or unsafe"; fail=1
+fi
+if [ -s "$WORK/claude.stdin" ] && grep -qF 'Plan (' "$WORK/claude.stdin" \
+   && grep -qF 'Summary: all tasks done, nothing remaining.' "$WORK/claude.stdin"; then
+  echo "PASS  Claude judge receives the complete prompt on stdin"
+else
+  echo "FAIL  Claude judge did not receive the complete prompt on stdin"; fail=1
+fi
+
+# A transcript tail larger than the operating system accepts as one command-line
+# argument must still reach the judge.
+BIG_TRANSCRIPT="$WORK/big-transcript.jsonl"
+python3 -c '
+import sys
+line = "{\"type\":\"tool_result\",\"content\":\"" + "x" * 6000 + "\"}\n"
+open(sys.argv[1], "w").write(line * 200)
+' "$BIG_TRANSCRIPT"
+rm -f "$WORK/claude.args" "$WORK/claude.stdin"
+big_out="$( cd "$WORK/repo" && printf '{"hook_event_name":"Stop","model":"claude-fable-5-1","stop_hook_active":false,"last_assistant_message":"Summary: all tasks done, nothing remaining.","session_id":"claude-big-tail","transcript_path":"%s"}' "$BIG_TRANSCRIPT" \
+  | PATH="$STUBBIN:$PATH" CLAUDE_ARGS="$WORK/claude.args" CLAUDE_STDIN="$WORK/claude.stdin" CLAUDE_STUB_ANSWER=NOTHING CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )"
+expect "Claude judge with a tail above 1 MB stays silent on a clean answer" "{}" "$big_out"
+if [ -s "$WORK/claude.stdin" ] && [ "$(wc -c < "$WORK/claude.stdin")" -gt 1200000 ]; then
+  echo "PASS  Claude judge receives a prompt above 1 MB"
+else
+  echo "FAIL  Claude judge was not called with the prompt above 1 MB"; fail=1
 fi
 
 UNAVAILABLE_SESSION=codex-unavailable

@@ -355,13 +355,19 @@ else
     rm -f "$answer_file" 2>/dev/null
   else
     tmp_out="$(mktemp 2>/dev/null || echo "/tmp/drift-check.$$")"
+    # The prompt goes in on stdin, from a file. As a command-line argument a
+    # large transcript tail exceeds the operating system's limit and the judge
+    # never starts: measured 2026-10-08, 4 of 73 tails of this project's own
+    # sessions were above 1 MB.
+    tmp_in="$(mktemp 2>/dev/null || echo "/tmp/drift-check-in.$$")"
+    printf '%s' "$full_prompt" > "$tmp_in"
     # Plan mode injects its own system prompt (write the plan, call
     # ExitPlanMode), which crowds out the judge's instructions; the judge
     # only reads and answers, so it needs no tools. Verified 2026-09-22 that
     # `claude -p --tools ""` answers normally. --strict-mcp-config: without it
     # every configured MCP tool schema is loaded into a session that has no tools.
     ( cd "$neutral_dir" && DRIFT_CHECK_ACTIVE=1 CLAUDE_DRIFT_CHECK_ACTIVE=1 \
-      claude -p "$full_prompt" \
+      claude -p \
         --model "$judge" \
         --effort low \
         --permission-mode dontAsk \
@@ -369,7 +375,7 @@ else
         --strict-mcp-config \
         --permission-prompts none \
         --no-session-persistence \
-        </dev/null >"$tmp_out" 2>/dev/null ) &
+        <"$tmp_in" >"$tmp_out" 2>/dev/null ) &
     claude_pid=$!
 
     # The watchdog must not inherit our stdout: a caller using $(...) waits for
@@ -387,7 +393,7 @@ else
     wait "$watchdog_pid" 2>/dev/null
 
     answer="$(cat "$tmp_out" 2>/dev/null || true)"
-    rm -f "$tmp_out" 2>/dev/null
+    rm -f "$tmp_out" "$tmp_in" 2>/dev/null
   fi
   [ -n "${neutral_dir:-}" ] && rmdir "$neutral_dir" 2>/dev/null
 fi
