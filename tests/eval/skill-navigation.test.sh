@@ -218,6 +218,53 @@ contains "codex default prints shared ref root" "  ref root: $CODEX_REFS" "$dout
 contains "reference read under REF_ROOT is reported as read" "read references/codex-wave-protocol.md (1/1)" "$dout"
 case "$dout" in *"SKIP read-check (references/codex-wave-protocol.md absent)"*) fail "reference is not skipped" "$dout" ;; *) pass "reference is not skipped" ;; esac
 
+section "N6 (log-reader route) driven by a stub claude (no model call)"
+cat > "$BIN/claude" <<'SH'
+#!/usr/bin/env bash
+cat > /dev/null
+n="$(cat "$NAV_STUB_LOG/count" 2>/dev/null || echo 0)"; n=$((n+1)); echo "$n" > "$NAV_STUB_LOG/count"
+model=claude-haiku-5-5; [ "$n" -eq 2 ] && model=claude-sonnet-5-5
+printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"%s/SKILL.md"}}]}}\n' "$NAV_STUB_SKILL"
+printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"%s/WORKFLOW.md"}}]}}\n' "$NAV_STUB_SKILL"
+printf '{"type":"result","result":"{\\"read_whole_log_yourself\\": false, \\"spawn_agent\\": true, \\"agent_model_id\\": \\"%s\\", \\"agent_tool_alias\\": \\"haiku\\", \\"agent_effort\\": \\"medium\\", \\"report_quotes_lines_with_numbers\\": true}"}\n' "$model"
+SH
+: > "$S/WORKFLOW.md"
+rm -f "$W/log/count"
+n6out="$(
+  PATH="$BIN:$PATH" NAV_STUB_LOG="$W/log" NAV_STUB_SKILL="$S" \
+  SKILL_DIR="$S" EVAL_MODEL=stub-model EVAL_REPEAT=3 NAV_WORK="$W" FAILED=0 PASSED=0
+  export NAV_STUB_LOG NAV_STUB_SKILL
+  nav_probe N6 "failure cause inside a large log" WORKFLOW.md "a scenario" "a shape" \
+    "eq:read_whole_log_yourself:false" "eq:spawn_agent:true" "eq:agent_model_id:claude-haiku-5-5" \
+    "eq:agent_tool_alias:haiku" "eq:agent_effort:medium" "eq:report_quotes_lines_with_numbers:true"
+  echo "totals $PASSED/$FAILED"
+)"
+contains "N6 read-check on WORKFLOW.md"          "read WORKFLOW.md (3/3)" "$n6out"
+contains "N6 six-field answer parsed and scored" "spawn_agent = true (3/3)" "$n6out"
+contains "N6 quote field scored"                 "report_quotes_lines_with_numbers = true (3/3)" "$n6out"
+contains "N6 sonnet model ID fails the assertion" "agent_model_id = claude-haiku-5-5 (2/3)" "$n6out"
+contains "N6 exactly one failure overall"        "totals 7/1" "$n6out"
+
+section "nav_main probe count per provider (stub CLIs, no model call)"
+cat > "$BIN/claude" <<'SH'
+#!/usr/bin/env bash
+cat > /dev/null
+echo x >> "$NAV_STUB_LOG/calls"
+SH
+cat > "$CBIN/codex" <<'SH'
+#!/usr/bin/env bash
+cat > /dev/null
+echo x >> "$NAV_STUB_LOG/calls"
+SH
+mkdir -p "$W/cnt"; rm -f "$W/cnt/calls"
+cmout="$(unset SKILL_DIR REF_ROOT; PATH="$BIN:$CBIN:$PATH" NAV_STUB_LOG="$W/cnt" EVAL_PROVIDER=claude EVAL_MODEL=stub-model EVAL_REPEAT=1 nav_main 2>&1)"
+expect "claude runs six probes" "6" "$(wc -l < "$W/cnt/calls" | tr -d ' ')"
+contains "claude run includes N6" "N6 — failure cause inside a large log" "$cmout"
+rm -f "$W/cnt/calls"
+cxout="$(unset SKILL_DIR REF_ROOT; PATH="$BIN:$CBIN:$PATH" NAV_STUB_LOG="$W/cnt" EVAL_PROVIDER=codex EVAL_MODEL=stub-model EVAL_REPEAT=1 nav_main 2>&1)"
+expect "codex runs five probes" "5" "$(wc -l < "$W/cnt/calls" | tr -d ' ')"
+case "$cxout" in *"N6"*) fail "codex skips N6" "$cxout" ;; *) pass "codex skips N6" ;; esac
+
 section "unknown EVAL_PROVIDER"
 pout="$( (EVAL_PROVIDER=bogus nav_main) 2>&1 )"; pec=$?
 expect "nav_main exits 2" "2" "$pec"
