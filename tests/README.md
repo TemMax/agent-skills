@@ -398,8 +398,10 @@ executor model: one real wave of four small closed tasks (`duration`,
 `paginate`, `slug`, `report`; each is a single module `lane/<id>.py` with a
 frozen test) run through the candidate native Claude runner. It measures; it
 does not decide whether the model is good enough. The runner and plugin are
-taken from a frozen snapshot of this checkout's `plugins/orchestration`, never
-from the working tree or an installed copy.
+taken from a snapshot of this checkout's `plugins/orchestration`, copied when
+the run starts with any uncommitted changes in it (`meta.json` records whether
+the tree was dirty). Later edits to the checkout do not reach the run, and an
+installed copy is never used.
 
 ```bash
 python3 tests/eval/executor-lane.py --executor claude-haiku-5-5 --out /tmp/lane-haiku
@@ -419,7 +421,8 @@ command, which must be red at the base.
 
 Files of a run directory: `package/` (the snapshot) and `snapshot.json` (its
 hashes), `meta.json` (plugin version, git head, whether the tree was dirty,
-models, supervision mode, CLI version, start time), `repo/` and `origin.git/`,
+models, supervision mode, whether user settings were loaded, CLI version, start
+time), `repo/` and `origin.git/`,
 `plan.md`, `expected.json` (base commit and the per-task expectations),
 `lint.log` (only when the plan fails the linter); after a full run also
 `claude-wrapper.sh` (unless `--user-settings`), `run/` (the runner's output
