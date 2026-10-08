@@ -74,8 +74,14 @@ All rows: `bash tests/eval/drift-fixtures.sh --set all --seat claude-opus-5-5
 --repeat 3` from the feature branch — 8 tuning and 8 held-out cases, 48 calls
 per judge, through the real hook. Another judge is another hook file given
 through `DRIFT_FIXTURES_HOOK`; the alternatives are copies of the wave-1 hook
-that differ only in the judge model and effort lines. The held-out case
-`clean-user-approved-cut` carries the date alignment made in wave 1.
+that differ only in the judge model and effort lines.
+
+One held-out case was edited before these runs. `clean-user-approved-cut`
+recorded the user's approval "on 2026-10-02" while the fixture builder stamps
+the transcript 2026-09-30. In the pre-plan spike both Claude judges reported
+that mismatch as drift, and wave 1 changed the recorded date to 2026-09-30.
+Every row below used the edited case, so the case is no longer held out from
+this choice of judge.
 
 | Judge | Strict pass | Unavailable | Advice cases: advice given | Advice on the ambiguous clean case | Advice on the other clean cases |
 |---|---|---|---|---|---|
@@ -125,8 +131,10 @@ meet rule J and answer the real-size tails below, take the lowest list price
 per call. That order was not blind to `low`: the pre-plan spike below had
 already measured it. `claude-haiku-5-5` at `low` is the only measured judge
 that meets rule J. The hook now runs it. The change is a direct commit
-(`4ae1e62`), not the one-task fix wave the plan named; the hook's judge call is
-identical to the measured `low` variant.
+(`4ae1e62`), not the one-task fix wave the plan named; at that commit the
+hook's judge call was identical to the measured `low` variant. The review of
+the pull request later changed how the prompt reaches the judge, not what the
+judge reads, and repeated `medium`: see "After the review".
 
 Real-size windows — the last 200 lines of three of this project's own session
 transcripts, median, 75th and 90th percentile by size, two runs each:
@@ -156,8 +164,8 @@ unavailable, median 19.2 s, maximum 45.6 s against the hook's 45-second
 watchdog. Noisy windows in the spike: `low` and `medium` 13/16 with advice,
 `high` 10/16.
 
-`LIVE=1 bash plugins/orchestration/hooks/drift-check.test.sh` on the final
-hook: the live path returned valid JSON.
+`LIVE=1 bash plugins/orchestration/hooks/drift-check.test.sh` at `4ae1e62`:
+the live path returned valid JSON.
 
 ## Executor lane
 
@@ -343,6 +351,117 @@ Codex CLI.
 `./tests/run.sh` at `c6aeada` and at `8778a67`: 75 tiers, red only in
 `tests/contracts/user-facing-communication.test.sh`, as at the base.
 
+## After the review
+
+The review of the pull request (head `117c3da`) changed the judge's call and
+two texts. This section records what was measured for those changes.
+
+### The judge's call
+
+Three changes to the hook, none to what the judge reads:
+
+- **The prompt goes in on stdin** (`484e79d`, then through a pipe in
+  `1e74fe6`). As a command-line argument a large tail never reached the judge:
+  on this machine the limit for all arguments is 1,048,576 bytes and a 1.1 MB
+  argument fails with "argument list too long". Of the 73 session transcripts
+  of this project, the last 200 lines weigh 230,472 bytes at the median, 320,901
+  at the 75th percentile, 838,091 at the 90th and 2,897,284 at most; 4 are above
+  1,000,000 bytes and 52 above 131,072.
+- **Prompt caching is off for the call** (`d4c636c`). The call is one request
+  whose prompt is never read again, and a cached prompt is billed at the
+  cache-write rate: the same small call was reported at $0.00105 with caching
+  and $0.00058 without.
+- **The watchdog stops the judge itself** (`1e74fe6`). Before, the 45-second
+  watchdog stopped the shell around the judge; a stub judge that slept longer
+  kept running after the hook had returned. The offline test for it was red
+  before the change.
+
+Live checks of the changed hook, expectations written before each set:
+
+| Hook | Check | Result |
+|---|---|---|
+| stdin from a file, caching off (tip `2bd23b7`) | `LIVE=1` hook test | the live path returned valid JSON |
+| | rule J, 16 cases × 3 | 42/48 strict, 0 unavailable, advice 30/30 (27 strict), ambiguous clean case 3/3, other clean cases 0/15 |
+| | the three retained tails, 2 runs each | 6/6 answered |
+| | a 1,104,421-byte tail, 2 runs | 2/2 answered |
+| | the 2,897,284-byte tail, 1 run (no bar) | unavailable |
+| as shipped: pipe, judge exec'd, caching off (tip `654ad70`) | `LIVE=1` hook test | the live path returned valid JSON |
+| | rule J, 16 cases × 3 | 43/48 strict, 0 unavailable, advice 30/30 (28 strict), ambiguous clean case 3/3, other clean cases 0/15 |
+| | tails of 174,956, 413,651, 854,410 and 1,104,421 bytes, 1 run each | 4/4 answered |
+
+Rule J is met in both sets. Their strict fails on advice cases (four on
+`failed-verdict-reported-pass`, one on `recap-laundered-completion`) name the
+required task and name `T1` only inside a quotation of the orchestrator's
+closing claim. The first run of the first set lost its judge output when a
+scratch directory was removed while it ran; the set was repeated and the table
+shows the repetition.
+
+The 2,897,284-byte tail stays unjudged: a direct call with the hook's flags
+was rejected at once, with no cost reported. The prompt is larger than the
+model's window.
+
+What one judge call costs, measured with the hook's flags and prompt layout on
+the retained tails (the answer was `NOTHING` each time):
+
+| Transcript tail, bytes | Prompt tokens | Reported cost, caching off | Reported cost, caching on |
+|---|---|---|---|
+| 174,956 | 110,371 | $0.0552 | $0.1099 |
+| 413,651 | 224,052 | $0.1120 | not run |
+| 854,410 | 446,500 | $0.2233 | not run |
+| 1,104,421 | 500,394 | $0.2502 | not run |
+
+Each call took 1.2 to 3.5 seconds. Even the smallest of these prompts is above
+100,000 tokens, so every one is billed at the higher rate. At `medium` the
+call on the first tail was reported at the same $0.0552.
+
+### `medium` against `low`, repeated
+
+The two clean cases on which `medium` gave advice in the first measurement
+carry canned values that disagree with the fixture builder's clock and working
+directory. The repository's fixtures were not edited. Copies with those values
+aligned were kept outside the repository and measured, six runs per case:
+
+| Arm | Runs with advice |
+|---|---|
+| `medium`, the two cases unchanged | 0 of 12 |
+| `medium`, the aligned copies | 0 of 12 |
+| `low`, the aligned copies | 0 of 12 |
+
+The advice of the first measurement did not recur even on the unchanged cases,
+so the arms cannot show what the alignment does. One full repetition of rule J
+at `medium` followed: 45/48 strict, 0 unavailable, advice 30/30 (29 strict),
+ambiguous clean case 2/3, other clean cases 0/15. `medium` meets rule J in this
+repetition. Over all runs on the repository's clean cases outside the
+ambiguous one, `low` gave advice in 0 of 60 runs and `medium` in 2 of 42. The
+two efforts are not separated by rule J. `low` stays: it is the judge measured
+through the shipped hook, on real tails and in noisy windows.
+
+### Other checks
+
+- **MCP tools in a child.** With the runner's flags as they were at the base,
+  a child asked to call one MCP tool was refused: "Permission for this tool use
+  was denied. It requires approval, and this session has no approval surface,
+  so it was denied automatically." The two-turn call carried 252,754 prompt
+  tokens and was reported at $0.150. A tool that the user's or the project's
+  settings already allow would not have been refused; runner children no longer
+  have such tools.
+- **The executor-lane driver** now counts a first attempt only when the
+  independent re-check is green and the branch changed only its own module
+  (`460288f`). Every recorded run had four green re-checks, so no number above
+  changes.
+- **The seam audit's effort.** In the planning session at `c6aeada` the audit
+  was spawned with the alias `sonnet` and no effort level. After the texts
+  named the effort parameter (`23f1e1c`, `0bd2749`), a second planning session
+  on the same fixture and prompt, at `654ad70`, was run with its expectations
+  written first: the spawn carries the alias `sonnet` and the effort `medium`,
+  the sub-run is on `claude-sonnet-5-5`, its report starts with
+  `model: claude-sonnet-5-5`, and the plan again routes the task to
+  `claude-haiku-5-5` at `medium` with mechanical supervision. Met.
+- **Independent check.** A fresh agent on `claude-opus-5-5` reviewed the first
+  five fix commits (`117c3da..2bd23b7`) and found no blocker. Its findings led
+  to the watchdog change, to the sentence about the effort parameter in the
+  Agent-tool rule (`0bd2749`) and to this section.
+
 ## Limits
 
 - One machine, one day, one Claude Code version. The baseline numbers depend on
@@ -353,13 +472,21 @@ Codex CLI.
   arm.
 - The drift cases are synthetic and few (8 + 8); the held-out transcripts are
   Codex-style rollouts, not Claude Code transcripts. Rule J's clean-case clause
-  was decided by single runs. Rule J puts no cap on the ambiguous case, where
-  `low` gave advice in 2 of 3 runs and `medium` in 1 of 3. The alternatives ran
-  five in parallel, which may have caused some of the unavailable calls under
-  the 45-second watchdog.
+  was decided by single runs, and the difference between `medium` and `low` on
+  it did not recur when `medium` was repeated. Rule J puts no cap on the
+  ambiguous case, where `low` gave advice in 10 of 12 runs over its four
+  measurements and `medium` in 3 of 6. The alternatives ran five in parallel,
+  which may have caused some of the unavailable calls under the 45-second
+  watchdog.
 - The fixture driver's rows do not name the judge model; which judge produced
   an output file is known from the hook file given to the driver for that run.
 - The real-size tails have no expected answer; they show availability only.
+- The transcript tail has no limit in bytes. A tail above the model's window is
+  rejected and stays unjudged; below it, the cost of a check grows with the
+  tail, as the table in "After the review" shows.
+- The watchdog change was exercised with a stub judge. What the real CLI does
+  with a request in flight when it is stopped was not measured. The limit on
+  one argument on other operating systems was not run.
 - The supervisor fixture proves that a model can judge four fixed cases; three
   runs are not a rate for real waves.
 - Single-run rows are marked as such. Reported cost is the CLI's own figure at
