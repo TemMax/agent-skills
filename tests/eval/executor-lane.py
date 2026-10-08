@@ -430,6 +430,15 @@ def independent_check(repo, out, base, task_id, command, timeout):
     return green, paths_ok
 
 
+def task_outcome(status, executor_calls, judge_calls, green, paths_ok):
+    """One task's row. The first attempt counts only when the independent re-check
+    is green and the branch changed only its own module."""
+    accepted = status == 'ok' and green and paths_ok
+    return {'status': status, 'executor_calls': executor_calls, 'judge_calls': judge_calls,
+            'first_attempt_ok': accepted and executor_calls == 1,
+            'independent_green': green, 'paths_ok': paths_ok}
+
+
 def parse_args(argv):
     parser = argparse.ArgumentParser(description='Run one wave of four small closed tasks through the '
                                      'candidate native Claude runner and record what happened.')
@@ -534,10 +543,9 @@ def main(argv=None):
         status = statuses.get(task_id, 'missing')
         executor_calls = sum(1 for child in own if child.get('role') == 'exec')
         green, paths_ok = independent_check(repo, out, base, task_id, expected['must_run'], args.timeout_min * 60)
-        result_tasks[task_id] = {'status': status, 'executor_calls': executor_calls,
-                                 'judge_calls': sum(1 for child in own if child.get('role') == 'judge'),
-                                 'first_attempt_ok': status == 'ok' and executor_calls == 1,
-                                 'independent_green': green, 'paths_ok': paths_ok}
+        result_tasks[task_id] = task_outcome(status, executor_calls,
+                                             sum(1 for child in own if child.get('role') == 'judge'),
+                                             green, paths_ok)
     ok = sum(1 for t in result_tasks.values() if t['status'] == 'ok' and t['independent_green'] and t['paths_ok'])
     write_json(out / 'outcomes.json', {
         'executor': args.executor, 'effort': args.effort, 'supervisor': args.supervisor,

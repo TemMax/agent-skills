@@ -300,6 +300,17 @@ class PrepareOnlyTest(Case):
         self.assertEqual([p.name for p in out.iterdir()], ['keep.txt'])
 
 
+class TaskOutcomeTest(unittest.TestCase):
+    def test_first_attempt_counts_only_with_a_green_recheck_and_clean_paths(self):
+        row = driver.task_outcome('ok', 1, 0, True, True)
+        self.assertEqual(row, {'status': 'ok', 'executor_calls': 1, 'judge_calls': 0,
+                               'first_attempt_ok': True, 'independent_green': True, 'paths_ok': True})
+        self.assertFalse(driver.task_outcome('ok', 1, 0, False, True)['first_attempt_ok'])
+        self.assertFalse(driver.task_outcome('ok', 1, 0, True, False)['first_attempt_ok'])
+        self.assertFalse(driver.task_outcome('ok', 2, 1, True, True)['first_attempt_ok'])
+        self.assertFalse(driver.task_outcome('failed', 1, 1, True, True)['first_attempt_ok'])
+
+
 class FullRunTest(Case):
     def test_correct_solutions_pass_on_the_first_attempt(self):
         result, out, calls = self.full_run('green')

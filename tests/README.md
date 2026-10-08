@@ -429,8 +429,9 @@ time), `repo/` and `origin.git/`,
 `claude-wrapper.sh` (unless `--user-settings`), `run/` (the runner's output
 including `summary.json`), `runner.stdout`, `runner.stderr`, `runner.json`
 (exit code and wall seconds) and `outcomes.json` (per task: status, executor
-and judge calls, first-attempt success, an independent re-run of `must_run` in
-a fresh worktree and a check that the branch changed only its own module; plus
+and judge calls, an independent re-run of `must_run` in a fresh worktree, a check
+that the branch changed only its own module, and first-attempt success, which
+counts only when both of those checks pass; plus
 usage, reported cost, whether the snapshot stayed unchanged, and totals).
 
 Exit codes: 0 measured (task statuses may be anything; a failed task is a
