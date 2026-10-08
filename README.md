@@ -134,13 +134,13 @@ modes, and page references to the system cards — loaded on demand for conteste
 calls.
 
 **Full model IDs.** Plans and runner args name full Claude IDs, never
-aliases: `claude-haiku-5-5`,
-`claude-haiku-4-5-20251001` and `claude-sonnet-5` (retired routes that stay
-valid for approved plans), `claude-sonnet-5-5`, `claude-opus-5-5`,
-`claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1`. Aliases are rejected
-by name because they re-point silently — on 2026-09-22 `opus` moved from
-Opus 5 to Opus 5.5, so every route still written as `opus` would have changed
-model without an edit. By 2026-10-08 `sonnet` and `haiku` had moved the same way. The one alias-only surface is the Claude Code Agent
+aliases: `claude-haiku-5-5`, `claude-haiku-4-5-20251001` and `claude-sonnet-5`
+(retired routes that stay valid for approved plans), `claude-sonnet-5-5`,
+`claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1`.
+Aliases are rejected by name because they re-point silently — on 2026-09-22
+`opus` moved from Opus 5 to Opus 5.5, so every route still written as `opus`
+would have changed model without an edit. By 2026-10-08 `sonnet` and `haiku`
+had moved the same way. The one alias-only surface is the Claude Code Agent
 tool, whose schema accepts only aliases; that exception is covered by the
 probe-dated alias mapping in `multi-model`'s Model identifiers table, which is
 re-verified whenever a new Claude model ships.
