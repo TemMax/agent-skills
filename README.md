@@ -134,12 +134,13 @@ modes, and page references to the system cards — loaded on demand for conteste
 calls.
 
 **Full model IDs.** Plans and runner args name full Claude IDs, never
-aliases: `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`
-(a retired route that stays valid for approved plans), `claude-opus-5-5`,
+aliases: `claude-haiku-5-5`,
+`claude-haiku-4-5-20251001` and `claude-sonnet-5` (retired routes that stay
+valid for approved plans), `claude-sonnet-5-5`, `claude-opus-5-5`,
 `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1`. Aliases are rejected
 by name because they re-point silently — on 2026-09-22 `opus` moved from
 Opus 5 to Opus 5.5, so every route still written as `opus` would have changed
-model without an edit. The one alias-only surface is the Claude Code Agent
+model without an edit. By 2026-10-08 `sonnet` and `haiku` had moved the same way. The one alias-only surface is the Claude Code Agent
 tool, whose schema accepts only aliases; that exception is covered by the
 probe-dated alias mapping in `multi-model`'s Model identifiers table, which is
 re-verified whenever a new Claude model ships.
@@ -191,7 +192,7 @@ Luna, Terra, or Sol, with a separate Astra supervisor. A separately approved
 Astra initial executor or final rung requires `astra_executor_reason` and a
 fresh Astra supervisor; Sol exhaustion never promotes, resets, or raises effort
 automatically. A fresh Astra reviewer provides context separation, not a
-different-model check. The drift hook judges Astra, GPT-6 Sol and GPT-6 Luna orchestrators with `gpt-6.1-sol` at `high`, and a GPT-6.1 Sol orchestrator with `gpt-5.6-sol` ([decision 012](docs/decisions/012-drift-judge-gpt-6-1-sol.md)). Other profiles retain their
+different-model check. The drift hook judges Astra, GPT-6 Sol and GPT-6 Luna orchestrators with `gpt-6.1-sol` at `high`, and a GPT-6.1 Sol orchestrator with `gpt-5.6-sol` ([decision 012](docs/decisions/012-drift-judge-gpt-6-1-sol.md)). On Claude Code the judge is `claude-haiku-5-5` at `low`, started without MCP servers ([decision 014](docs/decisions/014-haiku-5-5.md)). Other profiles retain their
 existing rules. See [the role decision](docs/decisions/005-astra-active-seat.md)
 and the [Astra dossier](plugins/orchestration/skills/multi-model/references/gpt-6-astra-dossier.md).
 The [bounded Astra pilot](tests/eval/gpt-6-astra-pilot-2026-09-07.md) records
@@ -392,7 +393,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.15.0, code-review 1.19.0):
+orchestration 4.16.0, code-review 1.19.0):
 
 | Before | After |
 |---|---|
