@@ -3,13 +3,25 @@
 # A calibration tool run by hand, not a per-release live tier.
 # In normal mode a case the hook would not send to a judge (dry-run not `would-call`) scores error, never a silent pass.
 #
+# A seat whose model starts with `claude-` is a Claude seat: the hook prints exactly `would-call` in
+# dry-run, returns advice as {"hookSpecificOutput":{...,"additionalContext":...}} and ignores
+# DRIFT_CHECK_JUDGE_MODEL, so --judge with a Claude seat is a usage error. Any other seat is a Codex seat
+# (dry-run `would-call: host=codex judge=...`, advice as {"decision":"block","reason":...}).
+#
 # Usage: bash tests/eval/drift-fixtures.sh [--set tuning|heldout|all] [--seat <model>]
 #                                          [--judge <model>] [--repeat N] [--check]
+# Environment:
+#   DRIFT_FIXTURES_HOOK         hook to run (default $PWD/plugins/orchestration/hooks/drift-check)
+#   DRIFT_FIXTURES_PLUGIN_ROOT  CLAUDE_PLUGIN_ROOT for the hook (default $PWD/plugins/orchestration)
+#   DRIFT_FIXTURES_KEEP_DIR     when set, the raw hook output of every scored run is written to
+#                               <dir>/<set>-<case>-<run>.out
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 
 usage() {
   echo "usage: bash tests/eval/drift-fixtures.sh [--set tuning|heldout|all] [--seat <model>] [--judge <model>] [--repeat N] [--check]" >&2
+  echo "  a seat starting with claude- is a Claude seat (dry-run \`would-call\`); --judge is not allowed with it" >&2
+  echo "  env: DRIFT_FIXTURES_HOOK, DRIFT_FIXTURES_PLUGIN_ROOT, DRIFT_FIXTURES_KEEP_DIR=<dir> (raw hook output per run)" >&2
   exit 2
 }
 
@@ -31,6 +43,9 @@ done
 case "$SET" in tuning|heldout|all) ;; *) usage ;; esac
 case "$REPEAT" in ''|*[!0-9]*) usage ;; esac
 [ "$REPEAT" -ge 1 ] || usage
+CLAUDE_SEAT=0
+case "$SEAT" in claude-*) CLAUDE_SEAT=1 ;; esac
+[ "$CLAUDE_SEAT" -eq 0 ] || [ -z "$JUDGE" ] || usage
 
 TUNING_DIR="${DRIFT_FIXTURES_DIR:-tests/eval/fixtures/drift}"
 HELDOUT_DIR="${DRIFT_HELDOUT_DIR:-tests/eval/fixtures/drift-heldout}"
@@ -65,8 +80,8 @@ mkdir -p "$W/tmp"
 export TMPDIR="$W/tmp"
 . tests/test-env.sh
 
-HOOK="$PWD/plugins/orchestration/hooks/drift-check"
-PLUGIN_ROOT="$PWD/plugins/orchestration"
+HOOK="${DRIFT_FIXTURES_HOOK:-$PWD/plugins/orchestration/hooks/drift-check}"
+PLUGIN_ROOT="${DRIFT_FIXTURES_PLUGIN_ROOT:-$PWD/plugins/orchestration}"
 BUILDER="$PWD/tests/eval/drift-rollout.mjs"
 
 # Reads score.json and the hook output; prints "<class>\t<result>\t<advice>".
@@ -81,7 +96,13 @@ try:
 except OSError:
     pass
 advice = ""
-if out.startswith("{\"decision\":\"block\""):
+if out.startswith("{\"hookSpecificOutput\""):
+    cls = "advice"
+    try:
+        advice = json.loads(out)["hookSpecificOutput"]["additionalContext"]
+    except Exception:
+        cls = "error"
+elif out.startswith("{\"decision\":\"block\""):
     cls = "advice"
     try:
         advice = json.loads(out).get("reason", "")
@@ -126,6 +147,15 @@ print(json.dumps({"hook_event_name": "Stop", "model": sys.argv[1], "stop_hook_ac
                   "last_assistant_message": sys.argv[2], "session_id": sys.argv[3],
                   "transcript_path": sys.argv[4]}))
 '
+
+# ready_line <hook dry-run output>: is it the line this seat's hook prints when it would call a judge?
+ready_line() {
+  if [ "$CLAUDE_SEAT" -eq 1 ]; then
+    [ "$1" = "would-call" ]
+  else
+    case "$1" in "would-call: host=codex judge="*) return 0 ;; *) return 1 ;; esac
+  fi
+}
 
 P=0; F=0; E=0
 ROWS=""
@@ -197,33 +227,35 @@ while IFS='|' read -r set dir; do
 
   if [ "$CHECK" -eq 1 ]; then
     out="$(hook_call "drift-$name-check-$$" DRIFT_CHECK_DRYRUN=1 2>&1)"
-    case "$out" in
-      "would-call: host=codex judge="*) printf '%s\tready\t%s\n' "$id" "$out" ;;
-      *) printf '%s\tnot-ready\t%s\n' "$id" "not-ready: $out"; NOTREADY=1 ;;
-    esac
+    if ready_line "$out"; then
+      printf '%s\tready\t%s\n' "$id" "$out"
+    else
+      printf '%s\tnot-ready\t%s\n' "$id" "not-ready: $out"; NOTREADY=1
+    fi
     continue
   fi
 
   expect="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["expect"])' "$dir/score.json")"
   ready="$(hook_call "drift-$name-check-$$" DRIFT_CHECK_DRYRUN=1 2>&1)"
-  case "$ready" in
-    "would-call: host=codex judge="*) ;;
-    *)
-      row="$id	-	$expect	error	error	not-ready: $ready"
-      printf '%s\n' "$row"
-      ROWS="${ROWS}${row}
+  if ! ready_line "$ready"; then
+    row="$id	-	$expect	error	error	not-ready: $ready"
+    printf '%s\n' "$row"
+    ROWS="${ROWS}${row}
 "
-      E=$((E+1))
-      PERCASE="${PERCASE}${id}: 0/${REPEAT}
+    E=$((E+1))
+    PERCASE="${PERCASE}${id}: 0/${REPEAT}
 "
-      continue
-      ;;
-  esac
+    continue
+  fi
   passes=0
   run=1
   while [ "$run" -le "$REPEAT" ]; do
     sid="drift-$name-$run-$$"
     out="$(hook_call "$sid" 2>/dev/null)"
+    if [ -n "${DRIFT_FIXTURES_KEEP_DIR:-}" ]; then
+      mkdir -p "$DRIFT_FIXTURES_KEEP_DIR"
+      printf '%s\n' "$out" > "$DRIFT_FIXTURES_KEEP_DIR/$set-$name-$run.out"
+    fi
     res="$(python3 -c "$SCORE_PY" "$out" "$TMPDIR/claude-drift-log/$sid.jsonl" "$dir/score.json")"
     cls="${res%%	*}"; rest="${res#*	}"
     verdict="${rest%%	*}"; advice="${rest#*	}"
