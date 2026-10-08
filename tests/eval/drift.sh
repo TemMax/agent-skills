@@ -11,7 +11,7 @@ cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
 . tests/eval/model-cli.sh
 
-MODEL="${EVAL_MODEL:-claude-haiku-4-5-20251001}"
+MODEL="${EVAL_MODEL:-claude-haiku-5-5}"
 PROMPT="$(cat plugins/orchestration/skills/multi-model/references/orchestrator-drift-prompt.md)"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 

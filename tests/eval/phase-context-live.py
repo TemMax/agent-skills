@@ -148,7 +148,7 @@ def fixture(out,provider):
 
 
 def plan_file(out,provider):
-    exec_model='claude-haiku-4-5-20251001' if provider=='claude' else 'gpt-6-luna'
+    exec_model='claude-haiku-5-5' if provider=='claude' else 'gpt-6-luna'
     supervisor='claude-opus-5-5' if provider=='claude' else 'gpt-6.1-sol'
     plan={'waves':[{'wave':1,'supervisor':{'model':supervisor,'effort':'high'},'tasks':[{'id':'one','branch':'wave/one',
          'executor':{'model':exec_model,'effort':'medium'},'ladder':[], 'contract':{'files_allowed':['README.md'],'files_forbidden':['src/**','tests/**'],
