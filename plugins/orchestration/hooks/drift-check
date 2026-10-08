@@ -258,7 +258,7 @@ fi
 judge=""
 case "$host" in
   claude)
-    # The judge is Haiku 5.5 at `medium` (decision 014).
+    # The judge is Haiku 5.5 at `low` (decision 014).
     judge="claude-haiku-5-5"
     ;;
   codex)
@@ -363,7 +363,7 @@ else
     ( cd "$neutral_dir" && DRIFT_CHECK_ACTIVE=1 CLAUDE_DRIFT_CHECK_ACTIVE=1 \
       claude -p "$full_prompt" \
         --model "$judge" \
-        --effort medium \
+        --effort low \
         --permission-mode dontAsk \
         --tools '' \
         --strict-mcp-config \

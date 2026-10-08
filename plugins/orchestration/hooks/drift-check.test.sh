@@ -512,7 +512,7 @@ import json,sys
 args=json.load(open(sys.argv[1]))
 ok=(len(args) == 14 and args[0] == "-p" and "Plan (" in args[1]
     and "Summary: all tasks done, nothing remaining." in args[1]
-    and args[2:] == ["--model", "claude-haiku-5-5", "--effort", "medium",
+    and args[2:] == ["--model", "claude-haiku-5-5", "--effort", "low",
                     "--permission-mode", "dontAsk", "--tools", "",
                     "--strict-mcp-config", "--permission-prompts", "none",
                     "--no-session-persistence"]

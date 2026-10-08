@@ -92,7 +92,7 @@ Gate it; do not shorten it — the cost *is* the model call, and cutting it shor
 only buys worse advice at the same price.
 
 **The Claude judge.** On Claude Code the judge is `claude-haiku-5-5` at
-`medium` effort, started with no tools and no MCP servers (`--tools ''`,
+`low` effort, started with no tools and no MCP servers (`--tools ''`,
 `--strict-mcp-config`). A session that loads every configured MCP tool schema
 spends its context window on definitions it cannot call: measured on
 2026-10-08, the previous judge's call carried 133,224 prompt tokens before
