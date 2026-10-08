@@ -92,7 +92,7 @@ def format_report(summary, as_json=False):
 
 # A claude CLI stand-in: the executor as the runner's prompt instructs, or the judge.
 STUB = r'''#!__PYTHON__
-import json, os, re, subprocess, sys
+import fcntl, json, os, re, subprocess, sys
 from pathlib import Path
 
 argv = sys.argv[1:]
@@ -147,8 +147,10 @@ else:
     named = re.search(r'SAME worktree and branch \(wave/([^)]+)\)', prompt)
     task = named.group(1) if named else info['task']
 worktree = Path(info['worktree'])
-if not worktree.exists():
-    git(os.getcwd(), 'worktree', 'add', '-b', f'wave/{task}', str(worktree), info['base'])
+if not (worktree / '.git').exists():
+    with open(state / 'worktree.lock', 'w') as lock:  # parallel tasks race on git's repository lock
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        git(os.getcwd(), 'worktree', 'add', '-b', f'wave/{task}', str(worktree), info['base'])
 wrong = task in os.environ.get('STUB_WRONG', '').split(',')
 source = (state / 'solutions' / (task + ('.wrong' if wrong else '') + '.py')).read_text()
 (worktree / 'lane' / f'{task}.py').write_text(source)
