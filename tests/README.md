@@ -35,7 +35,7 @@ Prior dated measurements apply to their recorded versions only.
 | `critical-review.sh` | Clean code and deliberately planted defects; gated PR thread flow | Live semantic review through either provider |
 | `supervisor.sh` | Real small repository: correct change, missing guard, unsatisfiable contract | Live independent supervision through either provider |
 | `super-plan.sh`, `seam-audit*.sh` | File overlap, product fork, broken cross-task seams and clean decoys | Live planning and audit; several fixed mini repositories |
-| `skill-navigation.sh` | Six process decision points (five on Codex) and required reference reads | Live skill application through either provider |
+| `skill-navigation.sh` | Seven process decision points (five on Codex) and required reference reads | Live skill application through either provider |
 | `ship-smoke.sh` | Two tasks in a disposable repository with a local bare origin | Codex execution, correctness and telemetry |
 | `skill-session-ab.sh` | Scripted multi-turn task removing duplicate tests, then a narrow CI edit | Codex session behavior and before/after comparison |
 | `claude-skill-session-ab.py` | Same duplicate-test fixture and eight turns; a cheaper two-turn smoke | Claude Code sessions, normal plugin loading, resume and before/after comparison |
@@ -269,12 +269,13 @@ exec`, it must run outside any sandbox; skip a part whose CLI is missing from
 PATH rather than fail it.
 
 The skill-navigation tier (`tests/eval/skill-navigation.sh`) asks whether an
-agent applying the multi-model skill takes the right action at six decision
+agent applying the multi-model skill takes the right action at seven decision
 points (five on Codex) — launching a Claude-only wave, a contract amendment
 that widens `files_allowed` and one that would delete a `must_run` entry, a
 failed verdict with `pasteReproduced: false`, drift advice from the Stop hook,
-and (Claude provider only) N6, the log-reader route: how to get the failing
-test and exact error out of a ~9,000-line verification log — and,
+and (Claude provider only) N6 and N7, the large-log route: the orchestrator
+searches a ~9,000-line verification log itself first (N6) and hands it to a
+Haiku 5.5 reader when the search does not settle the question (N7) — and,
 where the rule lives in a reference file, whether the agent actually opened
 it (read from the `Read` tool calls in the `stream-json` events; a reference
 file absent from the layout under test prints `SKIP read-check` and passes).

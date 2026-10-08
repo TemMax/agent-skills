@@ -31,8 +31,8 @@ check "identifiers prose records that sonnet and haiku moved by 2026-10-08" \
   "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'By 2026-10-08 \`sonnet\` had moved from Sonnet 5 to Sonnet 5.5 and \`haiku\` from Haiku 4.5 to Haiku 5.5 the same way.'"
 check "Agent-tool exception makes an alias spawn state its model ID first" \
   "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'states its exact model ID in the first line of its report'"
-check "the orchestrator hands a large file to a Haiku 5.5 reader by path" \
-  "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'hand its path to a Haiku 5.5 reader per the Research Routing table'"
+check "the orchestrator searches a large log first and hands it to a Haiku 5.5 reader only when the search does not settle it" \
+  "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'search it first: a pattern search for the failure'\\''s markers is one call. When the search does not settle it and the answer has to be read out of the file, hand its path to a Haiku 5.5 reader per the Research Routing table and take back the quoted lines; open the file yourself only at the lines the reader cites.'"
 check "research row routes pattern search, closed lookup and fact extraction to Haiku 5.5 at medium" \
   "grep -qF '| Mechanical pattern search, one closed lookup question, or extracting a fact from a large file, log or transcript handed over by path | Haiku 5.5 (\`claude-haiku-5-5\`), medium, Agent tool alias \`haiku\` |' '$MM'"
 check "research row makes the Haiku 5.5 reader return verbatim lines" \

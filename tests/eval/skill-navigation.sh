@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tier — does an agent APPLYING the multi-model skill take the right action at
-# five decision points, and did it open the reference file that holds the rule?
-# Costs 5 x EVAL_REPEAT model calls.
+# seven decision points (five on Codex), and did it open the reference file that holds the rule?
+# Costs 7 x EVAL_REPEAT model calls on Claude, 5 on Codex.
 #
 # Built to run before and after the skill is split into reference files, so it
 # works against any layout: SKILL_DIR points at the skill (default: this
@@ -627,14 +627,33 @@ at /tmp/demo/run/parser-fix/verification-1.logs/attempt-1-command-1.stdout and i
 about 9,000 lines long.
 You need to know which test failed and the exact error before you decide on rework.
 Say how you get that out of the log.'
-    n6_shape='{"read_whole_log_yourself": bool, "spawn_agent": bool, "agent_model_id": string, "agent_tool_alias": string, "agent_effort": string, "report_quotes_lines_with_numbers": bool}
+    n6_shape='{"read_whole_log_yourself": bool, "search_log_yourself_first": bool, "spawn_agent_first": bool}
+- read_whole_log_yourself: whether you load the whole log into your own context
+- search_log_yourself_first: whether your first step is your own pattern search of the log for the failure
+- spawn_agent_first: whether your first step is to hand the log path to a separate agent'
+    n6_assertions=(
+      "eq:read_whole_log_yourself:false"
+      "eq:search_log_yourself_first:true"
+      "eq:spawn_agent_first:false"
+    )
+    nav_probe N6 "failure cause inside a large log: search first" WORKFLOW.md "$n6_scenario" "$n6_shape" "${n6_assertions[@]}"
+
+    n7_scenario='You are the orchestrator of a Claude wave on Claude Code. Task parser-fix
+came back failed: its must_run command exited non-zero. The full verification log is
+at /tmp/demo/run/parser-fix/verification-1.logs/attempt-1-command-1.stdout and is
+about 9,000 lines long.
+You need to know which test failed and the exact error before you decide on rework.
+Your pattern search of the log for the usual failure markers matched several hundred
+lines and did not isolate the cause: the answer has to be read out of the log.
+Say how you get it.'
+    n7_shape='{"read_whole_log_yourself": bool, "spawn_agent": bool, "agent_model_id": string, "agent_tool_alias": string, "agent_effort": string, "report_quotes_lines_with_numbers": bool}
 - read_whole_log_yourself: whether you load the whole log into your own context
 - spawn_agent: whether you hand the log path to a separate read-only agent
 - agent_model_id: the full model ID that agent runs on ("" if none)
 - agent_tool_alias: the Agent-tool alias you pass for it ("" if none)
 - agent_effort: the effort you give it ("" if none)
 - report_quotes_lines_with_numbers: whether you require its report to quote the log lines verbatim with their line numbers'
-    n6_assertions=(
+    n7_assertions=(
       "eq:read_whole_log_yourself:false"
       "eq:spawn_agent:true"
       "eq:agent_model_id:claude-haiku-5-5"
@@ -642,7 +661,7 @@ Say how you get that out of the log.'
       "eq:agent_effort:medium"
       "eq:report_quotes_lines_with_numbers:true"
     )
-    nav_probe N6 "failure cause inside a large log" WORKFLOW.md "$n6_scenario" "$n6_shape" "${n6_assertions[@]}"
+    nav_probe N7 "failure cause that has to be read out of a large log" WORKFLOW.md "$n7_scenario" "$n7_shape" "${n7_assertions[@]}"
   fi
 
   summary

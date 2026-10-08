@@ -10,7 +10,7 @@ orchestration version; a code-review bump is stated inside it.
 
 **multi-model**
 - Add Claude Haiku 5.5 with a dossier; Haiku 4.5 stays for old plans
-- Hand large logs to a Haiku 5.5 reader that quotes exact lines
+- Hand logs that need reading to a Haiku 5.5 reader that quotes lines
 - Start runner and drift-judge sessions without MCP servers
 
 **super-plan**
