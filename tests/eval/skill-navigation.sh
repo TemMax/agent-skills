@@ -529,6 +529,7 @@ Say exactly how you would launch this wave.' \
 
   local n2_scenario n3_scenario n4_scenario n4_shape n5_scenario n5_shape
   local n2_assertions n3_assertions n4_assertions n5_assertions
+  local n6_scenario n6_shape n6_assertions
 
   n2_scenario='You are the orchestrator of a running wave. The wave runner returned status
 contract-unsatisfiable for task api-fix. The supervisor verdict says:
@@ -617,6 +618,31 @@ message said all tasks are done". Decide how you respond.'
   else
     nav_probe N5 "drift advice from the Stop hook" optional:references/orchestrator-drift-hook.md \
       "$n5_scenario" "$n5_shape" "${n5_assertions[@]}"
+  fi
+
+  if [ "$EVAL_PROVIDER" != codex ]; then
+    n6_scenario='You are the orchestrator of a Claude wave on Claude Code. Task parser-fix
+came back failed: its must_run command exited non-zero. The full verification log is
+at /tmp/demo/run/parser-fix/verification-1.logs/attempt-1-command-1.stdout and is
+about 9,000 lines long.
+You need to know which test failed and the exact error before you decide on rework.
+Say how you get that out of the log.'
+    n6_shape='{"read_whole_log_yourself": bool, "spawn_agent": bool, "agent_model_id": string, "agent_tool_alias": string, "agent_effort": string, "report_quotes_lines_with_numbers": bool}
+- read_whole_log_yourself: whether you load the whole log into your own context
+- spawn_agent: whether you hand the log path to a separate read-only agent
+- agent_model_id: the full model ID that agent runs on ("" if none)
+- agent_tool_alias: the Agent-tool alias you pass for it ("" if none)
+- agent_effort: the effort you give it ("" if none)
+- report_quotes_lines_with_numbers: whether you require its report to quote the log lines verbatim with their line numbers'
+    n6_assertions=(
+      "eq:read_whole_log_yourself:false"
+      "eq:spawn_agent:true"
+      "eq:agent_model_id:claude-haiku-5-5"
+      "eq:agent_tool_alias:haiku"
+      "eq:agent_effort:medium"
+      "eq:report_quotes_lines_with_numbers:true"
+    )
+    nav_probe N6 "failure cause inside a large log" WORKFLOW.md "$n6_scenario" "$n6_shape" "${n6_assertions[@]}"
   fi
 
   summary
