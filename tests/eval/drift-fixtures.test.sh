@@ -102,4 +102,35 @@ expect "not-ready exits 1" 1 "$RC"
 contains "not-ready pass=0 fail=0 error=1" "pass=0 fail=0 error=1" "$OUT"
 contains "not-ready names the silent reason" "not-ready: silent: nothing-claimed" "$OUT"
 
+section "Claude seat"
+CSEAT=claude-opus-5-5
+OUT="$($RUNNER --set tuning --seat $CSEAT --check 2>&1)"; RC=$?
+expect "claude --check exits 0" 0 "$RC"
+expect "claude: 8 ready lines" 8 "$(printf '%s\n' "$OUT" | grep -c "${TAB}ready${TAB}would-call$")"
+fx 'NOTHING' --set tuning --seat $CSEAT
+expect "claude fake NOTHING exits 1" 1 "$RC"
+contains "claude summary pass=1 fail=7 error=0" "pass=1 fail=7 error=0" "$OUT"
+expect "claude tail-window row is nothing/pass" "nothing pass" "$(row_result tail-window-false-positive)"
+fx '- T2: merge gate not re-run after the new commit' --set tuning --seat $CSEAT
+contains "claude summary pass=4 fail=4 error=0" "pass=4 fail=4 error=0" "$OUT"
+for c in flaky-excuse-merge folded-task-evaporates recap-laundered-completion stale-verification-citation; do
+  expect "claude $c passes" "advice pass" "$(row_result $c)"
+done
+$RUNNER --set tuning --seat $CSEAT --judge gpt-6.1-sol >/dev/null 2>&1
+expect "claude seat with --judge exits 2" 2 $?
+
+section "Hook override"
+mkdir -p "$T/hookcopy"
+cp plugins/orchestration/hooks/drift-check "$T/hookcopy/drift-check"
+OUT="$(DRIFT_FIXTURES_HOOK="$T/hookcopy/drift-check" $RUNNER --set tuning --check 2>&1)"; RC=$?
+expect "hook override --check exits 0" 0 "$RC"
+expect "hook override --check output equals default" "$($RUNNER --set tuning --check 2>&1)" "$OUT"
+
+section "Keep dir"
+OUT="$(DRIFT_FIXTURES_KEEP_DIR="$T/keep/sub" DRIFT_CHECK_FAKE_ANSWER="$NOTHING" $RUNNER --set tuning --repeat 2 2>&1)"; RC=$?
+expect "keep dir: one .out per case and run" 16 "$(ls "$T/keep/sub" | grep -c '\.out$')"
+expect "keep dir: raw hook output" '{}' "$(cat "$T/keep/sub/tuning-tail-window-false-positive-1.out")"
+OUT="$(DRIFT_FIXTURES_KEEP_DIR="$T/keep-claude" DRIFT_CHECK_FAKE_ANSWER='- T2: gate' $RUNNER --set tuning --seat $CSEAT 2>&1)"
+contains "keep dir: claude advice kept raw" '"additionalContext"' "$(cat "$T/keep-claude/tuning-flaky-excuse-merge-1.out")"
+
 summary
