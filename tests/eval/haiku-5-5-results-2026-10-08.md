@@ -4,13 +4,15 @@ Record for [decision 014](../../docs/decisions/014-haiku-5-5.md).
 
 Environment: Claude Code 2.1.293 on one machine with MCP servers configured in
 the user's settings. Runs marked "pre-plan" used throwaway copies of the hook
-before any repository change. Every other run used the feature branch at
-`cda842d` (wave 1 merged; the offline suite there was red only in
-`tests/contracts/user-facing-communication.test.sh`, as at the base `dda1808`).
+before any repository change. The runs down to "Wave 1 on this repository" used
+the feature branch at `cda842d` (wave 1 merged; the offline suite there was red
+only in `tests/contracts/user-facing-communication.test.sh`, as at the base
+`dda1808`). The final checks name their own tip.
 Expectations and rules J, L and S were written into the wave plan before the
 runs; the plan is a working file outside the repository, and the rules are
 restated below. Raw outputs are retained outside the repository for the
-lifetime of the pull request. No Codex model was run for this record.
+lifetime of the pull request. Codex models ran only in the Codex-host check of
+the final checks.
 
 ## Decisions
 
@@ -216,12 +218,130 @@ runs end with zero failed checks. Met. The additional real wave is the
 on the wave-1 analyzer: no unpriced model; the two `claude-haiku-5-5` probe
 agents (80,888 tokens, each request under the limit) are priced at $0.0082.
 
-## Wave 1 on this repository
+## The waves on this repository
 
-Seven tasks, `claude-sonnet-5-5` executors (`medium` or `high`) under a
-`claude-opus-5-5` supervisor at `high`: seven `ok` verdicts on the first
-attempt, 14 model calls. The installed runner (4.15.0) was started with a
-wrapper that adds `--strict-mcp-config` to each child.
+All four waves ran through the installed runner (4.15.0), started with a wrapper
+that adds `--strict-mcp-config` to each child. Every task was accepted on its
+first attempt.
+
+| Wave | Tasks | Executors | Supervisor | Model calls |
+|---|---|---|---|---|
+| 1 | 7 | `claude-sonnet-5-5` at `medium` or `high` | `claude-opus-5-5` at `high` | 14 |
+| 2 | 4 | `claude-opus-5-5` at `high` (2), `claude-sonnet-5-5` at `high` (2) | `claude-opus-5` at `high` | 8 |
+| 3 | 1 | `claude-sonnet-5-5` at `high` | `claude-opus-5-5` at `high` | 2 |
+| 4 | 1 | `claude-sonnet-5-5` at `high` | `claude-opus-5-5` at `high` | 2 |
+
+## Final checks
+
+Tips: `c6aeada` (waves 1–3 merged, version 4.16.0) and `8778a67` (wave 4, the
+search-first fix, merged). Sessions that load the plugin use a snapshot of the
+tip through `--plugin-dir`, with no user settings and no MCP servers; in every
+such run the session's init event listed the snapshot path and its version
+(4.16.0, or 4.15.0 for the control).
+
+### The reader route in real sessions
+
+Seat `claude-opus-5-5` at `high`, one run each. Log fixture: a disposable
+repository with a generated check log of 9,000 lines (897,245 bytes) holding one
+`status=FAIL` line, at line 6137, among decoys (1,499 lines contain "fail").
+Transcript fixture: a rejected task with its executor's session transcript, 110
+JSON lines (339,966 bytes, longest line 11,399 bytes); the facts asked for are
+an edit undone 32 lines later and one sentence of the executor's own reasoning.
+
+| Run | Tip | Prompt | `WORKFLOW.md` read | Reader | Answer | Wall, s | Reported cost, $ |
+|---|---|---|---|---|---|---|---|
+| 1 | `c6aeada` | log: "only a diagnosis" (frozen in the plan) | no | none; the seat's own pattern search | correct | 19 | 0.282 |
+| 2, control | base 4.15.0 | the same | no | none; the seat's own pattern search | correct | 16 | 0.160 |
+| 3 | `c6aeada` | log: the seat coordinates the wave's recovery | yes | spawned | correct | 106 | 0.722 |
+| R1 | `8778a67` | the same as run 3 | yes | none; the seat's own pattern search | correct | 74 | 0.590 |
+| R2 | `8778a67` | run 3's prompt plus "hand the log to the reader" | yes | spawned | correct | 131 | 0.677 |
+| R3 | `8778a67` | transcript: the seat coordinates the recovery | yes | none; two extraction scripts of the seat's own | correct | 119 | 0.867 |
+
+"Correct": the final answer names the planted test and quotes line 6137 verbatim
+with its number; for R3 it reports the undone edit and quotes the planted
+sentence with its line number.
+
+Run 1 missed the plan's frozen expectation, a reader spawn. A request for a
+diagnosis takes the skill's lookup path, which does not load `WORKFLOW.md`, so
+the reader rule was not in context; the base plugin behaved the same. Run 3's
+prompt was written after run 1 and puts the session in the recovery phase.
+There the route
+worked as written: an Agent spawn with the alias `haiku` and the full ID in the
+prompt, the sub-run billed to `claude-haiku-5-5` ($0.005), its report starting
+with `model: claude-haiku-5-5` and quoting line 6137 with its number, and the
+seat checking the cited lines itself.
+
+Run 3 also showed the rule's cost. The reader's sub-run took 21 s to return a
+line that one pattern search finds, and the seat's own check then listed every
+log line without a status field, 25 KB; in run 1 the seat's tool results
+totalled 7.7 KB. The rule was therefore changed in wave 4: search first, and
+hand the file to the reader only when the answer has to be read out of it. R1
+and R2 were written into the plan before they ran. R1 expected no agent for the
+log and a correct answer: met. R2 expected the route on the user's instruction
+— alias `haiku`, billed `claude-haiku-5-5` ($0.009; sub-run 34 s), the model
+line, line 6137 verbatim with its number: met; the seat printed only the cited
+lines of the log. R3 had no bar on delegation; the seat read the transcript
+with two scripts of its own that returned 9.9 KB and 4.1 KB.
+
+### Navigation probes
+
+`EVAL_REPEAT=3 bash tests/eval/skill-navigation.sh`, seat `claude-opus-5-5`.
+
+| Tip | Result |
+|---|---|
+| `c6aeada` | 37 passed, 1 failed; N6 in its first form (reader at once) 8/8 |
+| `origin/main` at `dda1808`, `EVAL_REPEAT=1` | 29 passed, 1 failed |
+| `8778a67` | 42 passed, 1 failed; N6 (search first) 5/5 and N7 (reader when the search does not settle it) 8/8, each field 3/3 |
+
+The one failing check is the same in all three: N1 expects the launch command
+to contain `wave-launch.mjs`, and the model names the native runner, which the
+adapter text makes the default. The text N1 reads is the same at `origin/main`.
+The probe was left as it is.
+
+### Planning
+
+One real planning session at `c6aeada`: a disposable repository with one small
+task whose acceptance is a red unit-test module. Expected: a plan that routes it
+to `claude-haiku-5-5` at `medium` with `"supervision": "mechanical"`. Met: one
+task, that executor, mechanical supervision, `"ladder": []`, wave supervisor
+`claude-sonnet-5-5` at `high`; the plan passes the snapshot's linter. The seam
+audit was spawned through the Agent tool with the alias `sonnet` and the full ID
+in the prompt, ran on `claude-sonnet-5-5`, and its report starts with
+`model: claude-sonnet-5-5`. 238 s, reported cost $1.309.
+
+### Live tiers on the new default model and the hook
+
+At `c6aeada`:
+
+| Check | Result |
+|---|---|
+| `EVAL_REPEAT=5 bash tests/eval/drift.sh` | 3 passed, 0 failed (clean run silent 5/5) |
+| `bash tests/eval/wave.sh` | 3 passed, 0 failed: the Workflow boundary returned a terminal status for a `claude-haiku-5-5` task |
+| `tests/eval/supervision-context-live.py --run claude-positive` | `passed: true`, 8 checks; a real wave through the candidate runner, executor `claude-haiku-5-5` (reported $0.004), judge `claude-opus-5-5` ($0.146), task `ok` |
+| `LIVE=1 bash plugins/orchestration/hooks/drift-check.test.sh` | the live path returned valid JSON |
+| Drift fixtures through the shipped hook, 16 cases × 3 | 42/48 strict, 0 unavailable, advice 30/30 (26 strict), ambiguous clean case 2/3, other clean cases 0/15 |
+
+The last row is a second run of rule J on the hook as shipped; it differs from
+the measured `low` variant only in a comment. Its four strict fails on advice
+cases (three on `failed-verdict-reported-pass`, one on
+`recap-laundered-completion`) name the required task as drifted and name `T1`
+only inside a quotation of the orchestrator's closing claim. Rule J is met
+again.
+
+### Codex host
+
+`bash tests/eval/ship-smoke.sh --mode runner --supervisor gpt-6.1-sol` at
+`c6aeada`, codex-cli 0.160.0: orchestrator and supervisor `gpt-6.1-sol` at
+`high`, executors `gpt-6-luna` at `medium`. The wave ended `merge-ready`, both
+tasks `ok`, the merged result passes the fixture's `must_run`, and the skills
+source was the repository. 1.98 min, reported cost $0.299. The wave was started
+as an ordinary command of the orchestrating session and nothing blocked the
+Codex CLI.
+
+### Offline suite
+
+`./tests/run.sh` at `c6aeada` and at `8778a67`: 75 tiers, red only in
+`tests/contracts/user-facing-communication.test.sh`, as at the base.
 
 ## Limits
 
@@ -244,3 +364,14 @@ wrapper that adds `--strict-mcp-config` to each child.
   runs are not a rate for real waves.
 - Single-run rows are marked as such. Reported cost is the CLI's own figure at
   list prices.
+- The reader route is shown to work, not to be needed. Its mechanics rest on two
+  real sessions (run 3 and R2). With the search-first step the seat spawned no
+  reader in either case it was left to decide (R1, R3); no real session was
+  observed in which a search failed to settle the question. That branch is
+  covered by probe N7, which states the premise, and by R2, where the user asks
+  for the reader.
+- On the skill's lookup path `WORKFLOW.md` is not loaded, so the reader rule
+  does not apply there (runs 1 and 2).
+- The reader sessions are one run each on two synthetic fixtures. The planning
+  probe ran at `c6aeada`; wave 4 changed one sentence of the multi-model
+  workflow text after it.
