@@ -355,10 +355,11 @@ else
     rm -f "$answer_file" 2>/dev/null
   else
     tmp_out="$(mktemp 2>/dev/null || echo "/tmp/drift-check.$$")"
-    # The prompt goes in on stdin, through a pipe. As a command-line argument a
-    # large transcript tail exceeds the operating system's limit and the judge
-    # never starts: measured 2026-10-08, 4 of 73 tails of this project's own
-    # sessions were above 1 MB.
+    # The prompt goes in on stdin, as a here-string: the shell hands it over
+    # itself, so the judge is the only process of this job and nothing stays on
+    # disk. As a command-line argument a large transcript tail exceeds the
+    # operating system's limit and the judge never starts: measured 2026-10-08,
+    # 4 of 73 tails of this project's own sessions were above 1 MB.
     # Plan mode injects its own system prompt (write the plan, call
     # ExitPlanMode), which crowds out the judge's instructions; the judge
     # only reads and answers, so it needs no tools. Verified 2026-09-22 that
@@ -370,26 +371,28 @@ else
     # exec: the backgrounded process is the judge itself, so the watchdog below
     # stops the judge and not only a shell around it. A judge that outlives the
     # hook is still billed, and its answer is thrown away.
-    printf '%s' "$full_prompt" 2>/dev/null \
-      | ( cd "$neutral_dir" && DRIFT_CHECK_ACTIVE=1 CLAUDE_DRIFT_CHECK_ACTIVE=1 \
-          DISABLE_PROMPT_CACHING=1 \
-          exec claude -p \
-            --model "$judge" \
-            --effort low \
-            --permission-mode dontAsk \
-            --tools '' \
-            --strict-mcp-config \
-            --permission-prompts none \
-            --no-session-persistence \
-            >"$tmp_out" 2>/dev/null ) &
+    ( cd "$neutral_dir" && DRIFT_CHECK_ACTIVE=1 CLAUDE_DRIFT_CHECK_ACTIVE=1 \
+      DISABLE_PROMPT_CACHING=1 \
+      exec claude -p \
+        --model "$judge" \
+        --effort low \
+        --permission-mode dontAsk \
+        --tools '' \
+        --strict-mcp-config \
+        --permission-prompts none \
+        --no-session-persistence \
+        >"$tmp_out" <<<"$full_prompt" ) 2>/dev/null &
     claude_pid=$!
 
     # The watchdog must not inherit our stdout: a caller using $(...) waits for
     # every process holding that pipe, and killing this subshell does not reap
-    # its own `sleep` child.
+    # its own `sleep` child. A judge that ignores the first signal is killed two
+    # seconds later, so the hook never waits for it longer than that.
     (
       sleep 45
       kill -TERM "$claude_pid" 2>/dev/null
+      sleep 2
+      kill -KILL "$claude_pid" 2>/dev/null
     ) >/dev/null 2>&1 &
     watchdog_pid=$!
 

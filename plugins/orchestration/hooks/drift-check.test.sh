@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Gate tests for drift-check. Every case runs in dry-run, so the suite is
-# offline, deterministic and costs nothing. The live end-to-end path is checked
-# separately — see the last case, which is skipped unless LIVE=1.
+# Gate tests for drift-check. Every case runs in dry-run or against a stub, so
+# the suite is offline, deterministic and makes no model call; one watchdog case
+# waits about 47 seconds. The live end-to-end path is checked separately — see
+# the last case, which is skipped unless LIVE=1.
 set -uo pipefail
 cd "$(dirname "$0")/../../.." || exit 1
 . tests/test-env.sh
@@ -548,12 +549,15 @@ else
   echo "FAIL  Claude judge was not called with the prompt above 1 MB"; fail=1
 fi
 
-# The watchdog must stop the judge itself, not only the shell around it: a judge
-# that outlives the hook is still billed, and its answer is thrown away.
+# The watchdog must stop the judge itself, not only the shell around it, and must
+# not wait for a judge that ignores the first signal: a judge that outlives the
+# hook is still billed, and its answer is thrown away. This check takes about 47
+# seconds, the watchdog's own wait.
 HANGBIN="$WORK/hang-stub"
 mkdir -p "$HANGBIN"
 cat > "$HANGBIN/claude" <<'EOF'
 #!/bin/sh
+trap '' TERM
 echo $$ > "$CLAUDE_PID_FILE"
 cat > /dev/null
 exec sleep 120
@@ -561,16 +565,22 @@ EOF
 chmod +x "$HANGBIN/claude"
 HANG_SESSION=claude-hang
 rm -f "${TMPDIR:-/tmp}/claude-drift-log/${HANG_SESSION}.jsonl" "$WORK/claude.pid"
+hang_started=$SECONDS
 hang_out="$( cd "$WORK/repo" && printf '{"hook_event_name":"Stop","model":"claude-fable-5-1","stop_hook_active":false,"last_assistant_message":"Summary: all tasks done, nothing remaining.","session_id":"%s"}' "$HANG_SESSION" \
   | PATH="$HANGBIN:$PATH" CLAUDE_PID_FILE="$WORK/claude.pid" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )"
+hang_seconds=$((SECONDS - hang_started))
 expect "a Claude judge that hangs past the watchdog leaves the hook silent" "{}" "$hang_out"
 assert_unavailable "a Claude judge that hangs past the watchdog is audited" "$HANG_SESSION"
-sleep 1
 if [ -s "$WORK/claude.pid" ] && ! kill -0 "$(cat "$WORK/claude.pid")" 2>/dev/null; then
-  echo "PASS  the watchdog stops the Claude judge process itself"
+  echo "PASS  the watchdog stops a Claude judge that ignores the first signal"
 else
   echo "FAIL  the Claude judge process outlived the watchdog"; fail=1
-  kill "$(cat "$WORK/claude.pid" 2>/dev/null)" 2>/dev/null
+  kill -KILL "$(cat "$WORK/claude.pid" 2>/dev/null)" 2>/dev/null
+fi
+if [ "$hang_seconds" -lt 60 ]; then
+  echo "PASS  the hook returns within a minute of a hanging Claude judge"
+else
+  echo "FAIL  the hook waited ${hang_seconds}s for a hanging Claude judge"; fail=1
 fi
 
 UNAVAILABLE_SESSION=codex-unavailable
