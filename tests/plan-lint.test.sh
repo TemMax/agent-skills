@@ -97,7 +97,7 @@ mutate '"branch": "wave/docs-sync"' '"branch": "docs-sync"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "bad branch named" 'must be "wave/docs-sync"' "$out"
 
-mutate '"model": "claude-haiku-4-5-20251001"' '"model": "claude-haiku-4-5"'
+mutate '"model": "claude-haiku-5-5"' '"model": "claude-haiku-5"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"
 contains "long model id rejected" "executor.model" "$out"
 
@@ -371,6 +371,20 @@ PY
   contains "$full as explicit executor is clean" "OK: 0 error(s)" "$out"
 done
 
+section "Haiku executor routes"
+
+mutate '"model": "claude-haiku-5-5"' '"model": "claude-haiku-4-5-20251001"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "retired claude-haiku-4-5-20251001 executor exits 0" "0" "$rc"
+contains "retired claude-haiku-4-5-20251001 executor warns" \
+  'retired route: claude-haiku-4-5-20251001 is no longer an executor route (use claude-haiku-5-5); approved plans still run' "$out"
+
+cp "$CLEAN" "$W/m.md"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "claude-haiku-5-5 executor exits 0" "0" "$rc"
+check "claude-haiku-5-5 executor prints no retired-route warning" \
+  '! grep -qF "retired route: claude-haiku" <<<"$out"'
+
 section "Codex exact ids"
 while read -r executor supervisor rung; do
   cp "$CLEAN" "$W/m.md"
@@ -379,7 +393,7 @@ import sys
 p, executor, supervisor, rung = sys.argv[1:]
 s = open(p).read()
 s = s.replace('"model": "claude-sonnet-5"', f'"model": "{executor}"')
-s = s.replace('"model": "claude-haiku-4-5-20251001"', f'"model": "{executor}", "effort": "medium"')
+s = s.replace('"model": "claude-haiku-5-5"', f'"model": "{executor}", "effort": "medium"')
 s = s.replace('"model": "claude-fable-5-1"', f'"model": "{supervisor}"')
 s = s.replace('"ladder": ["claude-opus-5-5"]', f'"ladder": ["{rung}"]')
 open(p, 'w').write(s)
@@ -464,7 +478,7 @@ import sys
 p = sys.argv[1]
 s = open(p).read()
 s = s.replace('"model": "claude-sonnet-5"', '"model": "gpt-5.6-sol"')
-s = s.replace('"model": "claude-haiku-4-5-20251001"', '"model": "gpt-5.6-luna"')
+s = s.replace('"model": "claude-haiku-5-5"', '"model": "gpt-5.6-luna"')
 s = s.replace('"model": "claude-fable-5-1"', '"model": "gpt-5.6-terra"')
 s = s.replace('"ladder": ["claude-opus-5-5"]', '"ladder": ["gpt-5.6-terra"]')
 open(p, 'w').write(s)
@@ -809,6 +823,12 @@ mk_default_ladder_plan "claude-haiku-4-5-20251001" ""
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "Haiku task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
 contains "Haiku task without ladder under Opus 5.5 supervisor named" \
+  'supervisor model also appears as executor or ladder rung' "$out"
+
+mk_default_ladder_plan "claude-haiku-5-5" ""
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Haiku 5.5 task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
+contains "Haiku 5.5 task without ladder under Opus 5.5 supervisor named" \
   'supervisor model also appears as executor or ladder rung' "$out"
 
 section "ci: required CI entrypoint"

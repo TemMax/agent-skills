@@ -12,9 +12,11 @@ export const meta = {
 // silently when a model ships — on 2026-09-22 `opus` moved from Opus 5 to
 // Opus 5.5 — so the runner rejects them by name. Workflow agent() accepts
 // every ID below (probe wf_e635018e-8f3, 2026-09-22); claude-sonnet-5-5 accepted in wf_8ce2a0d8-bb0 and later runs, 2026-09-28.
-// `claude-sonnet-5-5` has no Agent-tool alias (probed 2026-09-28: `sonnet`
-// still resolves to `claude-sonnet-5`).
+// Aliases were probed again on 2026-10-08 (Claude Code 2.1.293): `haiku` resolves to
+// `claude-haiku-5-5` and `sonnet` to `claude-sonnet-5-5`. Workflow agent() accepted
+// `claude-haiku-5-5` in wf_7fd419c4-f40.
 const MODELS = [
+  'claude-haiku-5-5',
   'claude-haiku-4-5-20251001',
   'claude-sonnet-5',
   'claude-sonnet-5-5',
@@ -30,7 +32,7 @@ const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 // ladder, never by default escalation. claude-sonnet-5 is retired from this
 // order — defaultLadder() below special-cases it to its old legacy ladder
 // instead of climbing through claude-sonnet-5-5 first.
-const LADDER_ORDER = ['claude-haiku-4-5-20251001', 'claude-sonnet-5-5', 'claude-opus-5-5']
+const LADDER_ORDER = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']
 const MAX_ATTEMPTS_PER_RUNG = 2
 const MAX_ATTEMPTS_PER_TASK = 6
 
@@ -495,11 +497,12 @@ const VERDICT_SCHEMA = {
 // ---------- the ladder ----------
 
 function defaultLadder(model) {
-  // claude-sonnet-5 is retired from LADDER_ORDER but still a valid executor
-  // model (see MODELS); it keeps its pre-5.5 legacy ladder instead of
-  // climbing through claude-sonnet-5-5 — the same special case the linter
-  // applies.
+  // claude-sonnet-5 and claude-haiku-4-5-20251001 are retired from LADDER_ORDER
+  // but still valid executor models (see MODELS); each keeps its legacy ladder
+  // instead of climbing through the current order — the same special cases the
+  // linter applies.
   if (model === 'claude-sonnet-5') return ['claude-opus-5-5']
+  if (model === 'claude-haiku-4-5-20251001') return ['claude-sonnet-5-5', 'claude-opus-5-5']
   const i = LADDER_ORDER.indexOf(model)
   return i === -1 ? [] : LADDER_ORDER.slice(i + 1)
 }

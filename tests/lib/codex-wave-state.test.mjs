@@ -274,6 +274,16 @@ test('C2c selected wave with the claude-sonnet-5-5 ID is host-mismatch and creat
   assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
 })
 
+test('C2d selected wave with the claude-haiku-5-5 ID is host-mismatch and creates nothing', () => {
+  const env = init({ invalid: true, planText: (text) => text.replace(
+    '"model": "gpt-5.6-luna"', '"model": "claude-haiku-5-5"') })
+  assert.notEqual(env.result.status, 0)
+  assert.equal(env.result.json.status, 'invalid')
+  assert.match(env.result.json.errors.join('; '), /host-mismatch/)
+  assert.equal(existsSync(join(env.repo, '.worktrees')), false)
+  assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
+})
+
 test('C3 next preserves approved task prose and all six mandatory prompt blocks', () => {
   const env = init()
   const action = next(env.statePath)
