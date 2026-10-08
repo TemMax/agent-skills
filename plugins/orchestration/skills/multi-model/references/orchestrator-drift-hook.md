@@ -100,7 +100,9 @@ the transcript and failed with a prompt-too-long error on an ordinary
 transcript tail (decision 014). The prompt goes in on stdin: a large transcript
 tail does not fit into a command-line argument. Prompt caching is off for the
 call (`DISABLE_PROMPT_CACHING=1`): it is a single request, and a cached prompt
-is billed at the cache-write rate.
+is billed at the cache-write rate. The hook waits 45 seconds for the answer and
+then stops the judge process itself: a judge left running after the hook has
+returned is still billed, and nobody reads its answer.
 
 **The check does not repeat itself.** Each invocation is stateless, so during a
 live wave it would hand the orchestrator the identical note on every

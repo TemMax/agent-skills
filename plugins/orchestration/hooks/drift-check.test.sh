@@ -451,7 +451,7 @@ chmod +x "$STUBBIN/timeout" "$STUBBIN/codex" "$STUBBIN/claude"
 invoke_provider_stub() {
   local session="$1" model="$2"
   ( cd "$WORK/repo" && printf '{"hook_event_name":"Stop","model":"%s","stop_hook_active":false,"last_assistant_message":"Summary: all tasks done, nothing remaining.","session_id":"%s"}' "$model" "$session" \
-    | PATH="$STUBBIN:$PATH" TIMEOUT_ARGS="$WORK/timeout.args" CODEX_ARGS="$WORK/codex.args" CODEX_STDIN="$WORK/codex.stdin" CODEX_CWD_KIND="$WORK/codex.cwd-kind" CODEX_ACCEPTED="$WORK/codex.accepted" CLAUDE_ARGS="$WORK/claude.args" CLAUDE_STDIN="$WORK/claude.stdin" CLAUDE_CACHING="$WORK/claude.caching" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )
+    | env -u DISABLE_PROMPT_CACHING PATH="$STUBBIN:$PATH" TIMEOUT_ARGS="$WORK/timeout.args" CODEX_ARGS="$WORK/codex.args" CODEX_STDIN="$WORK/codex.stdin" CODEX_CWD_KIND="$WORK/codex.cwd-kind" CODEX_ACCEPTED="$WORK/codex.accepted" CLAUDE_ARGS="$WORK/claude.args" CLAUDE_STDIN="$WORK/claude.stdin" CLAUDE_CACHING="$WORK/claude.caching" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )
 }
 
 rm -f "$WORK/timeout.args" "$WORK/codex.args" "$WORK/codex.stdin" \
@@ -546,6 +546,31 @@ if [ -s "$WORK/claude.stdin" ] && [ "$(wc -c < "$WORK/claude.stdin")" -gt 120000
   echo "PASS  Claude judge receives a prompt above 1 MB"
 else
   echo "FAIL  Claude judge was not called with the prompt above 1 MB"; fail=1
+fi
+
+# The watchdog must stop the judge itself, not only the shell around it: a judge
+# that outlives the hook is still billed, and its answer is thrown away.
+HANGBIN="$WORK/hang-stub"
+mkdir -p "$HANGBIN"
+cat > "$HANGBIN/claude" <<'EOF'
+#!/bin/sh
+echo $$ > "$CLAUDE_PID_FILE"
+cat > /dev/null
+exec sleep 120
+EOF
+chmod +x "$HANGBIN/claude"
+HANG_SESSION=claude-hang
+rm -f "${TMPDIR:-/tmp}/claude-drift-log/${HANG_SESSION}.jsonl" "$WORK/claude.pid"
+hang_out="$( cd "$WORK/repo" && printf '{"hook_event_name":"Stop","model":"claude-fable-5-1","stop_hook_active":false,"last_assistant_message":"Summary: all tasks done, nothing remaining.","session_id":"%s"}' "$HANG_SESSION" \
+  | PATH="$HANGBIN:$PATH" CLAUDE_PID_FILE="$WORK/claude.pid" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" "$HOOK" )"
+expect "a Claude judge that hangs past the watchdog leaves the hook silent" "{}" "$hang_out"
+assert_unavailable "a Claude judge that hangs past the watchdog is audited" "$HANG_SESSION"
+sleep 1
+if [ -s "$WORK/claude.pid" ] && ! kill -0 "$(cat "$WORK/claude.pid")" 2>/dev/null; then
+  echo "PASS  the watchdog stops the Claude judge process itself"
+else
+  echo "FAIL  the Claude judge process outlived the watchdog"; fail=1
+  kill "$(cat "$WORK/claude.pid" 2>/dev/null)" 2>/dev/null
 fi
 
 UNAVAILABLE_SESSION=codex-unavailable

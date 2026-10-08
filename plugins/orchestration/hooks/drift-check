@@ -355,12 +355,10 @@ else
     rm -f "$answer_file" 2>/dev/null
   else
     tmp_out="$(mktemp 2>/dev/null || echo "/tmp/drift-check.$$")"
-    # The prompt goes in on stdin, from a file. As a command-line argument a
+    # The prompt goes in on stdin, through a pipe. As a command-line argument a
     # large transcript tail exceeds the operating system's limit and the judge
     # never starts: measured 2026-10-08, 4 of 73 tails of this project's own
     # sessions were above 1 MB.
-    tmp_in="$(mktemp 2>/dev/null || echo "/tmp/drift-check-in.$$")"
-    printf '%s' "$full_prompt" > "$tmp_in"
     # Plan mode injects its own system prompt (write the plan, call
     # ExitPlanMode), which crowds out the judge's instructions; the judge
     # only reads and answers, so it needs no tools. Verified 2026-09-22 that
@@ -369,17 +367,21 @@ else
     # DISABLE_PROMPT_CACHING: the call is one request whose prompt is never read
     # again, and a cached prompt is billed at the cache-write rate — measured
     # 2026-10-08 on the same call, $0.00105 with caching and $0.00058 without.
-    ( cd "$neutral_dir" && DRIFT_CHECK_ACTIVE=1 CLAUDE_DRIFT_CHECK_ACTIVE=1 \
-      DISABLE_PROMPT_CACHING=1 \
-      claude -p \
-        --model "$judge" \
-        --effort low \
-        --permission-mode dontAsk \
-        --tools '' \
-        --strict-mcp-config \
-        --permission-prompts none \
-        --no-session-persistence \
-        <"$tmp_in" >"$tmp_out" 2>/dev/null ) &
+    # exec: the backgrounded process is the judge itself, so the watchdog below
+    # stops the judge and not only a shell around it. A judge that outlives the
+    # hook is still billed, and its answer is thrown away.
+    printf '%s' "$full_prompt" 2>/dev/null \
+      | ( cd "$neutral_dir" && DRIFT_CHECK_ACTIVE=1 CLAUDE_DRIFT_CHECK_ACTIVE=1 \
+          DISABLE_PROMPT_CACHING=1 \
+          exec claude -p \
+            --model "$judge" \
+            --effort low \
+            --permission-mode dontAsk \
+            --tools '' \
+            --strict-mcp-config \
+            --permission-prompts none \
+            --no-session-persistence \
+            >"$tmp_out" 2>/dev/null ) &
     claude_pid=$!
 
     # The watchdog must not inherit our stdout: a caller using $(...) waits for
@@ -397,7 +399,7 @@ else
     wait "$watchdog_pid" 2>/dev/null
 
     answer="$(cat "$tmp_out" 2>/dev/null || true)"
-    rm -f "$tmp_out" "$tmp_in" 2>/dev/null
+    rm -f "$tmp_out" 2>/dev/null
   fi
   [ -n "${neutral_dir:-}" ] && rmdir "$neutral_dir" 2>/dev/null
 fi
