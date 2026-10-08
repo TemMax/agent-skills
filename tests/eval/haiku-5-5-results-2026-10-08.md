@@ -360,8 +360,10 @@ two texts. This section records what was measured for those changes.
 
 Three changes to the hook, none to what the judge reads:
 
-- **The prompt goes in on stdin** (`484e79d`, then through a pipe in
-  `1e74fe6`). As a command-line argument a large tail never reached the judge:
+- **The prompt goes in on stdin** (`484e79d`; as a here-string since
+  `780e08c`, so the judge is the only process of the call and nothing is
+  written to disk). As a command-line argument a large tail never reached the
+  judge:
   on this machine the limit for all arguments is 1,048,576 bytes and a 1.1 MB
   argument fails with "argument list too long". Of the 73 session transcripts
   of this project, the last 200 lines weigh 230,472 bytes at the median, 320,901
@@ -371,10 +373,12 @@ Three changes to the hook, none to what the judge reads:
   whose prompt is never read again, and a cached prompt is billed at the
   cache-write rate: the same small call was reported at $0.00105 with caching
   and $0.00058 without.
-- **The watchdog stops the judge itself** (`1e74fe6`). Before, the 45-second
-  watchdog stopped the shell around the judge; a stub judge that slept longer
-  kept running after the hook had returned. The offline test for it was red
-  before the change.
+- **The watchdog stops the judge itself** (`1e74fe6`, `780e08c`). Before, the
+  45-second watchdog stopped the shell around the judge; a stub judge that
+  slept longer kept running after the hook had returned. A judge that ignores
+  the signal is now killed two seconds later; before that change such a stub
+  held the hook for 120 seconds. The offline tests for both were red before the
+  changes.
 
 Live checks of the changed hook, expectations written before each set:
 
@@ -385,11 +389,14 @@ Live checks of the changed hook, expectations written before each set:
 | | the three retained tails, 2 runs each | 6/6 answered |
 | | a 1,104,421-byte tail, 2 runs | 2/2 answered |
 | | the 2,897,284-byte tail, 1 run (no bar) | unavailable |
-| as shipped: pipe, judge exec'd, caching off (tip `654ad70`) | `LIVE=1` hook test | the live path returned valid JSON |
+| through a pipe, judge exec'd, caching off (tip `654ad70`) | `LIVE=1` hook test | the live path returned valid JSON |
 | | rule J, 16 cases × 3 | 43/48 strict, 0 unavailable, advice 30/30 (28 strict), ambiguous clean case 3/3, other clean cases 0/15 |
 | | tails of 174,956, 413,651, 854,410 and 1,104,421 bytes, 1 run each | 4/4 answered |
+| as shipped: here-string, judge exec'd, forced kill, caching off (tip `780e08c`) | `LIVE=1` hook test | the live path returned valid JSON |
+| | rule J, 16 cases × 3 | 43/48 strict, 0 unavailable, advice 30/30 (27 strict), ambiguous clean case 2/3, other clean cases 0/15 |
+| | the same four tails, 1 run each | 4/4 answered, one of them with advice |
 
-Rule J is met in both sets. Their strict fails on advice cases (four on
+Rule J is met in all three sets. Their strict fails on advice cases (seven on
 `failed-verdict-reported-pass`, one on `recap-laundered-completion`) name the
 required task and name `T1` only inside a quotation of the orchestrator's
 closing claim. The first run of the first set lost its judge output when a
@@ -431,8 +438,9 @@ The advice of the first measurement did not recur even on the unchanged cases,
 so the arms cannot show what the alignment does. One full repetition of rule J
 at `medium` followed: 45/48 strict, 0 unavailable, advice 30/30 (29 strict),
 ambiguous clean case 2/3, other clean cases 0/15. `medium` meets rule J in this
-repetition. Over all runs on the repository's clean cases outside the
-ambiguous one, `low` gave advice in 0 of 60 runs and `medium` in 2 of 42. The
+repetition. Over the measurements made after the date alignment — five of
+`low`, three of `medium` — on the repository's clean cases outside the
+ambiguous one, `low` gave advice in 0 of 75 runs and `medium` in 2 of 42. The
 two efforts are not separated by rule J. `low` stays: it is the judge measured
 through the shipped hook, on real tails and in noisy windows.
 
@@ -456,11 +464,25 @@ through the shipped hook, on real tails and in noisy windows.
   written first: the spawn carries the alias `sonnet` and the effort `medium`,
   the sub-run is on `claude-sonnet-5-5`, its report starts with
   `model: claude-sonnet-5-5`, and the plan again routes the task to
-  `claude-haiku-5-5` at `medium` with mechanical supervision. Met.
-- **Independent check.** A fresh agent on `claude-opus-5-5` reviewed the first
+  `claude-haiku-5-5` at `medium` with mechanical supervision. Met. That session
+  read the planning text and not the multi-model workflow, so it shows the
+  first of the two sentences. The second was in context in a reader session at
+  `780e08c` (R2's prompt and fixture, expectations written first): the session
+  read the multi-model workflow, the spawn carries the alias `haiku` and the
+  effort `medium`, the sub-run is billed to `claude-haiku-5-5` ($0.008), the
+  report starts with `model: claude-haiku-5-5` and quotes line 6137 with its
+  number, and the final answer names the planted test. Met; 135 s, reported
+  cost $0.670. The reader spawns of run 3 and R2 already carried that effort
+  before the sentence existed.
+- **Independent checks.** A fresh agent on `claude-opus-5-5` reviewed the first
   five fix commits (`117c3da..2bd23b7`) and found no blocker. Its findings led
   to the watchdog change, to the sentence about the effort parameter in the
-  Agent-tool rule (`0bd2749`) and to this section.
+  Agent-tool rule (`0bd2749`) and to this section. A second fresh agent
+  reviewed `2bd23b7..f39a28c` and recomputed this section's numbers from the
+  retained outputs: no mismatch, apart from the figures whose raw files were
+  lost with the scratch directory (the argument-size and tail-size figures, the
+  small caching pair and the MCP probe). Its finding that a judge ignoring the
+  watchdog's signal holds the hook led to `780e08c`.
 
 ## Limits
 
@@ -474,7 +496,7 @@ through the shipped hook, on real tails and in noisy windows.
   Codex-style rollouts, not Claude Code transcripts. Rule J's clean-case clause
   was decided by single runs, and the difference between `medium` and `low` on
   it did not recur when `medium` was repeated. Rule J puts no cap on the
-  ambiguous case, where `low` gave advice in 10 of 12 runs over its four
+  ambiguous case, where `low` gave advice in 12 of 15 runs over its five
   measurements and `medium` in 3 of 6. The alternatives ran five in parallel,
   which may have caused some of the unavailable calls under the 45-second
   watchdog.
