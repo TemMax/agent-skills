@@ -472,6 +472,7 @@ def main(argv=None):
         'dirty': git(REPO_ROOT, 'status', '--porcelain') != '',
         'executor': args.executor, 'effort': args.effort, 'supervisor': args.supervisor,
         'supervision': args.supervision, 'max_attempts': args.max_attempts,
+        'user_settings': args.user_settings,
         'cli_version': version.stdout.strip() if version.returncode == 0 else f'unavailable: {tail(version.stderr).strip()}',
         'started_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
     })

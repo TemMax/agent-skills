@@ -254,6 +254,7 @@ class PrepareOnlyTest(Case):
                          json.loads((REPO_ROOT / 'plugins/orchestration/.claude-plugin/plugin.json').read_text())['version'])
         self.assertEqual(meta['cli_version'], 'stub-claude 0.0.0')
         self.assertEqual((meta['executor'], meta['supervision'], meta['max_attempts']), (EXECUTOR, 'mechanical', 2))
+        self.assertIs(meta['user_settings'], False)
         self.assertEqual(len(meta['git_head']), 40)
         snapshot = json.loads((out / 'snapshot.json').read_text())
         self.assertIn('skills/multi-model/references/claude-wave-runner.mjs', snapshot)
@@ -350,12 +351,14 @@ class FullRunTest(Case):
         self.assertTrue(calls)
         for call in calls:
             self.assertEqual(call['argv'][-2:], ['--setting-sources', ''])
+        self.assertIs(json.loads((out / 'meta.json').read_text())['user_settings'], False)
         self.assertEqual(self.outcomes(out)['totals']['ok'], 4)
 
     def test_user_settings_pass_the_cli_through_unchanged(self):
-        _, _, calls = self.full_run('plain')
+        _, out, calls = self.full_run('plain')
         self.assertTrue(calls)
         self.assertTrue(all('--setting-sources' not in call['argv'] for call in calls))
+        self.assertIs(json.loads((out / 'meta.json').read_text())['user_settings'], True)
 
     def test_runner_without_a_summary_is_a_blocked_run(self):
         out = self.tmp / 'blocked'
