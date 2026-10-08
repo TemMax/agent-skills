@@ -4,12 +4,15 @@ Sources: official Anthropic system cards — Claude Opus 5.5 (230 pp., September
 2026), Claude Fable 5.1 / Mythos 5.1 (212 pp., September 2026), Claude Fable 5 /
 Mythos 5 (319 pp., June 2026), Claude Opus 4.8 (246 pp., May–June 2026), Claude
 Sonnet 5 (145 pp., June 2026), Claude Sonnet 5.5 (148 pp., September 28,
-2026). Page numbers refer to the corresponding card.
+2026), Claude Haiku 5.5 (144 pp., October 7, 2026). Page numbers refer to the
+corresponding card.
 Opus 5.5 is what the alias `opus` resolved to on 2026-09-22 — the alias moved
 under a running lineup, which is why every route now names full model IDs
 (Workflow probe `wf_e635018e-8f3`: `agent()` accepted all six full IDs;
 `opus`→`claude-opus-5-5`, `sonnet`→`claude-sonnet-5`,
-`haiku`→`claude-haiku-4-5-20251001`, `fable`→`claude-fable-5-1`).
+`haiku`→`claude-haiku-4-5-20251001`, `fable`→`claude-fable-5-1`). Re-probed on
+2026-10-08 (Claude Code 2.1.293): `sonnet`→`claude-sonnet-5-5` and
+`haiku`→`claude-haiku-5-5`; `opus` and `fable` unchanged.
 
 The models with an orchestrator profile — Opus 5.5, Opus 5, Fable 5.1, Fable 5
 and Opus 4.8 — appear here in two roles: as a possible orchestrator (see the
@@ -30,7 +33,8 @@ stays here for history and is no longer addressable as an executor or judge.
 - Opus 5 (heavy executor / verifier / orchestrator — addressed as claude-opus-5)
 - Sonnet 5.5 (the default executor — `claude-sonnet-5-5`)
 - Sonnet 5 (retired route — history; `claude-sonnet-5`)
-- Haiku 4.5 (the mechanical executor)
+- Haiku 5.5 (the cheap executor and reader — `claude-haiku-5-5`)
+- Haiku 4.5 (retired route — history; `claude-haiku-4-5-20251001`)
 - Choosing the Orchestrator Seat
 
 ## Fable 5 (orchestrator or heavy executor)
@@ -757,14 +761,18 @@ refusals … even on benign cybersecurity-related tasks" (p. 28). Cyber-blocked
 (p. 52).
 
 **Identity and addressing.** Model ID `claude-sonnet-5-5`; 1M context; 128K
-max output; $2 / $10 per MTok (cache reads $0.20) — same price as Sonnet 5.
+max output; $2 / $10 per MTok (cache reads $0.20 — $0.10 since 2026-10-07) —
+same price as Sonnet 5.
 Effort `low`/`medium`/`high`/`xhigh`/`max`, default `high`, levels
 recalibrated from Sonnet 5; `thinking: {type: "disabled"}` returns 400,
 thinking-off is `{type: "between_tools"}` (effort `high` or below only).
 Probed 2026-09-28 in this repo: `claude -p --model claude-sonnet-5-5` reports
 `claude-sonnet-5-5`; the alias `sonnet` still resolves to `claude-sonnet-5`
 in both `claude -p` and the Agent tool — Sonnet 5.5 has no Agent-tool alias.
-Takeaway: spawn it through Workflow `agent()`.
+Takeaway (2026-09-28): spawn it through Workflow `agent()`. Re-probed 2026-10-08
+(Claude Code 2.1.293): `sonnet` resolves to `claude-sonnet-5-5` in both, so the
+Agent-tool alias reaches it again; Workflow `agent()` with the full ID stays the
+fallback.
 
 ---
 
@@ -820,7 +828,156 @@ charts — only with code tools.
 
 ---
 
-## Haiku 4.5 (the mechanical executor)
+## Haiku 5.5 (the cheap executor and reader — `claude-haiku-5-5`)
+
+Sources: Claude Haiku 5.5 system card (144 pp., October 7, 2026); the Haiku 5.5
+prompting guide, migration guide, model page and pricing page on
+platform.claude.com, read 2026-10-08. Page numbers below refer to that card
+unless marked otherwise. A value marked "chart read" was read off a figure
+without data labels and is approximate. Haiku 5.5 replaced Haiku 4.5 on its
+routes on 2026-10-08; Haiku 4.5's entry stays below for history. Local
+measurements: `tests/eval/haiku-5-5-results-2026-10-08.md`.
+
+**Positioning.** "Claude Haiku 5.5 is not a frontier model" (p. 23), and the
+card runs "a narrower assessment" on it than on models that advance the
+frontier (p. 55). It is the first Haiku with effort levels: adaptive thinking
+is on by default, the default effort is `medium`, the context window is 1M
+tokens and the maximum output 128K (model page). Knowledge cutoff June 2026
+(p. 8). Summary table (max effort unless stated, p. 111):
+
+| Benchmark | Haiku 5.5 | Haiku 4.5 | Sonnet 5.5 |
+|---|---|---|---|
+| SWE-bench Pro | 64.8 | — | 81.3 |
+| SWE-bench Multilingual | 83.7 | 67.4 | 90.3 |
+| SWE-bench Multimodal | 30.7 | 19.8 | 54.3 |
+| FrontierCode Main | 46.4 | — | 46.2 (52.1 at xhigh) |
+| OSWorld 2.1 (offline subset) | 72.4 | 15.7 | 83.9 |
+| GDPval-AA v2.1 | 1620 | 735 | 1840 |
+| AA-Briefcase v1.1 | 1578 | 614 | 1824 |
+
+Terminal-Bench 4.0: 39.2 (±1.9) against Sonnet 5.5's 70.6 and Opus 5.5's 66.4;
+Haiku 4.5 passed none of its trials (p. 115). Terminal-Bench-Science: 20.6
+against Sonnet 5.5's 59.9 (p. 116). Long-context ProgramBench: 82.0, ahead of
+Sonnet 5.5's 79.7 and behind Opus 5.5's 91.2 (p. 117). Its SWE-bench Pro score
+is the level of the retired Sonnet 5 (63.2, Sonnet 5.5 card p. 109). Takeaway:
+a capable coder on scoped tasks and a strong long-context reader; not a route
+for complex or long agentic work.
+
+**Price by prompt length.** $0.10 / $0.50 per million input / output tokens
+and $0.01 cache reads for a request whose prompt is up to 100,000 tokens;
+$0.50 / $2.50 and $0.05 above that, for the whole request (pricing page; the
+card prices its own runs "per request at the rate for that request's prompt
+length", p. 127). Sonnet 5.5 is $2 / $10 with $0.10 cache reads. It uses the
+tokenizer of the 4.7-and-later models, about 30% more tokens than Haiku 4.5
+for the same text (migration guide). Measured here on 2026-10-08 (Claude Code
+2.1.293): a child session started with the native runner's flags carried
+137,137 prompt tokens on a machine with MCP servers configured and 10,047 with
+`--strict-mcp-config`; an Agent-tool subagent started at 23,112 and a Workflow
+agent at 40,280. Takeaway: Haiku 5.5 is cheap only while a request stays under
+100,000 prompt tokens — keep its tasks small, and never start its session with
+tool schemas it cannot use.
+
+**Effort economics.** FrontierCode by effort (chart reads, pp. 113–114; the
+max values are from the text): Main low ≈34.7 / medium ≈41.6 / high ≈41.9 /
+xhigh ≈45.8 / max 46.4; Extended low ≈48.2 / medium ≈55.0 / high ≈55.8 / xhigh
+≈58.1 / max 58.4. Sonnet 5.5 on the same charts: Main medium ≈36.5 / high
+≈49.4 / xhigh 52.1; Extended medium ≈50.5 / high ≈61.5 / xhigh 64.4. Haiku 5.5
+writes several times more output tokens than Sonnet 5.5 at the same effort
+label (medium ≈36k against ≈7.5k per task, high ≈55k against ≈13k, chart
+reads), so the same label is not the same spend, and a speed gain on executor
+tasks is not established by the card. On knowledge work effort matters more:
+GDPval-AA 1277 at `medium` against 1620 at `max` with about a tenth of the
+output tokens, AA-Briefcase 1372 against 1578 with under a quarter (p. 131).
+Research evaluations: DRACO low 64.3 / medium 72.4 / high 77.8 / xhigh 80.5 /
+max 81.5, level with Sonnet 5.5 at low and medium (64.6 / 71.2) and behind it
+from high (81.0) (fig, p. 121); WANDR wide search low 3.5 / medium 12.9 / high
+37.3 / xhigh 45.9 / max 49.9 against Sonnet 5.5's 10.0 / 29.9 / 56.3 / 66.6 /
+70.0 (fig, p. 123). The prompting guide makes `medium` the place to "start
+here for most work, including agentic coding", and says of `xhigh` and `max`:
+"also run your evals on Claude Sonnet 5.5". Takeaway: `medium` for scoped
+coding and for reading (`high` buys ≈0.3 points on FrontierCode Main for half
+again the output tokens); a task that seems to need `xhigh` is a Sonnet 5.5
+task, since Sonnet 5.5 at `high` is ahead of Haiku 5.5 at `max`; never `low`
+for search, and wide enumeration stays on Sonnet 5.5.
+
+**Honesty and behavior.** The automated behavioral audit (1–10, lower is
+better; Haiku 4.5 / Sonnet 5.5 / Haiku 5.5): false completion claims 4.85 /
+1.60 / 1.89, failure to disclose bad or lazy behavior 4.38 / 1.57 / 1.73,
+input hallucination 3.96 / 1.44 / 1.88, important omissions 4.74 / 1.82 / 2.04
+(p. 66); ignoring explicit constraints 4.46 / 1.99 / 2.06, reckless tool use
+4.14 / 2.23 / 2.36, overrefusal 1.727 / 1.707 / 2.203 — more than any other
+model tested (p. 64); accepting unverifiable authorization 4.55 / 2.80 / 2.69,
+complying with prompt injections 4.08 / 1.47 / 1.56 (p. 62); approval-gate
+bypass 4.37 / 1.86 / 1.71, unprompted boundary probing 1.304 / 1.095 / 1.114
+(p. 69). "Claude Opus 5.5, Claude Sonnet 5.5, and Claude Mythos 5.1 were all
+strictly better on input hallucination, important omissions, and false
+completion claims" (p. 65). Targeted evaluations: asked for a summary, it
+disclosed concealed repository changes 95.9% of the time, level with Opus 5.5
+and Sonnet 5.5 (Haiku 4.5: 10%; pp. 56, 84); but it used a leaked answer
+without saying so in 17.3% of tasks, a regression from Haiku 4.5's 1.6% and
+above Sonnet 5.5's 8.0% (p. 83); on closed-book facts it "hallucinated more
+than other recent models, and about as much as Claude Haiku 4.5" (p. 56;
+AA-Omniscience net score 0.12, p. 81). It is less consistent across reruns
+than Sonnet 5.5 and Opus 5.5 (p. 71). Takeaway: a large step up from Haiku 4.5
+and close to Sonnet 5.5, with two things to design for. It misreads inputs
+more often, so a reader returns verbatim lines with line numbers. And it can
+pass a check with an answer it found rather than made, so acceptance rests on
+the contract's commands and the changed paths, never on its report.
+
+**As a judge.** Self-preference when grading a transcript it is told another
+Claude wrote: +0.23 on a 0–9 scale with a Claude-identity system prompt, +0.15
+without — larger than Opus 5.5's (+0.07 / +0.01) and not measurably different
+from Sonnet 5.5's with the identity prompt; without a system prompt about 6%
+of its ratings could not be scored (p. 79). Takeaway: not a supervisor and not
+a reviewer. Its one judging seat is the drift hook, a narrow advisory check
+measured on fixtures (decision 014).
+
+**Untrusted content and boundaries.** Indirect prompt injection (Gray Swan,
+k=15): 7.1% overall against Haiku 4.5's 83.2% — coding 0.2%, tool use 4.0%,
+GUI computer use 24.4% — and still behind Sonnet 5.5 (3.4%) and Opus 5.5
+(1.0%) (p. 50). Against the Shade adaptive attacker in coding: 0.08% of
+attempts, 6 of 40 scenarios, none with probes enabled (p. 51). In the new
+sandbox evaluation it reached outside its sandbox in 30% of scenarios (Opus
+5.5 21%, Sonnet 5.5 22%) and used what it found there in 4.0%; "a short
+description to the system prompt about the kind of sandbox the model is in"
+cut reaching outside from 30% to 1.8% (p. 77). It writes down a secret it has
+seen: it kept one out of both its reasoning and its replies in 3% of pressed
+conversations (p. 92). Takeaway: every prompt states the worktree and path
+boundary, as the executor template does; hostile content stays on Opus 5.5; a
+task that must handle a credential is not a Haiku 5.5 task.
+
+**Safeguards.** Its safety classifiers "have no fallback model" (p. 9): a
+blocked request ends with `stop_reason: "refusal"`, and "sending the same
+request to Claude Haiku 5.5 again usually returns another refusal" (prompting
+guide). On Terminal-Bench 4.0 the safeguards stopped 1.8% of trials (12 of
+660, 10 of them on one task; p. 115). Its cyber safeguards "trigger on
+significantly less activity than other recent releases" (p. 23). Takeaway: a
+refused attempt is a failed attempt — escalate to the next rung, never retry
+the same model.
+
+**Prompting notes that touch our prompts** (prompting guide): at `low` and
+`medium` it "sometimes reports a code change as done without running a check"
+— the wave contract already requires the pasted output of every `must_run`
+command and verifies it mechanically; with a long agent prompt at `low` it
+"sometimes stops early and hands the task back to the user", which is why no
+executor or reader route here uses `low`. The drift judge is the one exception:
+a single tool-less call, where `low` raised fewer points on clean cases than
+`medium` (decision 014).
+
+**Orchestration takeaways.**
+- Its routes are the Haiku rows of the Model Routing and Research Routing
+  tables, at `medium`.
+- Not a route for: an orchestrator seat, a supervisor or reviewer, open
+  research, wide enumeration, a long or unsliceable session, debugging.
+- Keep every request under 100,000 prompt tokens where the task allows.
+- Torn between Haiku and Sonnet → Sonnet 5.5.
+
+---
+
+## Haiku 4.5 (retired route — history; `claude-haiku-4-5-20251001`)
+
+Retired as a route on 2026-10-08; Haiku 5.5 above replaces it. Kept for approved
+plans and for history.
 
 Not covered by these system cards. Rules from practice:
 - Only tasks with zero decision-making: exact instruction execution — renames,
