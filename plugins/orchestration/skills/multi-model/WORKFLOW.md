@@ -233,17 +233,19 @@ threads started by someone else, and before pushing to a branch or pull
 request that is not the user's own. The merge into the default branch stays
 with the user unless the user says otherwise.
 
-The orchestrator reads targeted ranges itself when a focused lookup answers
-its question; use `git diff --stat` to locate the scope. Delegate substantial,
+The orchestrator reads targeted ranges itself when a focused lookup answers its
+question; use `git diff --stat` to locate the scope. Delegate substantial,
 self-contained research, not a trivial file lookup. Do not load whole files,
 diffs or transcripts into the coordinator just to relay them to a child. When
 the answer sits inside a large log, transcript or file — the output of a failed
-check, a child's transcript — hand its path to a Haiku 5.5 reader per the
-Research Routing table and take back the quoted lines; open the file yourself
-only at the lines the reader cites. Do not keep a journal that duplicates state
-a helper or runner already holds — the wave plan, the state files, and
-`summary.json` are the record. And it waits on a running agent or runner with
-long waits, not frequent polls — a polling loop burns turns on the
+check, a child's transcript — search it first: a pattern search for the
+failure's markers is one call. When the search does not settle it and the
+answer has to be read out of the file, hand its path to a Haiku 5.5 reader per
+the Research Routing table and take back the quoted lines; open the file
+yourself only at the lines the reader cites. Do not keep a journal that
+duplicates state a helper or runner already holds — the wave plan, the state
+files, and `summary.json` are the record. And it waits on a running agent or
+runner with long waits, not frequent polls — a polling loop burns turns on the
 orchestrator's own round trips instead of on the work it is waiting for.
 
 ## Model Routing — Quick Reference
