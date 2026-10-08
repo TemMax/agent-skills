@@ -29,6 +29,8 @@ check "the stale alias wording is gone" \
   "! grep -qF 'still resolves' '$MM'"
 check "identifiers prose records that sonnet and haiku moved by 2026-10-08" \
   "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'By 2026-10-08 \`sonnet\` had moved from Sonnet 5 to Sonnet 5.5 and \`haiku\` from Haiku 4.5 to Haiku 5.5 the same way.'"
+check "Agent-tool exception passes the routed effort through the tool's effort parameter" \
+  "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'names the alias AND the full ID from this table. It also passes the routed effort through the tool'\\''s effort parameter where the tool has one.'"
 check "Agent-tool exception makes an alias spawn state its model ID first" \
   "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'states its exact model ID in the first line of its report'"
 check "the orchestrator searches a large log first and hands it to a Haiku 5.5 reader only when the search does not settle it" \

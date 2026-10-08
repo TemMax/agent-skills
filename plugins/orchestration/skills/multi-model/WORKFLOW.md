@@ -26,17 +26,17 @@ Sonnet 5 to Sonnet 5.5 and `haiku` from Haiku 4.5 to Haiku 5.5 the same way.
 
 **Agent-tool exception.** The Claude Code Agent tool schema accepts only
 aliases, so a spawn through it names the alias AND the full ID from this table.
-A model without an alias (Opus 5, Opus 4.8, and the retired Sonnet 5 and Haiku
-4.5) is spawned only through Workflow `agent()`. An alias can move again, or
-still point at the previous model on an older Claude Code, so every agent
-spawned through an alias states its exact model ID in the first line of its
-report (`model: <id>`); a report from another model than the routed one is
-discarded and the spawn repeated as a one-agent Workflow `agent()` call with the
-full ID, for example
-`agent(prompt, { model: 'claude-sonnet-5-5', effort: 'medium' })`. That is not a
-wave script. When a new Claude model ships, re-probe (spawn one agent per alias
-and read which model the run was billed to) and update this table before
-routing through an alias.
+It also passes the routed effort through the tool's effort parameter where the
+tool has one. A model without an alias (Opus 5, Opus 4.8, and the retired
+Sonnet 5 and Haiku 4.5) is spawned only through Workflow `agent()`. An alias
+can move again, or still point at the previous model on an older Claude Code,
+so every agent spawned through an alias states its exact model ID in the first
+line of its report (`model: <id>`); a report from another model than the routed
+one is discarded and the spawn repeated as a one-agent Workflow `agent()` call
+with the full ID, for example `agent(prompt, { model: 'claude-sonnet-5-5',
+effort: 'medium' })`. That is not a wave script. When a new Claude model ships,
+re-probe (spawn one agent per alias and read which model the run was billed to)
+and update this table before routing through an alias.
 
 ### GPT calibration evidence and Codex routing
 
