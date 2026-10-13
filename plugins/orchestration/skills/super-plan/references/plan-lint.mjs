@@ -39,7 +39,17 @@ const defaultLadderFor = (execModel) => {
 const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const CODEX_MODELS = ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const ASTRA = 'gpt-6-astra'
-const STANDARD_CODEX_SUPERVISORS = ['gpt-6.1-sol', 'gpt-6-sol']
+// A supervisor is never a weaker tier than a model it judges. Tier is the
+// product class, not a benchmark score; the same model may judge its own
+// tier's work from a fresh session that is not told who wrote it.
+const MODEL_TIER = {
+  'claude-haiku-5-5': 1, 'claude-haiku-4-5-20251001': 1,
+  'claude-sonnet-5-5': 2, 'claude-sonnet-5': 2,
+  'claude-opus-5-5': 3, 'claude-opus-5': 3, 'claude-opus-4-8': 3, 'claude-fable-5-1': 3,
+  'gpt-6-luna': 1, 'gpt-5.6-luna': 1,
+  'gpt-6.1-sol': 2, 'gpt-6-sol': 2, 'gpt-5.6-sol': 2, 'gpt-5.6-terra': 2,
+  'gpt-6-astra': 3,
+}
 const MODELS = [...CLAUDE_MODELS, ...CODEX_MODELS]
 const EXECUTOR_MODELS = [...MODELS, ASTRA]
 const SUPERVISORS = [...MODELS, ASTRA]
@@ -282,10 +292,11 @@ if (plan) {
           ? t.ladder
           : (t.executor && providerForModel(t.executor.model) === 'claude'
             ? defaultLadderFor(t.executor.model) : [])
-        if (w.supervisor && t.executor
-          && [t.executor.model, ...effectiveLadder].includes(w.supervisor.model)
-          && !(usesAstra && astraReasonValid && w.supervisor.model === ASTRA)) {
-          err(tat + ': supervisor model also appears as executor or ladder rung')
+        const supervisorTier = w.supervisor && MODEL_TIER[w.supervisor.model]
+        const stronger = supervisorTier && t.executor
+          ? [t.executor.model, ...effectiveLadder].find((m) => MODEL_TIER[m] > supervisorTier) : undefined
+        if (stronger) {
+          err(tat + ': supervisor ' + w.supervisor.model + ' is a weaker tier than executor or ladder rung ' + stronger)
         }
         supervisionErrors(t).forEach(error => err(tat + '.' + error))
         const c = t.contract
@@ -295,6 +306,21 @@ if (plan) {
         }
         if (Array.isArray(c.files_allowed) && c.files_allowed.length === 0) {
           warn(tat + ' ("' + t.id + '"): files_allowed is empty — the executor has nothing it may change')
+        }
+        // The supervisor reads the diff, the changed paths and the commits from
+        // the branch itself; a pasted copy only adds a way to fail correct work.
+        // A request ("Paste the full diff") or a direct question about a git
+        // fact ("Which files did you change?"); a yes/no question about what
+        // the product does ("Does the CLI print a diff?") is not one.
+        const GIT_ARTEFACT = /\bdiff\b|\b(changed|modified|touched) files\b|\bcommit (ids?|shas?|hash(es)?)\b|\bgit (log|status|show|diff)\b/i
+        const ASKS_TO_REPRODUCE = /^\s*(please\s+)?(paste|pasting|include|provide|attach|show|output|print|list|give|report|quote)\b/i
+        const ASKS_FOR_GIT_FACT = /^\s*(what|which)\b[^?]*\b(commit (ids?|shas?|hash(es)?)|files did you (change|modify|touch))\b/i
+        for (const question of (Array.isArray(c.report_must_answer) ? c.report_must_answer : [])) {
+          if (typeof question === 'string'
+            && ((ASKS_TO_REPRODUCE.test(question) && GIT_ARTEFACT.test(question)) || ASKS_FOR_GIT_FACT.test(question))) {
+            warn(tat + ' ("' + t.id + '"): report_must_answer asks the executor to reproduce what git holds: "'
+              + question + '" — the supervisor reads it from the branch; ask about behaviour instead')
+          }
         }
         if (Array.isArray(c.must_run)) {
           if (c.must_run.length === 0) {
@@ -336,13 +362,8 @@ if (plan) {
           }
         }
       })
-      if (w.supervisor && STANDARD_CODEX_SUPERVISORS.includes(w.supervisor.model)) {
-        const allLuna = w.tasks.every((t) => t && typeof t === 'object'
-          && t.executor && t.executor.model === 'gpt-6-luna'
-          && (!Array.isArray(t.ladder) || t.ladder.every((m) => m === 'gpt-6-luna')))
-        if (!allLuna) {
-          err(at + '.supervisor.model: ' + w.supervisor.model + ' supervises only waves whose executors and rungs are all gpt-6-luna')
-        }
+      if (w.supervisor && MODEL_TIER[w.supervisor.model] === 1) {
+        warn(at + '.supervisor.model: ' + w.supervisor.model + ' is the lowest tier — a supervisor re-derives everything the executor did; use the standard supervisor of the routing table')
       }
       const waveModels = [
         w.supervisor && w.supervisor.model,
@@ -850,6 +871,7 @@ if (repo && plan && Array.isArray(plan.waves)) {
   // tree — a task's files_allowed path may exist in the working tree only
   // because a prior wave already created it there.
   const pathExists = (p) => base ? gitPathExists(repo, base, p) : existsSync(join(repo, p))
+  const repoIsGit = spawnSync('git', ['-C', repo, 'rev-parse', '--git-dir'], { encoding: 'utf8' }).status === 0
   // Missing files_allowed prefixes: when the prefix's own top-level segment
   // is also missing, that's a likely typo and gets its own warning; when
   // the top-level segment exists (only a deeper path is missing — expected
@@ -868,6 +890,27 @@ if (repo && plan && Array.isArray(plan.waves)) {
             + ' and neither does its top-level directory "' + seg + '" (task "' + t.id + '") — typo?')
         } else {
           foldedMissing.push({ p, id: t.id })
+        }
+      }
+      // A commit the contract names must exist: an executor cannot answer for
+      // one that does not, and the wave only finds out after a paid attempt.
+      const listOf = (value) => Array.isArray(value) ? value : []
+      const contractTexts = [
+        ...listOf(t.contract.report_must_answer), ...listOf(t.contract.forbidden_moves),
+        ...listOf(t.contract.must_run).map((m) => m && m.cmd),
+      ].filter((text) => typeof text === 'string')
+      // Hex runs of 7-40 characters with a digit and a letter, not part of a
+      // path, a word or a colour. A dot may follow at the end of a sentence
+      // or in a range (a..b); a dot before a file extension rules the run out.
+      const namedCommits = new Set(contractTexts.flatMap((text) =>
+        [...text.matchAll(/(?<![#\w/-])(?<![\w/-]\.)[0-9a-fA-F]{7,40}(?![\w/-])(?!\.[\w/-])/g)]
+          .map((match) => match[0].toLowerCase())
+          .filter((token) => /[0-9]/.test(token) && /[a-f]/.test(token))))
+      for (const token of repoIsGit ? namedCommits : []) {
+        const found = spawnSync('git', ['-C', repo, 'cat-file', '-e', token + '^{commit}'], { encoding: 'utf8' })
+        if (found.status !== 0) {
+          warn('repo: contract names "' + token + '", which is not a commit in ' + repo
+            + ' (task "' + t.id + '") — if it is meant as a commit id, the contract is unsatisfiable')
         }
       }
       for (const m of (t.contract.must_run || [])) {

@@ -88,7 +88,8 @@ for f in "$SOL6" "$ASTRA6" "$SOL" "$TERRA" "$LUNA"; do
   check "$f states the Gate 1 supervisor choice" "grep -qF 'chosen at Gate 1' '$f'"
   check "$f names the premium and standard supervisor options" \
     "grep -qF 'the premium \`gpt-6-astra\`' '$f' && grep -qF 'the standard \`gpt-6.1-sol\`' '$f'"
-  check "$f requires Astra for a Sol executor" "grep -qF 'A wave with a Sol' '$f' && grep -qF 'needs Astra' '$f'"
+  check "$f allows the executor's own model and forbids a weaker tier" "grep -qF \"may be the executor's own model\" '$f' && grep -qF 'it is never a weaker tier than an executor or rung' '$f'"
+  check "$f no longer requires Astra for a Sol executor" "! grep -qF 'needs Astra' '$f'"
 done
 
 SOL6_DOSSIER="$REFS/gpt-6-sol-dossier.md"

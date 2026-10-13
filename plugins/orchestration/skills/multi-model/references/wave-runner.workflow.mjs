@@ -26,6 +26,14 @@ const MODELS = [
   'claude-fable-5-1',
 ]
 const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
+// A supervisor is never a weaker tier than a model it judges. Tier is the
+// product class; the same model may judge its own tier's work from a fresh
+// session that is not told who wrote it.
+const MODEL_TIER = {
+  'claude-haiku-5-5': 1, 'claude-haiku-4-5-20251001': 1,
+  'claude-sonnet-5-5': 2, 'claude-sonnet-5': 2,
+  'claude-opus-5-5': 3, 'claude-opus-5': 3, 'claude-opus-4-8': 3, 'claude-fable-5-1': 3,
+}
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 // The default ladder. claude-opus-5, claude-opus-4-8 and claude-fable-5-1 are
 // explicit rungs only: a task reaches them by naming them in executor.model or
@@ -176,9 +184,13 @@ if (!Array.isArray(wave.tasks) || wave.tasks.length === 0) {
         errors.push(at + '.ladder: ladder transitions must use distinct models across executor and ladder')
       }
     }
-    if (wave.supervisor && t.executor
-      && [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : t.ladder === undefined ? defaultLadder(t.executor.model) : [])].includes(wave.supervisor.model)) {
-      errors.push(at + ': supervisor model also appears as executor or ladder rung')
+    const supervisorTier = wave.supervisor && MODEL_TIER[wave.supervisor.model]
+    const stronger = supervisorTier && t.executor
+      ? [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : t.ladder === undefined ? defaultLadder(t.executor.model) : [])]
+        .find((m) => MODEL_TIER[m] > supervisorTier)
+      : undefined
+    if (stronger) {
+      errors.push(at + ': supervisor ' + wave.supervisor.model + ' is a weaker tier than executor or ladder rung ' + stronger)
     }
   })
 }
@@ -430,6 +442,21 @@ function reworkSection(t, verdict) {
   ].join('\n')
 }
 
+// Appended to the full prompt of the one attempt a continuation grants.
+function continuationSection(t, continuation) {
+  return [
+    '## Continuation of a stopped task',
+    'Earlier attempts at this task were rejected and the task stopped. The branch',
+    'wave/' + t.id + ' and its worktree already hold that work: continue from it — do not',
+    'start over and do not delete the branch. The contract above is the current one.',
+    '',
+    'COORDINATOR NOTE (what is wrong and where to fix it):',
+    continuation.note,
+    ...(continuation.verdicts.length > 0 ? ['', 'PRIOR VERDICTS (oldest first):',
+      ...continuation.verdicts.map((verdict) => JSON.stringify(verdict, null, 2))] : []),
+  ].join('\n')
+}
+
 function reworkPrompt(t, verdict) {
   return executorPrompt(t) + '\n\n' + reworkSection(t, verdict)
 }
@@ -599,20 +626,55 @@ async function runTask(t) {
   if (wave.recovery?.[t.id]) {
     if (typeof verify !== 'function') return finish('error')
     const saved = wave.recovery[t.id]
-    const facts = await verify(t, saved.report, wave)
+    let report = saved.report
+    let attempted = { rung: 0, model: rungs[0], effort: t.executor.effort ?? 'medium', kind: 'recovery' }
+    // A continuation grants the stopped task one more executor attempt on its
+    // candidate: the task's strongest model, `high` at least, a fresh session
+    // with the coordinator's note. A rejection ends the task.
+    if (saved.continuation) {
+      // The strongest rung: the highest tier, the later one among equals.
+      const rung = rungs.reduce((best, model, index) =>
+        (MODEL_TIER[model] ?? 0) >= (MODEL_TIER[rungs[best]] ?? 0) ? index : best, 0)
+      const base = rung === 0 ? (t.executor.effort ?? 'medium') : 'high'
+      attempted = { rung, model: rungs[rung], kind: 'continuation',
+        effort: EFFORTS.indexOf(base) < EFFORTS.indexOf('high') ? 'high' : base }
+      log(t.id + ': continuation ' + attempted.model + '/' + attempted.effort)
+      // Launched once, with no relaunch: a child that dies ends the task as
+      // an error and the continuation is not counted.
+      if (modelCalls >= callCap) return finish('budget-exhausted')
+      modelCalls++
+      report = await agent(executorPrompt(t) + '\n\n' + continuationSection(t, saved.continuation),
+        { model: attempted.model, effort: attempted.effort, label: 'exec:' + t.id, phase: 'Wave' })
+      if (!report) {
+        attempts.push({ ...attempted, kind: 'agent-error', verdict: null, escalation: null })
+        return finish('error')
+      }
+      const executorEnvLine = reportEnvironmentBlockLine(report)
+      if (executorEnvLine !== null) {
+        attempts.push({ ...attempted, kind: 'environment', verdict: null, escalation: null, line: executorEnvLine })
+        return finish('environment-blocked', environmentInfo('executor', executorEnvLine))
+      }
+    }
+    const facts = await verify(t, report, wave)
     if (!facts) return finish('error')
     if (facts.environmentBlocked) return finish('environment-blocked', environmentInfo('verifier', facts.environmentBlocked))
     const violations = mechanicalViolations(t, facts)
     let verdict
     if (violations.length) verdict = { ok: false, violations, remarks: [] }
     else if (t.supervision === 'mechanical') verdict = { ok: true, violations: [], remarks: [] }
-    else verdict = await call(supervisorPrompt(t, saved.report, facts),
+    else verdict = await call(supervisorPrompt(t, report, facts),
       { model: wave.supervisor.model, effort: wave.supervisor.effort ?? 'high',
-        label: 'judge:' + t.id, phase: 'Wave', schema: VERDICT_SCHEMA }, 0)
+        label: 'judge:' + t.id, phase: 'Wave', schema: VERDICT_SCHEMA }, attempted.rung)
     if (!verdict) return finish(budgetStopped ? 'budget-exhausted' : 'error')
-    attempts.push({ rung: 0, model: rungs[0], effort: t.executor.effort ?? 'medium',
-      kind: 'recovery', verdict, escalation: null })
-    return finish(verdict.ok === true ? 'ok' : 'candidate-rejected')
+    attempts.push({ ...attempted, verdict, escalation: null })
+    // The same priority as a first run: the machine, then the contract, then the work.
+    const viols = verdict.violations ?? []
+    const envViol = viols.find((v) => v.class === 'environment')
+    if (envViol) {
+      return finish('environment-blocked', environmentInfo('supervisor', envViol.evidence, cmdFromRule(envViol.rule)))
+    }
+    if (viols.some((v) => v.satisfiable === false)) return finish('contract-unsatisfiable')
+    return finish(verdict.ok === true ? 'ok' : saved.continuation ? 'failed' : 'candidate-rejected')
   }
 
   for (let rung = 0; rung < rungs.length; rung++) {

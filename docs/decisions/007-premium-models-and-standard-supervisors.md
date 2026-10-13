@@ -49,6 +49,10 @@ design.
 Superseded in part by ADR 008: Gate 1 names this choice without a price, and
 no skill estimates time or cost.
 
+Superseded in part by ADR 015: a supervisor may also be an executor or rung of
+its wave, so `claude-opus-5-5` supervises its own executors and `gpt-6.1-sol`
+supervises waves with `gpt-6.1-sol` executors; the premium rule is unchanged.
+
 **Ship's final-review child.** The `approvals.premium` rule governs what a
 plan launches — supervisor, executor, or ladder rung — not the session's own
 model running `ship` itself. Codex `ship`'s independent final-review

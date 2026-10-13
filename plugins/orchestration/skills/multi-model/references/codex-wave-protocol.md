@@ -6,8 +6,8 @@ other tasks retain the selected model supervisor. Artifact-cache opt-in and
 per-task limits do not change model routes or premium authorization.
 
 Use this protocol only for a Codex-only wave. The supervisor is the one chosen
-at Gate 1 — the premium `gpt-6-astra`, or the standard `gpt-6.1-sol` for an
-all-`gpt-6-luna` wave. An Astra executor or rung needs
+at Gate 1 — the standard `gpt-6.1-sol` for a wave of `gpt-6-luna` and
+`gpt-6.1-sol` executors and rungs, or the premium `gpt-6-astra`. An Astra executor or rung needs
 `astra_executor_reason: "<concrete reason>"` and `approvals.premium`, which
 never authorizes it by itself.
 This is the host adapter for the
@@ -63,12 +63,18 @@ node references/codex-wave-runner.mjs --plan <plan> --wave <N> --repo <abs> \
 Run it as a background command and wait for it with long waits — not a
 polling loop of short checks; the runner does its own polling of the Codex
 children internally, and an orchestrator that also polls just burns turns on
-top of it. When it finishes, read only its `summary.json` — never its
-internal state files, worktrees, or child transcripts. Merge the `ok`
+top of it. While it runs, its `progress.log` in `--out` (also on stderr)
+carries one line per stage with elapsed time: read the last lines between
+waits and pass the user the current stage. When it finishes, read only its
+`summary.json` — never its internal state files, worktrees, or child
+transcripts. Merge the `ok`
 branches yourself in plan/task order exactly as step 9 below directs. On a
 `stop` result, hand the returned verdicts and branch names to the user
 exactly as step 8 below directs — do not retry outside the runner and do not
-fall back to the native loop just because a task stopped.
+fall back to the native loop just because a task stopped. A task stopped as
+`failed` first gets one continuation through the runner itself
+(`--resume-from <summary.json> --continue-note <file>`, see
+`execution-cost-controls.md`).
 
 `--repo` must be the checkout that holds the pushed feature branch — the one
 `--base` is a commit of. Task worktrees nest under it
@@ -96,6 +102,13 @@ worktree and sends only the prior verdict and the report reminder. A failed resu
 falls back at once to a fresh launch with the full prompt, without spending an
 extra attempt. The first attempt, an escalation, raised effort and a new runner
 invocation (`--resume-from`, `--reset`) always start fresh.
+
+An executor report that leaves `git status --porcelain` non-empty gets one
+follow-up per task on the same thread, asking for a commit and the full report
+again. Only the follow-up's report is recorded: no supervisor is called for
+the slip and no attempt is charged. It is a model call (`followUp:
+"uncommitted"` in `children`) and is skipped when the call cap would leave no
+call for the review, or when the report opens with `environment-blocked:`.
 
 The runner shells out to `codex exec` for every executor and supervisor
 child (only supervisors run `--ephemeral`; executor threads persist), and each

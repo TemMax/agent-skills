@@ -65,7 +65,8 @@ check "supervisor prompt is referenced"        "grep -q 'references/supervisor-p
 check "supervisor routing table exists"        "grep -q 'Choosing the supervisor' $MM"
 check "supervisor row picked by strongest model, rungs included" \
   "grep -qF 'ladder rungs included' $MM"
-check "the judge is never the executor's own"  "grep -qF \"never the executor's own model\" $MM"
+check "the judge is never a weaker tier than the executor"  "grep -qF \"Never a weaker tier than the executor's\" $MM"
+check "the judge may be the executor's own model"  "grep -qF 'The same model may supervise its own tier' $MM && ! grep -qF \"never the executor's own model\" $MM"
 check "the wave runner ships as a file" \
   "[ -f plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs ]"
 check "the Claude adapter points at the shipped runner" "grep -q 'wave-runner.workflow.mjs' $CWA"
@@ -268,7 +269,7 @@ check "the e2e task sits after every task whose entrypoints or fixtures it runs"
 check "e2e fixture/output documentation stays in the e2e task or a later documentation-only wave" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'goes into the e2e task or a later documentation-only wave'"
 check "the Sol supervisor line names its measured fixture and wave evidence" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Codex: \`gpt-6.1-sol\` for waves whose executors and rungs are only \`gpt-6-luna\` — supervisor fixture 9/9 on 2026-09-29; its predecessor \`gpt-6-sol\` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24 and three real small waves merge-ready first try — toy waves, correct work only)'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Codex: \`gpt-6.1-sol\` for waves whose executors and rungs are \`gpt-6-luna\` or \`gpt-6.1-sol\`; the same model may supervise work of its own tier from a fresh session, ADR 015 — supervisor fixture 9/9 on 2026-09-29; its predecessor \`gpt-6-sol\` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24 and three real small waves merge-ready first try — toy waves, correct work only)'"
 WCM=tests/eval/wave-cost-measurements-2026-09-24.md
 check "measurements record their price source"         "grep -qF 'tests/eval/telemetry/prices.json' $WCM"
 check "measurements record Opus 5"                     "grep -qF '| \`claude-opus-5\` | 5 | 0.5 | 25 |' $WCM"
@@ -277,8 +278,8 @@ check "Gate 1 fixes wave shape before the supervisor choice" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qiF \"fix each wave's executor tiers and ladder shape at Gate 1\""
 check "a changed wave shape takes the fitting standard supervisor, said in the Gate 2 message" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'pick the fitting standard supervisor and say so in the Gate 2 message; when no standard supervisor fits and there is no premium authorization, apply the rule above for a task with no standard delegated route. Never carry the stale supervisor forward.'"
-check "a Codex Sol executor forces the Astra supervisor" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A Codex wave with a \`gpt-6.1-sol\` or \`gpt-6-sol\` executor has no standard supervisor'"
+check "only a wave in which Astra executes needs the Astra supervisor" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'only a wave in which Astra executes needs \`gpt-6-astra\`' && ! tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'executor has no standard supervisor'"
 check "super-plan records ship's Stage 3 review child in the plan's review key, Sol measured with a strict-gate line" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the standard measured review route \`gpt-6.1-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30 — or \`gpt-6-astra\` only with a premium authorization, recorded in \`approvals.premium\`. ship never picks one.'"
 check "super-plan documents the optional review key next to ci/e2e/approvals" \
@@ -289,10 +290,10 @@ check "the review key is documented as an object with model and effort" \
   "grep -qF '\"review\": {\"model\": \"gpt-6.1-sol\", \"effort\": \"high\"}' $SP && grep -qF '\"review\": {\"model\":' $SP"
 check "no wording in super-plan is left uncalibrated" \
   "! grep -qi 'uncalibrated' $SP"
-check "the supervisor-vs-executor example names Opus 5 and Fable 5.1" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'takes Opus 5 (\`claude-opus-5\`, standard) or Fable 5.1 (premium, with \`approvals.premium\`)'"
-check "an omitted ladder under an Opus 5.5 supervisor is spelled out as empty" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'gives its Sonnet/Haiku tasks \`\"ladder\": []\`'"
+check "the supervisor-vs-executor example names Opus 5.5 as its own rung's supervisor" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'a \`claude-sonnet-5-5\` executor with a \`claude-opus-5-5\` rung is supervised by Opus 5.5'"
+check "an omitted ladder is left omitted so a rejected task can escalate" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'leave it omitted so a rejected task can escalate' && ! tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'collides with the supervisor'"
 check "headless mode uses standard supervisors only" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A headless run uses'"
 check "headless mode invents no approvals.premium" \
@@ -376,8 +377,8 @@ check "the judge prompt rule names the omission"    "grep -qF 'never names the e
 check "the shipped judge prompt never names the executor's model" \
   "! sed -n '/^function supervisorPrompt/,/^}/p' $WR | grep -q 'executor'"
 
-check "the supervisor table names Fable 5.1 as Opus 5.5's judge, Opus 5 as fallback" \
-  "grep -qF '| Opus 5.5 (\`claude-opus-5-5\`) | Fable 5.1 (\`claude-fable-5-1\`), fallback Opus 5 (\`claude-opus-5\`) | high |' $MM"
+check "the supervisor table names Opus 5.5 in a fresh session as Opus 5.5's judge, Fable 5.1 as premium" \
+  "grep -qF '| Opus 5.5 (\`claude-opus-5-5\`) | Opus 5.5 (\`claude-opus-5-5\`) in a fresh session; Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative | high |' $MM"
 check "the supervisor table names Opus 5.5 or Fable 5.1 as Opus 5's judge" \
   "grep -qF '| Opus 5 (\`claude-opus-5\`) | Opus 5.5 (\`claude-opus-5-5\`) or Fable 5.1 (\`claude-fable-5-1\`) | high |' $MM"
 check "Anti-Deception: untrusted text is passed by path" \
@@ -489,7 +490,7 @@ while IFS= read -r rule; do
 done <<'ROWS'
 State the prohibitions to the executor loudly and explicitly
 Do NOT disclose the supervisor's specific checks to the executor
-Fresh separate supervision; same-model only for approved Astra exception
+Fresh separate supervision, never a weaker tier; the same model is allowed (ADR 015)
 A claim without command output is a violation
 Attach verdicts; never paraphrase an executor report in their place
 Stopping early with open plan items is a violation

@@ -18,6 +18,15 @@ export const CODEX_MODELS = ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-
 const ASTRA = 'gpt-6-astra'
 const CODEX_EXECUTOR_MODELS = [...CODEX_MODELS, ASTRA]
 const CODEX_SUPERVISORS = [...CODEX_MODELS, ASTRA]
+// A supervisor is never a weaker tier than a model it judges; the same model
+// may judge its own tier's work from a fresh session that is not told who wrote it.
+const MODEL_TIER = {
+  'gpt-6-luna': 1, 'gpt-5.6-luna': 1,
+  'gpt-6.1-sol': 2, 'gpt-6-sol': 2, 'gpt-5.6-sol': 2, 'gpt-5.6-terra': 2,
+  [ASTRA]: 3,
+}
+const strongerThan = (supervisorModel, models) =>
+  models.find((model) => MODEL_TIER[model] > (MODEL_TIER[supervisorModel] ?? Infinity))
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 export const ACTIONS = ['spawn-executor', 'verify', 'spawn-supervisor', 'merge-ready', 'stop']
 
@@ -223,11 +232,9 @@ export function validateCodexWave(wave, index) {
         errors.push(tat + '.ladder: ladder transitions must use distinct models across executor and ladder')
       }
     }
-    if (supervisor && executor
-      && [executor.model, ...(Array.isArray(task.ladder) ? task.ladder : [])]
-        .includes(supervisor.model)
-      && !(usesAstra && astraReasonValid && supervisor.model === ASTRA)) {
-      errors.push(tat + ': supervisor model also appears as executor or ladder rung')
+    const stronger = supervisor && executor ? strongerThan(supervisor.model, transitions) : undefined
+    if (stronger) {
+      errors.push(tat + ': supervisor ' + supervisor.model + ' is a weaker tier than executor or ladder rung ' + stronger)
     }
     const contract = task.contract
     if (!contract || typeof contract !== 'object' || Array.isArray(contract)) {
@@ -354,6 +361,14 @@ function validVerifierFact(fact, state, task) {
   })
 }
 
+function validContinuation(continuation) {
+  return Boolean(continuation) && typeof continuation === 'object' && !Array.isArray(continuation)
+    && Object.keys(continuation).length > 0
+    && Object.values(continuation).every((entry) => ownKeysAre(entry, ['note', 'verdicts'])
+      && typeof entry.note === 'string' && entry.note.trim() !== ''
+      && Array.isArray(entry.verdicts) && entry.verdicts.every(validVerdict))
+}
+
 function validVerdictHistoryEntry(entry, task) {
   return ownKeysAre(entry, ['rung', 'attemptOnRung', 'model', 'effort', 'verdict', 'escalation'])
     && boundedInteger(entry.rung, task.rungs.length - 1)
@@ -371,10 +386,13 @@ function outputEvidencePresent(report, entry) {
   return lines.length === 0 || lines.some((line) => report.includes(line))
 }
 
-function mergeReadyHasCleanHistories(task, spec) {
+// A recovery state adopts a candidate with the attempts of earlier runs: its
+// reports are padded to that count, but it holds only its own verifier facts
+// and verdicts, so those two histories are compared with each other.
+function mergeReadyHasCleanHistories(task, spec, recovery = false) {
   if (task.totalAttempts < 1 || task.reports.length !== task.totalAttempts
-    || task.verifierFacts.length !== task.reports.length
-    || task.verdicts.length !== task.reports.length) return false
+    || task.verifierFacts.length !== task.verdicts.length
+    || (recovery ? task.verdicts.length < 1 : task.verdicts.length !== task.reports.length)) return false
   const fact = task.verifierFacts.at(-1)
   const verdict = task.verdicts.at(-1)
   if (!fact || !verdict || verdict.verdict.ok !== true
@@ -422,8 +440,16 @@ function validateStoredState(state, statePath) {
   // --outside-sandbox has it, and its absence reads as an empty list.
   const hasOutsideSandbox = state && typeof state === 'object' && !Array.isArray(state)
     && Object.hasOwn(state, 'outsideSandbox')
+  // continuation is present only in a recovery state that grants a rejected
+  // task one more executor attempt.
+  const hasContinuation = state && typeof state === 'object' && !Array.isArray(state)
+    && Object.hasOwn(state, 'continuation')
   const expectedStateKeys = [...STATE_KEYS, ...(hasWorktreeLinks ? ['worktreeLinks'] : []),
-    ...(hasRecovery ? ['candidateRecovery'] : []), ...(hasOutsideSandbox ? ['outsideSandbox'] : [])]
+    ...(hasRecovery ? ['candidateRecovery'] : []), ...(hasOutsideSandbox ? ['outsideSandbox'] : []),
+    ...(hasContinuation ? ['continuation'] : [])]
+  if (hasContinuation && (!hasRecovery || !validContinuation(state.continuation))) {
+    err('continuation', 'recovery state with {task: {note, verdicts}} required')
+  }
   if (hasRecovery && state.candidateRecovery !== true) err('candidateRecovery', 'must be true when present')
   if (!ownKeysAre(state, expectedStateKeys)) {
     return ['state: expected exact schema-1 top-level fields']
@@ -527,9 +553,9 @@ function validateStoredState(state, statePath) {
       if (usesAstra && (task.rungs.at(-1) !== ASTRA || state.supervisor.model !== ASTRA)) {
         err('tasks.' + id + '.rungs', 'Astra requires a final rung and exact Astra supervisor')
       }
-      if (task.rungs.includes(state.supervisor.model)
-        && !(usesAstra && state.supervisor.model === ASTRA)) {
-        err('tasks.' + id + '.rungs', 'supervisor model also appears as executor or ladder rung')
+      const stronger = strongerThan(state.supervisor.model, task.rungs)
+      if (stronger) {
+        err('tasks.' + id + '.rungs', 'supervisor is a weaker tier than executor or ladder rung ' + stronger)
       }
       if (spec) {
         const expectedRungs = [spec.executor.model, ...(spec.ladder ?? [])]
@@ -585,7 +611,7 @@ function validateStoredState(state, statePath) {
     }
     if (task.status === 'merge-ready' && spec && Array.isArray(task.reports)
       && Array.isArray(task.verifierFacts) && Array.isArray(task.verdicts)
-      && !mergeReadyHasCleanHistories(task, spec)) {
+      && !mergeReadyHasCleanHistories(task, spec, state.candidateRecovery === true)) {
       err('tasks.' + id + '.merge-ready', 'requires supporting clean histories')
     }
   }
@@ -610,7 +636,9 @@ function nextHigherEffort(effort) {
 }
 
 function currentEffort(state, id, task) {
-  const normal = baseEffort(state, id, task)
+  const base = baseEffort(state, id, task)
+  // A continuation runs at `high` at least.
+  const normal = state.continuation?.[id] && EFFORTS.indexOf(base) < EFFORTS.indexOf('high') ? 'high' : base
   const latest = task.verdicts.at(-1)
   return latest && latest.rung === task.rung && latest.escalation === 'raised-effort'
     ? nextHigherEffort(latest.effort)
@@ -687,7 +715,27 @@ function executorPrompt(state, id, task, spec) {
     prior ? 'PRIOR VERDICT:' : null,
     prior ? JSON.stringify(prior.verdict, null, 2) : null,
     prior ? 'Continue in the same worktree and branch; fix the violations.' : null,
+    ...(!prior && state.continuation?.[id] ? continuationSection(state.continuation[id]) : []),
   ].filter((line) => line !== null).join('\n')
+}
+
+// Appended to the full prompt of the one attempt a continuation grants: the
+// branch already holds the rejected candidate, and the coordinator says where
+// it is wrong.
+function continuationSection(continuation) {
+  return [
+    '',
+    '## Continuation of a stopped task',
+    'Earlier attempts at this task were rejected and the task stopped. Your worktree and',
+    'branch already hold that work: continue from it — do not start over and do not',
+    'delete the branch. The contract above is the current one.',
+    '',
+    'COORDINATOR NOTE (what is wrong and where to fix it):',
+    continuation.note,
+    continuation.verdicts.length > 0 ? '' : null,
+    continuation.verdicts.length > 0 ? 'PRIOR VERDICTS (oldest first):' : null,
+    ...continuation.verdicts.map((verdict) => JSON.stringify(verdict, null, 2)),
+  ]
 }
 
 function continuationPrompt(state, prior) {
@@ -1340,6 +1388,19 @@ function initCommand(options, adoption = null) {
       task.rung = task.rungs.indexOf(saved.executorModel)
       task.totalAttempts = saved.executorCalls
       task.attemptOnRung = 1
+      if (saved.continuation !== undefined) {
+        // One more executor attempt on the adopted candidate: the task's
+        // strongest model, and a rejection ends the task.
+        if (!validContinuation({ [task.branch.slice(5)]: saved.continuation })
+          || saved.executorCalls >= (wave.limits?.max_attempts ?? MAX_EXECUTOR_ATTEMPTS)) {
+          throw new NamedError('candidate', 'invalid continuation or attempt cap reached')
+        }
+        state.continuation = { ...(state.continuation ?? {}), [task.branch.slice(5)]: saved.continuation }
+        task.status = 'ready'
+        // The strongest rung: the highest tier, the later one among equals.
+        task.rung = task.rungs.reduce((best, model, index) =>
+          (MODEL_TIER[model] ?? 0) >= (MODEL_TIER[task.rungs[best]] ?? 0) ? index : best, 0)
+      }
       task.reports = Array.from({ length: saved.executorCalls }, (_, i) => i === saved.executorCalls - 1
         ? saved.report : 'Historical invocation; original report remains in the previous run artifacts.')
       continue

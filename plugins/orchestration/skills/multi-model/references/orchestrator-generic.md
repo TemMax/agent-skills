@@ -14,8 +14,8 @@ weakness, or escalation claim.
 
 Apply the universal orchestration contract: preserve the user's stated scope
 and authority, decompose only when useful, isolate changes, run mechanical
-checks, use a different executor and supervisor when identity is known, and
-require fresh artifacts before completion.
+checks, use a fresh separate supervisor session that is never a weaker tier
+than the executor, and require fresh artifacts before completion.
 
 ## Delegation and supervision
 
@@ -25,8 +25,8 @@ unknown. Child capability does not establish coordinator identity. This route
 does not require a separate historical-calibration approval.
 
 Select a named subagent from task capability and explicit task requirements,
-not by pretending a measured routing result exists. If a different-model
-supervisor relative to every executor/ladder model cannot be established from
+not by pretending a measured routing result exists. If a supervisor that is
+not a weaker tier than every executor/ladder model cannot be established from
 exact child identities, report the
 missing capability and fail closed rather than inventing a model ladder.
 

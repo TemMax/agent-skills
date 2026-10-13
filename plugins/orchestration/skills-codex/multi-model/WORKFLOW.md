@@ -157,6 +157,36 @@ route, and recovery inside the approved plan, need no new approval. A stop
 that needs the user ends with one recommended next action, phrased as a
 yes/no question for the user to approve or decline.
 
+**After a rejected task stops.** A task that stopped as `failed` — rejected
+on its last rung — gets one continuation on the same code, and that first one
+is your decision, made without a question. Read every verdict and the
+candidate's diff, write a short note that says what is wrong and where to fix
+it, and run the native runner again with
+`--resume-from <summary.json> --continue-note <note file>` and a new `--out`.
+When several tasks of the wave stopped, give each its own `## Task <id>`
+section in the note. The executor is the task's strongest model at `high`, in
+a fresh session, on the existing branch; the review is fresh too. Tell the user in one line that
+you continued and why. A second continuation of the same task needs the
+user's yes — ask one yes/no question, then add `--user-approved`. The attempt
+cap is not raised. The note carries diagnosis only: never a new requirement
+and never a relaxed check — a contract defect goes through the amendment
+flow. Never write a new plan or a renamed task for work a stopped task already
+holds: that discards the candidate and resets its history.
+Do not patch the stopped candidate yourself either: the receipt pins its
+commit, and a continuation keeps the fix under the same review.
+
+**A running wave is reported; a finished one is read first.** The native
+runners append one line per stage to `progress.log` in the run directory
+(`--out`): task, stage, call number, model and elapsed time. Between long
+waits read its last lines and tell the user in one line which task is at
+which stage and how long the wave has run. Elapsed time is a measured fact,
+not an estimate. A runner keeps working when the user interrupts the turn. On
+the next turn, before launching anything, look at the run directory of the
+runner you started: with a `summary.json`, report its result first; without
+one while the runner process is alive, wait for it; without one and with no
+live process, report a crashed run with the last progress lines. Never start
+a second runner for a wave whose runner has not finished.
+
 **Decide, act, report.** Ask the user only for: a contradiction in the
 feature (the plan, the design, the code or a new instruction disagree and the
 choice changes what ships); a change of the agreed scope; weakening or
@@ -335,6 +365,12 @@ Every executor prompt contains all six blocks:
    `evidence: required` replaces trust. A report claiming a command passed
    without that command's actual output is a violation in its own right.
 
+   `report_must_answer` asks about behaviour and decisions: what the code does
+   now, what was left out and why. Never ask the executor to reproduce what git
+   already holds — a diff, a list of changed files, a commit id. The supervisor
+   reads those from the branch itself, so a pasted copy adds no evidence and a
+   slip in it stops correct work; the linter warns about such a question.
+
    State the prohibitions explicitly and loudly: an explicit "don't work around
    it — report it" measurably lowers fabricated workarounds.
 
@@ -363,14 +399,15 @@ Details: `../../skills/multi-model/references/execution-cost-controls.md`.
 ### Choosing the supervisor
 
 - Pick the supervisor per `codex-routing.md`, at effort `high`.
-- Use a fresh separate supervisor, never the executor's own model — except
-  Astra's separately approved executor exception, which uses a fresh Astra
-  supervisor (fresh-context separation, not different-model independence).
+- Use a fresh separate supervisor: its own session, never an executor's handle
+  or conversation. It may be the executor's own model (ADR 015): what
+  separates them is the fresh context and a prompt that never says who wrote
+  the work.
 - Never a weaker tier than the executor's: the judge re-runs and re-derives
-  everything the executor did.
+  everything the executor did. Luna, then Sol, then Astra.
 - A wave has one supervisor: pick it by the strongest model any task in the
-  wave can run, ladder rungs included. A supervisor that is also a rung is
-  rejected.
+  wave can run, ladder rungs included. A supervisor of a weaker tier than a
+  rung is rejected.
 - **Premium models.** `gpt-6-astra` is premium, in any role. Premium models are
   never the subject of a question. It is used only when the user said so: in
   this session, or through a standing authorization written in the user's or
@@ -385,7 +422,7 @@ Details: `../../skills/multi-model/references/execution-cost-controls.md`.
   authorization use the standard route; when no standard delegated route fits,
   fix directly per step 8. The report notes in one line where a premium route
   would have applied. The standard supervisor `gpt-6.1-sol` covers waves
-  whose executors and rungs are all `gpt-6-luna`.
+  whose executors and rungs are `gpt-6-luna` or `gpt-6.1-sol`.
 - Never name the executor's model in the judge prompt.
 
 **The supervisor trusts artifacts only.** A verdict is `{"ok", "violations",
@@ -403,11 +440,12 @@ what escalates. Before judging or acting on a verdict, read
 | `pasteReproduced: false` on two attempts | Escalate to a stronger model: once is explicable, twice is a pattern |
 | Executor is already the strongest model, or the wave has no ladder | No higher rung: one rework with the verdict attached, then stop |
 | The contract cannot be satisfied | Stop immediately — no rework, no stronger model; see When the contract is what is broken |
-| Stop | Hand the user the task, every verdict in order, and the branch name |
+| Stop as `failed`, no continuation used yet | One continuation on the same code with your note — see After a rejected task stops |
+| Stop | Hand the user the task, every verdict in order, the branch name, and from `summary.json` the executor and supervisor models, the attempts used and the elapsed time |
 
 The native runners continue the same executor session for that rework and send only the verdict, not the full prompt again. An escalation to a stronger model, raised effort, a new runner invocation (`--resume-from`, `--reset`) or a failed resume starts a fresh executor with the full prompt; a failed resume costs no extra attempt. Supervisors are always fresh.
 
-Never reset attempt counters to obtain more attempts.
+Never reset attempt counters to obtain more attempts: a continuation keeps the task's history and its cap.
 
 ## Host adapter (Codex)
 
@@ -504,7 +542,7 @@ the wave ends so it goes quiet. Details:
 
 - State the prohibitions to the executor loudly and explicitly.
 - Do NOT disclose the supervisor's specific checks to the executor.
-- Fresh separate supervision; same-model only for the approved Astra exception.
+- Fresh separate supervision, never a weaker tier than the executor; the same model is allowed.
 - A claim without command output is a violation.
 - Attach verdicts; never paraphrase an executor report in their place.
 - Stopping early with open plan items is a violation.

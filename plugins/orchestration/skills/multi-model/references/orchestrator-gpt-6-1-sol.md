@@ -35,13 +35,13 @@ The model page lists no `none` effort for this model.
   efforts, and bounded escalation. It governs routing across profiles
   without a separate calibration gate.
 - Every wave uses a fresh, separate supervisor at explicit `high` effort,
-  chosen at Gate 1 per shared Codex routing: the premium `gpt-6-astra` (plan
-  records `approvals.premium`), or — only for a wave whose executors and
-  rungs are all `gpt-6-luna` — the standard `gpt-6.1-sol`. A wave with a Sol
-  executor, GPT-6.1 Sol included, needs Astra. GPT-6.1 Sol never supervises
-  its own work or another Sol executor's work.
-- GPT-6.1 Sol holds the standard supervisor seat of all-`gpt-6-luna`
-  waves since 2026-09-29 on a supervisor-fixture pass (9/9) — a fixture,
+  chosen at Gate 1 per shared Codex routing: the standard `gpt-6.1-sol` for waves of
+  `gpt-6-luna` and `gpt-6.1-sol` executors and rungs, or
+  the premium `gpt-6-astra` (plan records `approvals.premium`). The supervisor
+  may be the executor's own model, from a fresh session that is not told who
+  wrote the work; it is never a weaker tier than an executor or rung.
+- GPT-6.1 Sol holds the standard supervisor seat of Luna waves since
+  2026-09-29, and of Sol waves since 2026-10-13 (ADR 015), on a supervisor-fixture pass (9/9) — a fixture,
   not production calibration. On 2026-09-30, after a verdict-wording fix, it
   passed the strict review gate (clean 10/10, planted 10/10, PR support
   3/4) and became the lower-cost review option too; its 2026-09-29 run had

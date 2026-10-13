@@ -17,7 +17,8 @@ check "profile requires artifacts" "grep -qF 'diff, commit, command output' '$P'
 check "profile links shared routing" "grep -qF 'codex-routing.md' '$P'"
 check "profile supervisor choice" \
   "grep -qF 'chosen at Gate 1' '$P' && grep -qF 'the premium \`gpt-6-astra\`' '$P' && grep -qF 'the standard \`gpt-6.1-sol\`' '$P'"
-check "profile requires Astra for a Sol executor" "grep -qF 'A wave with a Sol' '$P' && grep -qF 'needs Astra' '$P'"
+check "profile allows the executor's own model and forbids a weaker tier" "grep -qF \"may be the executor's own model\" '$P' && grep -qF 'it is never a weaker tier than an executor or rung' '$P'"
+check "profile no longer requires Astra for a Sol executor" "! grep -qF 'needs Astra' '$P'"
 check "profile cites card rates" "grep -qF '23.5%' '$P' && grep -qF '1.50%' '$P'"
 check "profile has no unsupported return" "! grep -qF 'Return \`unsupported\`' '$P'"
 

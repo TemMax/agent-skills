@@ -26,6 +26,9 @@ Verification runs in code, so a standard green task uses two model invocations
 rather than three. Internal model turns still cost tokens. Full output, verdicts
 and usage stay in the run directory. Stdout returns a small status and the
 `summary.json` path; read full logs only to resolve an evidence question.
+While a wave runs, both native runners append one line per stage to
+`progress.log` in the run directory, with elapsed time, and echo it to stderr.
+The summary records `wallSeconds` and each model call's `seconds`.
 
 The old Workflow tool is a fallback when the local CLI is unavailable. It retains
 the verifier-agent stage and its resume semantics. Mechanical-only tasks are
@@ -93,9 +96,41 @@ Completing successfully at the limit is accepted. Remarks alone never cause rewo
 
 Both native drivers accept `--resume-from <previous summary.json>` with the
 current lint-clean plan and a **new** `--out`. This resumes verification and
-review only; it never calls an executor, even when the candidate is rejected.
+review only; without `--continue-note` it never calls an executor, even when
+the candidate is rejected.
 Use it after an environment repair or an explicitly approved contract correction.
 Do not use `--reset` merely to recover a ready candidate.
+
+**One more attempt on a rejected candidate.** Add `--continue-note <file>` to
+that command when the previous run stopped a task as `failed`. A continued
+task gets one executor attempt on its existing branch — the highest tier of
+its ladder at `high` at least, a fresh session, the full task prompt, the
+coordinator's note and the last two rejections — followed by verification and
+a fresh review; a rejection ends the task again, and a verdict that blames the
+machine or the contract ends it as `environment-blocked` or
+`contract-unsatisfiable`, as in a first run.
+
+Each rejected task is decided on its own. It is skipped, with the reason on
+stderr and under `continuation.skipped`, when it is at its attempt cap, when
+fewer than two model calls are left under the call cap (an attempt and its
+review need two), when it already had a continuation and `--user-approved` is
+absent, or when a sectioned note has no section for it. A skipped task, like a
+task the previous run accepted, is verified and reviewed again as in plain
+recovery. The run is refused — nothing launched, the previous receipt
+unclaimed — only when no task can continue. `--user-approved`, passed only
+after the user's yes, allows a further continuation of the tasks that already
+had one; the caps are never raised.
+
+The note is at most 8,000 characters and is copied into the run directory.
+When more than one task continues, the note must carry a `## Task <id>`
+section for each of them, and each executor sees only its own section. The
+summary records `continuation` (tasks, who approved each, what was skipped);
+the receipt counts `continuations` per task, and only for an attempt whose
+executor reported. An executor that dies without a report is not an attempt:
+Codex relaunches it once and Claude does not, and either way the task ends as
+`error` — review the candidate again with plain `--resume-from` before
+another continuation. As in every recovery, each task of the wave must still
+have its clean, committed, attached candidate.
 
 A receipt binds the repository, base, task ids, product prose, roles/effort,
 approvals, delivery obligations and limits. These cannot change on recovery.

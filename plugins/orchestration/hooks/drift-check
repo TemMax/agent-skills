@@ -27,10 +27,10 @@ host_for_model() {
 codex_judge_for() {
   case "$1" in
     # GPT-6 seats are judged by GPT-6.1 Sol (decision 012: held-out drift cases
-    # 40/40 at high, the same as GPT-5.6 Sol). A GPT-6.1 Sol seat keeps
-    # GPT-5.6 Sol: a model never judges its own seat.
-    gpt-6-astra|gpt-6-sol|gpt-6-luna) printf gpt-6.1-sol ;;
-    gpt-6.1-sol) printf gpt-5.6-sol ;;
+    # 40/40 at high, the same as GPT-5.6 Sol). A GPT-6.1 Sol seat is judged by
+    # GPT-6.1 Sol too, in a separate session (decision 015). The GPT-5.6 seats
+    # keep their pairing: those routes are retired.
+    gpt-6-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-luna) printf gpt-6.1-sol ;;
     gpt-5.6-sol|gpt-5.6) printf gpt-5.6-terra ;;
     gpt-5.6-terra|gpt-5.6-luna) printf gpt-5.6-sol ;;
     *) return 1 ;;
@@ -271,8 +271,7 @@ case "$host" in
     fi
     # Evaluation seam: DRIFT_CHECK_JUDGE_MODEL lets
     # tests/eval/drift-fixtures.sh measure another Codex judge through the
-    # production path. Only listed Codex IDs are accepted, and a judge equal to
-    # the seat is refused.
+    # production path. Only listed Codex IDs are accepted.
     if [ -n "${DRIFT_CHECK_JUDGE_MODEL:-}" ]; then
       case "$DRIFT_CHECK_JUDGE_MODEL" in
         gpt-6-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-luna|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna)
@@ -285,12 +284,6 @@ case "$host" in
           silent "unknown-judge"
           ;;
       esac
-    fi
-    if [ "$judge" = "$model" ]; then
-      if [ -z "$DRYRUN" ]; then
-        audit_unavailable
-      fi
-      silent "self-judge"
     fi
     ;;
   *)

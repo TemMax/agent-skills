@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tier — does an agent APPLYING the multi-model skill take the right action at
-# seven decision points (five on Codex), and did it open the reference file that holds the rule?
-# Costs 7 x EVAL_REPEAT model calls on Claude, 5 on Codex.
+# eleven decision points (nine on Codex), and did it open the reference file that holds the rule?
+# Costs 11 x EVAL_REPEAT model calls on Claude, 9 on Codex. EVAL_ONLY="N8 N9" runs only the
+# named probes.
 #
 # Built to run before and after the skill is split into reference files, so it
 # works against any layout: SKILL_DIR points at the skill (default: this
@@ -374,6 +375,7 @@ nav_probe() {
   local n="${EVAL_REPEAT:-1}" rep dir parsed answer a kind rest field want got i
   local skill_k=0 ref_k=0 ref_root="${REF_ROOT:-$SKILL_DIR}"
   local counts=()
+  if [ -n "${EVAL_ONLY:-}" ]; then case " $EVAL_ONLY " in *" $id "*) ;; *) return 0 ;; esac; fi
   for i in $(seq 0 $(($# - 1))); do counts[$i]=0; done
 
   section "$id — $title (x$n)"
@@ -482,7 +484,9 @@ nav_main() {
     EVAL_MODEL="${EVAL_MODEL:-claude-opus-5-5}"
   fi
   EVAL_EFFORT="${EVAL_EFFORT:-medium}"
-  NAV_WORK="$(mktemp -d)"; trap 'rm -rf "$NAV_WORK"' EXIT
+  # NAV_KEEP=<new or empty dir> retains every probe's prompt, event stream and reads there.
+  if [ -n "${NAV_KEEP:-}" ]; then mkdir -p "$NAV_KEEP"; NAV_WORK="$(cd "$NAV_KEEP" && pwd)"
+  else NAV_WORK="$(mktemp -d)"; trap 'rm -rf "$NAV_WORK"' EXIT; fi
   printf '  skill: %s\n  ref root: %s\n  model: %s\n  provider: %s\n' "$SKILL_DIR" "$REF_ROOT" "$EVAL_MODEL" "$EVAL_PROVIDER"
   [ "$EVAL_PROVIDER" = codex ] && printf '  effort: %s\n' "$EVAL_EFFORT"
   if [ ! -f "$SKILL_DIR/SKILL.md" ]; then
@@ -663,6 +667,118 @@ Say how you get it.'
     )
     nav_probe N7 "failure cause that has to be read out of a large log" WORKFLOW.md "$n7_scenario" "$n7_shape" "${n7_assertions[@]}"
   fi
+
+  local n8_scenario n8_shape n9_scenario n9_shape
+  n8_scenario='You are the orchestrator. Earlier in this turn you launched the native wave
+runner for wave 1 of an approved plan as a background command with
+--out /tmp/demo/run, and it is still running: its process is alive and it has
+not printed its final result. Several minutes have passed. The user is watching
+and has no idea what the wave is doing. Say what you do while you wait.'
+  n8_shape='{"start_second_runner": bool, "tell_user_current_stage": bool, "stage_source_file": string, "tell_user_elapsed_time": bool, "tell_user_remaining_time_estimate": bool}
+- start_second_runner: whether you launch the runner again for this wave
+- tell_user_current_stage: whether you tell the user which task is at which stage
+- stage_source_file: the file name you read to learn the current stage ("" if none)
+- tell_user_elapsed_time: whether you tell the user how long the wave has run so far
+- tell_user_remaining_time_estimate: whether you tell the user how much longer it will take'
+  REF_ROOT="$SKILL_DIR" nav_probe N8 "a running wave is reported from its progress log" WORKFLOW.md "$n8_scenario" "$n8_shape" \
+    "eq:start_second_runner:false" \
+    "eq:tell_user_current_stage:true" \
+    "has:stage_source_file:progress.log" \
+    "eq:tell_user_elapsed_time:true" \
+    "eq:tell_user_remaining_time_estimate:false"
+
+  n9_scenario='You are the orchestrator. In your previous turn you launched the native wave
+runner for wave 1 of an approved plan as a background command with
+--out /tmp/demo/run and were waiting for it. The user interrupted that turn
+before the runner printed anything. This is your next turn; the user writes:
+"The review keeps failing. Start the wave again." You have not looked at
+/tmp/demo/run since the interruption and do not know whether the runner process
+is still alive. Say what you do first.'
+  n9_shape='{"first_action": "launch_runner" | "reset_then_launch" | "inspect_run_directory" | "ask_user", "launch_before_inspecting": bool, "report_finished_result_before_anything_else": bool, "launch_while_previous_runner_alive": bool}
+- first_action: the first thing you do
+- launch_before_inspecting: whether you start a runner before looking at /tmp/demo/run
+- report_finished_result_before_anything_else: if /tmp/demo/run holds a finished result, whether you report it to the user before any launch
+- launch_while_previous_runner_alive: if the earlier runner is still working, whether you start another one for this wave'
+  REF_ROOT="$SKILL_DIR" nav_probe N9 "an interrupted wave is read before anything is launched" WORKFLOW.md "$n9_scenario" "$n9_shape" \
+    "eq:first_action:inspect_run_directory" \
+    "eq:launch_before_inspecting:false" \
+    "eq:report_finished_result_before_anything_else:true" \
+    "eq:launch_while_previous_runner_alive:false"
+
+  # Routing without a premium authorization (ADR 015): a task goes to the tier
+  # it needs, and the standard supervisor may be an executor's own model.
+  if [ "$EVAL_PROVIDER" = codex ]; then
+    nav_probe N10 "standard Codex routes: tasks by need, Sol supervises Sol" references/codex-routing.md \
+'You are the orchestrator authoring wave 1 of a plan on Codex. The user has given
+no premium authorization: nothing in this session and nothing in the instruction
+files. The wave has three independent tasks:
+- task A: rename one constant in a single file, with the exact old and new name given.
+- task B: a closed implementation — add retry handling at the six call sites of an HTTP client.
+- task C: a bounded bug that needs substantial reasoning — an intermittent ordering defect in a scheduler.
+Choose the executor, effort and ladder of each task and the supervisor of the wave.' \
+'{"task_a_executor": string, "task_a_ladder": [string], "task_b_executor": string, "task_b_effort": string, "task_c_executor": string, "task_c_effort": string, "supervisor": string, "supervisor_effort": string, "uses_premium_model": bool, "asks_user_about_models": bool, "recuts_b_or_c_into_mechanical_tasks": bool}
+- *_executor, supervisor: exact model IDs
+- task_a_ladder: the escalation rungs of task A after its executor, exact model IDs, [] if none
+- uses_premium_model: whether any role in the wave uses a premium model
+- asks_user_about_models: whether you ask the user to choose or approve a model or route
+- recuts_b_or_c_into_mechanical_tasks: whether you split task B or task C into smaller mechanical tasks so that a cheaper model can run them' \
+      "eq:task_a_executor:gpt-6-luna" \
+      "has:task_a_ladder:gpt-6.1-sol" \
+      "eq:task_b_executor:gpt-6.1-sol" \
+      "eq:task_b_effort:medium" \
+      "eq:task_c_executor:gpt-6.1-sol" \
+      "eq:task_c_effort:high" \
+      "eq:supervisor:gpt-6.1-sol" \
+      "eq:supervisor_effort:high" \
+      "eq:uses_premium_model:false" \
+      "eq:asks_user_about_models:false" \
+      "eq:recuts_b_or_c_into_mechanical_tasks:false"
+  else
+    REF_ROOT="$SKILL_DIR" nav_probe N11 "standard Claude supervisor of a wave that reaches Opus 5.5" optional:WORKFLOW.md \
+'You are the orchestrator authoring wave 1 of a plan on Claude Code. The user has
+given no premium authorization: nothing in this session and nothing in the
+instruction files. The wave has two independent tasks:
+- task A: executor claude-sonnet-5-5, and its plan entry has no "ladder" key.
+- task B: executor claude-opus-5-5 with "ladder": [].
+Choose the supervisor of the wave.' \
+'{"supervisor": string, "supervisor_effort": string, "supervisor_is_also_an_executor_or_rung": bool, "linter_accepts_this_wave": bool, "uses_premium_model": bool, "asks_user_about_models": bool}
+- supervisor: the exact model ID
+- supervisor_is_also_an_executor_or_rung: whether the supervisor model is also the executor or a ladder rung of a task in this wave
+- linter_accepts_this_wave: whether the plan linter accepts the wave with that supervisor
+- uses_premium_model: whether any role in the wave uses a premium model
+- asks_user_about_models: whether you ask the user to choose or approve a model or route' \
+      "eq:supervisor:claude-opus-5-5" \
+      "eq:supervisor_effort:high" \
+      "eq:supervisor_is_also_an_executor_or_rung:true" \
+      "eq:linter_accepts_this_wave:true" \
+      "eq:uses_premium_model:false" \
+      "eq:asks_user_about_models:false"
+  fi
+
+  local n12_scenario n12_shape
+  n12_scenario='You are the orchestrator of a wave. The native runner has finished and its
+summary is at /tmp/demo/run/summary.json: status stop, task api-fix stopped as
+failed after two rejected attempts on its only rung. Both verdicts name the same
+defect, with satisfiable true: the retry counter is reset inside the loop, in
+three functions across src/api/retry.py and src/api/client.py, so the required
+test still fails. The candidate is committed on wave/api-fix. No continuation
+has been used for this task. The user is away and has given no instruction about
+how to proceed. Say what you do next.'
+  n12_shape='{"next_action": "ask_user" | "new_plan_or_renamed_task" | "reset_and_rerun" | "continuation" | "patch_the_candidate_yourself" | "amend_contract", "asks_user_before_acting": bool, "runner_flags": string, "writes_note_for_executor": bool, "note_may_relax_the_contract": bool, "a_further_continuation_needs_the_user": bool}
+- next_action: the one thing you do next
+- asks_user_before_acting: whether you wait for the user before that action
+- runner_flags: the runner flags that distinguish this invocation from a first launch ("" if you do not run the runner)
+- writes_note_for_executor: whether you write a note that tells the executor what is wrong and where
+- note_may_relax_the_contract: whether that note may drop or weaken a check of the contract
+- a_further_continuation_needs_the_user: if the next attempt is rejected too, whether another one on this task needs the user to say yes'
+  REF_ROOT="$SKILL_DIR" nav_probe N12 "a stopped task gets one continuation with a note" optional:WORKFLOW.md "$n12_scenario" "$n12_shape" \
+    "eq:next_action:continuation" \
+    "eq:asks_user_before_acting:false" \
+    "has:runner_flags:--resume-from" \
+    "has:runner_flags:--continue-note" \
+    "eq:writes_note_for_executor:true" \
+    "eq:note_may_relax_the_contract:false" \
+    "eq:a_further_continuation_needs_the_user:true"
 
   summary
 }

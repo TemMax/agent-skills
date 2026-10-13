@@ -1,8 +1,8 @@
 # Supervisor Prompt
 
 Sent verbatim to a fresh, separately spawned supervisor. It never reuses an
-executor child or forks its conversation. Astra's approved same-model exception
-is fresh-context separation, not different-model independence. The coordinator
+executor child or forks its conversation. A supervisor of the executor's own
+model is fresh-context separation, not different-model independence. The coordinator
 appends CONTRACT, BASE, BRANCH and REPORT below it.
 
 ---

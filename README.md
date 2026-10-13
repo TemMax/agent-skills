@@ -13,7 +13,7 @@ helper, a plan linter, and the offline release suite (see `tests/README.md`).
   launches executor subagents through the selected host adapter. Claude and
   exact GPT-5.6 and GPT-6 Astra/Sol/Luna profiles plus a conservative generic fallback guide routing;
   each executor is isolated in its own worktree and judged against its contract
-  by a different model.
+  by a separate supervisor session that is never told which model wrote the work.
 - **`code-review`** — critical, evidence-based review of uncommitted changes or
   a GitHub PR, performed by the session's own model.
 
@@ -25,7 +25,7 @@ model identity and loads the matching profile from `references/`. There is no
 |---|---|---|
 | `orchestration` | `super-plan` | Wave-native planning: research to decomposition depth, questions only about product forks and contradictions, one start approval, tasks carrying machine-checkable contracts grouped into waves by file-independence, validated by the shipped `plan-lint.mjs` before the start approval. Planning discipline adapted from Jesse Vincent's superpowers (MIT, attribution shipped). |
 | `orchestration` | `ship` | The pipeline conductor: one command from request to reviewed PR — super-plan → supervised waves on a feature branch → critical-review of the PR and its threads. Adds no machinery or gate of its own: the branch and the PR are stated in planning's one start approval, fixes routed by behavior change, and the merge always stays with the user. |
-| `orchestration` | `multi-model` | Model routing, effort selection, task-prompt template, review checklist, and supervised waves executed by native Claude/Codex drivers using the shipped policy — isolated executors judged against a machine-checkable contract by a different model, with the escalation ladder as tested code — plus an orchestrator-drift advisory hook that watches the orchestrator session itself. |
+| `orchestration` | `multi-model` | Model routing, effort selection, task-prompt template, review checklist, and supervised waves executed by native Claude/Codex drivers using the shipped policy — isolated executors judged against a machine-checkable contract by a separate supervisor session, never a weaker tier than the executor, with the escalation ladder as tested code — plus an orchestrator-drift advisory hook that watches the orchestrator session itself. |
 | `code-review` | `critical-review` | Scope detection, PR description+threads protocol, tiered findings table (Blocker → Nit), and a post-review fix phase that answers and resolves the PR threads its findings came from. |
 
 ## How the model routing works
@@ -163,7 +163,7 @@ is deliberately narrower than a claim that every profile is a production route:
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. A separately approved Astra initial executor or final rung is uncalibrated and requires a fresh Astra supervisor. |
 | Codex | `gpt-6-sol` | Exact profiles and dossiers; retired as an executor route (default executors moved to `gpt-6.1-sol`, decision 011), still valid for approved plans, but no longer the lower-cost review option; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review unsupported; supervisor only as the standard all-Luna supervisor (policy, uncalibrated). |
-| Codex | `gpt-6.1-sol` | Exact profiles and dossiers; default ordinary/difficult executor, Luna ladder rung, research and seam-audit route, and the standard supervisor of all-Luna waves (fixture 9/9, 2026-09-29); review route measured-supported (strict gate 10/10, 10/10, PR 3/4, 2026-09-30). Record: [`tests/eval/gpt-6-1-sol-results-2026-09-29.md`](tests/eval/gpt-6-1-sol-results-2026-09-29.md). |
+| Codex | `gpt-6.1-sol` | Exact profiles and dossiers; default ordinary/difficult executor, Luna ladder rung, research and seam-audit route, and the standard supervisor of Luna and Sol waves (fixture 9/9, 2026-09-29; its own model's work since 2026-10-13, decision 015); review route measured-supported (strict gate 10/10, 10/10, PR 3/4, 2026-09-30). Record: [`tests/eval/gpt-6-1-sol-results-2026-09-29.md`](tests/eval/gpt-6-1-sol-results-2026-09-29.md). |
 | Codex | `gpt-6-luna` | Exact profiles and dossiers; default Codex executors per shared routing; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review and supervisor routes unsupported. |
 | Either | any other model ID | The generic profile applies; missing identity/effort stay unknown, and no model-specific reliability claim follows. |
 
@@ -192,7 +192,7 @@ Luna, Terra, or Sol, with a separate Astra supervisor. A separately approved
 Astra initial executor or final rung requires `astra_executor_reason` and a
 fresh Astra supervisor; Sol exhaustion never promotes, resets, or raises effort
 automatically. A fresh Astra reviewer provides context separation, not a
-different-model check. The drift hook judges Astra, GPT-6 Sol and GPT-6 Luna orchestrators with `gpt-6.1-sol` at `high`, and a GPT-6.1 Sol orchestrator with `gpt-5.6-sol` ([decision 012](docs/decisions/012-drift-judge-gpt-6-1-sol.md)). On Claude Code the judge is `claude-haiku-5-5` at `low`, started without MCP servers ([decision 014](docs/decisions/014-haiku-5-5.md)). Other profiles retain their
+different-model check. The drift hook judges every GPT-6 orchestrator — Astra, GPT-6.1 Sol, GPT-6 Sol and GPT-6 Luna — with `gpt-6.1-sol` at `high` in a separate session ([decision 012](docs/decisions/012-drift-judge-gpt-6-1-sol.md), [decision 015](docs/decisions/015-same-model-supervision.md)). On Claude Code the judge is `claude-haiku-5-5` at `low`, started without MCP servers ([decision 014](docs/decisions/014-haiku-5-5.md)). Other profiles retain their
 existing rules. See [the role decision](docs/decisions/005-astra-active-seat.md)
 and the [Astra dossier](plugins/orchestration/skills/multi-model/references/gpt-6-astra-dossier.md).
 The [bounded Astra pilot](tests/eval/gpt-6-astra-pilot-2026-09-07.md) records
@@ -347,8 +347,8 @@ time or cost estimate.
 
 **What to expect from orchestration.** The orchestrator loads its profile,
 shows you a table (task | model | effort | rationale), then launches the waves
-through the shipped runner: every executor works in its own worktree, and an
-independent judge model checks out the branch, re-runs the contract's commands
+through the shipped runner: every executor works in its own worktree, and a
+separate judge session — never told which model wrote the work — checks out the branch, re-runs the contract's commands
 itself and issues a verdict — executor self-reports are never trusted. Rework,
 model escalation and the unsatisfiable-contract stop are code, not judgment
 calls. A Codex wave no longer stops when only the sandbox blocks a check: the
@@ -393,7 +393,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.16.0, code-review 1.19.0):
+orchestration 4.17.0, code-review 1.19.0):
 
 | Before | After |
 |---|---|

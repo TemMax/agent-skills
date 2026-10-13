@@ -21,7 +21,7 @@
 #                              caller can assert a worktree link landed before
 #                              the child ran.
 #   CODEX_STUB_SLEEP          seconds to sleep between start and end (default 0).
-#   CODEX_STUB_EXECUTOR_MODE  good|empty|fail — only consulted for a fresh
+#   CODEX_STUB_EXECUTOR_MODE  good|uncommitted|empty|fail — only consulted for a fresh
 #                              executor invocation (prompt starts with
 #                              "# Task:", argv is not `exec resume`).
 #                              good: create/commit a file, write a report.
@@ -29,13 +29,15 @@
 #                              (a fresh retry in a worktree an earlier call
 #                              committed to), it commits a per-call file
 #                              instead, like CODEX_STUB_RESUME_MODE=good.
+#                              uncommitted: create the file without committing,
+#                              write a report.
 #                              empty: write an empty report.
 #                              fail: exit 1 without writing a report; also
 #                              prints CODEX_STUB_FAIL_STDERR to stderr first,
 #                              if set.
 #   CODEX_STUB_FAIL_STDERR    text printed to stderr before a CODEX_STUB_EXECUTOR_MODE=fail
 #                              exit (default: nothing printed).
-#   CODEX_STUB_RESUME_MODE    good|fail (default good) — only consulted for an
+#   CODEX_STUB_RESUME_MODE    good|commit-all|fail (default good) — only consulted for an
 #                              `exec resume <id> …` invocation, which is always
 #                              an executor call whatever its prompt's first
 #                              line is. `exec resume` has no -C, so the
@@ -43,6 +45,8 @@
 #                              good: commit a new file whose name differs per
 #                              call (src/<task>/rework-<ns>.txt), write a
 #                              non-empty report.
+#                              commit-all: commit everything in the worktree,
+#                              write a non-empty report.
 #                              fail: exit 1 without writing a report.
 #   CODEX_STUB_VERDICTS       optional JSON array of verdict objects, consumed
 #                              in order by successive supervisor invocations
@@ -244,6 +248,12 @@ case "$kind" in
       good)
         commit_rework
         ;;
+      commit-all)
+        git -C "$worktree" add -A
+        git -C "$worktree" -c commit.gpgsign=false -c user.name="Codex Stub" \
+          -c user.email="codex-stub@example.invalid" commit -m "stub: commit left work" --quiet
+        printf 'committed via stub\n\nmust_run output:\nOK\n' > "$outfile"
+        ;;
       fail)
         exit_code=1
         ;;
@@ -274,6 +284,13 @@ case "$kind" in
             -c user.email="codex-stub@example.invalid" commit -m "stub: task work" --quiet
           printf 'implemented via stub\n\nmust_run output:\nOK\n' > "$outfile"
         fi
+        ;;
+      uncommitted)
+        slug="$(basename "$worktree")"
+        task_id="${slug#wave-}"
+        mkdir -p "$worktree/src/${task_id}"
+        printf 'stub executor work\n' > "$worktree/src/${task_id}/stub-output.txt"
+        printf 'implemented via stub, not committed\n\nmust_run output:\nOK\n' > "$outfile"
         ;;
       empty)
         printf '' > "$outfile"

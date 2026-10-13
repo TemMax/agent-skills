@@ -482,6 +482,21 @@ test('(d) an unsatisfiable verdict stops the wave with contract-unsatisfiable', 
   assert.ok(result.json)
   assert.equal(result.json.status, 'stop')
   assert.deepEqual(result.json.stopped, [{ task: 'task-a', reason: 'contract-unsatisfiable' }])
+  // One line per stage, with elapsed time, in the run directory and on stderr.
+  const progress = readFileSync(join(root, 'out', 'progress.log'), 'utf8').trim().split('\n')
+  const expected = [
+    /^\[\+\d\d:\d\d\] task-a: executor call 1 started \(\S+ \S+\)$/,
+    /^\[\+\d\d:\d\d\] task-a: executor call 1 finished in \d\d:\d\d$/,
+    /^\[\+\d\d:\d\d\] task-a: checks started$/,
+    /^\[\+\d\d:\d\d\] task-a: checks finished in \d\d:\d\d$/,
+    /^\[\+\d\d:\d\d\] task-a: review 1 started \(\S+ \S+\)$/,
+    /^\[\+\d\d:\d\d\] task-a: review 1 finished in \d\d:\d\d: rejected \(must_run\)$/,
+    /^\[\+\d\d:\d\d\] task-a: stopped \(contract-unsatisfiable\)$/,
+    /^\[\+\d\d:\d\d\] wave: finished: stop$/,
+  ]
+  assert.equal(progress.length, expected.length, progress.join('\n'))
+  expected.forEach((pattern, index) => assert.match(progress[index], pattern))
+  assert.ok(result.stderr.includes('codex-wave-runner: ' + progress[0]), result.stderr)
 })
 
 test('(e) an already-existing --out exits 73', () => {
@@ -1894,4 +1909,242 @@ test('(s5) a rework at a raised effort on the same model starts a fresh thread',
   assert.equal(starts.executors[3].argv.includes('resume'), false, JSON.stringify(starts.executors[3].argv))
   assert.ok(starts.executors[3].prompt.startsWith('# Task: task-a'))
   assert.notEqual(executors[3].threadId, executors[2].threadId)
+})
+
+// Uncommitted work: one follow-up on the same thread, inside the same attempt.
+test('(u1) uncommitted work is committed by one follow-up without a supervisor call or a charged attempt', () => {
+  const { root, result, executors, state, starts } = runResumeWave([CLEAN],
+    { CODEX_STUB_EXECUTOR_MODE: 'uncommitted', CODEX_STUB_RESUME_MODE: 'commit-all' })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.equal(state.totalAttempts, 1)
+  assert.equal(result.json.tasks[0].attempts.length, 1)
+  assert.equal(executors.length, 2, JSON.stringify(executors))
+  assert.equal(executors[1].followUp, 'uncommitted')
+  assert.equal(executors[1].resumed, true)
+  assert.equal(executors[1].threadId, executors[0].threadId)
+  assert.equal(starts.supervisors.length, 1)
+  assert.match(state.reports[0], /^committed via stub/)
+  assert.match(readFileSync(executors[1].promptFile, 'utf8'), /^`git status --porcelain` in your worktree is not empty/)
+  assert.equal(result.json.recovery.tasks['task-a'].executorCalls, 1)
+  assert.match(readFileSync(join(root, 'out', 'progress.log'), 'utf8'), /task-a: uncommitted work: asking the executor to commit/)
+})
+
+test('(u2) the follow-up is sent once: work still uncommitted goes to the ordinary verdict path', () => {
+  const { result, executors, state, starts } = runResumeWave([REJECTED, CLEAN],
+    { CODEX_STUB_EXECUTOR_MODE: 'uncommitted', CODEX_STUB_RESUME_MODE: 'good' })
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(executors.filter((c) => c.followUp === 'uncommitted').length, 1)
+  assert.equal(starts.supervisors.length >= 1, true)
+  assert.equal(state.verdicts[0].verdict.ok, false)
+  assert.equal(state.totalAttempts, executors.filter((c) => !c.followUp).length)
+})
+
+test('(u3) a clean worktree gets no follow-up', () => {
+  const { executors } = runResumeWave([CLEAN])
+  assert.equal(executors.length, 1)
+  assert.equal(Object.hasOwn(executors[0], 'followUp'), false)
+})
+
+test('(u4) no follow-up when the call cap would leave no call for the review', () => {
+  const { result, executors, starts } = runResumeWave([REJECTED],
+    { CODEX_STUB_EXECUTOR_MODE: 'uncommitted', CODEX_STUB_RESUME_MODE: 'commit-all' },
+    (text) => text.replace('"tasks":', '"limits": {"max_model_calls": 2}, "tasks":'))
+  assert.ok(result.json, result.stdout + result.stderr)
+  assert.equal(executors.some((c) => c.followUp), false)
+  assert.equal(starts.supervisors.length, 1)
+})
+
+// Continuation: one more executor attempt on a stopped candidate, with the
+// coordinator's note.
+const NO_LADDER = (text) => text.replace('"ladder": ["gpt-6-sol"]', '"ladder": []')
+function stoppedWave(verdicts = [REJECTED, REJECTED], rewritePlan = NO_LADDER) {
+  const wave = runResumeWave(verdicts, {}, rewritePlan)
+  assert.equal(wave.result.json.status, 'stop', wave.result.stdout + wave.result.stderr)
+  assert.deepEqual(wave.result.json.stopped, [{ task: 'task-a', reason: 'failed' }])
+  const notePath = join(wave.root, 'note.md')
+  writeFileSync(notePath, 'The retry counter is reset inside the loop: move it above the loop in src/task-a.\n')
+  return { ...wave, notePath, summaryPath: join(wave.root, 'out', 'summary.json') }
+}
+function continueWave(wave, outName, extraArgs = [], env = {}) {
+  const result = runRunner(
+    ['--plan', wave.planPath, '--wave', '1', '--repo', wave.repo, '--base', wave.base, '--codex', STUB,
+      '--preflight', 'off', '--out', join(wave.root, outName), '--resume-from', wave.summaryPath, ...extraArgs],
+    { CODEX_STUB_LOG: wave.logPath, CODEX_STUB_EXECUTOR_MODE: 'good', ...env })
+  return { result, summaryPath: join(wave.root, outName, 'summary.json') }
+}
+
+test('(k1) a continuation gives a stopped task one fresh attempt at high with the note and the prior verdicts', () => {
+  const wave = stoppedWave()
+  const { result } = continueWave(wave, 'second', ['--continue-note', wave.notePath],
+    { CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  const executors = result.json.children.filter((c) => c.role === 'executor')
+  assert.equal(executors.length, 3)
+  const last = executors.at(-1)
+  assert.equal(last.model, 'gpt-6-luna')
+  assert.equal(last.effort, 'high')
+  assert.equal(Object.hasOwn(last, 'resumed'), false)
+  const prompt = readFileSync(last.promptFile, 'utf8')
+  assert.match(prompt, /^# Task: task-a/)
+  assert.match(prompt, /## Continuation of a stopped task/)
+  assert.match(prompt, /COORDINATOR NOTE[^\n]*\nThe retry counter is reset inside the loop/)
+  assert.match(prompt, /PRIOR VERDICTS \(oldest first\):/)
+  assert.equal(prompt.split('"flagged for review"').length - 1, 2, 'both rejections are attached')
+  assert.equal(result.json.children.filter((c) => c.role === 'supervisor').length, 3)
+  assert.deepEqual(result.json.continuation.tasks, ['task-a'])
+  assert.deepEqual(result.json.continuation.approvedBy, { 'task-a': 'coordinator' })
+  assert.equal(Object.hasOwn(result.json.continuation, 'skipped'), false)
+  assert.match(readFileSync(result.json.continuation.noteFile, 'utf8'), /retry counter/)
+  const receipt = result.json.recovery.tasks['task-a']
+  assert.equal(receipt.executorCalls, 3)
+  assert.equal(receipt.continuations, 1)
+  const state = JSON.parse(readFileSync(result.json.states[0], 'utf8')).tasks['task-a']
+  assert.equal(state.totalAttempts, 3)
+  assert.equal(state.status, 'merge-ready')
+  assert.match(readFileSync(join(wave.root, 'second', 'progress.log'), 'utf8'),
+    /task-a: continuation: one more attempt with the coordinator's note \(coordinator\)/)
+})
+
+test('(k2) a rejected continuation stops; a second one needs --user-approved', () => {
+  const wave = stoppedWave()
+  const first = continueWave(wave, 'second', ['--continue-note', wave.notePath],
+    { CODEX_STUB_VERDICT: JSON.stringify(REJECTED) })
+  assert.equal(first.result.status, 1, first.result.stdout + first.result.stderr)
+  assert.deepEqual(first.result.json.stopped, [{ task: 'task-a', reason: 'failed' }])
+  assert.equal(first.result.json.children.filter((c) => c.role === 'executor').length, 3, 'exactly one more attempt')
+  assert.equal(first.result.json.recovery.tasks['task-a'].continuations, 1)
+
+  const calls = modelStarts(wave.logPath).executors.length
+  const refused = continueWave({ ...wave, summaryPath: first.summaryPath }, 'third', ['--continue-note', wave.notePath])
+  assert.equal(refused.result.status, 2, refused.result.stdout + refused.result.stderr)
+  assert.match(refused.result.stderr, /nothing to continue — task-a: already had a continuation; a further one needs the user's yes — then pass --user-approved/)
+  assert.equal(modelStarts(wave.logPath).executors.length, calls, 'nothing is launched')
+  assert.equal(existsSync(first.summaryPath + '.resumed'), false, 'the receipt is not claimed by a refused run')
+  assert.equal(existsSync(join(wave.root, 'third')), false)
+
+  const approved = continueWave({ ...wave, summaryPath: first.summaryPath }, 'fourth',
+    ['--continue-note', wave.notePath, '--user-approved'], { CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(approved.result.status, 0, approved.result.stdout + approved.result.stderr)
+  assert.deepEqual(approved.result.json.continuation.approvedBy, { 'task-a': 'user' })
+  assert.equal(approved.result.json.recovery.tasks['task-a'].continuations, 2)
+  assert.equal(approved.result.json.recovery.tasks['task-a'].executorCalls, 4)
+})
+
+test('(k3) a continuation is refused without a rejected task, a note, or a resumed run', () => {
+  const accepted = runResumeWave([CLEAN])
+  const notePath = join(accepted.root, 'note.md')
+  writeFileSync(notePath, 'fix it\n')
+  const none = continueWave({ ...accepted, summaryPath: join(accepted.root, 'out', 'summary.json') }, 'second',
+    ['--continue-note', notePath])
+  assert.equal(none.result.status, 2)
+  assert.match(none.result.stderr, /the previous run has no rejected task to continue/)
+
+  const wave = stoppedWave()
+  writeFileSync(wave.notePath, '  \n')
+  const empty = continueWave(wave, 'second', ['--continue-note', wave.notePath])
+  assert.equal(empty.result.status, 2)
+  assert.match(empty.result.stderr, /the note is empty/)
+
+  const alone = runRunner(['--plan', wave.planPath, '--wave', '1', '--repo', wave.repo, '--base', wave.base,
+    '--codex', STUB, '--out', join(wave.root, 'x'), '--continue-note', wave.notePath])
+  assert.equal(alone.status, 2)
+  assert.match(alone.stderr, /--continue-note continues a stopped run: it requires --resume-from/)
+})
+
+test('(k4) a continuation runs on the task\'s strongest model and never past the attempt cap', () => {
+  const laddered = stoppedWave([REJECTED, REJECTED, REJECTED, REJECTED], (text) => text)
+  const { result } = continueWave(laddered, 'second', ['--continue-note', laddered.notePath],
+    { CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  const last = result.json.children.filter((c) => c.role === 'executor').at(-1)
+  assert.equal(last.model, 'gpt-6-sol')
+  assert.equal(last.effort, 'high')
+  assert.equal(result.json.recovery.tasks['task-a'].executorCalls, 5)
+
+  const capped = stoppedWave([REJECTED, REJECTED],
+    (text) => NO_LADDER(text).replace('"tasks":', '"limits": {"max_attempts": 2}, "tasks":'))
+  const refused = continueWave(capped, 'second', ['--continue-note', capped.notePath])
+  assert.equal(refused.result.status, 2, refused.result.stdout + refused.result.stderr)
+  assert.match(refused.result.stderr, /task-a: at the attempt cap \(2\); a cap is not raised through this route/)
+})
+
+test('(k5) recovery accepts a candidate that took two executor attempts', () => {
+  const wave = runResumeWave([REJECTED, CLEAN])
+  assert.equal(wave.result.json.status, 'merge-ready')
+  const { result } = continueWave({ ...wave, summaryPath: join(wave.root, 'out', 'summary.json') }, 'second')
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.equal(result.json.children.filter((c) => c.role === 'executor').length, 2, 'no new executor')
+})
+
+test('(k6) in a wave of several rejected tasks each continues on its own note section; the rest are reviewed again', () => {
+  const { root, repo, base } = makeRepo()
+  const planPath = join(root, 'plan.md')
+  writeFileSync(planPath, planText(['task-a', 'task-b']).replaceAll('"ladder": ["gpt-6-sol"]', '"ladder": []'))
+  const logPath = join(root, 'codex.log')
+  const args = ['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB, '--preflight', 'off']
+  const env = { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good' }
+  const first = runRunner([...args, '--out', join(root, 'out')], { ...env, CODEX_STUB_VERDICT: JSON.stringify(REJECTED) })
+  assert.deepEqual(first.json.stopped.map((s) => s.reason), ['failed', 'failed'], first.stdout + first.stderr)
+  const summaryPath = join(root, 'out', 'summary.json')
+
+  const plain = join(root, 'plain.md')
+  writeFileSync(plain, 'fix both\n')
+  const refused = runRunner([...args, '--out', join(root, 'x'), '--resume-from', summaryPath, '--continue-note', plain], env)
+  assert.equal(refused.status, 2, refused.stdout + refused.stderr)
+  assert.match(refused.stderr, /task-a, task-b would all continue — give each its own "## Task <id>" section in the note/)
+  assert.equal(existsSync(summaryPath + '.resumed'), false)
+
+  const notePath = join(root, 'note.md')
+  writeFileSync(notePath, '## Task task-a\n\nOnly task-a: move the counter above the loop.\n')
+  const before = modelStarts(logPath).executors.length
+  const second = runRunner([...args, '--out', join(root, 'second'), '--resume-from', summaryPath, '--continue-note', notePath],
+    { ...env, CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.ok(second.json, second.stdout + second.stderr)
+  assert.deepEqual(second.json.continuation.tasks, ['task-a'])
+  assert.deepEqual(second.json.continuation.skipped, { 'task-b': 'the note has no "## Task task-b" section' })
+  assert.match(second.stderr, /continuation skips task-b: the note has no "## Task task-b" section/)
+  assert.equal(modelStarts(logPath).executors.length, before + 1, 'only task-a gets an executor')
+  const continued = second.json.children.filter((c) => c.role === 'executor' && c.task === 'task-a').at(-1)
+  const prompt = readFileSync(continued.promptFile, 'utf8')
+  assert.match(prompt, /COORDINATOR NOTE[^\n]*\nOnly task-a: move the counter above the loop\./)
+  assert.doesNotMatch(prompt, /## Task task-a\n\nOnly task-a/)
+  assert.equal(second.json.recovery.tasks['task-a'].continuations, 1)
+  assert.equal(Object.hasOwn(second.json.recovery.tasks['task-b'], 'continuations'), false)
+  assert.equal(second.json.children.filter((c) => c.role === 'executor' && c.task === 'task-b').length, 2)
+})
+
+test('(k7) a continuation is refused when the call cap leaves no room for an attempt and its review', () => {
+  const wave = stoppedWave([REJECTED, REJECTED],
+    (text) => NO_LADDER(text).replace('"tasks":', '"limits": {"max_model_calls": 5}, "tasks":'))
+  const refused = continueWave(wave, 'second', ['--continue-note', wave.notePath])
+  assert.equal(refused.result.status, 2, refused.result.stdout + refused.result.stderr)
+  assert.match(refused.result.stderr, /task-a: fewer than two model calls left under the call cap \(5\)/)
+  assert.equal(existsSync(wave.summaryPath + '.resumed'), false)
+  assert.equal(existsSync(join(wave.root, 'second')), false)
+})
+
+test('(k8) a continuation executor that dies is relaunched once, ends as an error and is not counted', () => {
+  const wave = stoppedWave()
+  const { result } = continueWave(wave, 'second', ['--continue-note', wave.notePath], { CODEX_STUB_EXECUTOR_MODE: 'fail' })
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.deepEqual(result.json.stopped, [{ task: 'task-a', reason: 'error' }])
+  assert.equal(result.json.tasks[0].status, 'error')
+  assert.equal(result.json.children.filter((c) => c.role === 'executor').length, 4, 'one launch and one relaunch')
+  assert.equal(result.json.children.filter((c) => c.role === 'supervisor').length, 2, 'no review of a missing report')
+  assert.equal(Object.hasOwn(result.json.recovery.tasks['task-a'], 'continuations'), false)
+})
+
+test('(k9) the continuation runs on the highest tier of the ladder, not on its last rung', () => {
+  const inverted = (text) => text.replace('"executor": { "model": "gpt-6-luna", "effort": "medium" }',
+    '"executor": { "model": "gpt-6-sol", "effort": "medium" }').replace('"ladder": ["gpt-6-sol"]', '"ladder": ["gpt-6-luna"]')
+  const wave = stoppedWave([REJECTED, REJECTED, REJECTED, REJECTED], inverted)
+  const { result } = continueWave(wave, 'second', ['--continue-note', wave.notePath],
+    { CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  const last = result.json.children.filter((c) => c.role === 'executor').at(-1)
+  assert.equal(last.model, 'gpt-6-sol')
+  assert.equal(last.effort, 'high')
 })

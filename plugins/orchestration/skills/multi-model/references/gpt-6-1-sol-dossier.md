@@ -119,7 +119,7 @@ exact ID `gpt-6.1-sol` can select this model's profile.
 - Shared Codex routing sends ordinary and difficult tasks, the Luna ladder
   rung and Codex research to `gpt-6.1-sol`. These executor routes are
   operational but uncalibrated.
-- The standard supervisor of all-Luna waves is `gpt-6.1-sol` since 2026-09-29 (fixture pass, not production calibration); the lower-cost final-review option is `gpt-6.1-sol` since 2026-09-30 (strict gate passed after a verdict-wording fix).
+- The standard supervisor of Luna waves is `gpt-6.1-sol` since 2026-09-29 (fixture pass, not production calibration), and of waves with `gpt-6.1-sol` executors since 2026-10-13 (a decision, ADR 015; its judgement of its own model's work is not measured); the lower-cost final-review option is `gpt-6.1-sol` since 2026-09-30 (strict gate passed after a verdict-wording fix).
 - `codex-routing.md` governs.
 
 ## Local measurements (2026-09-29)

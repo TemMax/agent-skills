@@ -64,7 +64,7 @@ While authoring or amending a plan, the active profile chooses executor, supervi
 For Codex, load the shared [route selection](../multi-model/references/codex-routing.md)
 before choosing children. It governs routing across profiles: use available
 explicit executors and the supervisor chosen at Gate 1 (premium Astra with
-`approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves) without a
+`approvals.premium`, or standard `gpt-6.1-sol` for Luna and Sol waves) without a
 separate calibration gate. Historical fixture failures inform verification;
 they do not block writing a concrete plan for the one start approval.
 
@@ -115,20 +115,23 @@ they do not block writing a concrete plan for the one start approval.
    on them. Routes are your decision: executor tiers, the supervisor and, on
    Codex, the review model. Never present a premium-or-standard choice to the
    user, and never ask the user to approve a route or a model. Use the
-   standard route by default (Claude: Opus 5.5 supervising Sonnet/Haiku
-   waves, Opus 5 for Opus 5.5 executors, Sonnet 5.5 for a wave whose tasks
-   are all `claude-haiku-5-5` with `"ladder": []`; Codex: `gpt-6.1-sol` for
-   waves whose executors and rungs are only
-   `gpt-6-luna` — supervisor fixture 9/9 on 2026-09-29; its predecessor
+   standard route by default (Claude: Opus 5.5 supervising every wave, its
+   own Opus 5.5 executors and rungs included, Sonnet 5.5 for a wave whose
+   tasks are all `claude-haiku-5-5` with `"ladder": []`; Codex: `gpt-6.1-sol`
+   for waves whose executors and rungs are `gpt-6-luna` or `gpt-6.1-sol`; the
+   same model may supervise work of its own tier from a fresh session, ADR 015
+   — supervisor fixture 9/9 on 2026-09-29; its predecessor
    `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24
    and three real small waves merge-ready first try — toy waves, correct
    work only). A premium model (Fable 5.1 / GPT-6 Astra, any role) is used
    only when the user said so in this session, or through a standing
    authorization written in the user's or the repository's instruction files
    (`AGENTS.md`, `CLAUDE.md`); record it in `approvals.premium` with the
-   source in `reason`. Without an authorization, use the standard route. A Codex
-   wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
-   supervisor — it needs `gpt-6-astra`. When a task has no standard delegated
+   source in `reason`. Without an authorization, use the standard route. The
+   supervisor is never a weaker tier than an executor or rung of its wave;
+   only a wave in which Astra executes needs `gpt-6-astra`. Route each task
+   by what it needs and never cut reasoning work into mechanical tasks to fit
+   a route. When a task has no standard delegated
    route and there is no premium authorization, cut it into tasks that have
    one, or mark it for the coordinator's own implementation under
    multi-model's step 8 — when that step's conditions hold — with one
@@ -140,8 +143,8 @@ they do not block writing a concrete plan for the one start approval.
    `gpt-6.1-sol` — strict review gate clean 10/10, planted 10/10; PR support
    3/4 on 2026-09-30 — or `gpt-6-astra` only with a premium authorization, recorded in `approvals.premium`. ship never picks one. If
    the Tasks step later changes a wave so the chosen supervisor no longer
-   fits (for example it adds a `claude-opus-5-5` ladder rung, or a Codex
-   wave gains a `gpt-6.1-sol` executor), pick the fitting standard supervisor
+   fits (for example a Haiku wave under Sonnet 5.5 gains a `claude-opus-5-5`
+   ladder rung, or a Codex wave gains an Astra rung), pick the fitting standard supervisor
    and say so in the Gate 2 message; when no standard supervisor fits and
    there is no premium authorization, apply the rule above for a task with no
    standard delegated route. Never carry the stale supervisor forward.
@@ -158,13 +161,13 @@ they do not block writing a concrete plan for the one start approval.
    supervisor, and ladder field, with the wave's supervisor chosen for
    the strongest model any task in the wave can run —
    every executor AND every ladder rung —
-   from multi-model's supervisor table; a supervisor that also appears
-   as an executor or rung is a lint error (a `claude-sonnet-5-5` executor
-   with a `claude-opus-5-5` rung takes Opus 5 (`claude-opus-5`, standard)
-   or Fable 5.1 (premium, with `approvals.premium`)). An omitted ladder
-   uses the runner's default ladder (Sonnet/Haiku → Opus 5.5), so a wave
-   supervised by Opus 5.5 gives its Sonnet/Haiku tasks `"ladder": []` —
-   otherwise the default ladder's Opus 5.5 rung collides with the
+   from multi-model's supervisor table; a supervisor of a weaker tier
+   than an executor or rung is a lint error, and the supervisor may be the
+   same model as one of them (a `claude-sonnet-5-5` executor with a
+   `claude-opus-5-5` rung is supervised by Opus 5.5). An omitted ladder
+   uses the runner's default ladder (Sonnet/Haiku → Opus 5.5): leave it
+   omitted so a rejected task can escalate. Write `"ladder": []` only for
+   a wave of `claude-haiku-5-5` tasks that stays under a Sonnet 5.5
    supervisor. Group into waves by
    file-independence: same-wave tasks must not share files — merge
    colliding tasks or split them across consecutive waves. Dependent
@@ -564,8 +567,8 @@ When there is no user to answer gates (an eval harness runs you), skip both
 gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
 silently is the failure this mode exists to measure. A headless run uses
-standard supervisors only — Opus 5.5 (or Opus 5 for Opus 5.5 executors) for
-Claude waves, `gpt-6.1-sol` for all-Luna Codex waves; a premium choice it
+standard supervisors only — Opus 5.5 for Claude waves, `gpt-6.1-sol` for
+Luna and Sol Codex waves; a premium choice it
 would have asked the user for goes under `Assumptions (would ask)` instead, and the plan carries no `approvals.premium` invented by the model. A headless run also leaves the `review` key unset and records the review choice under `## Assumptions (would ask)`.
 
 ## Common Mistakes

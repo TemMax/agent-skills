@@ -51,7 +51,8 @@ The supervisor is fresh and separately spawned from every executor, never
 reusing an executor handle or conversation, and its input omits executor
 identity. Astra alone may use a separately approved same-model executor with a
 fresh Astra supervisor; this is context separation, not different-model
-independence. Give executors the full rules and explicit
+independence. Superseded in part by ADR 015: any supervisor may be the
+executor's own model from a fresh session, and is never a weaker tier. Give executors the full rules and explicit
 stop/report boundaries while withholding the supervisor's detection method.
 The supervisor checks the diff, prohibited changes, and truth of report answers;
 independent verifier output may satisfy command re-execution. Its standalone

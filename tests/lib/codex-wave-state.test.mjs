@@ -863,16 +863,27 @@ test('C16b existing state conflict is detected before any Git mutation', () => {
   assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
 })
 
-test('C17 supervisor collision in executor or ladder is exact schema error', () => {
+test('C17b the supervisor model may also be the executor or a ladder rung', () => {
   for (const mutate of [
     (text) => text.replace('"model": "gpt-5.6-luna"', '"model": "gpt-5.6-terra"'),
     (text) => text.replace('"ladder": ["gpt-5.6-sol"]', '"ladder": ["gpt-5.6-terra"]'),
+  ]) {
+    const env = init({ planText: mutate })
+    assert.equal(env.result.json.status, 'ok', JSON.stringify(env.result.json))
+  }
+})
+
+test('C17 a supervisor of a weaker tier than the executor or a ladder rung is exact schema error', () => {
+  for (const mutate of [
+    (text) => text.replace('"supervisor": { "model": "gpt-5.6-terra"', '"supervisor": { "model": "gpt-5.6-luna"'),
+    (text) => text.replace('"supervisor": { "model": "gpt-5.6-terra"', '"supervisor": { "model": "gpt-6-luna"')
+      .replace('"model": "gpt-5.6-luna"', '"model": "gpt-6.1-sol"').replace('"ladder": ["gpt-5.6-sol"]', '"ladder": []'),
   ]) {
     const env = init({ invalid: true, planText: mutate })
     assert.notEqual(env.result.status, 0)
     assert.equal(env.result.json.status, 'invalid')
     assert.match(env.result.json.errors.join('; '),
-      /supervisor model also appears as executor or ladder rung/)
+      /supervisor gpt-(5\.6|6)-luna is a weaker tier than executor or ladder rung gpt-(5\.6-sol|6\.1-sol)/)
     assert.equal(existsSync(join(env.repo, '.worktrees')), false)
     assert.equal(git(env.repo, 'branch', '--list', 'wave/divide-guard'), '')
   }
@@ -1363,15 +1374,13 @@ test('C21d Astra execution requires exact Astra supervision and explicit efforts
   }
 })
 
-test('C21e an ordinary collision in another task remains invalid', () => {
-  const env = init({ invalid: true, planText: (text) => withSecondTask(text)
+test('C21e another task of the supervisor\'s own model is accepted', () => {
+  const env = init({ planText: (text) => withSecondTask(text)
     .replace('{ "id": "multiply-guard",\n        "branch": "wave/multiply-guard",\n'
       + '        "executor": { "model": "gpt-5.6-luna", "effort": "medium" }',
     '{ "id": "multiply-guard",\n        "branch": "wave/multiply-guard",\n'
       + '        "executor": { "model": "gpt-5.6-terra", "effort": "medium" }') })
-  assert.equal(env.result.status, 1)
-  assert.match(env.result.json.errors.join('; '),
-    /tasks\[1\].*supervisor model also appears as executor or ladder rung/)
+  assert.equal(env.result.json.status, 'ok', JSON.stringify(env.result.json))
 })
 
 test('C21f Astra supervision preserves the six-attempt terminal stop', () => {

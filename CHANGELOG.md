@@ -4,6 +4,46 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.17.0
+
+### Highlights
+
+**multi-model**
+- Let the same model supervise in a fresh session, never a weaker one
+- Give a stopped task one more attempt on the same code, with a note
+- Show each stage of a running wave with its elapsed time
+
+**super-plan**
+- Route each task by what it needs instead of cutting it down for Luna
+- Warn about report questions that only repeat what git already holds
+
+Orchestration 4.17.0 and code-review 1.19.0 apply to Claude Code and Codex.
+
+**What changes for a wave.** Without a premium authorization a Codex wave is
+no longer all `gpt-6-luna`: mechanical tasks go to Luna with a `gpt-6.1-sol`
+rung, everything else goes to `gpt-6.1-sol`, and `gpt-6.1-sol` supervises both.
+On Claude, `claude-opus-5-5` supervises its own executors and rungs. A
+supervisor of a weaker tier than an executor or rung is a lint error. A task
+rejected on its last rung gets one continuation that the coordinator starts
+itself (`--resume-from <summary.json> --continue-note <file>`); a further one
+needs your yes. Work left uncommitted by a Codex executor is committed by one
+follow-up on the same thread, without a review call and without a charged
+attempt. Both native runners write `progress.log`. The drift hook judges a
+`gpt-6.1-sol` orchestrator with `gpt-6.1-sol`. Fixed: `--resume-from` on Codex
+crashed when it accepted a candidate that had taken two or more attempts.
+
+**Measured.** One run each, on small fixtures: a wave whose executor and
+supervisor are the same model was accepted on both hosts; a Luna task rejected
+twice escalated to `gpt-6.1-sol` and was accepted; a real continuation after a
+scripted stop was accepted on both hosts; planning sessions on both hosts
+routed the work as described; 16 of 16 drift cases passed with a `gpt-6.1-sol`
+seat. No run compares how well a model catches its own model's mistakes with
+how well another model does: same-model supervision is a decision, not a
+measured result. The records are in
+`tests/eval/same-model-supervision-results-2026-10-13.md`, the decisions in
+`docs/decisions/015-same-model-supervision.md` and
+`docs/decisions/016-continuation-after-a-stop.md`.
+
 ## 4.16.0
 
 ### Highlights
