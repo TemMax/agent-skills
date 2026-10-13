@@ -45,7 +45,9 @@ import {
   resolveWorktreeEnv, TASK_HEADING_SOURCE, requireExecutable,
 } from './worktree-env.mjs'
 
-import { recoveryScope, readRecovery, makeRecoveryReceipt, claimRecovery, recoveredReport, candidate } from './candidate-recovery.mjs'
+import { recoveryScope, readRecovery, makeRecoveryReceipt, claimRecovery, recoveredReport, candidate,
+  planContinuation, continuationCounts, continuationRecord } from './candidate-recovery.mjs'
+import { createProgress, formatElapsed, verdictNote } from './wave-progress.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const HELPER = join(here, 'codex-wave-state.mjs')
@@ -55,6 +57,7 @@ const USAGE = [
   'usage: node codex-wave-runner.mjs --plan <file> --wave <n> --repo <abs> --base <40-hex sha>',
   '         [--jobs 3] [--codex codex] [--timeout-min 45] [--out <dir>]',
   '         [--executor-network on|off] [--preflight on|off] [--resume-from <summary.json>]',
+  '         [--continue-note <file> [--user-approved]]',
   '       node codex-wave-runner.mjs --reset --plan <file> --wave <n> --repo <abs> --base <40-hex sha>',
   '         [--out <dir>]',
   '',
@@ -100,11 +103,11 @@ function parseArgv(argv) {
     process.exit(0)
   }
   const FLAGS = ['--plan', '--wave', '--repo', '--base', '--jobs', '--codex',
-    '--timeout-min', '--out', '--executor-network', '--preflight', '--resume-from']
+    '--timeout-min', '--out', '--executor-network', '--preflight', '--resume-from', '--continue-note']
   const raw = {}
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]
-    if (flag === '--reset') {
+    if (flag === '--reset' || flag === '--user-approved') {
       if (Object.hasOwn(raw, flag)) usageError('duplicate option ' + flag)
       raw[flag] = true
       continue
@@ -115,9 +118,16 @@ function parseArgv(argv) {
     raw[flag] = argv[++i]
   }
   if (raw['--reset']) {
-    for (const flag of ['--jobs', '--codex', '--timeout-min', '--executor-network', '--preflight', '--resume-from']) {
+    for (const flag of ['--jobs', '--codex', '--timeout-min', '--executor-network', '--preflight', '--resume-from',
+      '--continue-note', '--user-approved']) {
       if (Object.hasOwn(raw, flag)) usageError(flag + ' cannot be used with --reset')
     }
+  }
+  if (Object.hasOwn(raw, '--continue-note') && !Object.hasOwn(raw, '--resume-from')) {
+    usageError('--continue-note continues a stopped run: it requires --resume-from <summary.json>')
+  }
+  if (raw['--user-approved'] && !Object.hasOwn(raw, '--continue-note')) {
+    usageError('--user-approved applies only to --continue-note')
   }
   for (const required of ['--plan', '--wave', '--repo', '--base']) {
     if (!Object.hasOwn(raw, required)) usageError('missing required option ' + required)
@@ -152,6 +162,8 @@ function parseArgv(argv) {
   return {
     reset: raw['--reset'] === true,
     resumeFrom: raw['--resume-from'] ? resolve(raw['--resume-from']) : null,
+    continueNote: raw['--continue-note'] ? resolve(raw['--continue-note']) : null,
+    userApproved: raw['--user-approved'] === true,
     planPath,
     waveNumber,
     repoPath,
@@ -812,6 +824,22 @@ async function main() {
   const scope = recoveryScope({ host: 'codex', repo: config.repoPath, base: config.base,
     waveNumber: config.waveNumber, wave, plan: planForEnv, markdown: originalText })
   const recovery = config.resumeFrom ? readRecovery(config.resumeFrom, scope) : null
+  // One more executor attempt for the tasks the resumed run rejected, with
+  // the coordinator's note. Refused before anything is launched or claimed.
+  let continuation = null
+  if (config.continueNote) {
+    try {
+      continuation = planContinuation(recovery, { notePath: config.continueNote, userApproved: config.userApproved,
+        maxAttempts: wave.limits?.max_attempts ?? 6, maxModelCalls: wave.limits?.max_model_calls ?? 24 })
+    } catch (error) {
+      process.stderr.write('codex-wave-runner: ' + error.message + '\n')
+      process.exit(2)
+    }
+    for (const [id, reason] of Object.entries(continuation.skipped)) {
+      process.stderr.write('codex-wave-runner: continuation skips ' + id + ': ' + reason + '\n')
+    }
+  }
+  const progress = createProgress(config.outPath, 'codex-wave-runner')
   const commonDir = gitCommonDir(config.repoPath)
   if (env.missingWritable.length > 0) {
     process.stderr.write('codex-wave-runner: missing writable dirs (skipped): '
@@ -853,12 +881,14 @@ async function main() {
     const previous = recovery.summary.preflight?.outsideSandbox
     if (previous !== undefined) outsideSandbox = previous
   } else if (config.preflightOn) {
+    progress('wave', 'preflight started')
     const { blocked, blocks, results, outsideSandbox: sandboxOnly } = runPreflight({
       codexBin: config.codexBin, repoPath: config.repoPath, base: config.base, timeoutMs: config.timeoutMs,
       env, commonDir, networkOn: config.executorNetworkOn, wave,
     })
     preflightResults = results
     outsideSandbox = sandboxOnly
+    progress('wave', 'preflight ' + (blocked ? 'blocked' : 'finished'))
     if (blocked) {
       const summary = {
         status: 'stop',
@@ -924,7 +954,9 @@ async function main() {
     try {
       initResult = recovery ? runHelper(['adopt-candidate', '--plan', derivedPlanPath, '--wave', String(config.waveNumber),
         '--repo', config.repoPath, '--base', config.base, ...outsideSandboxArgs(outsideSandbox)],
-      { [taskId]: { ...recovery.tasks[taskId], report: recoveredReport(recovery.tasks[taskId].report) } })
+      { [taskId]: { ...recovery.tasks[taskId], report: recoveredReport(recovery.tasks[taskId].report),
+        ...(continuation?.tasks[taskId] ? { continuation: { note: continuation.tasks[taskId].note,
+          verdicts: continuation.tasks[taskId].verdicts } } : {}) } })
         : helperInit(derivedPlanPath, config.waveNumber, config.repoPath, config.base, outsideSandbox)
     } catch (error) {
       const gitNotWritable = /cannot lock ref|unable to create directory|Operation not permitted/
@@ -946,6 +978,7 @@ async function main() {
   }
 
   if (recovery) claimRecovery(recovery, join(config.outPath, 'summary.json'))
+  if (continuation) writeFileSync(join(config.outPath, 'continuation-note.md'), continuation.note + '\n')
   const semaphore = createSemaphore(config.jobs)
   const children = recovery ? [...recovery.summary.children] : []
   // taskId -> { source: 'executor'|'supervisor', id, line } the first time a
@@ -963,7 +996,7 @@ async function main() {
   // action.continuation; without, it starts a fresh thread on action.prompt.
   // Returns the payload for record-executor and whether an environment block
   // was found; the caller records exactly one payload per state attempt.
-  async function launchExecutor(taskId, action, session, fallbackFrom) {
+  async function launchExecutor(taskId, action, session, fallbackFrom, followUp) {
     const taskDir = join(config.outPath, taskId)
     mkdirSync(taskDir, { recursive: true })
     const attempt = (children.filter((c) => c.task === taskId && c.role === 'executor').length) + 1
@@ -996,6 +1029,8 @@ async function main() {
       '-c', 'model_reasoning_effort=' + action.effort,
       '--json', '-o', reportPath, '-',
     ]
+    progress(taskId, 'executor call ' + attempt + ' started (' + action.model + ' ' + action.effort
+      + (session ? ', same session' : '') + ')')
     const result = await runCodexChild({
       semaphore, codexBin: config.codexBin, args, prompt,
       eventsPath, stderrPath, timeoutMs: config.timeoutMs,
@@ -1010,6 +1045,7 @@ async function main() {
       ...(session ? { resumed: true } : {}),
       ...(threadId ? { threadId } : {}),
       ...(fallbackFrom ? { fallbackFrom } : {}),
+      ...(followUp ? { followUp } : {}),
       ...(result.timedOut ? { timedOut: true, eventsTail: tailLines(eventsPath, 10, 500) } : {}),
     })
     let payload
@@ -1027,6 +1063,8 @@ async function main() {
         payload = { report }
       }
     }
+    progress(taskId, 'executor call ' + attempt + ' ' + (result.timedOut ? 'timed out' : result.exitCode !== 0 ? 'failed'
+      : Object.hasOwn(payload, 'report') ? 'finished' : 'returned no report') + ' in ' + formatElapsed(result.wallSeconds))
     if (Object.hasOwn(payload, 'report')) {
       // The stored cumulative usage only ever moves forward, and only on a
       // child that actually reported a completed turn.
@@ -1041,6 +1079,24 @@ async function main() {
     }
     return { payload, envBlock }
   }
+
+  const commitFollowUps = new Set()
+  const continuationRan = new Set()
+  const continuationReported = new Set()
+  // The follow-up must leave a call for the review of the work it commits.
+  const modelCallsLeft = (taskId) => (wave.limits?.max_model_calls !== undefined || recovery)
+    ? (wave.limits?.max_model_calls ?? 24) - children.filter(child => child.task === taskId).length : Infinity
+  const worktreeDirty = (worktree) => {
+    const status = spawnSync('git', ['-C', worktree, 'status', '--porcelain', '--untracked-files=all'], { encoding: 'utf8' })
+    return status.status === 0 && status.stdout.trim() !== ''
+  }
+  const commitFollowUpPrompt = (base) => [
+    '`git status --porcelain` in your worktree is not empty: work is uncommitted, and the supervisor reads only committed work.',
+    'If you stopped under the dead-end protocol, change nothing and send the same report again.',
+    'Otherwise commit every change of this task with `git -c commit.gpgsign=false commit …`, remove files that do not belong to it,',
+    'and finish with the complete, self-contained REPORT in the format your task requires, including',
+    '`git log --oneline ' + base + '..HEAD` (non-empty) and `git status --porcelain` (empty).',
+  ].join('\n')
 
   // The per-task model-call cap: every child of the task counts, whatever
   // its role. It applies only with an explicit limit or on a recovery run.
@@ -1065,10 +1121,25 @@ async function main() {
       && !modelCallCapReached(taskId)) {
       outcome = await launchExecutor(taskId, action, null, 'resume')
     }
+    // Work left uncommitted is the most common mechanical rejection. The same
+    // thread is asked once per task to commit and re-send its report, within
+    // the same state attempt: only the follow-up's report is recorded, so no
+    // supervisor is paid for the slip and the attempt counters never see it.
+    const reported = executorSessions.get(taskId)
+    if (Object.hasOwn(outcome.payload, 'report') && !commitFollowUps.has(taskId) && reported?.threadId
+      && !/^\s*`?environment-blocked:/.test(outcome.payload.report) && modelCallsLeft(taskId) >= 2
+      && worktreeDirty(action.worktree)) {
+      commitFollowUps.add(taskId)
+      progress(taskId, 'uncommitted work: asking the executor to commit')
+      const followUp = await launchExecutor(taskId, { ...action, continuation: commitFollowUpPrompt(config.base) },
+        reported, null, 'uncommitted')
+      if (Object.hasOwn(followUp.payload, 'report')) outcome = followUp
+    }
     if (outcome.envBlock) {
       environmentBlocks[taskId] = { source: 'executor', id: outcome.envBlock.id, line: outcome.envBlock.line }
     }
     helperRecordExecutor(statePath, taskId, outcome.payload)
+    return Object.hasOwn(outcome.payload, 'report')
   }
 
   function stripNullViolationKeys(verdict) {
@@ -1137,6 +1208,7 @@ async function main() {
         '--output-schema', verdictSchemaPath,
         '--json', '-o', reportPath, '-',
       ]
+      progress(taskId, 'review ' + attempt + ' started (' + action.model + ' ' + action.effort + ')')
       const result = await runCodexChild({
         semaphore, codexBin: config.codexBin, args, prompt: promptResult.prompt,
         eventsPath, stderrPath, timeoutMs: config.timeoutMs,
@@ -1172,6 +1244,10 @@ async function main() {
         payload = { error: { kind: 'null-result' } }
       }
       helperRecordVerdict(statePath, taskId, payload)
+      // The recorded verdict, not the model's: red mechanical facts are merged in.
+      const recorded = payload.error ? null
+        : JSON.parse(readFileSync(statePath, 'utf8')).tasks[taskId].verdicts.at(-1)?.verdict
+      progress(taskId, 'review ' + attempt + ' finished in ' + formatElapsed(result.wallSeconds) + ': ' + verdictNote(recorded))
     } finally {
       const removed = spawnSync('git', ['-C', config.repoPath, 'worktree', 'remove', '--force', checkoutPath],
         { encoding: 'utf8' })
@@ -1187,16 +1263,39 @@ async function main() {
     try {
       for (;;) {
         const action = helperNext(statePath)
-        if (recovery && action.action === 'merge-ready') candidate(config.repoPath, config.base, taskId, recovery.tasks[taskId].head)
+        if (recovery && action.action === 'merge-ready' && !continuationRan.has(taskId)) candidate(config.repoPath, config.base, taskId, recovery.tasks[taskId].head)
         if (action.action === 'merge-ready') return { task: taskId, status: 'merge-ready' }
         if (action.action === 'stop') return { task: taskId, status: 'stop', reason: action.reason }
         if (['spawn-executor', 'spawn-supervisor'].includes(action.action) && modelCallCapReached(taskId)) {
           return { task: taskId, status: 'stop', reason: 'budget-exhausted' }
         }
-        if (recovery && action.action === 'spawn-executor') return { task: taskId, status: 'stop', reason: 'candidate-rejected' }
-        if (recovery) candidate(config.repoPath, config.base, taskId, recovery.tasks[taskId].head)
-        if (action.action === 'spawn-executor') { await handleExecutor(taskId, statePath, action); continue }
-        if (action.action === 'verify') { helperVerify(statePath, taskId); continue }
+        // A continued task gets exactly one executor attempt, started from
+        // the pinned candidate; once its executor has been launched the
+        // branch may have moved on by design. A child that dies without a
+        // report is not an attempt: the helper allows it one relaunch and
+        // then ends the task as an error.
+        const continued = Boolean(continuation?.tasks[taskId])
+        if (recovery && action.action === 'spawn-executor' && (!continued || continuationReported.has(taskId))) {
+          return { task: taskId, status: 'stop', reason: 'candidate-rejected' }
+        }
+        if (recovery && !continuationRan.has(taskId)) candidate(config.repoPath, config.base, taskId, recovery.tasks[taskId].head)
+        if (continued && action.action === 'spawn-executor' && !continuationRan.has(taskId)) {
+          continuationRan.add(taskId)
+          progress(taskId, 'continuation: one more attempt with the coordinator\'s note ('
+            + continuation.tasks[taskId].approvedBy + ')')
+        }
+        if (action.action === 'spawn-executor') {
+          const reported = await handleExecutor(taskId, statePath, action)
+          if (continued && reported) continuationReported.add(taskId)
+          continue
+        }
+        if (action.action === 'verify') {
+          const verifyStart = Date.now()
+          progress(taskId, 'checks started')
+          helperVerify(statePath, taskId)
+          progress(taskId, 'checks finished in ' + formatElapsed((Date.now() - verifyStart) / 1000))
+          continue
+        }
         if (action.action === 'spawn-supervisor') { await handleSupervisor(taskId, statePath, action); continue }
         throw new Error('unknown helper action "' + action.action + '" for task "' + taskId + '"')
       }
@@ -1206,7 +1305,11 @@ async function main() {
   }
 
   const start = Date.now()
-  const results = await Promise.all(taskIds.map((taskId) => runTaskLoop(taskId)))
+  const results = await Promise.all(taskIds.map(async (taskId) => {
+    const result = await runTaskLoop(taskId)
+    progress(taskId, result.status === 'stop' ? 'stopped (' + result.reason + ')' : 'accepted')
+    return result
+  }))
   const wallSeconds = (Date.now() - start) / 1000
 
   const stopped = results.filter((r) => r.status === 'stop').map((r) => ({
@@ -1214,6 +1317,7 @@ async function main() {
     ...(environmentBlocks[r.task] ? { environment: environmentBlocks[r.task] } : {}),
   }))
   const status = stopped.length === 0 ? 'merge-ready' : 'stop'
+  progress('wave', 'finished: ' + status)
   const states = taskIds.map((taskId) => statePaths[taskId])
   const tasks = taskIds.map((taskId) => helperSummary(statePaths[taskId]).tasks[0])
 
@@ -1222,8 +1326,9 @@ async function main() {
     return [id, state.tasks[id].reports.at(-1) || '']
   }))
   const summary = {
-    recovery: makeRecoveryReceipt(scope, children, reports),
+    recovery: makeRecoveryReceipt(scope, children, reports, continuationCounts(recovery, continuationReported)),
     ...(recovery ? { previousSummary: recovery.path } : {}),
+    ...(continuation ? { continuation: continuationRecord(continuation, join(config.outPath, 'continuation-note.md')) } : {}),
     status, stopped, states, wave: config.waveNumber, tasks, children, wallSeconds,
     ...(preflightResults || outsideSandbox
       ? { preflight: { ...(preflightResults ? { results: preflightResults } : {}),
@@ -1251,6 +1356,7 @@ async function main() {
     // is all a re-run needs.
     process.stderr.write('recover a clean candidate with --resume-from ' + join(config.outPath, 'summary.json')
       + ' --out <new-dir>; cleanup discards the candidate\n')
+    process.stderr.write('give a rejected task one more attempt on the same code: add --continue-note <file> to that command\n')
     process.stderr.write('re-run with a fresh --out after cleanup\n')
     process.stderr.write('codex-wave-runner: or re-run after: node ' + fileURLToPath(import.meta.url)
       + ' --reset --plan ' + config.planPath + ' --wave ' + config.waveNumber

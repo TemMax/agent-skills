@@ -252,6 +252,72 @@ out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"; rc=$?
 expect "negated missing command exits 0" "0" "$rc"
 contains "negated missing command warned" 'command "definitely-not-a-real-binary-xyz" found neither' "$out"
 
+section "report questions that reproduce git"
+mutate '"What changed?"' '"Paste the full diff of your change."'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "git-reproducing question stays a warning" "0" "$rc"
+contains "git-reproducing question warned" 'report_must_answer asks the executor to reproduce what git holds: "Paste the full diff of your change."' "$out"
+mutate '"What changed?"' '"List the changed files and the commit id."'
+out="$(node "$LINT" "$W/m.md" 2>&1)"
+contains "changed-files question warned" 'reproduce what git holds' "$out"
+out="$(node "$LINT" "$CLEAN" 2>&1)"
+check "behaviour questions are not warned" '! grep -qF "reproduce what git holds" <<<"$out"'
+
+section "repo: a commit the contract names must exist"
+mkdir -p "$W/sha_repo/docs"
+git -C "$W/sha_repo" init -q
+git -C "$W/sha_repo" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m base
+sha="$(git -C "$W/sha_repo" rev-parse HEAD)"
+mutate '"What changed?"' '"What changed since '"${sha:0:10}"'?"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/sha_repo" 2>&1)"; rc=$?
+expect "existing commit id exits 0" "0" "$rc"
+check "existing commit id is not warned" '! grep -qF "is not a commit" <<<"$out"'
+
+mutate '"What changed?"' '"What changed since 0123abc4567? Colour #1a2b3c4d and deadbeef stay."'
+out="$(node "$LINT" "$W/m.md" --repo "$W/sha_repo" 2>&1)"; rc=$?
+expect "unknown commit id stays a warning" "0" "$rc"
+contains "unknown commit id warned" 'contract names "0123abc4567", which is not a commit' "$out"
+check "a colour and a plain hex word are not read as commits" '! grep -qE "names \"(1a2b3c4d|deadbeef)\"" <<<"$out"'
+
+out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"
+check "a non-git --repo skips the commit check" '! grep -qF "is not a commit" <<<"$out"'
+
+section "report questions: requests and git facts, not product behaviour"
+for q in 'What is the commit id of your change?' 'Which files did you change?' 'Provide the commit hashes of each step.' \
+         'Report git status --porcelain.' 'Pasting the full diff is required.'; do
+  mutate '"What changed?"' "\"$q\""
+  out="$(node "$LINT" "$W/m.md" 2>&1)"
+  contains "warned: $q" 'reproduce what git holds' "$out"
+done
+for q in 'Does the CLI print a unified diff for two inputs?' 'Does the endpoint list modified files in its response?' \
+         'Did you include a test for the commit id parser?'; do
+  mutate '"What changed?"' "\"$q\""
+  out="$(node "$LINT" "$W/m.md" 2>&1)"
+  check "not warned: $q" '! grep -qF "reproduce what git holds" <<<"$out"'
+done
+
+section "repo: commit ids in ranges, at a sentence end and in file names"
+mutate '"cmd": "true"' '"cmd": "git diff --stat 0123abc4567..HEAD"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/sha_repo" 2>&1)"
+contains "a commit id in a range is checked" 'contract names "0123abc4567", which is not a commit' "$out"
+mutate '"What changed?"' '"What changed since commit 0123ABC4567."'
+out="$(node "$LINT" "$W/m.md" --repo "$W/sha_repo" 2>&1)"
+contains "a commit id at a sentence end, in upper case, is checked" 'contract names "0123abc4567", which is not a commit' "$out"
+mutate '"What changed?"' '"Is fixtures/0123abc4567.json or 0123abc4567.json read once?"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/sha_repo" 2>&1)"
+check "a hex file name is not read as a commit" '! grep -qF "is not a commit" <<<"$out"'
+sha_upper="$(git -C "$W/sha_repo" rev-parse HEAD | cut -c1-10 | tr 'a-f' 'A-F')"
+mutate '"What changed?"' '"What changed since '"$sha_upper"'?"'
+out="$(node "$LINT" "$W/m.md" --repo "$W/sha_repo" 2>&1)"
+check "an existing commit id in upper case is not warned" '! grep -qF "is not a commit" <<<"$out"'
+
+section "repo: a malformed contract list is a named error, not a crash"
+mutate '"report_must_answer": ["What changed?"]' '"report_must_answer": 5'
+out="$(node "$LINT" "$W/m.md" --repo "$W/sha_repo" 2>&1)"; rc=$?
+expect "malformed report_must_answer exits 1" "1" "$rc"
+check "malformed report_must_answer does not throw" '! grep -qF "TypeError" <<<"$out"'
+contains "malformed report_must_answer is named" 'report_must_answer' "$out"
+
 section "repo: missing files_allowed prefixes — typo vs folded"
 
 # top-level segment ("src") is also missing under the repo ($W/repo has only
@@ -484,8 +550,7 @@ s = s.replace('"ladder": ["claude-opus-5-5"]', '"ladder": ["gpt-5.6-terra"]')
 open(p, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "GPT supervisor collision exits 1" "1" "$rc"
-contains "GPT supervisor collision is named" "supervisor model also appears as executor or ladder rung" "$out"
+check "GPT supervisor also a ladder rung is not an error" '! grep -qF "weaker tier" <<<"$out"'
 
 section "explicit Astra executor exception"
 
@@ -625,8 +690,8 @@ open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-6-sol over gpt-6-luna exits 0" "0" "$rc"
-check "gpt-6-sol over gpt-6-luna has no standard-supervisor error" \
-  '! grep -qF "supervises only waves whose executors and rungs are all gpt-6-luna" <<<"$out"'
+check "gpt-6-sol over gpt-6-luna has no tier error" \
+  '! grep -qF "weaker tier" <<<"$out"'
 
 python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
 import sys
@@ -638,9 +703,8 @@ s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
 open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "gpt-6-sol over gpt-6-sol executor exits 1" "1" "$rc"
-contains "gpt-6-sol over gpt-6-sol executor named" \
-  'waves[0].supervisor.model: gpt-6-sol supervises only waves whose executors and rungs are all gpt-6-luna' "$out"
+expect "gpt-6-sol over gpt-6-sol executor exits 0" "0" "$rc"
+check "gpt-6-sol over gpt-6-sol executor has no tier error" '! grep -qF "weaker tier" <<<"$out"'
 
 python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
 import sys
@@ -652,9 +716,8 @@ s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
 open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "gpt-6-sol over gpt-5.6-terra executor exits 1" "1" "$rc"
-contains "gpt-6-sol over gpt-5.6-terra executor named" \
-  'waves[0].supervisor.model: gpt-6-sol supervises only waves whose executors and rungs are all gpt-6-luna' "$out"
+expect "gpt-6-sol over gpt-5.6-terra executor exits 0" "0" "$rc"
+check "gpt-6-sol over gpt-5.6-terra executor has no tier error" '! grep -qF "weaker tier" <<<"$out"'
 
 section "GPT-6.1 Sol"
 
@@ -683,8 +746,8 @@ open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-6.1-sol over gpt-6-luna exits 0" "0" "$rc"
-check "gpt-6.1-sol over gpt-6-luna has no standard-supervisor error" \
-  '! grep -qF "supervises only waves whose executors and rungs are all gpt-6-luna" <<<"$out"'
+check "gpt-6.1-sol over gpt-6-luna has no tier error" \
+  '! grep -qF "weaker tier" <<<"$out"'
 
 python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
 import sys
@@ -696,9 +759,33 @@ s = s.replace('        "ladder": ["gpt-6.1-sol"],\n', '        "ladder": [],\n')
 open(dst, 'w').write(s)
 PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "gpt-6.1-sol over gpt-6.1-sol executor exits 1" "1" "$rc"
-contains "gpt-6.1-sol over gpt-6.1-sol executor named" \
-  'waves[0].supervisor.model: gpt-6.1-sol supervises only waves whose executors and rungs are all gpt-6-luna' "$out"
+expect "gpt-6.1-sol over gpt-6.1-sol executor exits 0" "0" "$rc"
+contains "gpt-6.1-sol over gpt-6.1-sol executor is clean" "OK: 0 error(s)" "$out"
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6.1-sol", "effort": "high"')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6.1-sol over a gpt-6-luna task with a gpt-6.1-sol rung exits 0" "0" "$rc"
+check "gpt-6.1-sol over a Luna-to-Sol ladder has no tier error" '! grep -qF "weaker tier" <<<"$out"'
+
+python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
+import sys
+src, dst = sys.argv[1:]
+s = open(src).read()
+s = s.replace('"model": "gpt-6-astra", "effort": "high"', '"model": "gpt-6-luna", "effort": "high"')
+open(dst, 'w').write(s)
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "gpt-6-luna supervisor over a gpt-6.1-sol rung exits 1" "1" "$rc"
+contains "weaker Codex supervisor named" \
+  'supervisor gpt-6-luna is a weaker tier than executor or ladder rung gpt-6.1-sol' "$out"
+contains "lowest-tier supervisor warned" \
+  'waves[0].supervisor.model: gpt-6-luna is the lowest tier' "$out"
 
 python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
 import sys
@@ -798,15 +885,14 @@ PY
 
 mk_default_ladder_plan "claude-sonnet-5" ""
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "Sonnet task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
-contains "Sonnet task without ladder under Opus 5.5 supervisor named" \
-  'supervisor model also appears as executor or ladder rung' "$out"
+expect "Sonnet task without ladder under Opus 5.5 supervisor exits 0" "0" "$rc"
+check "Sonnet task without ladder under Opus 5.5 supervisor has no tier error" '! grep -qF "weaker tier" <<<"$out"'
 
 mk_default_ladder_plan "claude-sonnet-5" "[]"
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "Sonnet task with explicit empty ladder under Opus 5.5 supervisor exits 0" "0" "$rc"
-check "Sonnet task with explicit empty ladder has no supervisor-collision error" \
-  '! grep -qF "supervisor model also appears as executor or ladder rung" <<<"$out"'
+check "Sonnet task with explicit empty ladder has no tier error" \
+  '! grep -qF "weaker tier" <<<"$out"'
 
 mutate '"model": "claude-sonnet-5"' '"model": "claude-sonnet-5-5"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
@@ -815,21 +901,30 @@ contains "claude-sonnet-5-5 as explicit executor is clean" "OK: 0 error(s)" "$ou
 
 mk_default_ladder_plan "claude-sonnet-5-5" ""
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "Sonnet 5.5 task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
-contains "Sonnet 5.5 task without ladder under Opus 5.5 supervisor named" \
-  'supervisor model also appears as executor or ladder rung' "$out"
+expect "Sonnet 5.5 task without ladder under Opus 5.5 supervisor exits 0" "0" "$rc"
+check "Sonnet 5.5 task without ladder under Opus 5.5 supervisor has no tier error" '! grep -qF "weaker tier" <<<"$out"'
 
 mk_default_ladder_plan "claude-haiku-4-5-20251001" ""
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "Haiku task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
-contains "Haiku task without ladder under Opus 5.5 supervisor named" \
-  'supervisor model also appears as executor or ladder rung' "$out"
+expect "Haiku task without ladder under Opus 5.5 supervisor exits 0" "0" "$rc"
+check "Haiku task without ladder under Opus 5.5 supervisor has no tier error" '! grep -qF "weaker tier" <<<"$out"'
 
 mk_default_ladder_plan "claude-haiku-5-5" ""
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "Haiku 5.5 task without ladder under Opus 5.5 supervisor exits 1" "1" "$rc"
-contains "Haiku 5.5 task without ladder under Opus 5.5 supervisor named" \
-  'supervisor model also appears as executor or ladder rung' "$out"
+expect "Haiku 5.5 task without ladder under Opus 5.5 supervisor exits 0" "0" "$rc"
+check "Haiku 5.5 task without ladder under Opus 5.5 supervisor has no tier error" '! grep -qF "weaker tier" <<<"$out"'
+
+mk_default_ladder_plan "claude-haiku-5-5" ""
+python3 - "$W/m.md" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p).read()
+assert '"model": "claude-opus-5-5"' in s
+open(p, 'w').write(s.replace('"model": "claude-opus-5-5"', '"model": "claude-sonnet-5-5"', 1))
+PY
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "Haiku 5.5 task without ladder under Sonnet 5.5 supervisor exits 1" "1" "$rc"
+contains "Sonnet 5.5 supervisor weaker than the default Opus 5.5 rung named" \
+  'supervisor claude-sonnet-5-5 is a weaker tier than executor or ladder rung claude-opus-5-5' "$out"
 
 section "ci: required CI entrypoint"
 

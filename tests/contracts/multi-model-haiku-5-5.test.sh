@@ -72,7 +72,7 @@ case "$LANE" in
 esac
 
 SUP_SONNET_CELL="Sonnet 5.5 (\`claude-sonnet-5-5\`) when every task of the wave is Haiku 5.5"
-SUP_OPUS_CELL="Opus 5.5 (\`claude-opus-5-5\`) when no rung reaches Opus 5.5 (\`\"ladder\": []\`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (\`claude-opus-5\`); Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative | high |"
+SUP_OPUS_CELL="Opus 5.5 (\`claude-opus-5-5\`); Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative | high |"
 SUP_SONNET_ROW="| Haiku 5.5 (\`claude-haiku-5-5\`) | $SUP_SONNET_CELL with \`\"ladder\": []\` (measured 2026-10-08: $SUP_FIXTURE); otherwise $SUP_OPUS_CELL"
 SUP_OPUS_ROW="| Haiku 5.5 (\`claude-haiku-5-5\`) | $SUP_OPUS_CELL"
 SUP_SONNET_BASIS="The same day Sonnet 5.5 at \`high\` passed it in three runs with \`EVAL_REPEAT=5\` ($SUP_FIXTURE) — the basis of its row for all-Haiku-5.5 waves."

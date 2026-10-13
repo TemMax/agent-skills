@@ -2,18 +2,22 @@
 // Claude CLI transport for the shipped Workflow policy. Verification is code.
 import { spawn, spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, openSync, closeSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, openSync, closeSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { recoveryScope, readRecovery, makeRecoveryReceipt, claimRecovery, recoveredReport, candidate } from './candidate-recovery.mjs'
+import { recoveryScope, readRecovery, makeRecoveryReceipt, claimRecovery, recoveredReport, candidate,
+  planContinuation, continuationCounts, continuationRecord } from './candidate-recovery.mjs'
 import { effectivePlan, requireExecutable } from './worktree-env.mjs'
 import { applyLinks, detectEnvironmentBlock } from './worktree-env.mjs'
+import { createProgress, formatElapsed, verdictNote } from './wave-progress.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const USAGE = 'node claude-wave-runner.mjs --plan <file> --wave <n> --repo <abs> --base <sha> --default-branch <branch> [--claude claude] [--jobs 3] [--timeout-min 45] [--out <dir>] [--preflight on|off] [--resume-from <summary.json>]'
-const options = {}, flags = ['plan', 'wave', 'repo', 'base', 'default-branch', 'claude', 'jobs', 'timeout-min', 'out', 'preflight', 'resume-from']
+const USAGE = 'node claude-wave-runner.mjs --plan <file> --wave <n> --repo <abs> --base <sha> --default-branch <branch> [--claude claude] [--jobs 3] [--timeout-min 45] [--out <dir>] [--preflight on|off] [--resume-from <summary.json>] [--continue-note <file> [--user-approved]]'
+const options = {}, flags = ['plan', 'wave', 'repo', 'base', 'default-branch', 'claude', 'jobs', 'timeout-min', 'out', 'preflight', 'resume-from', 'continue-note']
 try {
-  const args = process.argv.slice(2)
+  const args = process.argv.slice(2).filter(arg => arg !== '--user-approved')
+  if (process.argv.slice(2).filter(arg => arg === '--user-approved').length > 1) throw new Error(USAGE)
+  if (process.argv.includes('--user-approved')) options['user-approved'] = true
   if (args.length === 1 && args[0] === '--help') { console.log(USAGE); process.exit(0) }
   for (let i = 0; i < args.length; i += 2) {
     const name = args[i]?.slice(2)
@@ -26,6 +30,8 @@ try {
     options[name] ??= fallback
     if (!/^\d+$/.test(options[name]) || Number(options[name]) < 1 || Number(options[name]) > 1440) throw new Error('invalid --' + name)
   }
+  if (options['continue-note'] && !options['resume-from']) throw new Error('--continue-note continues a stopped run: it requires --resume-from <summary.json>')
+  if (options['user-approved'] && !options['continue-note']) throw new Error('--user-approved applies only to --continue-note')
   options.preflight ??= 'on'
   if (!['on', 'off'].includes(options.preflight)) throw new Error('--preflight: on|off')
   options.out = resolve(options.out || join(options.repo, '.worktrees', 'claude-runner', options.wave + '-' + options.base.slice(0, 12)))
@@ -48,8 +54,26 @@ const plan = effectivePlan(options.plan, options.repo)
 const scope = recoveryScope({ host: 'claude', repo: options.repo, base: options.base,
   waveNumber: Number(options.wave), wave: plan.waves.find(w => w.wave === Number(options.wave)), plan, markdown: readFileSync(options.plan, 'utf8') })
 const recovery = options['resume-from'] ? readRecovery(options['resume-from'], scope) : null
+// One more executor attempt for the tasks the resumed run rejected, with the
+// coordinator's note. Refused before a model is launched or the receipt claimed.
+let continuation = null
+if (options['continue-note']) {
+  try {
+    const limits = plan.waves.find(w => w.wave === Number(options.wave))?.limits
+    continuation = planContinuation(recovery, { notePath: options['continue-note'], userApproved: options['user-approved'] === true,
+      maxAttempts: limits?.max_attempts ?? 6, maxModelCalls: limits?.max_model_calls ?? 24 })
+  } catch (error) {
+    rmSync(options.out, { recursive: true, force: true })
+    process.stderr.write('claude-wave-runner: ' + error.message + '\n')
+    process.exit(2)
+  }
+  writeFileSync(join(options.out, 'continuation-note.md'), continuation.note + '\n', { mode: 0o600 })
+  for (const [id, reason] of Object.entries(continuation.skipped)) process.stderr.write('claude-wave-runner: continuation skips ' + id + ': ' + reason + '\n')
+}
+const continuationRan = new Set(), continuationReported = new Set()
 if (recovery) {
-  wave.recovery = Object.fromEntries(Object.entries(recovery.tasks).map(([id, saved]) => [id, { ...saved, report: recoveredReport(saved.report) }]))
+  wave.recovery = Object.fromEntries(Object.entries(recovery.tasks).map(([id, saved]) => [id, { ...saved, report: recoveredReport(saved.report),
+    ...(continuation?.tasks[id] ? { continuation: { note: continuation.tasks[id].note, verdicts: continuation.tasks[id].verdicts } } : {}) }]))
   source = source.replace(/^const WAVE_ARGS = .+$/m, () => 'const WAVE_ARGS = ' + JSON.stringify(wave))
 }
 const reports = Object.fromEntries(Object.entries(recovery?.tasks || {}).map(([id, t]) => [id, t.report]))
@@ -61,6 +85,9 @@ const usage = recovery ? { ...recovery.summary.usage } : { input: 0, cacheCreati
 const childEnv = { ...process.env }; delete childEnv.CLAUDECODE
 const save = (path, value) => writeFileSync(path, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 })
 const log = text => process.stderr.write('claude-wave-runner: ' + text + '\n')
+const progress = createProgress(options.out, 'claude-wave-runner')
+const runStart = Date.now()
+const ROLE_NAMES = { exec: 'executor call', judge: 'review' }
 let active = 0
 const waiters = []
 async function slot() { if (active >= Number(options.jobs)) await new Promise(r => waiters.push(r)); else active++ }
@@ -86,7 +113,7 @@ async function processRun(executable, argv, stdin, stdoutPath, stderrPath, cwd =
 
 async function agent(prompt, opts) {
   await slot()
-  let checkout, execTask, accepted = false
+  let checkout, execTask, accepted = false, stage, stageTask, stageStart, outcome
   try {
     const [role, id] = opts.label.split(':')
     if (role === 'exec') execTask = id
@@ -120,7 +147,13 @@ async function agent(prompt, opts) {
       if (r.status !== 0) throw new Error(r.stderr || 'git failed')
       return r.stdout.trim()
     }
-    if (recovery) candidate(options.repo, options.base, id, recovery.tasks[id].head)
+    // A continued task starts from the pinned candidate; after its one
+    // executor attempt the branch has moved on by design.
+    if (recovery && !continuationRan.has(id)) candidate(options.repo, options.base, id, recovery.tasks[id].head)
+    if (role === 'exec' && continuation?.tasks[id] && !continuationRan.has(id)) {
+      continuationRan.add(id)
+      progress(id, 'continuation: one more attempt with the coordinator\'s note (' + continuation.tasks[id].approvedBy + ')')
+    }
     if (role === 'judge') {
       branchHead = git(['rev-parse', '--verify', 'refs/heads/wave/' + id])
       if (latestFacts.get(id)?.verification?.head !== branchHead) return null
@@ -128,7 +161,12 @@ async function agent(prompt, opts) {
       git(['worktree', 'add', '--detach', checkout, branchHead])
       applyLinks(options.repo, checkout, wave.worktree?.links || [])
     }
+    stage = (ROLE_NAMES[role] || role) + ' ' + n
+    stageTask = id
+    stageStart = Date.now()
+    progress(id, stage + ' started (' + opts.model + ' ' + opts.effort + (resumed ? ', same session' : '') + ')')
     const transportOk = await processRun(options.claude || 'claude', argv, input, entry.result, entry.stderr, checkout || options.repo)
+    entry.seconds = (Date.now() - stageStart) / 1000
     let result
     try { result = JSON.parse(readFileSync(entry.result, 'utf8')) } catch { return null }
     const u = result.usage || {}
@@ -159,7 +197,9 @@ async function agent(prompt, opts) {
           || (['must_run', 'forbidden-move'].includes(v.class) && typeof v.satisfiable !== 'boolean'))) return null
     } else if (typeof answer !== 'string' || answer.trim() === '') return null
     entry.ok = true
+    outcome = opts.schema ? verdictNote(answer) : 'finished'
     if (role === 'exec') {
+      if (continuation?.tasks[id]) continuationReported.add(id)
       reports[id] = answer
       executorSessions.set(id, { sessionId, model: opts.model, effort: opts.effort })
       accepted = true
@@ -169,6 +209,8 @@ async function agent(prompt, opts) {
     // A failed executor call forfeits its session: the policy's single retry
     // then starts fresh with the full rework prompt.
     if (execTask !== undefined && !accepted) executorSessions.delete(execTask)
+    if (stage) progress(stageTask, stage + ' ' + (outcome ? 'finished' : 'failed') + ' in '
+      + formatElapsed((Date.now() - stageStart) / 1000) + (outcome && outcome !== 'finished' ? ': ' + outcome : ''))
     if (checkout) spawnSync('git', ['-C', options.repo, 'worktree', 'remove', '--force', checkout], { encoding: 'utf8', timeout: 30000 })
     release()
   }
@@ -182,9 +224,12 @@ async function verify(task, report) {
     links: wave.worktree?.links || [], report, cache: factsCache.get(task.id) || [], logDir: prefix + '.logs',
     timeoutMs: Number(options['timeout-min']) * 60000 }
   save(prefix + '.request.json', request)
+  const verifyStart = Date.now()
+  progress(task.id, 'checks started')
   // Separate process keeps long builds from blocking child timeouts and CLI IO.
   if (!await processRun(process.execPath, [join(here, 'mechanical-verify.mjs'), '--request', prefix + '.request.json',
     '--output', prefix + '.json'], '', prefix + '.stdout', prefix + '.stderr', options.repo, false)) throw new Error('verification failed: ' + prefix + '.stderr')
+  progress(task.id, 'checks finished in ' + formatElapsed((Date.now() - verifyStart) / 1000))
   const { pipeline, ...facts } = JSON.parse(readFileSync(prefix + '.json', 'utf8'))
   factsCache.set(task.id, [pipeline])
   latestFacts.set(task.id, facts)
@@ -201,6 +246,7 @@ let result
 try {
   if (options.preflight === 'on' && !recovery) {
     const blocks = []
+    progress('wave', 'preflight started')
     for (const task of wave.tasks) {
       const prefix = join(options.out, 'preflight-' + task.id)
       save(prefix + '.request.json', { pipelineOnly: true, repo: wave.repoPath, head: wave.base, base: wave.base,
@@ -213,6 +259,7 @@ try {
         .map(m => detectEnvironmentBlock(m.attempts.at(-1).stdout + m.attempts.at(-1).stderr)).filter(Boolean)
       blocks.push(...taskBlocks.map(block => task.id + ': ' + block.line))
     }
+    progress('wave', 'preflight ' + (blocks.length ? 'blocked' : 'finished'))
     if (blocks.length) throw new Error('environment-blocked: ' + blocks.join('; '))
   }
   if (recovery) claimRecovery(recovery, join(options.out, 'summary.json'))
@@ -235,8 +282,12 @@ const afterIntegration = result.tasks.some(task => task.status === 'ok')
   ? ['node', join(here, 'wave-cleanup.mjs'), '--repo', options.repo, '--plan', resolve(options.plan),
     '--wave', options.wave, '--summary', join(options.out, 'summary.json')].map(part => shellQuote(String(part))).join(' ')
   : undefined
-const summary = { ...result, children, usage, recovery: makeRecoveryReceipt(scope, children, reports),
-  ...(recovery ? { previousSummary: recovery.path } : {}), ...(afterIntegration ? { afterIntegration } : {}) }
+for (const task of result.tasks) progress(task.id, task.status === 'ok' ? 'accepted' : 'stopped (' + task.status + ')')
+progress('wave', 'finished: ' + result.status)
+const summary = { ...result, wallSeconds: (Date.now() - runStart) / 1000, children, usage,
+  recovery: makeRecoveryReceipt(scope, children, reports, continuationCounts(recovery, continuationReported)),
+  ...(recovery ? { previousSummary: recovery.path } : {}),
+  ...(continuation ? { continuation: continuationRecord(continuation, join(options.out, 'continuation-note.md')) } : {}), ...(afterIntegration ? { afterIntegration } : {}) }
 save(join(options.out, 'summary.json'), summary)
 console.log(JSON.stringify({ status: summary.status, tasks: summary.tasks.map(({ id, status, branch }) => ({ id, status, branch })),
   errors: summary.errors, modelCalls: children.length, summaryPath: join(options.out, 'summary.json'),

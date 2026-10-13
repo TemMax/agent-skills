@@ -67,7 +67,7 @@ ladders.
 Load the shared [route selection](../../skills/multi-model/references/codex-routing.md)
 once, before choosing children. It governs routing across profiles: use
 available explicit executors and the supervisor chosen at Gate 1 (premium
-Astra with `approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves)
+Astra with `approvals.premium`, or standard `gpt-6.1-sol` for Luna and Sol waves)
 without a separate calibration gate. Historical fixture failures inform
 verification; they do not block writing a concrete plan for the one start
 approval.
@@ -117,8 +117,10 @@ approval.
    on them. Routes are your decision: executor tiers, the supervisor and the
    review model. Never present a premium-or-standard choice to the user, and
    never ask the user to approve a route or a model. The supervisor is:
-   - standard, the default: `gpt-6.1-sol` for waves whose executors and rungs are only
-     `gpt-6-luna` — supervisor fixture 9/9 on 2026-09-29; its predecessor
+   - standard, the default: `gpt-6.1-sol` for waves whose executors and rungs are
+     `gpt-6-luna` or `gpt-6.1-sol` — the same model may supervise work of
+     its own tier from a fresh session (ADR 015). Supervisor fixture 9/9 on
+     2026-09-29; its predecessor
      `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and
      2026-09-24 and three real small waves merge-ready first try — toy
      waves, correct work only;
@@ -127,8 +129,12 @@ approval.
      repository's instruction files (`AGENTS.md`, `CLAUDE.md`); record it in
      `approvals.premium` with the source in `reason`. Without an
      authorization, use the standard route;
-   - a wave with a `gpt-6.1-sol` or `gpt-6-sol` executor has no standard
-     supervisor — it needs `gpt-6-astra`.
+   - the supervisor is never a weaker tier than an executor or rung of its
+     wave: only a wave in which Astra executes needs `gpt-6-astra`.
+
+   Route each task by what it needs — mechanical to `gpt-6-luna`, anything
+   that needs reasoning to `gpt-6.1-sol`. Never cut reasoning work into
+   mechanical tasks to fit a route.
 
    When a task has no standard delegated route and there is no premium
    authorization, cut it into tasks that have one, or mark it for the
@@ -146,7 +152,7 @@ approval.
      ship never picks one.
 
    If the Tasks step later changes a wave so the chosen supervisor no longer
-   fits (for example the wave gains a `gpt-6.1-sol` executor), pick the
+   fits (for example the wave gains an Astra rung), pick the
    fitting standard supervisor and say so in the Gate 2 message; when no
    standard supervisor fits and there is no premium authorization, apply the
    rule above for a task with no standard delegated route. Never carry the
@@ -168,11 +174,12 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    five-key contract; the active profile chooses every model, effort,
    supervisor, and ladder field, with the wave's supervisor chosen for the
    strongest model any task in the wave can run — every executor AND every
-   ladder rung — from multi-model's supervisor table; a supervisor that also
-   appears as an executor or rung is a lint error. Give every rung an exact
-   ID; a `gpt-6-luna` task under a `gpt-6.1-sol` supervisor takes
-   `"ladder": []`, since a `gpt-6.1-sol` rung would collide with the
-   supervisor. Group into waves by file-independence: same-wave tasks must
+   ladder rung — from multi-model's supervisor table; a supervisor of a
+   weaker tier than an executor or rung is a lint error, and the supervisor
+   may be the same model as one of them. Give every rung an exact
+   ID; a `gpt-6-luna` task takes `"ladder": ["gpt-6.1-sol"]`, so a task
+   rejected twice moves to the stronger model instead of stopping.
+   Group into waves by file-independence: same-wave tasks must
    not share files — merge colliding tasks or split them across consecutive
    waves. Dependent chains are consecutive waves, never one wave.
 
@@ -550,7 +557,7 @@ When there is no user to answer gates (an eval harness runs you), skip both
 gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
 silently is the failure this mode exists to measure. A headless run uses
-standard supervisors only — `gpt-6.1-sol` for all-Luna waves; a wave that
+standard supervisors only — `gpt-6.1-sol` for Luna and Sol waves; a wave that
 would need `gpt-6-astra`, and any premium choice it would have asked the
 user for, goes under `Assumptions (would ask)` instead, and the plan
 carries no `approvals.premium` invented by the model. It also leaves the `review` key unset and records the review choice under `## Assumptions (would ask)`.

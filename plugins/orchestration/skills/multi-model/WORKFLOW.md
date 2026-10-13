@@ -221,6 +221,36 @@ phrased as a yes/no question for the user to approve or decline. This keeps
 the long-waits rule below: wait on a running agent or runner with long waits,
 not frequent polls.
 
+**After a rejected task stops.** A task that stopped as `failed` — rejected
+on its last rung — gets one continuation on the same code, and that first one
+is your decision, made without a question. Read every verdict and the
+candidate's diff, write a short note that says what is wrong and where to fix
+it, and run the native runner again with
+`--resume-from <summary.json> --continue-note <note file>` and a new `--out`.
+When several tasks of the wave stopped, give each its own `## Task <id>`
+section in the note. The executor is the task's strongest model at `high`, in
+a fresh session, on the existing branch; the review is fresh too. Tell the user in one line that
+you continued and why. A second continuation of the same task needs the
+user's yes — ask one yes/no question, then add `--user-approved`. The attempt
+cap is not raised. The note carries diagnosis only: never a new requirement
+and never a relaxed check — a contract defect goes through the amendment
+flow. Never write a new plan or a renamed task for work a stopped task already
+holds: that discards the candidate and resets its history.
+Do not patch the stopped candidate yourself either: the receipt pins its
+commit, and a continuation keeps the fix under the same review.
+
+**A running wave is reported; a finished one is read first.** The native
+runners append one line per stage to `progress.log` in the run directory
+(`--out`): task, stage, call number, model and elapsed time. Between long
+waits read its last lines and tell the user in one line which task is at
+which stage and how long the wave has run. Elapsed time is a measured fact,
+not an estimate. A runner keeps working when the user interrupts the turn. On
+the next turn, before launching anything, look at the run directory of the
+runner you started: with a `summary.json`, report its result first; without
+one while the runner process is alive, wait for it; without one and with no
+live process, report a crashed run with the last progress lines. Never start
+a second runner for a wave whose runner has not finished.
+
 **Decide, act, report.** Ask the user only for: a contradiction in the
 feature (the plan, the design, the code or a new instruction disagree and the
 choice changes what ships); a change of the agreed scope; weakening or
@@ -270,8 +300,9 @@ default heavy executor and verifier. `claude-sonnet-5` is retired as a route
 (2026-09-28); the ID stays valid so that approved plans still execute.
 `claude-haiku-4-5-20251001` is retired as a route (2026-10-08) on the same
 terms. Opus 5 remains addressable as
-`claude-opus-5` — the standard supervisor for Opus 5.5 executors and for
-tasks whose rungs reach Opus 5.5; retired as an executor. Opus 4.8
+`claude-opus-5` so that approved plans still run; it is retired as an
+executor and, since Opus 5.5 supervises its own tier (2026-10-13), no longer
+chosen as a supervisor. Opus 4.8
 (`claude-opus-4-8`) is retained only for compiled-binary work and as the
 cyber-refusal fallback.
 
@@ -520,6 +551,12 @@ reduce the documented failure modes:
    without that command's actual output is not weak evidence — it is a
    violation in its own right.
 
+   `report_must_answer` asks about behaviour and decisions: what the code does
+   now, what was left out and why. Never ask the executor to reproduce what git
+   already holds — a diff, a list of changed files, a commit id. The supervisor
+   reads those from the branch itself, so a pasted copy adds no evidence and a
+   slip in it stops correct work; the linter warns about such a question.
+
    State the prohibitions explicitly and loudly. This is measured, not
    stylistic: an explicit "don't work around it — report it" lowers fabricated
    workarounds from 17.4% to 9.1% for Fable 5 (pp. 161–163) and from 9.4% to
@@ -539,9 +576,9 @@ a vote on. A stage can also do what advice cannot: reject and re-run.
 
 Send `references/supervisor-prompt.md` to a fresh separate supervisor with the
 contract, report, base SHA and branch. It never reuses an executor child or forks
-its conversation, even when model and effort match. Astra's separately approved
-executor exception uses a fresh Astra supervisor and is fresh-context separation,
-not different-model independence; other supervisor restrictions remain.
+its conversation, even when model and effort match. The supervisor may be the
+executor's own model: that is fresh-context separation, not different-model
+independence (ADR 015). It is never a weaker tier than the executor.
 
 ### Mechanical verification before the judge
 
@@ -552,36 +589,41 @@ verifier never decides `ok`; for the details and the load-bearing properties rea
 
 ### Choosing the supervisor — Quick Reference
 
-Two hard rules, then the table. Use a fresh separate supervisor; outside the
-separately approved Astra exception, never the executor's own model
-(self-preference: ≈0 for Opus 4.8; measured zero for Fable 5; 0.1 points out of
-10 for Fable 5.1, lenient when told the author is Claude, Fable 5.1 card
-p. 124; Opus 5 now measured ≈0, +0.05 / −0.03 with intervals crossing zero,
-Opus 5.5 card p. 128; Opus 5.5 +0.07 of 10 when its prompt reminds it that it
-is Claude, Opus 5.5 card p. 128 — which is why the runner's judge prompt
-never names the executor's model. Not stating it does not stop a judge in an
-all-Claude pipeline from inferring it; what bounds the effect is the magnitude
-and the contract's mechanical half — verifier facts and grep-decidable checks
-the judge cannot soften). Never a weaker tier than the executor's: the judge
+Two hard rules, then the table. Use a fresh separate supervisor: its own
+session, never an executor's handle or conversation, and never told which model
+wrote the work. Never a weaker tier than the executor's: the judge
 re-runs and re-derives everything the executor did. Tier means product class —
-Haiku < Sonnet < Opus < Fable — not a benchmark score, so Fable 5.1 is not a
-weaker tier than Opus 5.5 even where Opus 5.5 benchmarks higher.
+Haiku, then Sonnet, then Opus and Fable together — not a benchmark score, so
+Fable 5.1 is not a weaker tier than Opus 5.5 even where Opus 5.5 benchmarks
+higher.
+
+The same model may supervise its own tier's work (ADR 015,
+`docs/decisions/015-same-model-supervision.md`). Measured self-preference is
+small even when the judge is told the author is Claude: ≈0 for Opus 4.8;
+measured zero for Fable 5; 0.1 points out of 10 for Fable 5.1 (Fable 5.1 card
+p. 124); Opus 5 ≈0, +0.05 / −0.03 with intervals crossing zero, and Opus 5.5
++0.07 of 10 (Opus 5.5 card p. 128). The runner's judge prompt
+never names the executor's model, and the contract's mechanical half — verifier facts and
+grep-decidable checks — is not the judge's to soften. Not measured: whether a
+model misses the kind of mistake it makes itself. The final review of the
+whole branch is the second look at that.
 
 | Executor | Supervisor | Effort |
 |---|---|---|
-| Haiku 5.5 (`claude-haiku-5-5`) | Sonnet 5.5 (`claude-sonnet-5-5`) when every task of the wave is Haiku 5.5 with `"ladder": []` (measured 2026-10-08: supervisor fixture 9/9 in three runs, F3 guard 15/15); otherwise Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
+| Haiku 5.5 (`claude-haiku-5-5`) | Sonnet 5.5 (`claude-sonnet-5-5`) when every task of the wave is Haiku 5.5 with `"ladder": []` (measured 2026-10-08: supervisor fixture 9/9 in three runs, F3 guard 15/15); otherwise Opus 5.5 (`claude-opus-5-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
 | Haiku 4.5 (`claude-haiku-4-5-20251001`) | retired route — same supervisor as the Haiku 5.5 row | high |
-| Sonnet 5.5 (`claude-sonnet-5-5`) | Opus 5.5 (`claude-opus-5-5`) when no rung reaches Opus 5.5 (`"ladder": []`; an omitted ladder uses the runner's default ladder, which does) — otherwise Opus 5 (`claude-opus-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
+| Sonnet 5.5 (`claude-sonnet-5-5`) | Opus 5.5 (`claude-opus-5-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
 | Sonnet 5 (`claude-sonnet-5`) | retired route — same supervisor as the Sonnet 5.5 row | high |
-| Opus 5.5 (`claude-opus-5-5`) | Fable 5.1 (`claude-fable-5-1`), fallback Opus 5 (`claude-opus-5`) | high |
+| Opus 5.5 (`claude-opus-5-5`) | Opus 5.5 (`claude-opus-5-5`) in a fresh session; Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
 | Opus 5 (`claude-opus-5`) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) | high |
 | Opus 4.8 (`claude-opus-4-8`) | Opus 5.5 (`claude-opus-5-5`, standard) or Fable 5.1 (`claude-fable-5-1`, premium — `approvals.premium`) | high |
-| Fable 5.1 (`claude-fable-5-1`, explicit specialized choice or approved rung) | Opus 5.5 (`claude-opus-5-5`), fallback Opus 5 (`claude-opus-5`) | high |
+| Fable 5.1 (`claude-fable-5-1`, explicit specialized choice or approved rung) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) in a fresh session | high |
 
 A wave has one supervisor, so pick its row by the strongest model any task
 in the wave can run, ladder rungs included — a `claude-sonnet-5-5` task whose
-ladder reaches `claude-opus-5-5` is supervised by `claude-fable-5-1`, not by
-Opus 5.5 (the runner and the linter reject a supervisor that is also a rung).
+ladder reaches `claude-opus-5-5` is supervised by Opus 5.5 itself, and a
+Haiku 5.5 task whose ladder reaches it cannot stay under Sonnet 5.5 (the
+runner and the linter reject a supervisor of a weaker tier than a rung).
 The rung rule counts the default ladder: an omitted `ladder` field is not an
 empty one — it inherits the runner's default ladder, which reaches
 `claude-opus-5-5`, so only an explicit `"ladder": []` opts a task out of it.
@@ -600,8 +642,8 @@ AGENTS.md" or "user's instruction in this session"), and `approved_by` stays
 fix and recovery waves while the models and roles stay the same. Without an
 authorization use the standard route; when no standard delegated route fits,
 fix directly per step 8. The report notes in one line where a premium route
-would have applied. Standard alternatives: Opus 5.5 (Sonnet/Haiku waves),
-Opus 5 (for Opus 5.5 executors), Codex `gpt-6.1-sol` for Luna-only waves.
+would have applied. Standard supervisors: Opus 5.5 for Claude waves, its own
+executors included; Codex `gpt-6.1-sol` for Luna and Sol waves.
 
 Plans name every supervisor by its full ID (see Model identifiers above): Fable
 5.1 is `claude-fable-5-1`. Fable 5 is no longer addressable and keeps its
@@ -638,7 +680,8 @@ what escalates. Before judging or acting on a verdict, read
 | `pasteReproduced: false` on two attempts | Escalate to a stronger model: once is explicable, twice is a pattern, and the count is the ladder's to keep |
 | Executor is already the strongest model | No higher rung: one rework with the verdict attached, then stop |
 | The contract cannot be satisfied | Stop immediately — no rework, no stronger model. Return the task to yourself to amend the contract — before acting, read `references/contract-amendment.md` |
-| Stop | Hand the user the task, every verdict in order, and the branch name |
+| Stop as `failed`, no continuation used yet | One continuation on the same code with your note — see After a rejected task stops |
+| Stop | Hand the user the task, every verdict in order, the branch name, and from `summary.json` the executor and supervisor models, the attempts used and the elapsed time |
 
 The native runners continue the same executor session for that rework and send only the verdict, not the full prompt again. An escalation to a stronger model, raised effort, a new runner invocation (`--resume-from`, `--reset`) or a failed resume starts a fresh executor with the full prompt; a failed resume costs no extra attempt. Supervisors are always fresh.
 
@@ -665,7 +708,7 @@ supervised wave, stop before publication rather than push around the gate.
   generates the launch script and invokes the shipped runner).
 - Codex-only wave (GPT-6 Sol/Luna or GPT-5.6 executors, or separately approved
   Astra initial/final rung; supervisor per shared Codex routing (premium Astra
-  with `approvals.premium`, or standard `gpt-6.1-sol` for all-Luna waves)): read
+  with `approvals.premium`, or standard `gpt-6.1-sol` for Luna and Sol waves)): read
   and follow `references/codex-wave-protocol.md`; do not invoke Claude
   Workflow. Its default adapter is `references/codex-wave-runner.mjs`, as
   described there, with the native action loop as fallback. Launch
@@ -750,7 +793,7 @@ Each of these comes from a measured failure, not from general caution.
 |---|---|
 | State the prohibitions to the executor loudly and explicitly | Explicit "don't work around — report" lowers fabrication: Fable 17.4% → 9.1% (pp. 161–163), Opus 4.8 9.4% → 2.8% (pp. 109–110) |
 | Do NOT disclose the supervisor's specific checks to the executor | Grader awareness reaches 24–30% and changes behavior at the surface level (Fable pp. 171–181) |
-| Fresh separate supervision; same-model only for approved Astra exception | Astra exception evidence has no dedicated self-preference measurement; Opus 4.8 (pp. 122–124) ≈0 and Fable 5 (pp. 202–203) measured zero; Fable 5.1 0.1/10 (Fable 5.1 card p. 124); Opus 5 now measured ≈0, +0.05 / −0.03 (Opus 5.5 card p. 128); Opus 5.5 +0.07/10 with a Claude-identity prompt (Opus 5.5 card p. 128) |
+| Fresh separate supervision, never a weaker tier; the same model is allowed (ADR 015) | GPT models have no dedicated self-preference measurement; Opus 4.8 (pp. 122–124) ≈0 and Fable 5 (pp. 202–203) measured zero; Fable 5.1 0.1/10 (Fable 5.1 card p. 124); Opus 5 now measured ≈0, +0.05 / −0.03 (Opus 5.5 card p. 128); Opus 5.5 +0.07/10 with a Claude-identity prompt (Opus 5.5 card p. 128) |
 | A claim without command output is a violation | Caveat laundering: "I verified this myself" while spot-checking only ancillary facts (pp. 37–39) |
 | Attach verdicts; never paraphrase an executor report in their place | Opus 5 relays subagent claims unverified (p. 81) |
 | Stopping early with open plan items is a violation | Fable stops on spurious token-budget concerns, 2.43M tokens unspent (pp. 170–171) |
@@ -769,9 +812,9 @@ two, that it diffs the tests against the recorded base SHA, that it greps for
 the forbidden moves. An executor told the rules complies with the rules; an
 executor told how compliance is measured optimizes for the measurement.
 
-**Choosing the supervisor's model.** Outside the approved Astra exception, never
-the executor's own — pick from the supervisor table. Opus 4.8 (pp. 122–124)
-and Opus 5 (Opus 5.5 card p. 128) are measured ≈0, so Opus 5 may now supervise.
+**Choosing the supervisor's model.** Pick from the supervisor table; the
+executor's own model is allowed, a weaker tier is not. Opus 4.8 (pp. 122–124)
+and Opus 5 (Opus 5.5 card p. 128) are measured ≈0.
 Fable 5.1 carries a measured 0.1/10 lenience when told the author is Claude
 (p. 124), and Opus 5.5 a measured +0.07/10 with a Claude-identity prompt
 (Opus 5.5 card p. 128): both supervise, with a measured small bias. The judge
@@ -808,7 +851,7 @@ Opus 5 relays subagent claims unverified (p. 81).
 | Numeric example in the spec computed in your head | The example contradicts the formula, the agent stalls | Compute with a tool or give only the formula |
 | Not warning about parallel file changes | The agent treats the wave as an anomaly, wastes steps | List the files its neighbors modify |
 | Documentation assigned to no one | README silently goes stale | An explicit docs task in the decomposition |
-| Reusing an executor as supervisor | The role can inherit its own work; Astra same-model exception is only fresh-context separation | Fresh distinct role handle; outside approved Astra, pick from the supervisor table (Opus 5.5, Fable 5.1, Opus 5, Opus 4.8) and never name the executor to the judge |
+| Reusing an executor's session as supervisor | The role inherits its own work and reasoning | Fresh distinct role handle, the same model allowed; pick from the supervisor table and never name the executor to the judge |
 | Telling the executor how compliance is measured | Grader awareness turns compliance performative at the surface | Rules explicit, method undisclosed |
 | Accepting a claim with no command output | The cheapest fabrication passes untouched | `evidence: required`, and compare it with your own re-run |
 | Asking a supervisor to judge whether a mismatch was dishonest | It cannot know, and it reaches for the heaviest label — four fixes failed the same way | Record `pasteReproduced` as a fact; let repetition across attempts carry the consequence |

@@ -258,12 +258,16 @@ echo x >> "$NAV_STUB_LOG/calls"
 SH
 mkdir -p "$W/cnt"; rm -f "$W/cnt/calls"
 cmout="$(unset SKILL_DIR REF_ROOT; PATH="$BIN:$CBIN:$PATH" NAV_STUB_LOG="$W/cnt" EVAL_PROVIDER=claude EVAL_MODEL=stub-model EVAL_REPEAT=1 nav_main 2>&1)"
-expect "claude runs seven probes" "7" "$(wc -l < "$W/cnt/calls" | tr -d ' ')"
+expect "claude runs eleven probes" "11" "$(wc -l < "$W/cnt/calls" | tr -d ' ')"
 contains "claude run includes N6" "N6 — failure cause inside a large log: search first" "$cmout"
 contains "claude run includes N7" "N7 — failure cause that has to be read out of a large log" "$cmout"
 rm -f "$W/cnt/calls"
 cxout="$(unset SKILL_DIR REF_ROOT; PATH="$BIN:$CBIN:$PATH" NAV_STUB_LOG="$W/cnt" EVAL_PROVIDER=codex EVAL_MODEL=stub-model EVAL_REPEAT=1 nav_main 2>&1)"
-expect "codex runs five probes" "5" "$(wc -l < "$W/cnt/calls" | tr -d ' ')"
+expect "codex runs nine probes" "9" "$(wc -l < "$W/cnt/calls" | tr -d ' ')"
+rm -f "$W/cnt/calls"
+onout="$(unset SKILL_DIR REF_ROOT; PATH="$BIN:$CBIN:$PATH" NAV_STUB_LOG="$W/cnt" EVAL_PROVIDER=codex EVAL_MODEL=stub-model EVAL_REPEAT=1 EVAL_ONLY="N8 N9" nav_main 2>&1)"
+expect "EVAL_ONLY runs only the named probes" "2" "$(wc -l < "$W/cnt/calls" | tr -d ' ')"
+contains "EVAL_ONLY run includes N9" "N9 — an interrupted wave is read before anything is launched" "$onout"
 case "$cxout" in *"N6"*) fail "codex skips N6" "$cxout" ;; *) pass "codex skips N6" ;; esac
 case "$cxout" in *"N7"*) fail "codex skips N7" "$cxout" ;; *) pass "codex skips N7" ;; esac
 

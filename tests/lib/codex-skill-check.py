@@ -47,7 +47,7 @@ PHRASES = {
         "long waits, not frequent polls",
         "Every child has an explicit",
         "executors never spawn their own",
-        "never the executor's own model",
+        "Never a weaker tier than the executor's",
         "only `violations` decide",
         "Mixed or unknown-provider wave",
     ],

@@ -83,7 +83,8 @@ See `execution-cost-controls.md` for exact scope and limitations.
 
 An environment repair does not amend the contract. A genuine new requirement,
 a changed base or role, or work that still needs implementation is not this
-recovery mode. Prepare an authorized implementation plan, record previous costs,
+recovery mode. A candidate rejected for its code gets a continuation
+(`--continue-note`, see `execution-cost-controls.md`), not an amendment. Prepare an authorized implementation plan, record previous costs,
 and preserve the old candidate/evidence. Do not rename a task merely to reset
 its history or budget. A legacy summary without a receipt cannot be silently
 converted into a native recovery receipt.

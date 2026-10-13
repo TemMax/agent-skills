@@ -261,7 +261,7 @@ rm -f "$LOGF"
 rm -f "${TMPDIR:-/tmp}"/claude-drift-memo-memo-*
 
 # 9d. exact provider routing in dry-run. Claude retains its historical dry-run
-# text; Codex names the exact different-model judge and fixed high effort.
+# text; Codex names the exact judge and fixed high effort.
 setup_repo; write_plan active "branch: wave/alpha"; write_transcript "$CLAIM"
 git -C "$WORK/repo" branch wave/alpha
 ROUTING_CLAIM='Summary: 2 tasks done, verified, nothing remaining.'
@@ -270,11 +270,11 @@ expect "Astra routes to the GPT-6.1 Sol-high judge" "would-call: host=codex judg
   "$(run_hook 'Summary: all tasks done, nothing remaining.' gpt-6-astra)"
 expect "GPT-6 Sol routes to the GPT-6.1 Sol-high judge" "would-call: host=codex judge=gpt-6.1-sol effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-6-sol)"
-expect "GPT-6.1 Sol routes to the GPT-5.6 Sol-high judge" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
+expect "GPT-6.1 Sol routes to the GPT-6.1 Sol-high judge" "would-call: host=codex judge=gpt-6.1-sol effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-6.1-sol)"
 expect "GPT-6 Luna routes to the GPT-6.1 Sol-high judge" "would-call: host=codex judge=gpt-6.1-sol effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-6-luna)"
-expect "no GPT-6 seat is judged by itself" "would-call: host=codex judge=gpt-5.6-sol effort=high" \
+expect "a GPT-6.1 Sol seat no longer depends on a GPT-5.6 judge" "would-call: host=codex judge=gpt-6.1-sol effort=high" \
   "$(DRIFT_CHECK_JUDGE_MODEL= run_hook "$ROUTING_CLAIM" gpt-6.1-sol)"
 expect "Sol routes to Terra-high" "would-call: host=codex judge=gpt-5.6-terra effort=high" \
   "$(run_hook "$ROUTING_CLAIM" gpt-5.6-sol)"
@@ -302,7 +302,7 @@ expect "override names the GPT-6.1 Sol judge for a Luna seat" \
 expect "override names the GPT-5.6 Sol judge for a GPT-6.1 Sol seat" \
   "would-call: host=codex judge=gpt-5.6-sol effort=high" \
   "$(DRIFT_CHECK_JUDGE_MODEL=gpt-5.6-sol run_hook "$ROUTING_CLAIM" gpt-6.1-sol)"
-expect "override equal to the seat is refused as self-judge" "silent: self-judge" \
+expect "override equal to the seat is accepted" "would-call: host=codex judge=gpt-6.1-sol effort=high" \
   "$(DRIFT_CHECK_JUDGE_MODEL=gpt-6.1-sol run_hook "$ROUTING_CLAIM" gpt-6.1-sol)"
 expect "Claude ID as override is an unknown judge" "silent: unknown-judge" \
   "$(DRIFT_CHECK_JUDGE_MODEL=claude-opus-5-5 run_hook "$ROUTING_CLAIM" gpt-6-astra)"

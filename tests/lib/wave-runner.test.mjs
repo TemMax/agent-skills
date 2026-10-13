@@ -189,18 +189,34 @@ test('S9b the full ID claude-opus-4-8 runs as supervisor over a full-ID ladder',
   assert.ok(calls.some((c) => c.opts.model === 'claude-opus-4-8'))
 })
 
-test('S9c a ladder containing the supervisor model fails closed with zero agent calls', async () => {
+test('S9c a supervisor of a weaker tier than a ladder rung fails closed with zero agent calls', async () => {
   const bad = waveArgs({
-    supervisor: { model: 'claude-fable-5-1', effort: 'high' },
-    tasks: [task({ ladder: ['claude-fable-5-1'] })],
+    supervisor: { model: 'claude-sonnet-5-5', effort: 'high' },
+    tasks: [task({ executor: { model: 'claude-haiku-5-5', effort: 'medium' }, ladder: ['claude-opus-5-5'] })],
   })
   const { result, calls } = await runWorkflow(SCRIPT, {
     args: bad,
     agentStub: () => { throw new Error('no agent may be called') },
   })
   assert.equal(result.status, 'invalid-args')
-  assert.match(result.errors.join('; '), /supervisor model also appears as executor or ladder rung/)
+  assert.match(result.errors.join('; '),
+    /supervisor claude-sonnet-5-5 is a weaker tier than executor or ladder rung claude-opus-5-5/)
   assert.equal(calls.length, 0)
+})
+
+test('S9c2 the supervisor model may also be the executor or a ladder rung', async () => {
+  for (const over of [
+    { executor: { model: 'claude-opus-5-5', effort: 'medium' }, ladder: [] },
+    { executor: { model: 'claude-sonnet-5-5', effort: 'medium' }, ladder: ['claude-opus-5-5'] },
+    { executor: { model: 'claude-sonnet-5-5', effort: 'medium' }, ladder: undefined },
+  ]) {
+    const { result, calls } = await runWorkflow(SCRIPT, {
+      args: waveArgs({ supervisor: { model: 'claude-opus-5-5', effort: 'high' }, tasks: [task(over)] }),
+      agentStub: stub({ 't-one': [V.ok()] }),
+    })
+    assert.equal(result.status, 'done', JSON.stringify(result.errors))
+    assert.ok(calls.some((c) => c.opts.label === 'judge:t-one' && c.opts.model === 'claude-opus-5-5'))
+  }
 })
 
 test('S9d a truncated ID is rejected as executor and as ladder rung', async () => {
@@ -230,9 +246,9 @@ test('S9e repeated or self-transitioning ladder models fail closed with zero age
 })
 
 test('S9f an omitted ladder defaults to the escalation ladder, which validation checks too: ' +
-  'a claude-sonnet-5 task under a claude-opus-5-5 supervisor fails closed', async () => {
+  'a claude-sonnet-5 task under a claude-sonnet-5-5 supervisor fails closed', async () => {
   const bad = waveArgs({
-    supervisor: { model: 'claude-opus-5-5', effort: 'high' },
+    supervisor: { model: 'claude-sonnet-5-5', effort: 'high' },
     tasks: [task({ executor: { model: 'claude-sonnet-5', effort: 'medium' }, ladder: undefined })],
   })
   const { result, calls } = await runWorkflow(SCRIPT, {
@@ -240,7 +256,7 @@ test('S9f an omitted ladder defaults to the escalation ladder, which validation 
     agentStub: () => { throw new Error('no agent may be called') },
   })
   assert.equal(result.status, 'invalid-args')
-  assert.match(result.errors.join('; '), /supervisor model also appears as executor or ladder rung/)
+  assert.match(result.errors.join('; '), /supervisor claude-sonnet-5-5 is a weaker tier than executor or ladder rung claude-opus-5-5/)
   assert.equal(calls.length, 0)
 })
 
@@ -407,9 +423,9 @@ test('S10h with no verifier input, the verifier call uses claude-sonnet-5-5 at l
   assert.equal(ver[0].opts.effort, 'low')
 })
 
-test('S10i a supervisor that collides with a default rung is rejected for claude-sonnet-5-5', async () => {
+test('S10i a supervisor weaker than a default rung is rejected for claude-sonnet-5-5', async () => {
   const bad = waveArgs({
-    supervisor: { model: 'claude-opus-5-5', effort: 'high' },
+    supervisor: { model: 'claude-sonnet-5-5', effort: 'high' },
     tasks: [task({ executor: { model: 'claude-sonnet-5-5', effort: 'medium' }, ladder: undefined })],
   })
   const { result, calls } = await runWorkflow(SCRIPT, {
@@ -417,7 +433,7 @@ test('S10i a supervisor that collides with a default rung is rejected for claude
     agentStub: () => { throw new Error('no agent may be called') },
   })
   assert.equal(result.status, 'invalid-args')
-  assert.match(result.errors.join('; '), /supervisor model also appears as executor or ladder rung/)
+  assert.match(result.errors.join('; '), /supervisor claude-sonnet-5-5 is a weaker tier than executor or ladder rung claude-opus-5-5/)
   assert.equal(calls.length, 0)
 })
 

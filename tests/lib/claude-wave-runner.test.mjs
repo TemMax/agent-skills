@@ -53,9 +53,9 @@ if(!argv.includes('--json-schema')){
   spawnSync('git',['add','.']);spawnSync('git',['-c','commit.gpgsign=false','commit','-m','judge mutation']);
  }
  const firstJudge=seen.filter(c=>c.argv.includes('--json-schema')).length===1;
- const reject=process.env.NATIVE_TEST_MODE==='reject' || process.env.NATIVE_TEST_MODE==='missing-invariant'
+ const reject=['reject','unsat'].includes(process.env.NATIVE_TEST_MODE) || process.env.NATIVE_TEST_MODE==='missing-invariant'
   || (firstJudge && ['reject-once','resume-exit','resume-bad-json'].includes(process.env.NATIVE_TEST_MODE));
- console.log(JSON.stringify({type:'result',is_error:false,structured_output:{ok:!reject,violations:reject?[{class:'report',rule:'answer',evidence:'missing'}]:[],remarks:[]},usage:{input_tokens:2,cache_creation_input_tokens:10,cache_read_input_tokens:50,output_tokens:3}}));
+ console.log(JSON.stringify({type:'result',is_error:false,structured_output:{ok:!reject,violations:reject?[process.env.NATIVE_TEST_MODE==='unsat'?{class:'must_run',rule:'test -f src/one.txt',evidence:'needs a file outside files_allowed',satisfiable:false}:{class:'report',rule:'answer',evidence:'missing'}]:[],remarks:[]},usage:{input_tokens:2,cache_creation_input_tokens:10,cache_read_input_tokens:50,output_tokens:3}}));
 }
 `, { mode: 0o755 })
   const out = join(root, 'run'), calls = join(root, 'calls.jsonl')
@@ -92,6 +92,18 @@ test('native Claude runner spends two model calls, verifies independently and na
   assert.ok(!calls[1].argv[calls[1].argv.indexOf('--tools') + 1].includes('Edit'))
   assert.equal(r.summary.usage.output, 6)
   assert.ok(r.stdout.length < 2000)
+  // One line per stage, with elapsed time, in the run directory and on stderr.
+  const progress = readFileSync(join(f.out, 'progress.log'), 'utf8').trim().split('\n')
+  const stages = progress.map(line => line.replace(/^\[\+\d\d:\d\d\] /, '').replace(/\d\d:\d\d/, 'T').replace(/\(.*\)/, '(M)'))
+  assert.ok(progress.every(line => /^\[\+\d\d:\d\d\] /.test(line)), progress.join('\n'))
+  const id = r.summary.tasks[0].id
+  assert.deepEqual(stages.filter(line => !line.startsWith('wave: preflight')), [
+    id + ': executor call 1 started (M)', id + ': executor call 1 finished in T',
+    id + ': checks started', id + ': checks finished in T',
+    id + ': review 1 started (M)', id + ': review 1 finished in T: accepted',
+    id + ': accepted', 'wave: finished: done'])
+  assert.ok(r.stderr.includes('claude-wave-runner: ' + progress[0]), r.stderr)
+  assert.ok(r.summary.wallSeconds >= 0 && r.summary.children.every(c => c.seconds >= 0))
 })
 
 test('a done run prints the cleanup command in stdout and summary.json; other statuses omit it', t => {
@@ -309,4 +321,98 @@ test('recovery cannot reuse green evidence after a must_run amendment', t => {
   assert.equal(r.summary.children.length, 2, 'no executor or judge can override red mechanical checks')
   const facts = JSON.parse(readFileSync(join(f.out, 'one/verification-1.json'), 'utf8'))
   assert.equal(facts.mustRun[0].exit, 1)
+})
+
+// Continuation: one more executor attempt on a stopped candidate, with the
+// coordinator's note.
+function stopped(t) {
+  const f = fixture(t)
+  const first = run(f, 'reject')
+  assert.equal(first.summary.tasks[0].status, 'failed', first.stderr)
+  assert.equal(first.summary.children.filter(c => c.role === 'exec').length, 2)
+  const note = join(f.root, 'note.md')
+  writeFileSync(note, 'src/one.txt holds the wrong text: write the final answer there.\n')
+  return { f, note, summaryPath: join(f.out, 'summary.json') }
+}
+const continued = (f, name, summaryPath, extra, mode) =>
+  run({ ...f, out: join(f.root, name) }, mode, ['--resume-from', summaryPath, ...extra])
+
+test('a continuation gives a stopped task one fresh attempt at high with the note and the prior verdicts', t => {
+  const { f, note, summaryPath } = stopped(t)
+  const second = continued(f, 'run2', summaryPath, ['--continue-note', note])
+  assert.equal(second.status, 0, second.stderr)
+  assert.equal(second.summary.status, 'done')
+  const execs = second.summary.children.filter(c => c.role === 'exec')
+  assert.equal(execs.length, 3)
+  assert.equal(execs.at(-1).model, 'claude-sonnet-5-5')
+  assert.equal(execs.at(-1).effort, 'high')
+  assert.ok(!('resumed' in execs.at(-1)))
+  const call = readCalls(f).filter(c => !isJudge(c)).at(-1)
+  assert.ok(call.argv.includes('--session-id') && !call.argv.includes('--resume'))
+  assert.match(call.prompt, /^# Task: one/)
+  assert.match(call.prompt, /## Continuation of a stopped task/)
+  assert.match(call.prompt, /COORDINATOR NOTE[^\n]*\nsrc\/one\.txt holds the wrong text/)
+  assert.match(call.prompt, /PRIOR VERDICTS \(oldest first\):/)
+  assert.equal(second.summary.tasks[0].attempts.at(-1).kind, 'continuation')
+  assert.deepEqual(second.summary.continuation.tasks, ['one'])
+  assert.deepEqual(second.summary.continuation.approvedBy, { one: 'coordinator' })
+  assert.match(readFileSync(second.summary.continuation.noteFile, 'utf8'), /wrong text/)
+  assert.equal(second.summary.recovery.tasks.one.executorCalls, 3)
+  assert.equal(second.summary.recovery.tasks.one.continuations, 1)
+  const progress = readFileSync(join(f.root, 'run2', 'progress.log'), 'utf8')
+  assert.match(progress, /one: continuation: one more attempt with the coordinator's note \(coordinator\)\n[^\n]*one: executor call 1 started \(claude-sonnet-5-5 high\)/)
+})
+
+test('a rejected continuation ends the task; a second one needs --user-approved', t => {
+  const { f, note, summaryPath } = stopped(t)
+  const second = continued(f, 'run2', summaryPath, ['--continue-note', note], 'reject')
+  assert.notEqual(second.status, 0)
+  assert.equal(second.summary.tasks[0].status, 'failed')
+  assert.equal(second.summary.children.filter(c => c.role === 'exec').length, 3, 'exactly one more attempt')
+  const secondSummary = join(f.root, 'run2', 'summary.json')
+
+  const before = readCalls(f).length
+  const refused = continued(f, 'run3', secondSummary, ['--continue-note', note])
+  assert.equal(refused.status, 2, refused.stderr)
+  assert.match(refused.stderr, /nothing to continue — one: already had a continuation; a further one needs the user's yes — then pass --user-approved/)
+  assert.equal(readCalls(f).length, before, 'nothing is launched')
+  assert.equal(existsSync(secondSummary + '.resumed'), false)
+  assert.equal(existsSync(join(f.root, 'run3')), false)
+
+  const approved = continued(f, 'run4', secondSummary, ['--continue-note', note, '--user-approved'])
+  assert.equal(approved.status, 0, approved.stderr)
+  assert.deepEqual(approved.summary.continuation.approvedBy, { one: 'user' })
+  assert.equal(approved.summary.recovery.tasks.one.continuations, 2)
+})
+
+test('a continuation is refused without a rejected task, a note or a resumed run', t => {
+  const f = fixture(t)
+  assert.equal(run(f).status, 0)
+  const note = join(f.root, 'note.md'); writeFileSync(note, 'fix it\n')
+  const none = continued(f, 'run2', join(f.out, 'summary.json'), ['--continue-note', note])
+  assert.equal(none.status, 2)
+  assert.match(none.stderr, /the previous run has no rejected task to continue/)
+  const alone = run({ ...f, out: join(f.root, 'run3') }, undefined, ['--continue-note', note])
+  assert.equal(alone.status, 2)
+  assert.match(alone.stderr, /--continue-note continues a stopped run: it requires --resume-from/)
+})
+
+test('a continuation verdict that blames the contract ends as contract-unsatisfiable, not as a rejection', t => {
+  const { f, note, summaryPath } = stopped(t)
+  const second = continued(f, 'run2', summaryPath, ['--continue-note', note], 'unsat')
+  assert.notEqual(second.status, 0)
+  assert.equal(second.summary.tasks[0].status, 'contract-unsatisfiable')
+  const refused = continued(f, 'run3', join(f.root, 'run2', 'summary.json'), ['--continue-note', note, '--user-approved'])
+  assert.equal(refused.status, 2, refused.stderr)
+  assert.match(refused.stderr, /the previous run has no rejected task to continue/)
+})
+
+test('a continuation executor that dies is launched once, ends as an error and is not counted', t => {
+  const { f, note, summaryPath } = stopped(t)
+  const second = continued(f, 'run2', summaryPath, ['--continue-note', note], 'bad')
+  assert.notEqual(second.status, 0)
+  assert.equal(second.summary.tasks[0].status, 'error')
+  assert.equal(second.summary.children.filter(c => c.role === 'exec').length, 3, 'one launch, no relaunch')
+  assert.equal(second.summary.children.filter(c => c.role === 'judge').length, 2, 'no review of a missing report')
+  assert.ok(!('continuations' in second.summary.recovery.tasks.one))
 })

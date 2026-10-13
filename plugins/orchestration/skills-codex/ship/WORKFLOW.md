@@ -64,7 +64,7 @@ user in the language the user writes in.
 Load [shared route selection](../../skills/multi-model/references/codex-routing.md).
 Available GPT-6 executors under the supervisor chosen at Gate 1 — premium
 `gpt-6-astra`/high with `approvals.premium`, or the standard `gpt-6.1-sol`/high
-for Luna-only waves — form an operational route through `super-plan` and
+for Luna and Sol waves — form an operational route through `super-plan` and
 `multi-model` without a separate calibration gate. Check actual capabilities
 before launch; preserve the approvals below. Stage 3 `critical-review` runs in
 a fresh child of the model the plan's `review` key names (chosen at Gate 1;
@@ -304,7 +304,7 @@ and branch names — never a bare list of options with no recommendation.
 |---|---|
 | A preflight check fails | Stop before planning; name the missing piece |
 | The user declines super-plan's start approval | Stop; nothing was created yet |
-| A wave returns `failed` / `error` | Stop with verdicts and branch names (multi-model's rule) |
+| A wave returns `failed` / `error` | A task stopped as `failed` first gets one continuation on the same code (multi-model's rule); otherwise stop with verdicts and branch names |
 | The suite is red after a merge | Show the output, then fix without asking, by multi-model's step 8: directly when its conditions hold; otherwise push the red tip to the feature branch only, say so, and run a one-task supervised fix wave from that pushed tip. Never push it to the default branch. |
 | A plan `ci.commands` command is red after the final wave | Hold the push and show the output. The fix follows the row above, without asking: a direct fix, or a one-task supervised fix wave from the red tip pushed to the feature branch only. Never to the default branch. |
 | A `must_run` command is `environment-blocked` | Stop, name the blocked command and its error line, diagnose per rule 4, fix the machine, then re-run the wave after `--reset`; never an amendment, never a reason to bypass supervised execution |

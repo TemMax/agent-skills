@@ -27,8 +27,8 @@ check "effort row says never max for scoped coding" \
   "grep -F '| Sonnet 5.5 (\`claude-sonnet-5-5\`) | simple, fully specified edits |' '$MM' | grep -qF 'never max for scoped coding'"
 check "effort table marks the Sonnet 5 row retired" \
   "grep -qF '| Sonnet 5 (\`claude-sonnet-5\`; retired route) |' '$MM'"
-check "supervisor table has the claude-sonnet-5-5 row with the Opus 5.5 / Opus 5 / Fable 5.1 cell" \
-  "grep -qF '| Sonnet 5.5 (\`claude-sonnet-5-5\`) | Opus 5.5 (\`claude-opus-5-5\`) when no rung reaches Opus 5.5' '$MM' && grep -F '| Sonnet 5.5 (\`claude-sonnet-5-5\`) | Opus 5.5' '$MM' | grep -qF 'Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative | high |'"
+check "supervisor table has the claude-sonnet-5-5 row with Opus 5.5 and Fable 5.1 as premium" \
+  "grep -qF '| Sonnet 5.5 (\`claude-sonnet-5-5\`) | Opus 5.5 (\`claude-opus-5-5\`); Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative | high |' '$MM'"
 check "supervisor table marks the Sonnet 5 row retired with the same supervisor" \
   "grep -qF '| Sonnet 5 (\`claude-sonnet-5\`) | retired route — same supervisor as the Sonnet 5.5 row | high |' '$MM'"
 check "ladder example sentence names claude-sonnet-5-5" \

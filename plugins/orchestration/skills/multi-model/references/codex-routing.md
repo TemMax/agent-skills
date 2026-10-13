@@ -15,9 +15,9 @@ effort stays unknown; available exact child IDs can still establish a route.
 Choose from the host's actually available children and supported efforts.
 The wave's supervisor is chosen at Gate 1 by the coordinator, and is never
 put to the user as a premium-or-standard choice: by default the standard
-`gpt-6.1-sol` at `high`, for a wave whose executors and rungs are all
-`gpt-6-luna` (see Verification and stops); the premium `gpt-6-astra` at
-`high` only with authorization — the user's word in this session or a
+`gpt-6.1-sol` at `high`, for every wave whose executors and rungs are
+`gpt-6-luna` or `gpt-6.1-sol` (see Verification and stops); the premium
+`gpt-6-astra` at `high` only with authorization — the user's word in this session or a
 standing authorization in instruction files (`AGENTS.md`, `CLAUDE.md`),
 recorded in `approvals.premium` with the source in `reason`. Then use the
 task table below. Availability is a
@@ -33,20 +33,15 @@ existing authorization remains valid.
 | ordinary | `gpt-6.1-sol` | `medium` | none |
 | difficult | `gpt-6.1-sol` | `high` | none |
 
-The Luna→Sol rung is available only under an Astra supervisor; a wave with
-the standard `gpt-6.1-sol` supervisor has no ladder.
-
-`ordinary` and `difficult` tasks route their initial executor to `gpt-6.1-sol`,
-so a wave containing either task class has no standard supervisor: the
-standard-supervisor option is available only when every executor and rung is
-`gpt-6-luna`, and a Sol executor already breaks that condition. Such a wave
-needs the premium `gpt-6-astra` supervisor. Without the user's premium
-authorization the coordinator presents no premium-or-standard choice: it cuts
-the work into mechanical tasks for the standard route, or makes such a change
-directly when the direct-fix conditions of multi-model's step 8 hold, with one
-independent check of the diff on the standard review route. Only when neither
-is possible, it asks the user once and names the standing authorization as
-the way to avoid the question.
+The standard `gpt-6.1-sol` supervisor covers every row of this table, the
+Luna→Sol rung and Sol executors included: the same model may judge its own
+tier's work from a fresh session that is not told who wrote it (ADR 015,
+`docs/decisions/015-same-model-supervision.md`). Route each task by what it
+needs. Never cut work that needs reasoning into mechanical tasks to fit a
+route: Luna is for narrow edits with complete instructions, and a task routed
+below its class fails review and stops. `gpt-6-astra` stays premium — used
+only with authorization, and required as the supervisor only when Astra
+itself executes.
 
 Mechanical means a narrow edit with complete instructions and checkable output;
 ordinary means a closed implementation across call sites; difficult means a
@@ -85,11 +80,13 @@ so that approved plans still run.
 
 ## Verification and stops
 
-Every wave's fixed supervisor is a fresh separate `gpt-6-astra` child at explicit
-`high`, absent from the executor ladder, except the standard-supervisor option
-below. Give it the contract and actual artifacts
+Every wave's fixed supervisor is a fresh separate child at explicit `high`:
+the standard `gpt-6.1-sol`, or the premium `gpt-6-astra` with authorization.
+It is never a weaker tier than an executor or rung of its wave (Luna, then
+Sol, then Astra; the linter and the state helper reject a weaker one) and it
+may be the same model as an executor. Give it the contract and actual artifacts
 in a fresh context, without the executor's model identity or the coordinator's
-preferred conclusion. An Astra main seat is not a substitute for that child.
+preferred conclusion. A main seat is not a substitute for that child.
 Use isolated executor worktrees from the recorded base, mechanical verification,
 fresh command evidence, scoped diffs and committed-work proof, then the supervisor
 verdict and integrated review. Do not skip the supervisor for a mechanical Codex
@@ -98,19 +95,18 @@ these checks; it does not certify this pairing or disqualify a whole model famil
 
 `gpt-6-astra` remains the premium supervisor and needs `approvals.premium`
 recorded at Gate 1, the same gate multi-model applies to Fable 5.1, enforced by
-the linter. The **standard supervisor** option covers a narrower case: a wave
-whose executors and ladder rungs are all `gpt-6-luna` may use a fresh
-`gpt-6.1-sol` supervisor at `high` instead of Astra — there
-is no Luna→Sol ladder in such a wave, since Sol already holds the
-supervisor seat. The supervisor fixture recorded GPT-6.1 Sol 9/9 on
+the linter. The **standard supervisor** is a fresh `gpt-6.1-sol` at `high`
+for waves of `gpt-6-luna` and `gpt-6.1-sol` executors and rungs. The
+supervisor fixture recorded GPT-6.1 Sol 9/9 on
 2026-09-29 (the previous standard supervisor, `gpt-6-sol`, 9/9 twice on
 2026-09-23); that is a repeated fixture pass, not production calibration,
-so GPT-6.1 Sol remains uncalibrated as a production supervisor outside
-this narrow all-Luna case. `gpt-6-sol` stays valid in that seat so that
+and no source measures how it judges its own model's work: same-model
+supervision is a decision of 2026-10-13 (ADR 015), not a measured result.
+`gpt-6-sol` stays valid in that seat so that
 approved plans still run. Every stop rule below still
 applies unchanged to both the premium and the standard supervisor.
 
-If the required independent supervisor, native dispatch, isolation, or required
+If the required separate supervisor, native dispatch, isolation, or required
 check cannot be provided, stop before launching and name the missing capability.
 Do not silently substitute a supervisor, inherit defaults, use a mixed-provider
 wave or waive checks. Prepare any viable alternative plan for the existing

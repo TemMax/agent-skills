@@ -44,11 +44,11 @@ session always reasons about decomposition, ambiguity, and delegation.
   efforts, and bounded escalation. It governs routing across profiles
   without a separate calibration gate.
 - Every wave uses a fresh, separate supervisor at explicit `high` effort,
-  chosen at Gate 1 per shared Codex routing: the premium `gpt-6-astra` (plan
-  records `approvals.premium`), or — only for a wave whose executors and
-  rungs are all `gpt-6-luna` — the standard `gpt-6.1-sol`. A wave with a Sol
-  executor needs Astra. Sol never supervises its own or another Sol
-  executor's work. Local measurement, 2026-09-23: the supervisor fixture
+  chosen at Gate 1 per shared Codex routing: the standard `gpt-6.1-sol` for waves of
+  `gpt-6-luna` and `gpt-6.1-sol` executors and rungs, or
+  the premium `gpt-6-astra` (plan records `approvals.premium`). The supervisor
+  may be the executor's own model, from a fresh session that is not told who
+  wrote the work; it is never a weaker tier than an executor or rung. Local measurement, 2026-09-23: the supervisor fixture
   recorded Sol 9/9 twice (`tests/eval/gpt-6-results-2026-09-23.md`), a
   repeated fixture pass, not production calibration across live waves.
 - Preserve isolated worktrees, task contracts, mechanical checks, and fresh

@@ -13,13 +13,13 @@ python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL
 section "codex-routing: ordinary/difficult waves have no standard supervisor"
 
 check "codex-routing states ordinary and difficult tasks route to Sol" \
-  "grep -qF '\`ordinary\` and \`difficult\` tasks route their initial executor to \`gpt-6.1-sol\`' '$CP_ROUTING'"
+  "grep -qF '| ordinary | \`gpt-6.1-sol\` | \`medium\` | none |' '$CP_ROUTING' && grep -qF '| difficult | \`gpt-6.1-sol\` | \`high\` | none |' '$CP_ROUTING'"
 check "codex-routing states GPT-6 Sol is no longer chosen for new executor routes" \
   "grep -qF 'GPT-6 Sol is no longer chosen for new executor routes' '$CP_ROUTING'"
-check "codex-routing states such a wave has no standard supervisor" \
-  "grep -qF 'so a wave containing either task class has no standard supervisor' '$CP_ROUTING'"
-check "codex-routing states such a wave needs the premium gpt-6-astra supervisor" \
-  "grep -qF 'Such a wave' '$CP_ROUTING' && grep -qF 'needs the premium \`gpt-6-astra\` supervisor.' '$CP_ROUTING'"
+check "codex-routing states the standard supervisor covers every task class" \
+  "grep -qF 'The standard \`gpt-6.1-sol\` supervisor covers every row of this table' '$CP_ROUTING' && ! grep -qF 'has no standard supervisor' '$CP_ROUTING'"
+check "codex-routing requires the premium gpt-6-astra supervisor only when Astra executes" \
+  "grep -qF 'required as the supervisor only when Astra' '$CP_ROUTING'"
 
 section "codex-routing: Astra execution needs astra_executor_reason and approvals.premium"
 
@@ -37,8 +37,8 @@ check "codex-routing keeps a premium review model on the user's word only" \
 
 section "codex-wave-protocol: the supervisor is the one chosen at Gate 1"
 
-check "codex-wave-protocol names the Gate 1 supervisor choice, premium or standard" \
-  "grep -qF 'The supervisor is the one chosen' '$CP_PROTOCOL' && grep -qF 'at Gate 1 — the premium \`gpt-6-astra\`, or the standard \`gpt-6.1-sol\` for an' '$CP_PROTOCOL' && grep -qF 'all-\`gpt-6-luna\` wave.' '$CP_PROTOCOL'"
+check "codex-wave-protocol names the Gate 1 supervisor choice, standard or premium" \
+  "grep -qF 'The supervisor is the one chosen' '$CP_PROTOCOL' && grep -qF 'at Gate 1 — the standard \`gpt-6.1-sol\` for a wave of \`gpt-6-luna\` and' '$CP_PROTOCOL' && grep -qF 'executors and rungs, or the premium \`gpt-6-astra\`.' '$CP_PROTOCOL'"
 check "codex-wave-protocol requires astra_executor_reason and approvals.premium for an Astra executor or rung" \
   "grep -qF 'An Astra executor or rung needs' '$CP_PROTOCOL' && grep -qF '\`astra_executor_reason: \"<concrete reason>\"\` and \`approvals.premium\`' '$CP_PROTOCOL'"
 
@@ -71,8 +71,8 @@ check "codex-routing Verification and stops names gpt-6.1-sol measured 2026-09-3
   "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'or \`gpt-6.1-sol\` (measured 2026-09-30'"
 check "multi-model records the 2026-09-29 supervisor move to gpt-6.1-sol" \
   "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'On 2026-09-29 the standard supervisor of all-\`gpt-6-luna\` waves moved to \`gpt-6.1-sol\`'"
-check "multi-model names Codex gpt-6.1-sol for Luna-only waves" \
-  "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'Codex \`gpt-6.1-sol\` for Luna-only waves.'"
+check "multi-model names Codex gpt-6.1-sol for Luna and Sol waves" \
+  "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'Codex \`gpt-6.1-sol\` for Luna and Sol waves.'"
 check "multi-model no longer names standard gpt-6-sol for all-Luna waves" \
   "! tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'standard \`gpt-6-sol\` for all-Luna waves'"
 

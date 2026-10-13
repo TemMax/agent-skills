@@ -51,11 +51,93 @@ export function candidate(repo, base, id, expectedHead) {
 }
 
 // Executor attempts as the wave state counts them: a fresh child launched
-// after a failed resume (fallbackFrom 'resume') shares that resume's attempt.
+// after a failed resume (fallbackFrom 'resume') shares that resume's attempt,
+// and so does a follow-up asking for a commit of the same attempt's work.
 const executorAttempts = calls => calls.filter(c => ['executor', 'exec'].includes(c.role)
-  && c.fallbackFrom !== 'resume').length
+  && c.fallbackFrom !== 'resume' && !c.followUp).length
 
-export function makeRecoveryReceipt(scope, children, reports = {}) {
+// A continuation gives a rejected task one more executor attempt on its
+// candidate, with the coordinator's note. The first one per task is the
+// coordinator's own decision; a further one needs the user's approval. The
+// caps are never raised through it. Each rejected task is decided on its own:
+// one that cannot continue is skipped with its reason and reviewed again as in
+// plain recovery; the run is refused only when no task can continue.
+const CONTINUABLE = ['failed', 'candidate-rejected']
+const NOTE_LIMIT = 8000
+const NOTE_SECTION = /^## Task ([a-z0-9]+(?:-[a-z0-9]+)*)[ \t]*$/gm
+
+// A note with "## Task <id>" headings carries one section per task; a note
+// without them is one text for the single task that continues.
+function noteSections(note) {
+  const headings = [...note.matchAll(NOTE_SECTION)]
+  if (headings.length === 0) return null
+  const sections = new Map()
+  headings.forEach((heading, index) => {
+    const end = index + 1 < headings.length ? headings[index + 1].index : note.length
+    sections.set(heading[1], note.slice(heading.index + heading[0].length, end).trim())
+  })
+  return sections
+}
+
+export function planContinuation(recovery, { notePath, userApproved = false, maxAttempts = 6, maxModelCalls = 24 }) {
+  let note
+  try { note = readFileSync(resolve(notePath), 'utf8').trim() } catch (error) {
+    throw new Error('continuation: cannot read the note: ' + error.message)
+  }
+  if (note === '') throw new Error('continuation: the note is empty — say what is wrong and where to fix it')
+  if (note.length > NOTE_LIMIT) throw new Error('continuation: the note is over ' + NOTE_LIMIT + ' characters')
+  const rejected = (recovery.summary.tasks || [])
+    .filter(task => CONTINUABLE.includes(task.status) && recovery.tasks[task.id])
+  if (rejected.length === 0) throw new Error('continuation: the previous run has no rejected task to continue')
+  const sections = noteSections(note)
+  const tasks = {}, skipped = {}
+  for (const task of rejected) {
+    const saved = recovery.tasks[task.id]
+    const text = sections ? sections.get(task.id) : note
+    const used = saved.continuations ?? 0
+    if (!text) skipped[task.id] = 'the note has no "## Task ' + task.id + '" section'
+    else if (saved.executorCalls >= maxAttempts) {
+      skipped[task.id] = 'at the attempt cap (' + maxAttempts + '); a cap is not raised through this route'
+    } else if (saved.modelCalls + 2 > maxModelCalls) {
+      skipped[task.id] = 'fewer than two model calls left under the call cap (' + maxModelCalls
+        + '): an attempt and its review need two'
+    } else if (used >= 1 && !userApproved) {
+      skipped[task.id] = 'already had a continuation; a further one needs the user\'s yes — then pass --user-approved'
+    } else {
+      const verdicts = (task.attempts || []).map(attempt => attempt.verdict)
+        .filter(verdict => verdict && verdict.ok === false).slice(-2)
+      tasks[task.id] = { note: text, verdicts, approvedBy: used >= 1 ? 'user' : 'coordinator' }
+    }
+  }
+  const reasons = Object.entries(skipped).map(([id, reason]) => id + ': ' + reason).join('; ')
+  if (Object.keys(tasks).length === 0) throw new Error('continuation: nothing to continue — ' + reasons)
+  if (!sections && Object.keys(tasks).length > 1) {
+    throw new Error('continuation: ' + Object.keys(tasks).join(', ')
+      + ' would all continue — give each its own "## Task <id>" section in the note')
+  }
+  return { tasks, skipped, note }
+}
+
+// What a continuation run records in its summary.
+export function continuationRecord(continuation, noteFile) {
+  return { tasks: Object.keys(continuation.tasks),
+    approvedBy: Object.fromEntries(Object.entries(continuation.tasks).map(([id, task]) => [id, task.approvedBy])),
+    ...(Object.keys(continuation.skipped).length > 0 ? { skipped: continuation.skipped } : {}), noteFile }
+}
+
+// A continuation counts once its executor has reported: `reported` holds the
+// ids of this run's continued tasks whose attempt produced a report.
+export function continuationCounts(recovery, reported = []) {
+  const counts = {}
+  const done = new Set(reported)
+  for (const [id, saved] of Object.entries(recovery?.tasks || {})) {
+    const count = (saved.continuations ?? 0) + (done.has(id) ? 1 : 0)
+    if (count > 0) counts[id] = count
+  }
+  return counts
+}
+
+export function makeRecoveryReceipt(scope, children, reports = {}, continuations = {}) {
   const tasks = {}
   for (const task of scope.wave.tasks) {
     let artifact = null
@@ -65,7 +147,8 @@ export function makeRecoveryReceipt(scope, children, reports = {}) {
     const previousReport = reports[task.id]
     tasks[task.id] = { ...artifact, report: typeof previousReport === 'string' ? previousReport : '',
       modelCalls: calls.length, executorCalls: executorAttempts(calls),
-      executorModel: executors.at(-1)?.model ?? null }
+      executorModel: executors.at(-1)?.model ?? null,
+      ...(continuations[task.id] ? { continuations: continuations[task.id] } : {}) }
   }
   return { schema: 1, scope, tasks }
 }

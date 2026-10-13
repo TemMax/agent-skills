@@ -35,7 +35,7 @@ Prior dated measurements apply to their recorded versions only.
 | `critical-review.sh` | Clean code and deliberately planted defects; gated PR thread flow | Live semantic review through either provider |
 | `supervisor.sh` | Real small repository: correct change, missing guard, unsatisfiable contract | Live independent supervision through either provider |
 | `super-plan.sh`, `seam-audit*.sh` | File overlap, product fork, broken cross-task seams and clean decoys | Live planning and audit; several fixed mini repositories |
-| `skill-navigation.sh` | Seven process decision points (five on Codex) and required reference reads | Live skill application through either provider |
+| `skill-navigation.sh` | Eleven process decision points (nine on Codex) and required reference reads | Live skill application through either provider |
 | `ship-smoke.sh` | Two tasks in a disposable repository with a local bare origin | Codex execution, correctness and telemetry |
 | `skill-session-ab.sh` | Scripted multi-turn task removing duplicate tests, then a narrow CI edit | Codex session behavior and before/after comparison |
 | `claude-skill-session-ab.py` | Same duplicate-test fixture and eight turns; a cheaper two-turn smoke | Claude Code sessions, normal plugin loading, resume and before/after comparison |
@@ -269,8 +269,8 @@ exec`, it must run outside any sandbox; skip a part whose CLI is missing from
 PATH rather than fail it.
 
 The skill-navigation tier (`tests/eval/skill-navigation.sh`) asks whether an
-agent applying the multi-model skill takes the right action at seven decision
-points (five on Codex) — launching a Claude-only wave, a contract amendment
+agent applying the multi-model skill takes the right action at eleven decision
+points (nine on Codex) — launching a Claude-only wave, a contract amendment
 that widens `files_allowed` and one that would delete a `must_run` entry, a
 failed verdict with `pasteReproduced: false`, drift advice from the Stop hook,
 and (Claude provider only) N6 and N7, the large-log route: the orchestrator

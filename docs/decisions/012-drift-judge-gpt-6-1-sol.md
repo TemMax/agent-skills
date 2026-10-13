@@ -24,6 +24,10 @@ Astra, GPT-6 Sol and GPT-6 Luna seats are judged by `gpt-6.1-sol` at `high`.
 A `gpt-6.1-sol` seat keeps `gpt-5.6-sol` at `high`, because a model never
 judges its own seat.
 
+Superseded in part by [decision 015](015-same-model-supervision.md) on
+2026-10-13: a `gpt-6.1-sol` seat is judged by `gpt-6.1-sol` at `high` in a
+separate session, and a judge equal to the seat is no longer refused.
+
 GPT-5.6 seats are unchanged. The drift prompt is unchanged.
 
 ## Consequences
