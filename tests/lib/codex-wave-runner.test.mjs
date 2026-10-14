@@ -2216,3 +2216,46 @@ test('(g3) a denial in a protected or non-tool directory is never opened', () =>
     assert.equal(result.json.children.filter((c) => c.role === 'executor').length, 1, name)
   }
 })
+
+function namedCommandRun({ create = true, probeWritable = false, named = 'sh tools/build.sh' } = {}) {
+  const { root, repo, base } = makeRepo()
+  const { home, deny } = grantHome(root)
+  if (create) mkdirSync(deny, { recursive: true })
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { HOME: home, CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'sandbox-blocked', CODEX_STUB_SANDBOX_DENY_DIR: deny,
+    CODEX_STUB_SANDBOX_BLOCK_CMDS: 'sh tools/build.sh', CODEX_STUB_BLOCKED_COMMAND: named,
+    CODEX_STUB_VERDICT: JSON.stringify(CLEAN), ...(probeWritable ? { CODEX_STUB_PROBE_WRITABLE: '1' } : {}) })
+  return { result, deny, logPath }
+}
+
+test('(g4) a command outside the contract that the executor names is run by the runner and its directory opened', () => {
+  const { result, logPath } = namedCommandRun()
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.deepEqual(result.json.sandboxGrants,
+    [{ dir: '~/.toolcache', origin: 'executor command, task task-a', cmd: 'sh tools/build.sh' }])
+  const sandboxCalls = readLog(logPath).filter((r) => r.event === 'start' && r.argv[0] === 'sandbox').map((r) => r.argv.at(-1))
+  assert.deepEqual(sandboxCalls.slice(0, 2), ['true', 'sh tools/build.sh'], 'the contract first, then the named command')
+  assert.match(sandboxCalls[2], /^touch ".*\.toolcache\/\.agent-skills-write-probe-/, 'the denial is probed before opening')
+  assert.equal(result.json.children.filter((c) => c.followUp === 'sandbox-grant').length, 1)
+})
+
+test('(g5) a directory found through a named command is never created, and a fake denial is not opened', () => {
+  for (const over of [{ create: false }, { probeWritable: true }]) {
+    const { result, deny } = namedCommandRun(over)
+    assert.equal(result.json.tasks[0].status, 'environment-blocked', JSON.stringify(over))
+    assert.equal(result.json.sandboxGrants, undefined, JSON.stringify(over))
+    if (over.create === false) assert.equal(existsSync(deny), false)
+  }
+})
+
+test('(g6) a named command in backticks, or a whole line in backticks, is read as the command', () => {
+  for (const named of ['`sh tools/build.sh`']) {
+    const { result } = namedCommandRun({ named })
+    assert.equal(result.json.status, 'merge-ready', named + '\n' + result.stderr)
+    assert.equal(result.json.sandboxGrants[0].cmd, 'sh tools/build.sh')
+  }
+})

@@ -45,7 +45,7 @@ import {
   applyLinks, checkDependsOn, detectEnvironmentBlock, effectivePlan, gitCommonDir,
   reportEnvironmentBlock, resolveWorktreeEnv, TASK_HEADING_SOURCE, requireExecutable,
 } from './worktree-env.mjs'
-import { grantsFromOutput } from './sandbox-grants.mjs'
+import { grantsFromOutput, reportBlockedCommand } from './sandbox-grants.mjs'
 
 import { recoveryScope, readRecovery, makeRecoveryReceipt, claimRecovery, recoveredReport, candidate,
   planContinuation, continuationCounts, continuationRecord } from './candidate-recovery.mjs'
@@ -1110,21 +1110,41 @@ async function main() {
   }
 
   const commitFollowUps = new Set()
-  // Runs the task's contract commands in its worktree in the executor's
-  // sandbox, in order, until one is denied writing to a tool directory that
-  // may be opened; returns the directories opened (none when nothing was).
-  const openDeniedDirectories = (taskId, worktree) => {
+  // Runs a command in a task's worktree in the executor's sandbox.
+  const runInTaskSandbox = (worktree, cmd) => {
+    const writableRoots = [worktreeGitDir(worktree), commonDir, ...env.writable]
+    const run = spawnSync(config.codexBin, preflightSandboxArgs({ writableRoots, networkOn: config.executorNetworkOn, cmd }),
+      { cwd: worktree, encoding: 'utf8', timeout: config.timeoutMs, maxBuffer: 64 * 1024 * 1024 })
+    return { status: run.status, output: (run.stdout || '') + '\n' + (run.stderr || '') }
+  }
+  // Runs the task's contract commands, then the command its executor named
+  // as blocked, in the executor's worktree and sandbox, until one is denied
+  // writing to a tool directory that may be opened; returns the directories
+  // opened (none when nothing was). A directory found through the executor's
+  // own command must already exist and must still be denied in the sandbox.
+  const openDeniedDirectories = (taskId, worktree, report) => {
     const spec = wave.tasks.find((task) => task.id === taskId)
-    for (const entry of spec.contract.must_run) {
-      if ((outsideSandbox ?? []).includes(entry.cmd)) continue
-      const writableRoots = [worktreeGitDir(worktree), commonDir, ...env.writable]
-      const run = spawnSync(config.codexBin, preflightSandboxArgs({ writableRoots, networkOn: config.executorNetworkOn,
-        cmd: entry.cmd }), { cwd: worktree, encoding: 'utf8', timeout: config.timeoutMs, maxBuffer: 64 * 1024 * 1024 })
-      const output = (run.stdout || '') + '\n' + (run.stderr || '')
+    const contract = spec.contract.must_run.map((entry) => entry.cmd).filter((cmd) => !(outsideSandbox ?? []).includes(cmd))
+    const named = reportBlockedCommand(report)
+    const candidates = [...contract.map((cmd) => ({ cmd, origin: 'task ' + taskId, create: true })),
+      ...(named && !spec.contract.must_run.some((entry) => entry.cmd === named)
+        ? [{ cmd: named, origin: 'executor command, task ' + taskId, create: false }] : [])]
+    for (const candidate of candidates) {
+      const { output } = runInTaskSandbox(worktree, candidate.cmd)
       if (!detectEnvironmentBlock(output)) continue
-      const { granted } = grantsFromOutput(output, { home: homedir(), repoPath: config.repoPath, writable: env.writable })
+      let { granted } = grantsFromOutput(output, { home: homedir(), repoPath: config.repoPath, writable: env.writable,
+        create: candidate.create })
+      if (!candidate.create) {
+        // A printed denial is not enough: the sandbox must really deny a write there.
+        granted = granted.filter((grant) => {
+          const probe = join(grant.dir, '.agent-skills-write-probe-' + process.pid + '-' + Date.now())
+          const { status } = runInTaskSandbox(worktree, 'touch ' + JSON.stringify(probe))
+          rmSync(probe, { force: true })
+          return status !== 0
+        })
+      }
       if (granted.length === 0) continue
-      const records = granted.map((grant) => ({ dir: grant.rel, origin: 'task ' + taskId, cmd: entry.cmd }))
+      const records = granted.map((grant) => ({ dir: grant.rel, origin: candidate.origin, cmd: candidate.cmd }))
       for (const grant of granted) env.writable.push(grant.dir)
       sandboxGrants.push(...records)
       reportGrants(records)
@@ -1133,7 +1153,7 @@ async function main() {
     return []
   }
   const sandboxGrantPrompt = (dirs) => [
-    'The runner ran your task\'s contract commands in your sandbox and found them denied writing to '
+    'The runner ran the failing command in your sandbox and found it denied writing to '
       + dirs.join(', ') + '. Those directories are writable now.',
     'Continue the task from where you stopped: run the command again, finish the work, commit it with',
     '`git -c commit.gpgsign=false commit …`, and finish with the complete, self-contained REPORT in the format',
@@ -1185,7 +1205,7 @@ async function main() {
     for (let round = 0; round < 2 && Object.hasOwn(outcome.payload, 'report')
       && reportEnvironmentBlock(outcome.payload.report) && executorSessions.get(taskId)?.threadId
       && modelCallsLeft(taskId) >= 2; round++) {
-      const granted = openDeniedDirectories(taskId, action.worktree)
+      const granted = openDeniedDirectories(taskId, action.worktree, outcome.payload.report)
       if (granted.length === 0) break
       progress(taskId, 'sandbox: opened ' + granted.join(', ') + ' for writing; asking the executor to continue')
       const followUp = await launchExecutor(taskId, { ...action, continuation: sandboxGrantPrompt(granted) },

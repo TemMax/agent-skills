@@ -80,9 +80,30 @@ export function grantFor(path, { home, repoPath }) {
   return { dir, rel: '~/' + rel }
 }
 
-// Grants for one command's sandboxed output: the directories to open now
-// (created when missing, under an existing parent) and what was refused.
-export function grantsFromOutput(output, { home, repoPath, writable }) {
+// The command an executor names on the line after its `environment-blocked:`
+// marker, or null. Only the first five lines of the report are read.
+export function reportBlockedCommand(report) {
+  const lines = String(report ?? '').split(/\r?\n/).filter((line) => line.trim() !== '').slice(0, 5)
+  for (const raw of lines) {
+    // The whole line may be wrapped in backticks, or only the command.
+    let line = raw.trim()
+    const wrapped = line.startsWith('`blocked-command:') && line.endsWith('`')
+    if (wrapped) line = line.slice(1, -1)
+    const m = /^blocked-command:[ \t]*(.*)$/.exec(line)
+    if (!m) continue
+    let cmd = m[1].trim()
+    if (cmd.length > 2 && cmd.startsWith('`') && cmd.endsWith('`')) cmd = cmd.slice(1, -1).trim()
+    if (cmd === '' || cmd.startsWith('<') || cmd.includes('`') || cmd.length > 2000) return null
+    return cmd
+  }
+  return null
+}
+
+// Grants for one command's sandboxed output: the directories to open now and
+// what was refused. A missing directory is created under an existing parent
+// only when `create` is set — for a command of the approved contract, never
+// for one a model chose.
+export function grantsFromOutput(output, { home, repoPath, writable, create = true }) {
   const granted = [], refused = []
   for (const path of deniedPaths(output, home)) {
     const grant = grantFor(path, { home, repoPath })
@@ -90,7 +111,7 @@ export function grantsFromOutput(output, { home, repoPath, writable }) {
     if (writable.includes(grant.dir) || granted.some((g) => g.dir === grant.dir)) continue
     if (!existsSync(grant.dir)) {
       // Created only under an existing parent, and only for a plain name.
-      if (!existsSync(dirname(grant.dir)) || /\s/.test(grant.rel)) {
+      if (!create || !existsSync(dirname(grant.dir)) || /\s/.test(grant.rel)) {
         refused.push({ path, reason: 'does not exist' }); continue
       }
       mkdirSync(grant.dir)

@@ -33,17 +33,21 @@ contract command it runs in the sandbox, never from a model's words:
    sandbox-only or a machine block.
 2. **Executor.** When an executor's report opens with `environment-blocked:`,
    the runner runs that task's `must_run` commands in the executor's worktree
-   and sandbox. When one is denied, the runner opens the directory and the
-   same thread continues within the same attempt (`followUp:
-   "sandbox-grant"`), at most twice per attempt, only while two model calls
-   are left.
+   and sandbox, then the command the executor names on a `blocked-command:`
+   line. When one is denied, the runner opens the directory and the same
+   thread continues within the same attempt (`followUp: "sandbox-grant"`), at
+   most twice per attempt, only while two model calls are left. Running the
+   named command gives the executor nothing it could not do in its own
+   sandbox; what it could gain is a grant, so a directory found through it is
+   opened only when it already exists and a write probe in the sandbox is
+   really denied, never created, and recorded as `executor command`.
 3. **What may be opened.** Only a tool's own directory under the home
    directory: a top-level dot-directory, or the next directory under
    `~/Library/Caches`, `~/Library/Application Support`, `~/Library/Logs`,
    `~/.cache`, `~/.config`, `~/.local/share` or `~/.local/state`. Never the
    directories of keys, tokens or agent configuration, nothing inside or
-   containing the repository, no git repository. A missing directory is
-   created under its existing parent.
+   containing the repository, no git repository. For a contract command a
+   missing directory is created under its existing parent.
 4. **Record.** An opened directory stays writable for the rest of the wave,
    is listed in `summary.json` under `sandboxGrants` and on stderr, and the
    coordinator adds it to the plan's `worktree.writable`.
@@ -59,10 +63,18 @@ and the wave was accepted; with the preflight off, an executor that needed the
 command reported `environment-blocked`, the runner opened the directory, the
 same thread finished the task and the wave was accepted with one attempt. A
 first executor-time run was inconclusive: the executor committed without
-reporting the block. Record:
+reporting the block. With the denied command outside the contract, the
+executor named it, the runner ran it, probed the denial and opened the
+existing directory, and the wave was accepted with one attempt; the run
+before it had failed because the runner misread a command given in backticks,
+fixed with a test. Record:
 [`tests/eval/same-model-supervision-results-2026-10-13.md`](../../tests/eval/same-model-supervision-results-2026-10-13.md).
 
-A denial from a command outside the contract is not reproduced, so it is not
-opened. Opening a directory lets every later child of the wave write there; a
-tool directory is the boundary, not a proof that the directory holds nothing
-of value.
+A model can print a denial it did not meet. For a named command the bound is
+the same as for the defaults (`~/.gradle` and `~/.android` are open to every
+executor): an existing tool directory that is really not writable in the
+sandbox. Opening a directory lets every later child of the wave write there;
+a tool directory is the boundary, not a proof that the directory holds nothing
+of value. macOS does not record the denials of the Codex sandbox in its
+unified log (checked on this machine), so that log cannot replace the
+reproduction.

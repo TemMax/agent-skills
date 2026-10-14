@@ -180,10 +180,16 @@ words (`sandbox-grants.mjs`):
   is run again, up to three times, before it is classified; a command that
   then passes is not moved outside the sandbox;
 - when an executor's report opens with `environment-blocked:`, the runner runs
-  that task's `must_run` commands in the executor's worktree and sandbox; when
-  one is denied, it opens the directory and asks the same thread to continue,
+  that task's `must_run` commands in the executor's worktree and sandbox, and
+  then the command the executor named on its `blocked-command:` line; when one
+  is denied, it opens the directory and asks the same thread to continue,
   within the same attempt (`followUp: "sandbox-grant"`), at most twice per
   attempt and only while two model calls are left.
+
+A command the executor named is the model's choice, so a directory found
+through it is opened only when it already exists and a write probe in the
+sandbox is really denied there; the runner never creates one for it. Its
+grant is recorded with the origin `executor command`.
 
 Only a tool's own directory under the home directory is opened: a top-level
 dot-directory (`~/.konan`), or the next directory under `~/Library/Caches`,

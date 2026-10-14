@@ -685,7 +685,7 @@ function executorPrompt(state, id, task, spec) {
     'stop and report what is blocking you. Do not invent values, do not work',
     'around the restriction, and do not pick an interpretation on the user\'s behalf.',
     'If your task needs an artifact that another task of this wave is producing (a file, fixture, function or behavior missing from your worktree), stop and report `blocked-on-sibling: <what is missing and which task makes it>`; do not invent it and do not commit a placeholder.',
-    'If a build or tool cannot start because of the machine — permission denied on a cache directory or `.git`, SDK not found, a lock file, commit signing — stop and make the first line of your report `environment-blocked: <the verbatim error line>`; do not work around it.',
+    'If a build or tool cannot start because of the machine — permission denied on a cache directory or `.git`, SDK not found, a lock file, commit signing — stop and make the first line of your report `environment-blocked: <the verbatim error line>` and the second line `blocked-command: <the exact command that failed>`; do not work around it.',
     'A helper tool the sandbox denies is not a reason to stop when you can still make and commit the change; stop only when the change itself cannot be made or committed.',
     outside.length > 0
       ? 'These must_run commands cannot run inside your sandbox on this machine: ' + JSON.stringify(outside) + '. Do not run them and do not report `environment-blocked` for them: the runner runs them outside the sandbox after your commit, and its output is the evidence. Name them in your report as not run.'

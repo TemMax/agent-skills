@@ -133,6 +133,8 @@ before each run and is removed after it.
 | L2, preflight on | preflight denied, directory opened, command run again | `sandbox: ok`, `granted` recorded, nothing moved outside the sandbox; executor never blocked; merge-ready |
 | L1, preflight off, fixing a guard only | executor time | inconclusive: the executor committed without reporting `environment-blocked`; accepted after one report rework |
 | L1b, preflight off, the task needs a file only the command produces | executor time | the executor reported `environment-blocked`, the runner reproduced the command, opened the directory, the same thread finished; merge-ready, one attempt charged |
+| L1c, the denied command is not in `must_run`; the directory exists | executor-named command | failed its expectation: the executor named the command in backticks and the runner read the backtick into it; fixed with a test |
+| L1d, the same on a fresh fixture | executor-named command | the runner ran the named command, probed the denial, opened the existing directory, the same thread finished; merge-ready, one attempt charged |
 
 ## Runner changes
 

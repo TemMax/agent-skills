@@ -1675,7 +1675,7 @@ test('E8 an unlinked wave carries the new dead-end, secrets and long-command pro
   const env = init()
   const action = next(env.statePath)
   assert.match(action.prompt,
-    /stop and make the first line of your report `environment-blocked: <the verbatim error line>`; do not work around it\./)
+    /stop and make the first line of your report `environment-blocked: <the verbatim error line>` and the second line `blocked-command: <the exact command that failed>`; do not work around it\./)
   assert.match(action.prompt, /That includes untracked build configuration a worktree links/)
   assert.match(action.prompt,
     /Never end your turn while a command you started is still running — no Monitor, no ScheduleWakeup/)
@@ -1818,7 +1818,7 @@ test('E13c the executor and supervisor prompts name the task\'s sandbox-only com
   assert.ok(prompt.includes(outsideExecutorLine([FIXTURE_CMD])), prompt)
   const deadEnd = prompt.slice(prompt.indexOf('## Dead-end protocol'), prompt.indexOf('## Prohibitions'))
   assert.ok(deadEnd.trimEnd().endsWith([
-    'stop and make the first line of your report `environment-blocked: <the verbatim error line>`; do not work around it.',
+    'stop and make the first line of your report `environment-blocked: <the verbatim error line>` and the second line `blocked-command: <the exact command that failed>`; do not work around it.',
     HELPER_TOOL_LINE,
     outsideExecutorLine([FIXTURE_CMD]),
   ].join('\n')), deadEnd)
@@ -1841,7 +1841,7 @@ test('E13d without a sandbox-only command the prompts gain only the helper-tool 
     const prompt = next(env.statePath).prompt
     const deadEnd = prompt.slice(prompt.indexOf('## Dead-end protocol'), prompt.indexOf('## Prohibitions'))
     assert.ok(deadEnd.trimEnd().endsWith(
-      'stop and make the first line of your report `environment-blocked: <the verbatim error line>`; do not work around it.\n'
+      'stop and make the first line of your report `environment-blocked: <the verbatim error line>` and the second line `blocked-command: <the exact command that failed>`; do not work around it.\n'
       + HELPER_TOOL_LINE), deadEnd)
     assert.doesNotMatch(prompt, /cannot run inside your sandbox/)
     prepareAttempt(env)
