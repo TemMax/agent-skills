@@ -169,6 +169,25 @@ the fixes the three paths were run again on fresh fixtures (2026-10-14):
   count as a read. Retained as a failure of the read-check, not of the
   decision.
 
+## Shared build outputs
+
+Default `worktree.share_builds` (clone the repository checkout's build),
+2026-10-14, one run per host on the driver's `positive` fixture
+(`supervision-context-live.py`) with an ignored, prebuilt `build/seed-marker`
+in the repository checkout and a test that records, for every run, whether its
+checkout holds the marker and whether `build` is a link. Expectations frozen
+before the calls. Both hosts: the driver's checks passed (merge-ready on
+Codex, done on Claude); the executor's worktree (`.worktrees/wave-one`, made
+by the runner on Claude) and the verifier's disposable checkout each held the
+cloned marker, not a link; the repository checkout's marker was unchanged. A
+first Codex run started in parallel with the Claude one never reached a model:
+the driver's shared budget ledger refuses a second pending call. That run is a
+blocked run; the Codex case passed alone on a fresh fixture. After the fixes
+from an independent review (`docs/decisions/018-shared-build-outputs.md`) both
+hosts were run again, one after the other, on fresh fixtures, with the same
+frozen expectations: both passed. The `"executor"` mode and the tool caches
+opened at start were tested offline only.
+
 ## Not run
 
 - No run compares defect detection by a same-model and a different-model

@@ -45,7 +45,8 @@ import {
   applyLinks, checkDependsOn, detectEnvironmentBlock, effectivePlan, gitCommonDir,
   reportEnvironmentBlock, resolveWorktreeEnv, TASK_HEADING_SOURCE, requireExecutable,
 } from './worktree-env.mjs'
-import { grantsFromOutput, hasDenial, programDirs, reportBlockedCommand, reproductionEnv } from './sandbox-grants.mjs'
+import { grantFor, grantsFromOutput, hasDenial, programDirs, reportBlockedCommand, reproductionEnv } from './sandbox-grants.mjs'
+import { seedBuildDirs, shareBuildDirs, toolCacheDirs } from './build-dirs.mjs'
 
 import { recoveryScope, readRecovery, makeRecoveryReceipt, claimRecovery, recoveredReport, candidate,
   planContinuation, continuationCounts, continuationRecord } from './candidate-recovery.mjs'
@@ -576,6 +577,7 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
   const outsideSandbox = []
   try {
     applyLinks(repoPath, preflightPath, env.links)
+    if (env.shareBuilds !== 'off') seedBuildDirs(repoPath, preflightPath, { skip: env.links })
     const writableRoots = [worktreeGitDir(preflightPath), commonDir, ...env.writable]
     for (const cmd of distinctMustRunCmds(wave)) {
       const args = preflightSandboxArgs({ writableRoots, networkOn, cmd })
@@ -866,8 +868,9 @@ async function main() {
   const reportGrants = (grants) => {
     for (const grant of grants) {
       process.stderr.write('codex-wave-runner: sandbox: opened ' + grant.dir + ' for writing (' + grant.origin + '); '
-        + (grant.origin === 'preflight' ? 'add it to the plan\'s worktree.writable for later waves'
-          : 'the denial came through code or a command the executor chose: check it before adding it to worktree.writable')
+        + (grant.origin === 'tool cache' ? 'a cache this repository\'s tools use, opened at every start'
+          : grant.origin === 'preflight' ? 'add it to the plan\'s worktree.writable for later waves'
+            : 'the denial came through code or a command the executor chose: check it before adding it to worktree.writable')
         + '\n')
     }
   }
@@ -881,6 +884,15 @@ async function main() {
   }
   const commonDir = gitCommonDir(config.repoPath)
   grantContext.excluded.push(commonDir)
+  // The caches of the tools this repository uses, asked of the tools, open
+  // from the start under the same rules as any grant.
+  for (const dir of toolCacheDirs(config.repoPath, reproductionEnv())) {
+    const grant = grantFor(dir, grantContext)
+    if (grant.refused || grant.dir.toLowerCase() !== realpathSync.native(dir).toLowerCase()
+      || env.writable.some((w) => existsSync(w) && realpathSync.native(w).toLowerCase() === grant.dir.toLowerCase())) continue
+    env.writable.push(grant.dir)
+    sandboxGrants.push({ dir: grant.rel, origin: 'tool cache' })
+  }
   if (env.missingWritable.length > 0) {
     process.stderr.write('codex-wave-runner: missing writable dirs (skipped): '
       + env.missingWritable.join(', ') + '\n')
@@ -1330,13 +1342,19 @@ async function main() {
         + (added.stderr || added.stdout))
     }
     applyLinks(config.repoPath, checkoutPath, env.links)
+    // Linked build directories resolve into the executor's worktree: the
+    // supervisor may write there, as it could write to its own.
+    const linkedBuilds = env.shareBuilds === 'executor'
+      ? shareBuildDirs(action.worktree, checkoutPath, { repo: config.repoPath, skip: env.links }).map((rel) => join(action.worktree, rel))
+      : []
+    if (env.shareBuilds === 'repository') seedBuildDirs(config.repoPath, checkoutPath, { skip: env.links })
     try {
       const args = [
         'exec', '--ephemeral', '--skip-git-repo-check', '-C', checkoutPath,
         '--sandbox', 'workspace-write',
         '--add-dir', commonDir,
-        ...env.writable.flatMap((d) => ['--add-dir', d]),
-        '-c', 'sandbox_workspace_write.writable_roots=' + JSON.stringify([worktreeGitDir(checkoutPath), commonDir, ...env.writable]),
+        ...[...env.writable, ...linkedBuilds].flatMap((d) => ['--add-dir', d]),
+        '-c', 'sandbox_workspace_write.writable_roots=' + JSON.stringify([worktreeGitDir(checkoutPath), commonDir, ...env.writable, ...linkedBuilds]),
         ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
         '--model', action.model,
         '-c', 'model_reasoning_effort=' + action.effort,

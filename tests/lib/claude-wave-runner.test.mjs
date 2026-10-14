@@ -41,9 +41,9 @@ const seen=readFileSync(process.env.NATIVE_TEST_CALLS,'utf8').trim().split('\\n'
 if(argv.includes('--resume')&&process.env.NATIVE_TEST_MODE==='resume-exit')process.exit(1);
 if(argv.includes('--resume')&&process.env.NATIVE_TEST_MODE==='resume-bad-json'){console.log('not json');process.exit(0)}
 if(!argv.includes('--json-schema')){
- const repo=process.cwd(), wt=repo+'/.worktrees/one';
+ const repo=process.cwd(), id=(prompt.match(/^# Task: (\\S+)/m)||prompt.match(/branch \\(wave\\/([a-z0-9-]+)\\)/)||[0,'one'])[1], wt=repo+'/.worktrees/wave-'+id;
  const git=(cwd,...a)=>{const r=spawnSync('git',['-C',cwd,...a],{encoding:'utf8'});if(r.status!==0)throw Error(r.stderr)};
- if(!existsSync(wt))git(repo,'worktree','add','-b','wave/one',wt,'${base}');
+ if(!existsSync(wt))git(repo,'worktree','add','-b','wave/'+id,wt,'${base}');
  mkdirSync(wt+'/src',{recursive:true});writeFileSync(wt+'/src/one.txt','done');writeFileSync(wt+'/src/call-'+seen.length+'.txt','done');git(wt,'add','.');git(wt,'-c','commit.gpgsign=false','commit','-m','task');
  console.log(JSON.stringify({type:'result',is_error:false,result:'done',usage:{input_tokens:2,cache_creation_input_tokens:10,cache_read_input_tokens:50,output_tokens:3}}));
 }else{
@@ -281,7 +281,7 @@ test('changed candidate, dirty worktree, changed roles or budget cannot be adopt
       writeFileSync(f.plan, readFileSync(f.plan, 'utf8').replace(mode === 'roles' ? '"effort":"medium"' : '"max_model_calls":4',
         mode === 'roles' ? '"effort":"high"' : '"max_model_calls":5'))
     } else {
-      const wt = join(f.repo, '.worktrees', 'one'); writeFileSync(join(wt, 'src/one.txt'), 'changed')
+      const wt = join(f.repo, '.worktrees', 'wave-one'); writeFileSync(join(wt, 'src/one.txt'), 'changed')
       if (mode === 'head') {
         spawnSync('git', ['-C', wt, 'add', '.']); spawnSync('git', ['-C', wt, '-c', 'commit.gpgsign=false', 'commit', '-m', 'changed'])
       }

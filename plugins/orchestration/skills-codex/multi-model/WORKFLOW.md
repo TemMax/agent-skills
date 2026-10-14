@@ -153,7 +153,8 @@ coordinator as a stop. Nor does a build tool denied writing to its own
 directory in the home directory: the runner opens that directory from the
 command's output and the wave goes on. Add a preflight grant from
 `summary.json` (`sandboxGrants`) to the plan's `worktree.writable`; check one
-that came through the executor's code or command first.
+that came through the executor's code or command first; a `tool cache` one
+opens by itself at every start.
 A stop
 the coordinator can resolve itself is resolved and reported without a
 question: an environment fix and a relaunch of the same approved plan or
@@ -616,6 +617,9 @@ supervisor verdicts and remarks, not the executor reports.
   prompt.
 - `../../skills/multi-model/references/verdicts.md` — the verifier stage, the
   verdict shape and the blocking threshold.
+- `../../skills/multi-model/references/build-outputs.md` — how a task's
+  checkouts share build outputs and tool caches, what it saves and how to turn
+  it off. Read when a wave's builds fill the disk or rebuild in every checkout.
 - `../../skills/multi-model/references/contract-amendment.md` — the contract
   amendment flow.
 - `../../skills/multi-model/references/orchestrator-drift-hook.md` — the `Stop`

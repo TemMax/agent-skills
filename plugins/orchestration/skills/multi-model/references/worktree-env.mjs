@@ -162,6 +162,11 @@ export function resolveWorktreeEnv(repo, plan) {
     writable: allWritable.filter((d) => existsSync(d)),
     missingWritable: allWritable.filter((d) => !existsSync(d)),
     auto,
+    // Build outputs between a task's checkouts: 'repository' (default) seeds
+    // every new checkout with a copy-on-write clone of the repository
+    // checkout's outputs; 'executor' also links the executor's outputs into
+    // the verification and review checkouts; 'off' does neither.
+    shareBuilds: w.share_builds === false ? 'off' : w.share_builds === 'executor' ? 'executor' : 'repository',
   }
 }
 

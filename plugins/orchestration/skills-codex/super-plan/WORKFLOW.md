@@ -357,6 +357,11 @@ Worktree access: `links` are required repository-relative inputs;
 `optional_links` lists optional inputs. Explicit `writable` roots must be existing
 stable directories, never a transient lock path. Lint the real repository before
 approval; signing and integration obligations must match the selected adapter.
+Build outputs (`worktree.share_builds`, see multi-model's `build-outputs.md`):
+by default every new checkout starts from a copy-on-write clone of the
+repository checkout's build; `"executor"` also lets verification and review
+reuse the executor's build — far less disk, but verification no longer starts
+clean — and is set only on the user's word; `false` turns both off.
 
 ## No time or cost estimates
 

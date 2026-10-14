@@ -136,6 +136,9 @@ session).
 
 ## Toolchain caches, `.git` and linked files
 
+Build outputs are shared between a task's checkouts and tool caches opened
+from the start: `build-outputs.md`.
+
 The runner resolves the wave plan's `worktree` key (see the Plan Format
 section in `super-plan/SKILL.md`) once, via `resolveWorktreeEnv`, and reuses
 the result for every child it spawns (`codex-wave-runner.mjs:719-720`). Every
@@ -207,7 +210,9 @@ directories of keys, tokens, agent configuration and shell start-up
 stays writable for every later child of the wave and is listed in
 `summary.json` under `sandboxGrants` and on stderr. One the preflight opened
 belongs in the plan's `worktree.writable`; one found through the executor's
-code or command is checked before it is added there. A denial the runner
+code or command is checked before it is added there; a `tool cache` one, a
+cache the repository's tools name (`build-outputs.md`), opens by itself at
+every start. A denial the runner
 cannot reproduce or may not open ends the task as `environment-blocked`, as
 before.
 

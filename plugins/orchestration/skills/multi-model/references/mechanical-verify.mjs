@@ -2,7 +2,8 @@
 // Independent facts from committed artifacts. No model or credential-file reads.
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, statSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, statSync, rmSync, writeFileSync } from 'node:fs'
+import { seedBuildDirs, shareBuildDirs } from './build-dirs.mjs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -52,7 +53,7 @@ function linkMetadata(repo, links) {
 }
 
 export function verifyPipeline({ repo, head, base, branch, contract, links = [], cache = [],
-  environment = process.env, logDir, timeoutMs = 30 * 60 * 1000, retryFailures = true }) {
+  environment = process.env, logDir, timeoutMs = 30 * 60 * 1000, retryFailures = true, shareFrom = null, seedFrom = null }) {
   const pinnedHead = git(repo, ['rev-parse', '--verify', head + '^{commit}'])
   const key = digest(canonical({ repo: realpathSync(resolve(repo, git(repo, ['rev-parse', '--git-common-dir']))), head: pinnedHead,
     base, branch, contract, environment, platform: process.platform, arch: process.arch,
@@ -75,6 +76,9 @@ export function verifyPipeline({ repo, head, base, branch, contract, links = [],
     try {
       git(repo, ['worktree', 'add', '--detach', checkout, pinnedHead]); created = true
       applyLinks(repo, checkout, links)
+      // The task's executor has built this commit: reuse its build outputs.
+      if (shareFrom && existsSync(shareFrom)) shareBuildDirs(shareFrom, checkout, { repo, skip: links })
+      else if (seedFrom && existsSync(seedFrom)) seedBuildDirs(seedFrom, checkout, { skip: links })
       for (let i = 0; i < entries.length; i++) {
         // Own the process group. The trap runs while bash waits and kills
         // descendants too, so timed-out builds cannot keep writing afterward.

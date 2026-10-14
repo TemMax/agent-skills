@@ -282,6 +282,21 @@ check "a colour and a plain hex word are not read as commits" '! grep -qE "names
 out="$(node "$LINT" "$W/m.md" --repo "$W/repo" 2>&1)"
 check "a non-git --repo skips the commit check" '! grep -qF "is not a commit" <<<"$out"'
 
+section "worktree.share_builds"
+mutate '"ci": "none: fixture repository without CI workflows",' '"worktree": { "share_builds": false },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "share_builds false is accepted" "0" "$rc"
+mutate '"ci": "none: fixture repository without CI workflows",' '"worktree": { "share_builds": "yes" },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "share_builds must be true, false or executor" "1" "$rc"
+contains "share_builds type named" 'worktree.share_builds: true, false or "executor" required' "$out"
+mutate '"ci": "none: fixture repository without CI workflows",' '"worktree": { "share_builds": "executor" },
+  "ci": "none: fixture repository without CI workflows",'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "share_builds executor is accepted" "0" "$rc"
+
 section "report questions: requests and git facts, not product behaviour"
 for q in 'What is the commit id of your change?' 'Which files did you change?' 'Provide the commit hashes of each step.' \
          'Report git status --porcelain.' 'Pasting the full diff is required.'; do
@@ -1703,7 +1718,7 @@ mutate '"ci": "none: fixture repository without CI workflows",' \
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "worktree wrong shape exits 1" "1" "$rc"
 contains "worktree wrong shape named" \
-  "worktree: must be an object with only \"links\", \"optional_links\", \"writable\" and \"auto\"" "$out"
+  "worktree: must be an object with only \"links\", \"optional_links\", \"writable\", \"auto\" and \"share_builds\"" "$out"
 
 mutate '"ci": "none: fixture repository without CI workflows",' \
        '"worktree": { "links": [], "bogus": true },
@@ -1711,7 +1726,7 @@ mutate '"ci": "none: fixture repository without CI workflows",' \
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "worktree extra key exits 1" "1" "$rc"
 contains "worktree extra key named" \
-  "worktree: must be an object with only \"links\", \"optional_links\", \"writable\" and \"auto\"" "$out"
+  "worktree: must be an object with only \"links\", \"optional_links\", \"writable\", \"auto\" and \"share_builds\"" "$out"
 
 mutate '"ci": "none: fixture repository without CI workflows",' \
        '"worktree": { "links": ["/abs/path"] },

@@ -13,6 +13,7 @@ import {
   resolveWorktreeEnv, TASK_HEADING_SOURCE, executionPolicyErrors,
 } from './worktree-env.mjs'
 import { limitsErrors, supervisionErrors, verifyPipeline } from './mechanical-verify.mjs'
+import { seedBuildDirs } from './build-dirs.mjs'
 
 export const CODEX_MODELS = ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const ASTRA = 'gpt-6-astra'
@@ -978,8 +979,13 @@ export function verifyTask(state, id) {
     const headSha = head.stdout.trim()
     // Pin both complete attempts to the committed task head. Preceding
     // commands may generate prerequisites or poison their successors.
+    let shareBuilds = 'off'
+    try { shareBuilds = resolveWorktreeEnv(updated.repoPath, effectivePlan(updated.planPath, updated.repoPath)).shareBuilds } catch { /* plain verification */ }
     const pipeline = verifyPipeline({ repo: updated.repoPath, head: headSha,
       base: updated.base, branch: task.branch, contract: spec.contract, links,
+      // Not the executor's own outputs unless the plan asks: verification
+      // starts from the commit and the repository checkout's outputs.
+      ...(shareBuilds === 'executor' ? { shareFrom: task.worktree } : shareBuilds === 'repository' ? { seedFrom: updated.repoPath } : {}),
       cache: task.verifierFacts, logDir: join(updated.repoPath, '.worktrees', 'verification-logs', id, String(task.totalAttempts)) })
     pipeline.mustRun.forEach((entry, index) => { mustRun[index].attempts = entry.attempts })
     verification = pipeline.verification
@@ -1418,6 +1424,9 @@ function initCommand(options, adoption = null) {
       throw new NamedError('worktree-conflict', created.stderr || created.error?.message || task.worktree)
     }
     applyLinks(options.repo, task.worktree, env.links)
+    // A new worktree starts from a copy-on-write clone of the repository
+    // checkout's build outputs: dependencies are not built again.
+    if (env.shareBuilds !== 'off') seedBuildDirs(options.repo, task.worktree, { skip: env.links })
   }
   excludeFromGit(options.repo, ['.worktrees/', ...env.links.map((l) => '/' + l)])
   mkdirSync(stateDir, { recursive: true })

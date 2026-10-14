@@ -880,6 +880,9 @@ Opus 5 relays subagent claims unverified (p. 81).
 - `references/claude-wave-adapter.md` — the Claude host adapter (base
   preflight, launch-script generation, runner invocation, status handling).
   Read before launching a Claude-only wave.
+- `references/build-outputs.md` — how a task's checkouts share build outputs and
+  tool caches, what it saves and how to turn it off. Read when a wave's builds
+  fill the disk or rebuild in every checkout.
 - `references/contract-amendment.md` — the contract amendment flow. Read when
   a task returns `contract-unsatisfiable`, before acting on it.
 - `references/verdicts.md` — the verifier stage, the supervisor's verdict

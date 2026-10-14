@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
-  existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, lstatSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -2268,4 +2268,65 @@ test('(g6) a named command in backticks, or a whole line in backticks, is read a
     assert.equal(result.json.status, 'merge-ready', named + '\n' + result.stderr)
     assert.equal(result.json.sandboxGrants[0].cmd, 'sh tools/build.sh')
   }
+})
+
+// Build outputs: a new worktree starts from a clone of the repository
+// checkout's ignored directories; the task's review checkout links to the
+// executor's.
+function repoWithBuildDir() {
+  const f = makeRepo()
+  writeFileSync(join(f.repo, '.gitignore'), 'target/\n')
+  git(f.repo, 'add', '.gitignore')
+  git(f.repo, 'commit', '-m', 'ignore target')
+  f.base = git(f.repo, 'rev-parse', 'HEAD')
+  mkdirSync(join(f.repo, 'target', 'debug'), { recursive: true })
+  writeFileSync(join(f.repo, 'target', 'debug', 'dep.rlib'), 'compiled dependency\n')
+  return f
+}
+
+test('(b1) by default every checkout starts from a clone of the repository build, none from the executor', () => {
+  const { root, repo, base } = repoWithBuildDir()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  const worktree = join(repo, '.worktrees', 'wave-task-a')
+  assert.equal(readFileSync(join(worktree, 'target', 'debug', 'dep.rlib'), 'utf8'), 'compiled dependency\n')
+  assert.equal(lstatSync(join(worktree, 'target')).isSymbolicLink(), false, 'a clone, not a link')
+  const supervisor = readLog(logPath).find((r) => r.event === 'start' && r.argv.includes('--output-schema'))
+  assert.deepEqual(supervisor.symlinks, [], 'the review checkout does not link to the executor build')
+})
+
+test('(b3) share_builds "executor" links the executor build into the review checkout', () => {
+  const { root, repo, base } = repoWithBuildDir()
+  const planPath = writePlan(root, ['task-a'])
+  writeFileSync(planPath, readFileSync(planPath, 'utf8').replace('"ci":', '"worktree": { "share_builds": "executor" },\n  "ci":'))
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  const supervisor = readLog(logPath).find((r) => r.event === 'start' && r.argv.includes('--output-schema'))
+  assert.deepEqual(supervisor.symlinks, ['target'])
+  assert.match(readFileSync(join(repo, '.git', 'info', 'exclude'), 'utf8'), /^\/target$/m)
+  // The linked directory resolves into the executor's worktree: the
+  // supervisor's sandbox may write there.
+  const roots = JSON.parse(supervisor.argv.find((a) => a.startsWith('sandbox_workspace_write.writable_roots=')).split('=').slice(1).join('='))
+  assert.ok(roots.includes(join(repo, '.worktrees', 'wave-task-a', 'target')), JSON.stringify(roots))
+})
+
+test('(b2) worktree.share_builds: false keeps every checkout to its own build', () => {
+  const { root, repo, base } = repoWithBuildDir()
+  const planPath = writePlan(root, ['task-a'])
+  writeFileSync(planPath, readFileSync(planPath, 'utf8').replace('"ci":', '"worktree": { "share_builds": false },\n  "ci":'))
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(existsSync(join(repo, '.worktrees', 'wave-task-a', 'target')), false)
+  const supervisor = readLog(logPath).find((r) => r.event === 'start' && r.argv.includes('--output-schema'))
+  assert.deepEqual(supervisor.symlinks, [])
 })
