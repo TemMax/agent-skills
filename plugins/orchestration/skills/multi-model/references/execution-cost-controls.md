@@ -151,10 +151,10 @@ by an executor. Old summaries without a receipt are not automatically adopted.
 ## Known preflight blockers
 
 A Codex child denied writing to a build tool's own directory in the home
-directory is handled by the runner: it opens the directory from the real
-output of the contract command and goes on (`codex-wave-protocol.md`, "Tool
-directories opened from a real denial"). Add what it opened to
-`worktree.writable`.
+directory is handled by the runner: it opens the directory from the output of
+a command it runs in the sandbox and goes on (`codex-wave-protocol.md`, "Tool
+directories opened from a real denial"). Add a preflight grant to
+`worktree.writable`; check one found at executor time first.
 
 `worktree.links` are mandatory. Use `worktree.optional_links` for genuinely
 optional paths. Missing mandatory links fail before model launches; disappearance

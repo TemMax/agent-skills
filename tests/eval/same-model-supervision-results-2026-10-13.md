@@ -136,6 +136,19 @@ before each run and is removed after it.
 | L1c, the denied command is not in `must_run`; the directory exists | executor-named command | failed its expectation: the executor named the command in backticks and the runner read the backtick into it; fixed with a test |
 | L1d, the same on a fresh fixture | executor-named command | the runner ran the named command, probed the denial, opened the existing directory, the same thread finished; merge-ready, one attempt charged |
 
+An independent review then found that letter case got past the protected list
+(`~/.SSH`, `~/.CODEX`), that a directory holding programs on `PATH` could be
+opened, that contract output at executor time comes from the executor's code,
+that the write probe could not tell a printed denial from a real one, that the
+reproduction blocked the runner, and that npm and Go wording was missed. After
+the fixes the three paths were run again on fresh fixtures (2026-10-14):
+
+| Run | Outcome |
+|---|---|
+| Preflight on, directory missing | created and opened by the preflight; merge-ready |
+| Preflight off, contract command, directory exists | reproduced, logged, opened; same thread finished; merge-ready |
+| Preflight off, named command, directory exists | reproduced, logged, opened as `executor command`; same thread finished; merge-ready |
+
 ## Runner changes
 
 - **Progress lines.** A real two-call wave on each host wrote the expected

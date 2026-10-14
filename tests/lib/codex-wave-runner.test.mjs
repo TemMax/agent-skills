@@ -2160,6 +2160,7 @@ function grantHome(root) {
 test('(g1) an executor stopped by the sandbox continues after the runner opens the denied tool directory', () => {
   const { root, repo, base } = makeRepo()
   const { home, deny } = grantHome(root)
+  mkdirSync(deny)
   const planPath = writePlan(root, ['task-a'])
   const logPath = join(root, 'codex.log')
   const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
@@ -2168,7 +2169,6 @@ test('(g1) an executor stopped by the sandbox continues after the runner opens t
     CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
   assert.equal(result.status, 0, result.stdout + result.stderr)
   assert.equal(result.json.status, 'merge-ready')
-  assert.ok(existsSync(deny), 'the missing tool directory is created')
   assert.deepEqual(result.json.sandboxGrants, [{ dir: '~/.toolcache', origin: 'task task-a', cmd: 'true' }])
   const executors = result.json.children.filter((c) => c.role === 'executor')
   assert.equal(executors.length, 2)
@@ -2179,7 +2179,20 @@ test('(g1) an executor stopped by the sandbox continues after the runner opens t
   assert.equal(state.totalAttempts, 1, 'the grant costs no attempt')
   const supervisor = readLog(logPath).find((r) => r.event === 'start' && r.argv.includes('--output-schema'))
   assert.ok(supervisor.argv.join(' ').includes(deny), 'later children get the directory too')
-  assert.match(result.stderr, /sandbox: opened ~\/\.toolcache for writing \(task task-a\); add it to the plan's worktree\.writable/)
+  assert.match(result.stderr, /sandbox: opened ~\/\.toolcache for writing \(task task-a\); the denial came through code or a command the executor chose: check it before adding it to worktree\.writable/)
+  assert.match(readFileSync(join(root, 'out', 'task-a', 'sandbox-reproduction-1.log'), 'utf8'), /^\$ true\n/)
+})
+
+test('(g1b) at executor time a missing tool directory is not created and the task stops as before', () => {
+  const { root, repo, base } = makeRepo()
+  const { home, deny } = grantHome(root)
+  const planPath = writePlan(root, ['task-a'])
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { HOME: home, CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'sandbox-blocked',
+    CODEX_STUB_SANDBOX_DENY_DIR: deny, CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.json.tasks[0].status, 'environment-blocked')
+  assert.equal(existsSync(deny), false)
 })
 
 test('(g2) the preflight opens a denied tool directory instead of moving the command outside the sandbox', () => {
@@ -2239,17 +2252,14 @@ test('(g4) a command outside the contract that the executor names is run by the 
     [{ dir: '~/.toolcache', origin: 'executor command, task task-a', cmd: 'sh tools/build.sh' }])
   const sandboxCalls = readLog(logPath).filter((r) => r.event === 'start' && r.argv[0] === 'sandbox').map((r) => r.argv.at(-1))
   assert.deepEqual(sandboxCalls.slice(0, 2), ['true', 'sh tools/build.sh'], 'the contract first, then the named command')
-  assert.match(sandboxCalls[2], /^touch ".*\.toolcache\/\.agent-skills-write-probe-/, 'the denial is probed before opening')
   assert.equal(result.json.children.filter((c) => c.followUp === 'sandbox-grant').length, 1)
 })
 
-test('(g5) a directory found through a named command is never created, and a fake denial is not opened', () => {
-  for (const over of [{ create: false }, { probeWritable: true }]) {
-    const { result, deny } = namedCommandRun(over)
-    assert.equal(result.json.tasks[0].status, 'environment-blocked', JSON.stringify(over))
-    assert.equal(result.json.sandboxGrants, undefined, JSON.stringify(over))
-    if (over.create === false) assert.equal(existsSync(deny), false)
-  }
+test('(g5) a directory found through a named command is never created', () => {
+  const { result, deny } = namedCommandRun({ create: false })
+  assert.equal(result.json.tasks[0].status, 'environment-blocked')
+  assert.equal(result.json.sandboxGrants, undefined)
+  assert.equal(existsSync(deny), false)
 })
 
 test('(g6) a named command in backticks, or a whole line in backticks, is read as the command', () => {

@@ -170,41 +170,51 @@ supervisor-network option.
 **Tool directories opened from a real denial.** The sandbox lets a child
 write only to its worktree, its git directories and the writable roots above.
 A build tool that keeps its cache or daemon files elsewhere in the home
-directory (a Kotlin daemon, `~/.m2`, `~/.konan`, an npm or pip cache) is then
-denied, and a preflight at the base commit may not see it: a cached build
-does no work there. The runner opens such a directory itself, from the real
-output of a contract command it runs in the sandbox — never from a model's
-words (`sandbox-grants.mjs`):
+directory (a Kotlin daemon, `~/.m2`, `~/.konan`, an npm, pip or Go cache) is
+then denied, and a preflight at the base commit may not see it: a cached
+build does no work there. The runner opens such a directory itself, from the
+output of a command it runs in the sandbox (`sandbox-grants.mjs`):
 
 - in the preflight, a denied `must_run` command gets the denied directory and
   is run again, up to three times, before it is classified; a command that
-  then passes is not moved outside the sandbox;
+  then passes is not moved outside the sandbox. The preflight runs the base
+  commit, so a missing tool directory may be created here;
 - when an executor's report opens with `environment-blocked:`, the runner runs
   that task's `must_run` commands in the executor's worktree and sandbox, and
-  then the command the executor named on its `blocked-command:` line; when one
-  is denied, it opens the directory and asks the same thread to continue,
-  within the same attempt (`followUp: "sandbox-grant"`), at most twice per
-  attempt and only while two model calls are left.
+  then the command the executor named on its `blocked-command:` line, each for
+  at most ten minutes, without the variables a Codex shell leaves out (names
+  holding KEY, SECRET, TOKEN, PASSWORD or CREDENTIAL), without blocking the
+  other tasks, and with its output kept as
+  `<out>/<task>/sandbox-reproduction-<n>.log`. When one is denied, the runner
+  opens the directory and asks the same thread to continue, within the same
+  attempt (`followUp: "sandbox-grant"`), at most twice per attempt and only
+  while two model calls are left. That output can come from code the executor
+  wrote, so nothing is created at this point: only an existing directory opens.
 
-A command the executor named is the model's choice, so a directory found
-through it is opened only when it already exists and a write probe in the
-sandbox is really denied there; the runner never creates one for it. Its
-grant is recorded with the origin `executor command`.
-
-Only a tool's own directory under the home directory is opened: a top-level
-dot-directory (`~/.konan`), or the next directory under `~/Library/Caches`,
+What may be opened is decided on the path alone, ignoring letter case: a
+tool's own directory under the home directory — a top-level dot-directory
+(`~/.konan`), or the next directory under `~/Library/Caches`,
 `~/Library/Application Support`, `~/Library/Logs`, `~/.cache`, `~/.config`,
-`~/.local/share` or `~/.local/state`. A missing one is created under its
-existing parent. Never opened: anything outside the home directory or not a
-tool directory, anything inside or containing the repository, a git
-repository, and the directories of keys, tokens and agent configuration
-(`~/.ssh`, `~/.gnupg`, `~/.aws`, `~/.azure`, `~/.kube`, `~/.docker`,
-`~/.codex`, `~/.claude`, `~/.config/gh`, `~/.config/gcloud`, `~/.config/git`,
-the keychains and the rest of `PROTECTED` in `sandbox-grants.mjs`). An opened
-directory stays writable for every later child of the wave, is listed in
-`summary.json` under `sandboxGrants` and on stderr, and belongs in the plan's
-`worktree.writable` for later waves. A denial the runner cannot reproduce or
-may not open ends the task as `environment-blocked`, as before.
+`~/.local/share` or `~/.local/state`. Never opened: anything outside the home
+directory or not a tool directory; a directory that contains a directory on
+`PATH` or the runner's own programs (a version manager's shims, `~/.cargo`);
+a git repository, a bare one, or one holding a repository two levels down;
+anything inside or containing the repository or the run directory; and the
+directories of keys, tokens, agent configuration and shell start-up
+(`PROTECTED` in `sandbox-grants.mjs`: `~/.ssh`, `~/.gnupg`, `~/.aws`,
+`~/.codex`, `~/.claude`, `~/.cursor`, `~/.config/gh`, `~/.config/autostart`,
+`~/.local/bin`, the keychains, `.bashrc` and the rest). An opened directory
+stays writable for every later child of the wave and is listed in
+`summary.json` under `sandboxGrants` and on stderr. One the preflight opened
+belongs in the plan's `worktree.writable`; one found through the executor's
+code or command is checked before it is added there. A denial the runner
+cannot reproduce or may not open ends the task as `environment-blocked`, as
+before.
+
+The sandbox limits accidental damage by an executor; it is not a boundary
+against a hostile one: the mechanical verifier runs the candidate's own
+contract commands outside the sandbox. These rules keep a grant from widening
+what an executor can reach beyond its own tool caches.
 
 **Links into four different checkouts.** `worktree.links` (untracked files
 symlinked in, never opened) reaches every checkout a Codex child or the

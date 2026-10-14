@@ -34,6 +34,7 @@ run "behaviour — mechanical verification and artifact reuse" node --test tests
 run "behaviour — Claude runtime mod" node --test tests/lib/claude-runtime-mod.test.mjs tests/lib/claude-repository-context.test.mjs
 run "behaviour — native Claude wave runner" node --test tests/lib/claude-wave-runner.test.mjs
 run "behaviour — codex wave runner" node --test tests/lib/codex-wave-runner.test.mjs
+run "behaviour — sandbox grants" node --test tests/lib/sandbox-grants.test.mjs
 run "behaviour — worktree environment helper" node --test tests/lib/worktree-env.test.mjs
 run "behaviour — wave cleanup" node --test tests/lib/wave-cleanup.test.mjs
 run "behaviour — Telegram release announcement" bash tests/telegram-notify.test.sh
