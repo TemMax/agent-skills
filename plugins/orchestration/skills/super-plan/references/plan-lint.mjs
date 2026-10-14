@@ -398,10 +398,10 @@ if (plan) {
   // with --repo, a link that doesn't exist in the repo is a warning ----
   if (plan.worktree !== undefined) {
     const w = plan.worktree
-    const WORKTREE_KEYS = ['links', 'optional_links', 'writable', 'auto']
+    const WORKTREE_KEYS = ['links', 'optional_links', 'writable', 'auto', 'share_builds']
     if (!w || typeof w !== 'object' || Array.isArray(w)
       || Object.keys(w).some((k) => !WORKTREE_KEYS.includes(k))) {
-      err('worktree: must be an object with only "links", "optional_links", "writable" and "auto"')
+      err('worktree: must be an object with only "links", "optional_links", "writable", "auto" and "share_builds"')
     } else {
       const isRelLink = (l) => typeof l === 'string' && l !== '' && !l.startsWith('/')
         && !l.split(/[\\/]/).includes('..')
@@ -426,6 +426,9 @@ if (plan) {
       }
       if (w.auto !== undefined && typeof w.auto !== 'boolean') {
         err('worktree.auto: boolean required')
+      }
+      if (w.share_builds !== undefined && typeof w.share_builds !== 'boolean' && w.share_builds !== 'executor') {
+        err('worktree.share_builds: true, false or "executor" required')
       }
     }
   }

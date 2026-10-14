@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url'
 import { recoveryScope, readRecovery, makeRecoveryReceipt, claimRecovery, recoveredReport, candidate,
   planContinuation, continuationCounts, continuationRecord } from './candidate-recovery.mjs'
 import { effectivePlan, requireExecutable } from './worktree-env.mjs'
-import { applyLinks, detectEnvironmentBlock } from './worktree-env.mjs'
+import { applyLinks, detectEnvironmentBlock, effectivePlan as planWithInherits, resolveWorktreeEnv } from './worktree-env.mjs'
+import { seedBuildDirs, shareBuildDirs } from './build-dirs.mjs'
 import { createProgress, formatElapsed, verdictNote } from './wave-progress.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -71,6 +72,21 @@ if (options['continue-note']) {
   for (const [id, reason] of Object.entries(continuation.skipped)) process.stderr.write('claude-wave-runner: continuation skips ' + id + ': ' + reason + '\n')
 }
 const continuationRan = new Set(), continuationReported = new Set()
+// Build outputs shared between a task's checkouts (worktree.share_builds).
+const shareBuilds = resolveWorktreeEnv(options.repo, planWithInherits(options.plan, options.repo)).shareBuilds
+const executorWorktree = (id) => join(wave.repoPath, '.worktrees', 'wave-' + id)
+// The executor's worktree is created before its first call and starts from a
+// copy-on-write clone of the repository checkout's build outputs; the task
+// prompt tells the executor to reuse a worktree that already exists.
+function prepareExecutorWorktree(id) {
+  const worktree = executorWorktree(id)
+  if (existsSync(worktree)) return
+  const branchExists = spawnSync('git', ['-C', options.repo, 'show-ref', '--verify', '--quiet', 'refs/heads/wave/' + id]).status === 0
+  if (branchExists) return
+  const added = spawnSync('git', ['-C', options.repo, 'worktree', 'add', worktree, '-b', 'wave/' + id, wave.base], { encoding: 'utf8' })
+  if (added.status !== 0) return
+  if (shareBuilds !== 'off') seedBuildDirs(options.repo, worktree, { skip: wave.worktree?.links || [] })
+}
 if (recovery) {
   wave.recovery = Object.fromEntries(Object.entries(recovery.tasks).map(([id, saved]) => [id, { ...saved, report: recoveredReport(saved.report),
     ...(continuation?.tasks[id] ? { continuation: { note: continuation.tasks[id].note, verdicts: continuation.tasks[id].verdicts } } : {}) }]))
@@ -150,6 +166,7 @@ async function agent(prompt, opts) {
     // A continued task starts from the pinned candidate; after its one
     // executor attempt the branch has moved on by design.
     if (recovery && !continuationRan.has(id)) candidate(options.repo, options.base, id, recovery.tasks[id].head)
+    if (role === 'exec' && !recovery) prepareExecutorWorktree(id)
     if (role === 'exec' && continuation?.tasks[id] && !continuationRan.has(id)) {
       continuationRan.add(id)
       progress(id, 'continuation: one more attempt with the coordinator\'s note (' + continuation.tasks[id].approvedBy + ')')
@@ -160,6 +177,8 @@ async function agent(prompt, opts) {
       checkout = prefix + '.checkout'
       git(['worktree', 'add', '--detach', checkout, branchHead])
       applyLinks(options.repo, checkout, wave.worktree?.links || [])
+      if (shareBuilds === 'executor') shareBuildDirs(executorWorktree(id), checkout, { repo: options.repo, skip: wave.worktree?.links || [] })
+      else if (shareBuilds === 'repository') seedBuildDirs(options.repo, checkout, { skip: wave.worktree?.links || [] })
     }
     stage = (ROLE_NAMES[role] || role) + ' ' + n
     stageTask = id
@@ -221,6 +240,7 @@ async function verify(task, report) {
   const directory = join(options.out, task.id); mkdirSync(directory, { recursive: true })
   const prefix = join(directory, 'verification-' + n)
   const request = { repo: wave.repoPath, branch: 'wave/' + task.id, base: wave.base, contract: task.contract,
+    ...(shareBuilds === 'executor' ? { shareFrom: executorWorktree(task.id) } : shareBuilds === 'repository' ? { seedFrom: wave.repoPath } : {}),
     links: wave.worktree?.links || [], report, cache: factsCache.get(task.id) || [], logDir: prefix + '.logs',
     timeoutMs: Number(options['timeout-min']) * 60000 }
   save(prefix + '.request.json', request)
@@ -250,6 +270,7 @@ try {
     for (const task of wave.tasks) {
       const prefix = join(options.out, 'preflight-' + task.id)
       save(prefix + '.request.json', { pipelineOnly: true, repo: wave.repoPath, head: wave.base, base: wave.base,
+        ...(shareBuilds !== 'off' ? { seedFrom: wave.repoPath } : {}),
         branch: 'base', contract: task.contract, links: wave.worktree?.links || [], logDir: prefix + '.logs', retryFailures: false,
         timeoutMs: Number(options['timeout-min']) * 60000 })
       if (!await processRun(process.execPath, [join(here, 'mechanical-verify.mjs'), '--request', prefix + '.request.json',

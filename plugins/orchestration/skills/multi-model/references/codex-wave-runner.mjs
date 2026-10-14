@@ -38,12 +38,15 @@ import { spawn, spawnSync } from 'node:child_process'
 import {
   existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs'
+import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   applyLinks, checkDependsOn, detectEnvironmentBlock, effectivePlan, gitCommonDir,
-  resolveWorktreeEnv, TASK_HEADING_SOURCE, requireExecutable,
+  reportEnvironmentBlock, resolveWorktreeEnv, TASK_HEADING_SOURCE, requireExecutable,
 } from './worktree-env.mjs'
+import { grantFor, grantsFromOutput, hasDenial, programDirs, reportBlockedCommand, reproductionEnv } from './sandbox-grants.mjs'
+import { seedBuildDirs, shareBuildDirs, toolCacheDirs } from './build-dirs.mjs'
 
 import { recoveryScope, readRecovery, makeRecoveryReceipt, claimRecovery, recoveredReport, candidate,
   planContinuation, continuationCounts, continuationRecord } from './candidate-recovery.mjs'
@@ -559,7 +562,7 @@ function preflightSandboxArgs({ writableRoots, networkOn, cmd }) {
 // nothing left to clean up. `blocks` holds the machine blocks only (signature
 // inside the sandbox and outside it); `outsideSandbox` holds the commands
 // blocked inside the sandbox and clean outside it.
-function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, networkOn, wave }) {
+function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, networkOn, wave, grants, grantContext }) {
   const worktreesDir = join(repoPath, '.worktrees')
   mkdirSync(worktreesDir, { recursive: true })
   const preflightPath = mkdtempSync(join(worktreesDir, 'codex-preflight-'))
@@ -574,6 +577,7 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
   const outsideSandbox = []
   try {
     applyLinks(repoPath, preflightPath, env.links)
+    if (env.shareBuilds !== 'off') seedBuildDirs(repoPath, preflightPath, { skip: env.links })
     const writableRoots = [worktreeGitDir(preflightPath), commonDir, ...env.writable]
     for (const cmd of distinctMustRunCmds(wave)) {
       const args = preflightSandboxArgs({ writableRoots, networkOn, cmd })
@@ -585,7 +589,25 @@ function runPreflight({ codexBin, repoPath, base, timeoutMs, env, commonDir, net
       const exit = run.status === null ? -1 : run.status
       const result = { cmd, exit, seconds, sandbox: 'ok' }
       results.push(result)
-      if (!detectEnvironmentBlock((run.stdout || '') + '\n' + (run.stderr || ''))) continue
+      let output = (run.stdout || '') + '\n' + (run.stderr || '')
+      // A tool directory the sandbox denied is opened and the command run
+      // again, up to three times, before the block is classified.
+      for (let round = 0; round < 3 && (detectEnvironmentBlock(output) || hasDenial(output)); round++) {
+        // The preflight's output comes from the base commit: a missing tool directory may be created.
+        const { granted } = grantsFromOutput(output, { ...grantContext, writable: env.writable, create: true })
+        if (granted.length === 0) break
+        for (const grant of granted) {
+          env.writable.push(grant.dir); writableRoots.push(grant.dir)
+          grants.push({ dir: grant.rel, origin: 'preflight', cmd })
+        }
+        result.granted = [...(result.granted ?? []), ...granted.map((grant) => grant.rel)]
+        const again = spawnSync(codexBin, preflightSandboxArgs({ writableRoots, networkOn, cmd }), {
+          cwd: preflightPath, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024,
+        })
+        result.exit = again.status === null ? -1 : again.status
+        output = (again.stdout || '') + '\n' + (again.stderr || '')
+      }
+      if (!detectEnvironmentBlock(output)) continue
       // Same command, same checkout, same timeout, no sandbox.
       result.sandbox = 'blocked'
       const outsideStart = Date.now()
@@ -840,7 +862,37 @@ async function main() {
     }
   }
   const progress = createProgress(config.outPath, 'codex-wave-runner')
+  // Tool directories opened in the sandbox after a contract command was denied
+  // writing there; every later child of the wave gets them too.
+  const sandboxGrants = []
+  const reportGrants = (grants) => {
+    for (const grant of grants) {
+      process.stderr.write('codex-wave-runner: sandbox: opened ' + grant.dir + ' for writing (' + grant.origin + '); '
+        + (grant.origin === 'tool cache' ? 'a cache this repository\'s tools use, opened at every start'
+          : grant.origin === 'preflight' ? 'add it to the plan\'s worktree.writable for later waves'
+            : 'the denial came through code or a command the executor chose: check it before adding it to worktree.writable')
+        + '\n')
+    }
+  }
+  // What a grant may never touch: the repository, this run's records, and the
+  // programs the runner itself starts outside the sandbox.
+  const grantContext = {
+    home: homedir(),
+    excluded: [config.repoPath, config.outPath, ...(config.resumeFrom ? [dirname(config.resumeFrom)] : [])],
+    pathDirs: programDirs([...(process.env.PATH || '').split(':'), dirname(process.execPath),
+      ...(isAbsolute(config.codexBin) ? [dirname(config.codexBin)] : [])]),
+  }
   const commonDir = gitCommonDir(config.repoPath)
+  grantContext.excluded.push(commonDir)
+  // The caches of the tools this repository uses, asked of the tools, open
+  // from the start under the same rules as any grant.
+  for (const dir of toolCacheDirs(config.repoPath, reproductionEnv())) {
+    const grant = grantFor(dir, grantContext)
+    if (grant.refused || grant.dir.toLowerCase() !== realpathSync.native(dir).toLowerCase()
+      || env.writable.some((w) => existsSync(w) && realpathSync.native(w).toLowerCase() === grant.dir.toLowerCase())) continue
+    env.writable.push(grant.dir)
+    sandboxGrants.push({ dir: grant.rel, origin: 'tool cache' })
+  }
   if (env.missingWritable.length > 0) {
     process.stderr.write('codex-wave-runner: missing writable dirs (skipped): '
       + env.missingWritable.join(', ') + '\n')
@@ -884,8 +936,9 @@ async function main() {
     progress('wave', 'preflight started')
     const { blocked, blocks, results, outsideSandbox: sandboxOnly } = runPreflight({
       codexBin: config.codexBin, repoPath: config.repoPath, base: config.base, timeoutMs: config.timeoutMs,
-      env, commonDir, networkOn: config.executorNetworkOn, wave,
+      env, commonDir, networkOn: config.executorNetworkOn, wave, grants: sandboxGrants, grantContext,
     })
+    reportGrants(sandboxGrants)
     preflightResults = results
     outsideSandbox = sandboxOnly
     progress('wave', 'preflight ' + (blocked ? 'blocked' : 'finished'))
@@ -1081,6 +1134,80 @@ async function main() {
   }
 
   const commitFollowUps = new Set()
+  // Runs a command in a task's worktree in the executor's sandbox, without
+  // blocking the other tasks' children, for at most ten minutes, with the
+  // environment a Codex shell would get, and keeps its output in the run.
+  let reproductions = 0
+  const runInTaskSandbox = async (taskId, worktree, cmd) => {
+    await semaphore.acquire()
+    try {
+      return await new Promise((resolve_) => {
+        const chunks = []
+        let settled = false, timer = null
+        const finish = (status) => {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          const output = Buffer.concat(chunks).toString('utf8')
+          try {
+            const logDir = join(config.outPath, taskId)
+            mkdirSync(logDir, { recursive: true })
+            writeFileSync(join(logDir, 'sandbox-reproduction-' + (++reproductions) + '.log'), '$ ' + cmd + '\n' + output)
+          } catch { /* the record is best effort; the result is not */ }
+          resolve_({ status, output })
+        }
+        let child
+        try {
+          const writableRoots = [worktreeGitDir(worktree), commonDir, ...env.writable]
+          child = spawn(config.codexBin, preflightSandboxArgs({ writableRoots, networkOn: config.executorNetworkOn, cmd }),
+            { cwd: worktree, env: reproductionEnv(), detached: true, stdio: ['ignore', 'pipe', 'pipe'] })
+        } catch { finish(null); return }
+        child.stdout.on('data', (chunk) => chunks.push(chunk))
+        child.stderr.on('data', (chunk) => chunks.push(chunk))
+        timer = setTimeout(() => {
+          try { process.kill(-child.pid, 'SIGKILL') } catch { try { child.kill('SIGKILL') } catch { /* gone */ } }
+        }, Math.min(config.timeoutMs, 10 * 60 * 1000))
+        child.on('error', () => finish(null))
+        child.on('close', (code) => finish(code))
+      })
+    } finally {
+      semaphore.release()
+    }
+  }
+  // Runs the task's contract commands, then the command its executor named
+  // as blocked, in the executor's worktree and sandbox, until one is denied
+  // writing to a tool directory that may be opened; returns the directories
+  // opened (none when nothing was). Both outputs can come from the executor's
+  // own code, so nothing is created here: only an existing directory opens.
+  const openDeniedDirectories = async (taskId, worktree, report) => {
+    const spec = wave.tasks.find((task) => task.id === taskId)
+    const contract = spec.contract.must_run.map((entry) => entry.cmd).filter((cmd) => !(outsideSandbox ?? []).includes(cmd))
+    const named = reportBlockedCommand(report)
+    let denied = false
+    const candidates = [...contract.map((cmd) => ({ cmd, origin: 'task ' + taskId })),
+      ...(named && !spec.contract.must_run.some((entry) => entry.cmd === named)
+        ? [{ cmd: named, origin: 'executor command, task ' + taskId }] : [])]
+    for (const candidate of candidates) {
+      const { output } = await runInTaskSandbox(taskId, worktree, candidate.cmd)
+      if (!hasDenial(output)) continue
+      denied = true
+      const { granted } = grantsFromOutput(output, { ...grantContext, writable: env.writable })
+      if (granted.length === 0) continue
+      const records = granted.map((grant) => ({ dir: grant.rel, origin: candidate.origin, cmd: candidate.cmd }))
+      for (const grant of granted) env.writable.push(grant.dir)
+      sandboxGrants.push(...records)
+      reportGrants(records)
+      return { opened: granted.map((grant) => grant.rel), denied }
+    }
+    return { opened: [], denied }
+  }
+  const sandboxGrantPrompt = (dirs) => [
+    'The runner ran the failing command in your sandbox and found it denied writing to '
+      + dirs.join(', ') + '. Those directories are writable now.',
+    'Continue the task from where you stopped: run the command again, finish the work, commit it with',
+    '`git -c commit.gpgsign=false commit …`, and finish with the complete, self-contained REPORT in the format',
+    'your task requires. Report `environment-blocked:` again only if the machine still blocks you.',
+  ].join('\n')
   const continuationRan = new Set()
   const continuationReported = new Set()
   // The follow-up must leave a call for the review of the work it commits.
@@ -1104,6 +1231,7 @@ async function main() {
     && children.filter(child => child.task === taskId).length >= (wave.limits?.max_model_calls ?? 24)
 
   async function handleExecutor(taskId, statePath, action) {
+    const grantsAtLaunch = sandboxGrants.length
     const stored = executorSessions.get(taskId)
     // Resume only the same rung's own thread: same model and effort as the
     // task's previous executor child, with a thread id read in this process.
@@ -1120,6 +1248,25 @@ async function main() {
     if (session && !Object.hasOwn(outcome.payload, 'report') && !outcome.envBlock
       && !modelCallCapReached(taskId)) {
       outcome = await launchExecutor(taskId, action, null, 'resume')
+    }
+    // An executor stopped by the sandbox: the runner runs the task's own
+    // contract commands in the same sandbox, opens the tool directories they
+    // were denied, and the same thread continues within the same attempt.
+    for (let round = 0; round < 2 && Object.hasOwn(outcome.payload, 'report')
+      && reportEnvironmentBlock(outcome.payload.report) && executorSessions.get(taskId)?.threadId
+      && modelCallsLeft(taskId) >= 2; round++) {
+      const { opened, denied } = await openDeniedDirectories(taskId, action.worktree, outcome.payload.report)
+      // Nothing denied any more although nothing was opened for this task:
+      // another task opened the directory while this executor was running.
+      const meanwhile = !denied && opened.length === 0
+        ? sandboxGrants.slice(grantsAtLaunch).map((grant) => grant.dir) : []
+      const granted = opened.length > 0 ? opened : meanwhile
+      if (granted.length === 0) break
+      progress(taskId, 'sandbox: opened ' + granted.join(', ') + ' for writing; asking the executor to continue')
+      const followUp = await launchExecutor(taskId, { ...action, continuation: sandboxGrantPrompt(granted) },
+        executorSessions.get(taskId), null, 'sandbox-grant')
+      if (!Object.hasOwn(followUp.payload, 'report')) break
+      outcome = followUp
     }
     // Work left uncommitted is the most common mechanical rejection. The same
     // thread is asked once per task to commit and re-send its report, within
@@ -1195,13 +1342,19 @@ async function main() {
         + (added.stderr || added.stdout))
     }
     applyLinks(config.repoPath, checkoutPath, env.links)
+    // Linked build directories resolve into the executor's worktree: the
+    // supervisor may write there, as it could write to its own.
+    const linkedBuilds = env.shareBuilds === 'executor'
+      ? shareBuildDirs(action.worktree, checkoutPath, { repo: config.repoPath, skip: env.links }).map((rel) => join(action.worktree, rel))
+      : []
+    if (env.shareBuilds === 'repository') seedBuildDirs(config.repoPath, checkoutPath, { skip: env.links })
     try {
       const args = [
         'exec', '--ephemeral', '--skip-git-repo-check', '-C', checkoutPath,
         '--sandbox', 'workspace-write',
         '--add-dir', commonDir,
-        ...env.writable.flatMap((d) => ['--add-dir', d]),
-        '-c', 'sandbox_workspace_write.writable_roots=' + JSON.stringify([worktreeGitDir(checkoutPath), commonDir, ...env.writable]),
+        ...[...env.writable, ...linkedBuilds].flatMap((d) => ['--add-dir', d]),
+        '-c', 'sandbox_workspace_write.writable_roots=' + JSON.stringify([worktreeGitDir(checkoutPath), commonDir, ...env.writable, ...linkedBuilds]),
         ...(config.executorNetworkOn ? ['-c', 'sandbox_workspace_write.network_access=true'] : []),
         '--model', action.model,
         '-c', 'model_reasoning_effort=' + action.effort,
@@ -1330,6 +1483,7 @@ async function main() {
     ...(recovery ? { previousSummary: recovery.path } : {}),
     ...(continuation ? { continuation: continuationRecord(continuation, join(config.outPath, 'continuation-note.md')) } : {}),
     status, stopped, states, wave: config.waveNumber, tasks, children, wallSeconds,
+    ...(sandboxGrants.length > 0 ? { sandboxGrants } : {}),
     ...(preflightResults || outsideSandbox
       ? { preflight: { ...(preflightResults ? { results: preflightResults } : {}),
         ...(outsideSandbox ? { outsideSandbox } : {}) } }

@@ -136,6 +136,9 @@ session).
 
 ## Toolchain caches, `.git` and linked files
 
+Build outputs are shared between a task's checkouts and tool caches opened
+from the start: `build-outputs.md`.
+
 The runner resolves the wave plan's `worktree` key (see the Plan Format
 section in `super-plan/SKILL.md`) once, via `resolveWorktreeEnv`, and reuses
 the result for every child it spawns (`codex-wave-runner.mjs:719-720`). Every
@@ -166,6 +169,57 @@ explicit writable root (measured 2026-09-29; openai/codex #23661, #27418).
 `--executor-network` flag as the executor — `codex-wave-runner.mjs:864` and
 `:955` both gate on `config.executorNetworkOn`; there is no separate
 supervisor-network option.
+
+**Tool directories opened from a real denial.** The sandbox lets a child
+write only to its worktree, its git directories and the writable roots above.
+A build tool that keeps its cache or daemon files elsewhere in the home
+directory (a Kotlin daemon, `~/.m2`, `~/.konan`, an npm, pip or Go cache) is
+then denied, and a preflight at the base commit may not see it: a cached
+build does no work there. The runner opens such a directory itself, from the
+output of a command it runs in the sandbox (`sandbox-grants.mjs`):
+
+- in the preflight, a denied `must_run` command gets the denied directory and
+  is run again, up to three times, before it is classified; a command that
+  then passes is not moved outside the sandbox. The preflight runs the base
+  commit, so a missing tool directory may be created here;
+- when an executor's report opens with `environment-blocked:`, the runner runs
+  that task's `must_run` commands in the executor's worktree and sandbox, and
+  then the command the executor named on its `blocked-command:` line, each for
+  at most ten minutes, without the variables a Codex shell leaves out (names
+  holding KEY, SECRET, TOKEN, PASSWORD or CREDENTIAL), without blocking the
+  other tasks, and with its output kept as
+  `<out>/<task>/sandbox-reproduction-<n>.log`. When one is denied, the runner
+  opens the directory and asks the same thread to continue, within the same
+  attempt (`followUp: "sandbox-grant"`), at most twice per attempt and only
+  while two model calls are left. That output can come from code the executor
+  wrote, so nothing is created at this point: only an existing directory opens.
+
+What may be opened is decided on the path alone, ignoring letter case: a
+tool's own directory under the home directory — a top-level dot-directory
+(`~/.konan`), or the next directory under `~/Library/Caches`,
+`~/Library/Application Support`, `~/Library/Logs`, `~/.cache`, `~/.config`,
+`~/.local/share` or `~/.local/state`. Never opened: anything outside the home
+directory or not a tool directory; a directory that contains a directory on
+`PATH` or the runner's own programs (a version manager's shims, `~/.cargo`);
+a git repository, a bare one, or one holding a repository two levels down;
+anything inside or containing the repository or the run directory; and the
+directories of keys, tokens, agent configuration and shell start-up
+(`PROTECTED` in `sandbox-grants.mjs`: `~/.ssh`, `~/.gnupg`, `~/.aws`,
+`~/.codex`, `~/.claude`, `~/.cursor`, `~/.config/gh`, `~/.config/autostart`,
+`~/.local/bin`, the keychains, `.bashrc` and the rest). An opened directory
+stays writable for every later child of the wave and is listed in
+`summary.json` under `sandboxGrants` and on stderr. One the preflight opened
+belongs in the plan's `worktree.writable`; one found through the executor's
+code or command is checked before it is added there; a `tool cache` one, a
+cache the repository's tools name (`build-outputs.md`), opens by itself at
+every start. A denial the runner
+cannot reproduce or may not open ends the task as `environment-blocked`, as
+before.
+
+The sandbox limits accidental damage by an executor; it is not a boundary
+against a hostile one: the mechanical verifier runs the candidate's own
+contract commands outside the sandbox. These rules keep a grant from widening
+what an executor can reach beyond its own tool caches.
 
 **Links into four different checkouts.** `worktree.links` (untracked files
 symlinked in, never opened) reaches every checkout a Codex child or the

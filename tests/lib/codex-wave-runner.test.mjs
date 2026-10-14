@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
-  existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync,
+  existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, lstatSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -2147,4 +2147,186 @@ test('(k9) the continuation runs on the highest tier of the ladder, not on its l
   const last = result.json.children.filter((c) => c.role === 'executor').at(-1)
   assert.equal(last.model, 'gpt-6-sol')
   assert.equal(last.effort, 'high')
+})
+
+// Sandbox grants: a tool directory the sandbox denied a contract command is
+// opened, from the command's real output, and the wave goes on.
+function grantHome(root) {
+  const home = join(root, 'home')
+  mkdirSync(join(home, '.ssh'), { recursive: true })
+  return { home, deny: join(home, '.toolcache') }
+}
+
+test('(g1) an executor stopped by the sandbox continues after the runner opens the denied tool directory', () => {
+  const { root, repo, base } = makeRepo()
+  const { home, deny } = grantHome(root)
+  mkdirSync(deny)
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { HOME: home, CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'sandbox-blocked', CODEX_STUB_SANDBOX_DENY_DIR: deny,
+    CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.deepEqual(result.json.sandboxGrants, [{ dir: '~/.toolcache', origin: 'task task-a', cmd: 'true' }])
+  const executors = result.json.children.filter((c) => c.role === 'executor')
+  assert.equal(executors.length, 2)
+  assert.equal(executors[1].followUp, 'sandbox-grant')
+  assert.equal(executors[1].resumed, true)
+  assert.match(readFileSync(executors[1].promptFile, 'utf8'), /denied writing to ~\/\.toolcache\. Those directories are writable now\./)
+  const state = JSON.parse(readFileSync(result.json.states[0], 'utf8')).tasks['task-a']
+  assert.equal(state.totalAttempts, 1, 'the grant costs no attempt')
+  const supervisor = readLog(logPath).find((r) => r.event === 'start' && r.argv.includes('--output-schema'))
+  assert.ok(supervisor.argv.join(' ').includes(deny), 'later children get the directory too')
+  assert.match(result.stderr, /sandbox: opened ~\/\.toolcache for writing \(task task-a\); the denial came through code or a command the executor chose: check it before adding it to worktree\.writable/)
+  assert.match(readFileSync(join(root, 'out', 'task-a', 'sandbox-reproduction-1.log'), 'utf8'), /^\$ true\n/)
+})
+
+test('(g1b) at executor time a missing tool directory is not created and the task stops as before', () => {
+  const { root, repo, base } = makeRepo()
+  const { home, deny } = grantHome(root)
+  const planPath = writePlan(root, ['task-a'])
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { HOME: home, CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'sandbox-blocked',
+    CODEX_STUB_SANDBOX_DENY_DIR: deny, CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.json.tasks[0].status, 'environment-blocked')
+  assert.equal(existsSync(deny), false)
+})
+
+test('(g2) the preflight opens a denied tool directory instead of moving the command outside the sandbox', () => {
+  const { root, repo, base } = makeRepo()
+  const { home, deny } = grantHome(root)
+  const planPath = writePlan(root, ['task-a'])
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--out', join(root, 'out')],
+  { HOME: home, CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'good',
+    CODEX_STUB_SANDBOX_DENY_DIR: deny, CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.preflight.results[0].sandbox, 'ok')
+  assert.deepEqual(result.json.preflight.results[0].granted, ['~/.toolcache'])
+  assert.deepEqual(result.json.preflight.outsideSandbox ?? [], [])
+  assert.deepEqual(result.json.sandboxGrants, [{ dir: '~/.toolcache', origin: 'preflight', cmd: 'true' }])
+  const executor = result.json.children.find((c) => c.role === 'executor')
+  assert.equal(Object.hasOwn(executor, 'followUp'), false)
+})
+
+test('(g3) a denial in a protected or non-tool directory is never opened', () => {
+  for (const name of ['.ssh', 'Documents']) {
+    const { root, repo, base } = makeRepo()
+    const { home } = grantHome(root)
+    const deny = join(home, name)
+    mkdirSync(deny, { recursive: true })
+    const planPath = writePlan(root, ['task-a'])
+    const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--preflight', 'off', '--out', join(root, 'out')],
+    { HOME: home, CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'sandbox-blocked',
+      CODEX_STUB_SANDBOX_DENY_DIR: deny, CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+    assert.equal(result.json.status, 'stop', name)
+    assert.equal(result.json.tasks[0].status, 'environment-blocked', name)
+    assert.equal(result.json.sandboxGrants, undefined, name)
+    assert.equal(result.json.children.filter((c) => c.role === 'executor').length, 1, name)
+  }
+})
+
+function namedCommandRun({ create = true, probeWritable = false, named = 'sh tools/build.sh' } = {}) {
+  const { root, repo, base } = makeRepo()
+  const { home, deny } = grantHome(root)
+  if (create) mkdirSync(deny, { recursive: true })
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { HOME: home, CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'sandbox-blocked', CODEX_STUB_SANDBOX_DENY_DIR: deny,
+    CODEX_STUB_SANDBOX_BLOCK_CMDS: 'sh tools/build.sh', CODEX_STUB_BLOCKED_COMMAND: named,
+    CODEX_STUB_VERDICT: JSON.stringify(CLEAN), ...(probeWritable ? { CODEX_STUB_PROBE_WRITABLE: '1' } : {}) })
+  return { result, deny, logPath }
+}
+
+test('(g4) a command outside the contract that the executor names is run by the runner and its directory opened', () => {
+  const { result, logPath } = namedCommandRun()
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.deepEqual(result.json.sandboxGrants,
+    [{ dir: '~/.toolcache', origin: 'executor command, task task-a', cmd: 'sh tools/build.sh' }])
+  const sandboxCalls = readLog(logPath).filter((r) => r.event === 'start' && r.argv[0] === 'sandbox').map((r) => r.argv.at(-1))
+  assert.deepEqual(sandboxCalls.slice(0, 2), ['true', 'sh tools/build.sh'], 'the contract first, then the named command')
+  assert.equal(result.json.children.filter((c) => c.followUp === 'sandbox-grant').length, 1)
+})
+
+test('(g5) a directory found through a named command is never created', () => {
+  const { result, deny } = namedCommandRun({ create: false })
+  assert.equal(result.json.tasks[0].status, 'environment-blocked')
+  assert.equal(result.json.sandboxGrants, undefined)
+  assert.equal(existsSync(deny), false)
+})
+
+test('(g6) a named command in backticks, or a whole line in backticks, is read as the command', () => {
+  for (const named of ['`sh tools/build.sh`']) {
+    const { result } = namedCommandRun({ named })
+    assert.equal(result.json.status, 'merge-ready', named + '\n' + result.stderr)
+    assert.equal(result.json.sandboxGrants[0].cmd, 'sh tools/build.sh')
+  }
+})
+
+// Build outputs: a new worktree starts from a clone of the repository
+// checkout's ignored directories; the task's review checkout links to the
+// executor's.
+function repoWithBuildDir() {
+  const f = makeRepo()
+  writeFileSync(join(f.repo, '.gitignore'), 'target/\n')
+  git(f.repo, 'add', '.gitignore')
+  git(f.repo, 'commit', '-m', 'ignore target')
+  f.base = git(f.repo, 'rev-parse', 'HEAD')
+  mkdirSync(join(f.repo, 'target', 'debug'), { recursive: true })
+  writeFileSync(join(f.repo, 'target', 'debug', 'dep.rlib'), 'compiled dependency\n')
+  return f
+}
+
+test('(b1) by default every checkout starts from a clone of the repository build, none from the executor', () => {
+  const { root, repo, base } = repoWithBuildDir()
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  const worktree = join(repo, '.worktrees', 'wave-task-a')
+  assert.equal(readFileSync(join(worktree, 'target', 'debug', 'dep.rlib'), 'utf8'), 'compiled dependency\n')
+  assert.equal(lstatSync(join(worktree, 'target')).isSymbolicLink(), false, 'a clone, not a link')
+  const supervisor = readLog(logPath).find((r) => r.event === 'start' && r.argv.includes('--output-schema'))
+  assert.deepEqual(supervisor.symlinks, [], 'the review checkout does not link to the executor build')
+})
+
+test('(b3) share_builds "executor" links the executor build into the review checkout', () => {
+  const { root, repo, base } = repoWithBuildDir()
+  const planPath = writePlan(root, ['task-a'])
+  writeFileSync(planPath, readFileSync(planPath, 'utf8').replace('"ci":', '"worktree": { "share_builds": "executor" },\n  "ci":'))
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  const supervisor = readLog(logPath).find((r) => r.event === 'start' && r.argv.includes('--output-schema'))
+  assert.deepEqual(supervisor.symlinks, ['target'])
+  assert.match(readFileSync(join(repo, '.git', 'info', 'exclude'), 'utf8'), /^\/target$/m)
+  // The linked directory resolves into the executor's worktree: the
+  // supervisor's sandbox may write there.
+  const roots = JSON.parse(supervisor.argv.find((a) => a.startsWith('sandbox_workspace_write.writable_roots=')).split('=').slice(1).join('='))
+  assert.ok(roots.includes(join(repo, '.worktrees', 'wave-task-a', 'target')), JSON.stringify(roots))
+})
+
+test('(b2) worktree.share_builds: false keeps every checkout to its own build', () => {
+  const { root, repo, base } = repoWithBuildDir()
+  const planPath = writePlan(root, ['task-a'])
+  writeFileSync(planPath, readFileSync(planPath, 'utf8').replace('"ci":', '"worktree": { "share_builds": false },\n  "ci":'))
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'good', CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(existsSync(join(repo, '.worktrees', 'wave-task-a', 'target')), false)
+  const supervisor = readLog(logPath).find((r) => r.event === 'start' && r.argv.includes('--output-schema'))
+  assert.deepEqual(supervisor.symlinks, [])
 })

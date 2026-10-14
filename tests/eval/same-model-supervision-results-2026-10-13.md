@@ -121,6 +121,34 @@ Not run with real models: a rejected continuation, the `--user-approved`
 path, a continuation on a multi-task wave, a dying executor (offline tests
 cover each).
 
+## Sandbox grants (2026-10-14)
+
+Record for [decision 017](../../docs/decisions/017-sandbox-grants-from-real-denials.md).
+Real Codex CLI and seatbelt sandbox, candidate runner snapshot. The `must_run`
+command keeps a cache in `~/.agent-skills-sandbox-probe`, which did not exist
+before each run and is removed after it.
+
+| Run | Path | Outcome |
+|---|---|---|
+| L2, preflight on | preflight denied, directory opened, command run again | `sandbox: ok`, `granted` recorded, nothing moved outside the sandbox; executor never blocked; merge-ready |
+| L1, preflight off, fixing a guard only | executor time | inconclusive: the executor committed without reporting `environment-blocked`; accepted after one report rework |
+| L1b, preflight off, the task needs a file only the command produces | executor time | the executor reported `environment-blocked`, the runner reproduced the command, opened the directory, the same thread finished; merge-ready, one attempt charged |
+| L1c, the denied command is not in `must_run`; the directory exists | executor-named command | failed its expectation: the executor named the command in backticks and the runner read the backtick into it; fixed with a test |
+| L1d, the same on a fresh fixture | executor-named command | the runner ran the named command, probed the denial, opened the existing directory, the same thread finished; merge-ready, one attempt charged |
+
+An independent review then found that letter case got past the protected list
+(`~/.SSH`, `~/.CODEX`), that a directory holding programs on `PATH` could be
+opened, that contract output at executor time comes from the executor's code,
+that the write probe could not tell a printed denial from a real one, that the
+reproduction blocked the runner, and that npm and Go wording was missed. After
+the fixes the three paths were run again on fresh fixtures (2026-10-14):
+
+| Run | Outcome |
+|---|---|
+| Preflight on, directory missing | created and opened by the preflight; merge-ready |
+| Preflight off, contract command, directory exists | reproduced, logged, opened; same thread finished; merge-ready |
+| Preflight off, named command, directory exists | reproduced, logged, opened as `executor command`; same thread finished; merge-ready |
+
 ## Runner changes
 
 - **Progress lines.** A real two-call wave on each host wrote the expected
@@ -140,6 +168,25 @@ cover each).
   it found the rule with a search of that file, which the driver does not
   count as a read. Retained as a failure of the read-check, not of the
   decision.
+
+## Shared build outputs
+
+Default `worktree.share_builds` (clone the repository checkout's build),
+2026-10-14, one run per host on the driver's `positive` fixture
+(`supervision-context-live.py`) with an ignored, prebuilt `build/seed-marker`
+in the repository checkout and a test that records, for every run, whether its
+checkout holds the marker and whether `build` is a link. Expectations frozen
+before the calls. Both hosts: the driver's checks passed (merge-ready on
+Codex, done on Claude); the executor's worktree (`.worktrees/wave-one`, made
+by the runner on Claude) and the verifier's disposable checkout each held the
+cloned marker, not a link; the repository checkout's marker was unchanged. A
+first Codex run started in parallel with the Claude one never reached a model:
+the driver's shared budget ledger refuses a second pending call. That run is a
+blocked run; the Codex case passed alone on a fresh fixture. After the fixes
+from an independent review (`docs/decisions/018-shared-build-outputs.md`) both
+hosts were run again, one after the other, on fresh fixtures, with the same
+frozen expectations: both passed. The `"executor"` mode and the tool caches
+opened at start were tested offline only.
 
 ## Not run
 

@@ -21,7 +21,7 @@
 #                              caller can assert a worktree link landed before
 #                              the child ran.
 #   CODEX_STUB_SLEEP          seconds to sleep between start and end (default 0).
-#   CODEX_STUB_EXECUTOR_MODE  good|uncommitted|empty|fail — only consulted for a fresh
+#   CODEX_STUB_EXECUTOR_MODE  good|uncommitted|sandbox-blocked|empty|fail — only consulted for a fresh
 #                              executor invocation (prompt starts with
 #                              "# Task:", argv is not `exec resume`).
 #                              good: create/commit a file, write a report.
@@ -64,6 +64,13 @@
 #                              runs: the wrapped `bash -c` command is never
 #                              actually executed by this double.
 #   CODEX_STUB_SANDBOX_EXIT   exit code for a `sandbox` invocation (default 0).
+#   CODEX_STUB_SANDBOX_DENY_DIR
+#                              when set, a `sandbox` invocation prints a denial for
+#                              this directory and exits 1 unless the directory
+#                              is among its writable roots; with CODEX_STUB_SANDBOX_BLOCK_CMDS
+#                              only the listed commands are denied. A `touch` probe is denied
+#                              the same way unless CODEX_STUB_PROBE_WRITABLE=1. sandbox-blocked
+#                              executors use it too, and name CODEX_STUB_BLOCKED_COMMAND.
 #   CODEX_STUB_SANDBOX_BLOCK_CMDS
 #                              optional, one wrapped command per line. When
 #                              set, CODEX_STUB_SANDBOX_OUTPUT is printed and
@@ -121,6 +128,18 @@ for a in "$@"; do
 done
 argv_json+="]"
 
+# The directories a call may write to: its writable_roots config and --add-dir
+# values, never the text of the wrapped command.
+writable_roots=""
+prev=""
+for a in "$@"; do
+  case "$a" in
+    sandbox_workspace_write.writable_roots=*) writable_roots+=" $a" ;;
+  esac
+  if [ "$prev" = "--add-dir" ]; then writable_roots+=" $a"; fi
+  prev="$a"
+done
+
 # The preflight probe: `<codex> sandbox -c ... -- bash -c '<cmd>'`. Never a
 # model call (no prompt, no -o file), so it is handled entirely separately
 # from the executor/supervisor dispatch below, before anything reads stdin.
@@ -147,7 +166,20 @@ if [ "${1:-}" = "sandbox" ]; then
   fi
 
   exit_code=0
-  if [ "$chosen" -eq 1 ]; then
+  if [ -n "${CODEX_STUB_SANDBOX_DENY_DIR:-}" ] && [ "${wrapped_cmd#touch }" != "$wrapped_cmd" ]; then
+    # The runner's write probe: denied unless the directory is a writable root,
+    # or unless CODEX_STUB_PROBE_WRITABLE says the denial printed earlier was fake.
+    case "$writable_roots" in
+      *"$CODEX_STUB_SANDBOX_DENY_DIR"*) ;;
+      *) [ "${CODEX_STUB_PROBE_WRITABLE:-}" = 1 ] || exit_code=1 ;;
+    esac
+  elif [ -n "${CODEX_STUB_SANDBOX_DENY_DIR:-}" ] && [ "$chosen" -eq 1 ]; then
+    # Denied until the runner passes that directory as a writable root.
+    case "$writable_roots" in
+      *"$CODEX_STUB_SANDBOX_DENY_DIR"*) ;;
+      *) printf 'mkdir: %s: Operation not permitted\n' "$CODEX_STUB_SANDBOX_DENY_DIR/daemon"; exit_code=1 ;;
+    esac
+  elif [ "$chosen" -eq 1 ]; then
     printf '%s' "${CODEX_STUB_SANDBOX_OUTPUT:-}"
     exit_code="${CODEX_STUB_SANDBOX_EXIT:-0}"
   fi
@@ -284,6 +316,14 @@ case "$kind" in
             -c user.email="codex-stub@example.invalid" commit -m "stub: task work" --quiet
           printf 'implemented via stub\n\nmust_run output:\nOK\n' > "$outfile"
         fi
+        ;;
+      sandbox-blocked)
+        # Stops at the sandbox until CODEX_STUB_SANDBOX_DENY_DIR is a writable root.
+        case "$writable_roots" in
+          *"${CODEX_STUB_SANDBOX_DENY_DIR:-}"*) printf 'unexpected: the directory was writable\n' > "$outfile" ;;
+          *) printf 'environment-blocked: mkdir: %s: Operation not permitted\n%s\n\nThe build could not start.\n' \
+               "${CODEX_STUB_SANDBOX_DENY_DIR:-}/daemon" "${CODEX_STUB_BLOCKED_COMMAND:+blocked-command: $CODEX_STUB_BLOCKED_COMMAND}" > "$outfile" ;;
+        esac
         ;;
       uncommitted)
         slug="$(basename "$worktree")"

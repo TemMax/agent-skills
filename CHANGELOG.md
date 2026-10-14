@@ -4,6 +4,63 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.18.0
+
+### Highlights
+
+**multi-model**
+- Open a build tool's home directory when the Codex sandbox denies it
+- Open only a tool's own cache: no keys, configs or programs on PATH
+- Build each checkout from a free clone of the repository's build
+
+Orchestration 4.18.0 and code-review 1.19.0 apply to Claude Code and Codex.
+
+**What changes for a Codex wave.** A build tool that keeps its cache or
+daemon files in the home directory (a Kotlin daemon, `~/.m2`, `~/.konan`, an
+npm, pip or Go cache) no longer stops a task. The runner runs the contract
+command — or the command an executor names on a `blocked-command:` line —
+in the same sandbox, reads the denied path from that output, opens the tool's
+directory and lets the wave go on: in the preflight before the command is
+classified, and for an executor within the same attempt. Only a tool's own
+directory under the home directory opens, compared without letter case;
+never one holding keys, tokens, agent or shell configuration, programs on
+`PATH`, a git repository, the repository or the run directory, and at
+executor time nothing is created. What was opened is listed under
+`sandboxGrants` in `summary.json`. The sandbox limits accidental damage; it
+is not a boundary against a hostile executor, whose contract commands the
+verifier already runs outside it. Claude waves are unchanged: their executors
+run without an operating-system sandbox.
+
+**What changes for every wave's disk.** A task is built in several
+checkouts — the executor's worktree, the verifier's checkout, the
+supervisor's, the preflight's — and each used to build from scratch. Now each
+new checkout starts from a copy-on-write clone of the repository checkout's
+git-ignored build-output directories (`target`, `build`, `node_modules`,
+`.gradle` and the like, never logs, data or a virtual environment), on Claude
+and Codex alike; a clone takes no space until a build changes it, and where
+it cannot clone nothing is copied. Verification still never sees the executor's artifacts. A plan can
+set `worktree.share_builds: "executor"` to let verification and review reuse
+the executor's build itself — less disk, but they no longer start clean — or
+`false` to turn sharing off. On Codex the tool caches the repository uses
+(`~/.m2`, the npm, Go, pip caches and others, asked of the tools)
+open in the sandbox from the start; toolchains do not. Measured on a large Rust workspace: a
+checkout after an edit took 12.4 GB and 95 s instead of 14.4 GB and 161 s;
+`"executor"` brought a verifier to 4 GB.
+
+**Measured.** Real Codex sandbox, one run each after the review fixes: the
+preflight opened a denied directory; an executor blocked by a contract
+command, and one blocked by a command outside the contract, each continued on
+the same thread after the runner opened the directory; all accepted with one
+attempt. An independent review of the first version found a letter-case
+bypass of the protected list and directories with programs on `PATH` that
+could be opened; both are fixed with tests. Decision
+`docs/decisions/017-sandbox-grants-from-real-denials.md` and `018-shared-build-outputs.md`; records in
+`tests/eval/same-model-supervision-results-2026-10-13.md`. A live wave on
+each host with a prebuilt ignored directory in the repository: the
+executor's worktree and the verifier's checkout both started from the clone,
+and the wave was accepted; numbers in
+`plugins/orchestration/skills/multi-model/references/build-outputs.md`.
+
 ## 4.17.0
 
 ### Highlights
