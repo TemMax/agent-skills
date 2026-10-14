@@ -167,6 +167,39 @@ explicit writable root (measured 2026-09-29; openai/codex #23661, #27418).
 `:955` both gate on `config.executorNetworkOn`; there is no separate
 supervisor-network option.
 
+**Tool directories opened from a real denial.** The sandbox lets a child
+write only to its worktree, its git directories and the writable roots above.
+A build tool that keeps its cache or daemon files elsewhere in the home
+directory (a Kotlin daemon, `~/.m2`, `~/.konan`, an npm or pip cache) is then
+denied, and a preflight at the base commit may not see it: a cached build
+does no work there. The runner opens such a directory itself, from the real
+output of a contract command it runs in the sandbox — never from a model's
+words (`sandbox-grants.mjs`):
+
+- in the preflight, a denied `must_run` command gets the denied directory and
+  is run again, up to three times, before it is classified; a command that
+  then passes is not moved outside the sandbox;
+- when an executor's report opens with `environment-blocked:`, the runner runs
+  that task's `must_run` commands in the executor's worktree and sandbox; when
+  one is denied, it opens the directory and asks the same thread to continue,
+  within the same attempt (`followUp: "sandbox-grant"`), at most twice per
+  attempt and only while two model calls are left.
+
+Only a tool's own directory under the home directory is opened: a top-level
+dot-directory (`~/.konan`), or the next directory under `~/Library/Caches`,
+`~/Library/Application Support`, `~/Library/Logs`, `~/.cache`, `~/.config`,
+`~/.local/share` or `~/.local/state`. A missing one is created under its
+existing parent. Never opened: anything outside the home directory or not a
+tool directory, anything inside or containing the repository, a git
+repository, and the directories of keys, tokens and agent configuration
+(`~/.ssh`, `~/.gnupg`, `~/.aws`, `~/.azure`, `~/.kube`, `~/.docker`,
+`~/.codex`, `~/.claude`, `~/.config/gh`, `~/.config/gcloud`, `~/.config/git`,
+the keychains and the rest of `PROTECTED` in `sandbox-grants.mjs`). An opened
+directory stays writable for every later child of the wave, is listed in
+`summary.json` under `sandboxGrants` and on stderr, and belongs in the plan's
+`worktree.writable` for later waves. A denial the runner cannot reproduce or
+may not open ends the task as `environment-blocked`, as before.
+
 **Links into four different checkouts.** `worktree.links` (untracked files
 symlinked in, never opened) reaches every checkout a Codex child or the
 verifier ever runs in, via the shared `applyLinks`:

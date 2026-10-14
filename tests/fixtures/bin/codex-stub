@@ -21,7 +21,7 @@
 #                              caller can assert a worktree link landed before
 #                              the child ran.
 #   CODEX_STUB_SLEEP          seconds to sleep between start and end (default 0).
-#   CODEX_STUB_EXECUTOR_MODE  good|uncommitted|empty|fail — only consulted for a fresh
+#   CODEX_STUB_EXECUTOR_MODE  good|uncommitted|sandbox-blocked|empty|fail — only consulted for a fresh
 #                              executor invocation (prompt starts with
 #                              "# Task:", argv is not `exec resume`).
 #                              good: create/commit a file, write a report.
@@ -64,6 +64,10 @@
 #                              runs: the wrapped `bash -c` command is never
 #                              actually executed by this double.
 #   CODEX_STUB_SANDBOX_EXIT   exit code for a `sandbox` invocation (default 0).
+#   CODEX_STUB_SANDBOX_DENY_DIR
+#                              when set, a `sandbox` invocation prints a denial for
+#                              this directory and exits 1 unless the directory
+#                              appears in its argv; sandbox-blocked executors use it too.
 #   CODEX_STUB_SANDBOX_BLOCK_CMDS
 #                              optional, one wrapped command per line. When
 #                              set, CODEX_STUB_SANDBOX_OUTPUT is printed and
@@ -147,7 +151,13 @@ if [ "${1:-}" = "sandbox" ]; then
   fi
 
   exit_code=0
-  if [ "$chosen" -eq 1 ]; then
+  if [ -n "${CODEX_STUB_SANDBOX_DENY_DIR:-}" ]; then
+    # Denied until the runner passes that directory as a writable root.
+    case "$argv_json" in
+      *"$CODEX_STUB_SANDBOX_DENY_DIR"*) ;;
+      *) printf 'mkdir: %s: Operation not permitted\n' "$CODEX_STUB_SANDBOX_DENY_DIR/daemon"; exit_code=1 ;;
+    esac
+  elif [ "$chosen" -eq 1 ]; then
     printf '%s' "${CODEX_STUB_SANDBOX_OUTPUT:-}"
     exit_code="${CODEX_STUB_SANDBOX_EXIT:-0}"
   fi
@@ -284,6 +294,14 @@ case "$kind" in
             -c user.email="codex-stub@example.invalid" commit -m "stub: task work" --quiet
           printf 'implemented via stub\n\nmust_run output:\nOK\n' > "$outfile"
         fi
+        ;;
+      sandbox-blocked)
+        # Stops at the sandbox until CODEX_STUB_SANDBOX_DENY_DIR is a writable root.
+        case "$argv_json" in
+          *"${CODEX_STUB_SANDBOX_DENY_DIR:-}"*) printf 'unexpected: the directory was writable\n' > "$outfile" ;;
+          *) printf 'environment-blocked: mkdir: %s: Operation not permitted\n\nThe build could not start.\n' \
+               "${CODEX_STUB_SANDBOX_DENY_DIR:-}/daemon" > "$outfile" ;;
+        esac
         ;;
       uncommitted)
         slug="$(basename "$worktree")"

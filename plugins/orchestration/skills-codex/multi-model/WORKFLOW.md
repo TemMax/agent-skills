@@ -149,7 +149,10 @@ line, fix the machine, and re-run, rather than treating a broken environment
 as a contract defect (diagnose first — Codex session rules, rule 4). For a wave run by the Codex runner, `environment-blocked` means a machine
 block: a sandbox-only block — a `must_run` command blocked inside the sandbox
 and clean outside it — is handled by that runner and never reaches the
-coordinator as a stop.
+coordinator as a stop. Nor does a build tool denied writing to its own
+directory in the home directory: the runner opens that directory from the
+command's real output and the wave goes on; add what `summary.json` lists
+under `sandboxGrants` to the plan's `worktree.writable`.
 A stop
 the coordinator can resolve itself is resolved and reported without a
 question: an environment fix and a relaunch of the same approved plan or

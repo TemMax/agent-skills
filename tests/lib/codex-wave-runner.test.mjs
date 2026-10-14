@@ -2148,3 +2148,71 @@ test('(k9) the continuation runs on the highest tier of the ladder, not on its l
   assert.equal(last.model, 'gpt-6-sol')
   assert.equal(last.effort, 'high')
 })
+
+// Sandbox grants: a tool directory the sandbox denied a contract command is
+// opened, from the command's real output, and the wave goes on.
+function grantHome(root) {
+  const home = join(root, 'home')
+  mkdirSync(join(home, '.ssh'), { recursive: true })
+  return { home, deny: join(home, '.toolcache') }
+}
+
+test('(g1) an executor stopped by the sandbox continues after the runner opens the denied tool directory', () => {
+  const { root, repo, base } = makeRepo()
+  const { home, deny } = grantHome(root)
+  const planPath = writePlan(root, ['task-a'])
+  const logPath = join(root, 'codex.log')
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--preflight', 'off', '--out', join(root, 'out')],
+  { HOME: home, CODEX_STUB_LOG: logPath, CODEX_STUB_EXECUTOR_MODE: 'sandbox-blocked', CODEX_STUB_SANDBOX_DENY_DIR: deny,
+    CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.status, 'merge-ready')
+  assert.ok(existsSync(deny), 'the missing tool directory is created')
+  assert.deepEqual(result.json.sandboxGrants, [{ dir: '~/.toolcache', origin: 'task task-a', cmd: 'true' }])
+  const executors = result.json.children.filter((c) => c.role === 'executor')
+  assert.equal(executors.length, 2)
+  assert.equal(executors[1].followUp, 'sandbox-grant')
+  assert.equal(executors[1].resumed, true)
+  assert.match(readFileSync(executors[1].promptFile, 'utf8'), /denied writing to ~\/\.toolcache\. Those directories are writable now\./)
+  const state = JSON.parse(readFileSync(result.json.states[0], 'utf8')).tasks['task-a']
+  assert.equal(state.totalAttempts, 1, 'the grant costs no attempt')
+  const supervisor = readLog(logPath).find((r) => r.event === 'start' && r.argv.includes('--output-schema'))
+  assert.ok(supervisor.argv.join(' ').includes(deny), 'later children get the directory too')
+  assert.match(result.stderr, /sandbox: opened ~\/\.toolcache for writing \(task task-a\); add it to the plan's worktree\.writable/)
+})
+
+test('(g2) the preflight opens a denied tool directory instead of moving the command outside the sandbox', () => {
+  const { root, repo, base } = makeRepo()
+  const { home, deny } = grantHome(root)
+  const planPath = writePlan(root, ['task-a'])
+  const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+    '--out', join(root, 'out')],
+  { HOME: home, CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'good',
+    CODEX_STUB_SANDBOX_DENY_DIR: deny, CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.equal(result.json.preflight.results[0].sandbox, 'ok')
+  assert.deepEqual(result.json.preflight.results[0].granted, ['~/.toolcache'])
+  assert.deepEqual(result.json.preflight.outsideSandbox ?? [], [])
+  assert.deepEqual(result.json.sandboxGrants, [{ dir: '~/.toolcache', origin: 'preflight', cmd: 'true' }])
+  const executor = result.json.children.find((c) => c.role === 'executor')
+  assert.equal(Object.hasOwn(executor, 'followUp'), false)
+})
+
+test('(g3) a denial in a protected or non-tool directory is never opened', () => {
+  for (const name of ['.ssh', 'Documents']) {
+    const { root, repo, base } = makeRepo()
+    const { home } = grantHome(root)
+    const deny = join(home, name)
+    mkdirSync(deny, { recursive: true })
+    const planPath = writePlan(root, ['task-a'])
+    const result = runRunner(['--plan', planPath, '--wave', '1', '--repo', repo, '--base', base, '--codex', STUB,
+      '--preflight', 'off', '--out', join(root, 'out')],
+    { HOME: home, CODEX_STUB_LOG: join(root, 'codex.log'), CODEX_STUB_EXECUTOR_MODE: 'sandbox-blocked',
+      CODEX_STUB_SANDBOX_DENY_DIR: deny, CODEX_STUB_VERDICT: JSON.stringify(CLEAN) })
+    assert.equal(result.json.status, 'stop', name)
+    assert.equal(result.json.tasks[0].status, 'environment-blocked', name)
+    assert.equal(result.json.sandboxGrants, undefined, name)
+    assert.equal(result.json.children.filter((c) => c.role === 'executor').length, 1, name)
+  }
+})

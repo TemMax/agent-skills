@@ -121,6 +121,19 @@ Not run with real models: a rejected continuation, the `--user-approved`
 path, a continuation on a multi-task wave, a dying executor (offline tests
 cover each).
 
+## Sandbox grants (2026-10-14)
+
+Record for [decision 017](../../docs/decisions/017-sandbox-grants-from-real-denials.md).
+Real Codex CLI and seatbelt sandbox, candidate runner snapshot. The `must_run`
+command keeps a cache in `~/.agent-skills-sandbox-probe`, which did not exist
+before each run and is removed after it.
+
+| Run | Path | Outcome |
+|---|---|---|
+| L2, preflight on | preflight denied, directory opened, command run again | `sandbox: ok`, `granted` recorded, nothing moved outside the sandbox; executor never blocked; merge-ready |
+| L1, preflight off, fixing a guard only | executor time | inconclusive: the executor committed without reporting `environment-blocked`; accepted after one report rework |
+| L1b, preflight off, the task needs a file only the command produces | executor time | the executor reported `environment-blocked`, the runner reproduced the command, opened the directory, the same thread finished; merge-ready, one attempt charged |
+
 ## Runner changes
 
 - **Progress lines.** A real two-call wave on each host wrote the expected
