@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { deniedPaths, grantFor, grantsFromOutput, reportBlockedCommand, reproductionEnv } from
+import { deniedPaths, grantFor, grantsFromOutput, programDirs, reportBlockedCommand, reproductionEnv } from
   '../../plugins/orchestration/skills/multi-model/references/sandbox-grants.mjs'
 
 function fixture(t) {
@@ -41,7 +41,7 @@ test('letter case does not get past the protected list or the excluded paths', (
 test('directories holding programs on PATH, git repositories and shell start-up files are refused', (t) => {
   const { home, ctx } = fixture(t)
   assert.equal(grantFor(join(home, '.local/share/mise/installs/x'), ctx).refused, 'holds programs on PATH')
-  assert.equal(grantFor(join(home, '.local/share/nvim/x'), ctx).refused, 'a git repository or holds one')
+  assert.ok(grantFor(join(home, '.local/share/nvim/x'), ctx).refused)
   assert.equal(grantFor(join(home, '.dotfiles/x'), ctx).refused, 'a git repository or holds one')
   for (const p of ['.bashrc', '.config/autostart/x.desktop', '.local/bin/git', '.cursor/x', '.gemini/x']) {
     assert.ok(grantFor(join(home, p), ctx).refused, p)
@@ -87,4 +87,29 @@ test('the blocked command is read from the report; backticks around it are dropp
 test('a reproduction runs without the variables a Codex shell leaves out', () => {
   assert.deepEqual(Object.keys(reproductionEnv({ PATH: '/bin', OPENAI_API_KEY: 'x', GH_TOKEN: 'y', HOME: '/h', AWS_SECRET_ACCESS_KEY: 'z' })),
     ['PATH', 'HOME'])
+})
+
+test('programs linked from a PATH directory, and a PATH entry written with ~, protect their directories', (t) => {
+  const { home } = fixture(t)
+  mkdirSync(join(home, '.local/share/tool/versions/1'), { recursive: true })
+  writeFileSync(join(home, '.local/share/tool/versions/1/tool'), '#!/bin/sh\n')
+  mkdirSync(join(home, 'bin'))
+  symlinkSync(join(home, '.local/share/tool/versions/1/tool'), join(home, 'bin/tool'))
+  mkdirSync(join(home, '.mise/shims'), { recursive: true })
+  const pathDirs = programDirs([join(home, 'bin'), '~/.mise/shims'], home)
+  const ctx = { home, excluded: [], pathDirs }
+  assert.equal(grantFor(join(home, '.local/share/tool/cache'), ctx).refused, 'holds programs on PATH')
+  assert.equal(grantFor(join(home, '.mise/cache'), ctx).refused, 'holds programs on PATH')
+})
+
+test('a .git segment is refused anywhere, and a repository inside a cache container is a cache', (t) => {
+  const { home, ctx } = fixture(t)
+  assert.equal(grantFor(join(home, '.git/hooks/x'), ctx).refused, 'a git directory')
+  assert.equal(grantFor(join(home, '.cache/.git/x'), ctx).refused, 'a git directory')
+  mkdirSync(join(home, 'Library/Caches/org.swift.swiftpm/repositories/dep/.git'), { recursive: true })
+  assert.equal(grantFor(join(home, 'Library/Caches/org.swift.swiftpm/x'), ctx).rel, '~/Library/Caches/org.swift.swiftpm')
+})
+
+test('a named command with a control character is refused', () => {
+  assert.equal(reportBlockedCommand('environment-blocked: x\nblocked-command: sh a.sh\u0000b'), null)
 })

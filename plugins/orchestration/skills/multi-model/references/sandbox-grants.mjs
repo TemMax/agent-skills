@@ -7,6 +7,7 @@
 // repository, the repository or the run's own records. Comparisons ignore
 // letter case, because macOS file systems do.
 import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, statSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { dirname, join, relative, sep } from 'node:path'
 
 const DENIAL = /operation not permitted|permission denied|accessdeniedexception|read-only file system|\beperm\b|\beacces\b/i
@@ -29,7 +30,17 @@ export const PROTECTED = [
   // shell start-up and programs started at login
   '.profile', '.bashrc', '.bash_profile', '.bash_login', '.zshrc', '.zshenv', '.zprofile', '.zlogin',
   '.oh-my-zsh', '.config/fish', '.config/autostart', '.config/systemd', '.config/environment.d', '.local/bin',
+  '.config/zsh', '.zsh', '.zinit', '.local/share/zinit', '.config/direnv', '.config/starship.toml',
+  // editors and their plugins, and the browser profiles
+  '.vim', '.config/nvim', '.local/share/nvim', '.emacs.d', '.vscode', '.vscode-insiders', '.idea',
+  'library/application support/code', 'library/application support/jetbrains',
+  'library/application support/google', 'library/application support/firefox', 'library/application support/arc',
+  'library/launchagents',
 ]
+
+// Containers whose children are caches by convention: a tool's cache there
+// may hold git clones (Swift Package Manager, CocoaPods specs, pre-commit).
+const CACHE_CONTAINERS = ['library/caches', '.cache']
 
 // The home-relative directories under which a tool's own directory is the
 // next path component.
@@ -99,6 +110,25 @@ function holdsRepository(dir) {
   return false
 }
 
+// The directories a grant may not contain because programs run from them
+// outside the sandbox: every PATH directory (with a leading `~` expanded, as
+// a shell does) and the directories its programs link to.
+export function programDirs(pathDirs, home = homedir()) {
+  const dirs = new Set()
+  for (const raw of pathDirs) {
+    if (!raw) continue
+    const dir = raw === '~' ? home : raw.startsWith('~/') ? join(home, raw.slice(2)) : raw
+    dirs.add(dir)
+    let entries = []
+    try { entries = readdirSync(dir, { withFileTypes: true }) } catch { continue }
+    for (const entry of entries.slice(0, 2000)) {
+      if (!entry.isSymbolicLink()) continue
+      try { dirs.add(dirname(realpathSync.native(join(dir, entry.name)))) } catch { /* dangling link */ }
+    }
+  }
+  return [...dirs]
+}
+
 // The directory to open for a denied path, or the reason it is refused.
 // `excluded` are paths a grant may neither contain nor lie in (the
 // repository, the run directory); `pathDirs` are the directories of PATH and
@@ -109,6 +139,7 @@ export function grantFor(path, { home, excluded = [], pathDirs = [] }) {
   if (!within(target, homeReal) || lower(target) === lower(homeReal)) return { refused: 'outside the home directory' }
   const segments = relative(homeReal, target).split(sep).filter(Boolean)
   if (segments.some((segment) => segment === '..')) return { refused: 'outside the home directory' }
+  if (segments.some((segment) => lower(segment) === '.git')) return { refused: 'a git directory' }
   let depth = 0
   for (const container of CONTAINERS) {
     if (container.every((part, index) => lower(segments[index] ?? '') === part)) { depth = container.length; break }
@@ -128,7 +159,8 @@ export function grantFor(path, { home, excluded = [], pathDirs = [] }) {
   if (existsSync(dir) && (lstatSync(dir).isSymbolicLink() || !statSync(dir).isDirectory())) {
     return { refused: 'not a directory' }
   }
-  if (holdsRepository(dir)) return { refused: 'a git repository or holds one' }
+  const inCache = CACHE_CONTAINERS.some((container) => lower(relParts.slice(0, -1).join('/')) === container)
+  if (!inCache && holdsRepository(dir)) return { refused: 'a git repository or holds one' }
   return { dir, rel: '~/' + rel }
 }
 
@@ -145,7 +177,7 @@ export function reportBlockedCommand(report) {
     if (!m) continue
     let cmd = m[1].trim()
     if (cmd.length > 2 && cmd.startsWith('`') && cmd.endsWith('`')) cmd = cmd.slice(1, -1).trim()
-    if (cmd === '' || cmd.startsWith('<') || cmd.includes('`') || cmd.length > 2000) return null
+    if (cmd === '' || cmd.startsWith('<') || cmd.includes('`') || /[\x00-\x1f\x7f]/.test(cmd) || cmd.length > 2000) return null
     return cmd
   }
   return null
