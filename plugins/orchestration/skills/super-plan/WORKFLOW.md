@@ -1,7 +1,9 @@
 # Planning Waves (super-plan)
 
-The dialogue and no-placeholders planning discipline here is adapted from
-Jesse Vincent's superpowers (MIT — see `references/LICENSE-superpowers`);
+The planning dialogue, the step-content rule (a plan records decisions,
+not code), task interfaces and the review focus here are adapted from
+Jesse Vincent's superpowers, last synced with v7.0.1 (MIT — see
+`references/LICENSE-superpowers`);
 the output format and every contract rule are this plugin's own.
 
 ## Step 0 — load exactly one active-seat profile
@@ -148,6 +150,19 @@ they do not block writing a concrete plan for the one start approval.
    and say so in the Gate 2 message; when no standard supervisor fits and
    there is no premium authorization, apply the rule above for a task with no
    standard delegated route. Never carry the stale supervisor forward.
+
+   **Look before you ask; name the technical defaults.** Research has read
+   the project and every spec, design, plan or file the user pointed at,
+   so never ask what they already answer. A choice of how the thing gets
+   made — platform, language, framework, a new major dependency — is a
+   product fork when the request leaves it open and the repository does
+   not settle it: ask it with the other forks, or in headless mode record
+   it under `Assumptions (would ask)`. When the repository or the request
+   settles it, decide it and name it among the decisions taken at Gate 1;
+   a default the user never heard is one they could not reject. Measured
+   upstream (superpowers 7.0.0): a session designed an iOS app without
+   asking about the platform and built a web app. Each question says what
+   its answer changes in the plan.
 3. **Gate 1 — design.** A report point, not an approval. Report a compact
    summary: architecture, the wave sketch (which tasks, which waves, why),
    decisions taken, forks the user answered, and the routes (the supervisor
@@ -155,8 +170,9 @@ they do not block writing a concrete plan for the one start approval.
    an answer: go on to the tasks. Stop here only while a product fork or a
    contradiction is still open.
 4. **Tasks.** Write them by multi-model's rules: closed (no "decide what's
-   best"), self-contained (the executor sees nothing but its prompt), full
-   code included where the solution is known. Each task carries the
+   best"), self-contained (the executor sees nothing but its prompt), and
+   unambiguous rather than complete: the decisions the executor cannot make
+   alone, as the Plan Format's prose half sets out. Each task carries the
    five-key contract; the active profile chooses every model, effort,
    supervisor, and ladder field, with the wave's supervisor chosen for
    the strongest model any task in the wave can run —
@@ -190,8 +206,9 @@ they do not block writing a concrete plan for the one start approval.
    copied into waves one step per wave. So: cut `files_allowed` by file,
    not by directory, so tasks that edit different files of one package
    can share a wave; when several tasks need a new interface, type or
-   wire format, put that contract alone in an early wave, written out in
-   full in the plan, and fan its implementers and their tests out in the
+   wire format, put that contract alone in an early wave, its signatures
+   and formats written out in full in the plan (not its implementation),
+   and fan its implementers and their tests out in the
    next wave; run independent chains — including plans for separate
    repositories — side by side, never one after another; never turn a
    step list into one wave per step — regroup by what each step reads
@@ -272,6 +289,40 @@ they do not block writing a concrete plan for the one start approval.
    preflights every command at the base and compares against this
    expectation; a mismatch is a contract defect caught before any executor
    is spawned.
+
+   **Name the interfaces.** When a task produces a name, signature, type,
+   file format or CLI output that a task of a later wave uses, or uses one
+   that an earlier wave produces, its prose carries an `Interfaces` block:
+   `Consumes:` with the exact signatures it takes from earlier waves or the
+   base, and `Produces:` with the exact names, parameters, return types and
+   formats later tasks rely on. The executor sees only its own task; this
+   block is how it learns the names its neighbors use. A later task refers
+   to an earlier one through that block and never repeats its code.
+
+   **Name the review focus.** With the request or spec in front of you,
+   list under a plan section `## Review Focus` up to five inputs or failure
+   modes it implies but no task's tests exercise, the one most likely to
+   bite a user first — one line each: the input or condition and the
+   behavior a reasonable user would expect. The request's silence on an
+   input is not permission for that input to break the program. Then pin
+   each line with a test in the task that owns the code: its name and
+   assertions in the prose, its command in that task's `must_run`. When
+   you find none, the section says `none found` — checked, not skipped.
+   Like every plan-level section, it sits above the first `## Task`
+   section: the Claude launcher appends everything up to the next
+   `## Task` heading to a task's prose, and the Codex runner ends a task's
+   prose at the next `## ` heading.
+   Measured upstream (superpowers 6.4.1): every implementer shipped the
+   same crash on an input the spec implied but never named.
+
+   **Check proportion.** Compare the plan's prose with the request or spec
+   it implements. A plan several times longer than its spec, or one whose
+   task sections are mostly code blocks, has written the program instead
+   of planning it: replace the bodies with signatures, test names and
+   assertions, then check that every task is still unambiguous. Lint warns
+   on a task section that is mostly code, on a plan without
+   `## Review Focus`, on a plan-level section below a task, and on a
+   fenced `## ` line inside a task.
 5. **Seam audit.** Between Tasks and Lint, one read-only audit agent on the
    cheap route — Claude: `claude-sonnet-5-5` at `medium`, spawned through the
    Agent tool with the alias `sonnet`, the effort parameter set to `medium`
@@ -291,13 +342,17 @@ they do not block writing a concrete plan for the one start approval.
    its own — measured: the pilot's audit reported exactly that and missed
    the dependency.
 
-   The audit also runs four further checks:
+   The audit also runs five further checks:
    - **Implementers and fakes.** For every public interface, type or
      function signature a task changes, list all implementers, fakes and
      test doubles repo-wide (e.g. `grep -rn ': AppRouter'`). Require each
      one in the same task's `files_allowed`, or require the dependents'
      test compilation in `must_run`. Measured: an abstract member added to
      `AppRouter` broke fakes in 9 modules, costing 2 fix waves.
+   - **Interfaces.** Every `Consumes:` line matches a `Produces:` line of
+     a task in an earlier wave, or something that exists at the base, with
+     the same name, parameters and types; every name a later task uses
+     from a `Produces:` line is spelled the same there.
    - **Prose versus forbidden_moves.** Every instruction in a task's prose
      that changes, renames or deletes an existing test is either
      pre-authorized by name in that task's `forbidden_moves` exception, or
@@ -523,12 +578,47 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 
    The ladder lists model transitions only. The executor and every ladder rung are distinct model transitions: never repeat the executor or a later rung. For Codex, same-model raised-effort rework is state-machine behavior, so do not invent duplicate same-model ladder entries.
 
-3. **The prose half** — one `## Task <id>` section per task: the
-   substantive description and context, with full code where the solution
-   is known. At launch, multi-model composes each runner task as the json
-   entry plus its prose section, verbatim. The heading rule is exactly
+3. **The prose half** — one `## Task <id>` section per task: the context
+   and the decisions the executor cannot make alone. At launch,
+   multi-model composes each runner task as the json entry plus its prose
+   section, verbatim. The heading rule is exactly
    `## Task <id>`, with the title on the next line, not on the heading
    line itself; lint rejects anything after the id.
+
+   A task section is done when the executor can write exactly one
+   reasonable thing from it — unambiguous, not complete. Each part carries
+   what makes it unambiguous and nothing more:
+   - **Tests:** each test's name and its assertions, as code, with the
+     exact values from the request or spec.
+   - **Code:** the exact signature (name, parameters, return type), the
+     file it lives in, and the values the request pins. The executor
+     writes the body. A body appears only for an algorithm the signature
+     and tests do not determine, or for exact text the request fixes
+     (user-facing copy, a regex, a migration).
+   - **Verification:** the commands live in `must_run`; the prose states
+     each one's expected base status and, when a clean exit is not enough,
+     the output that means it passed.
+   - **Other tasks:** through the `Interfaces` block, never by repeating
+     their code. Label it and every other part of a task section in bold
+     or with `###`, never with a `## ` heading, which ends the section — the
+     Codex runner cuts there even inside a code block, so indent a fenced
+     example that shows one.
+
+   Plan-level sections — `## Review Focus`, `## Parallelism`,
+   `## Acceptance References`, `## Assumptions (would ask)` — sit above the
+   first `## Task` section; lint warns on one below a task.
+   - **Project-wide constraints** from the request — version floors,
+     dependency limits, naming and copy rules — copied verbatim into every
+     task they bind; the executor never sees the rest of the plan.
+
+   Two failures sit on either side. A transcript: a section longer than
+   the code it describes has written the code instead. A gap: a line that
+   decides nothing — "TBD", "handle edge cases", "add appropriate
+   validation", "write tests for the above", a type or function no task
+   defines. Measured upstream (superpowers 6.4.2): plans that record
+   decisions instead of code took a quarter of the time and about a third
+   of the tokens to write, and executed 9/9 against planted-defect probes,
+   the same as full-code plans.
 
 ## Converting an existing plan
 
@@ -538,6 +628,13 @@ commit` steps, no checkbox step lists copied as waves, and no instruction to
 edit existing tests unless the contract pre-authorizes it by name. Measured:
 string-patching a superpowers draft seeded a heading crash and a
 contradictory test instruction.
+
+A writing-plans draft from superpowers 6.4 or later already records
+signatures and test assertions instead of code, and carries `Interfaces`
+blocks and a `Review Focus` section: keep them, put each Interfaces block in
+its task's prose, and put each Review Focus test in the owning task's
+`must_run`. Its `Global Constraints` lines go verbatim into every task they
+bind.
 
 ## Acceptance References
 
@@ -585,7 +682,11 @@ would have asked the user for goes under `Assumptions (would ask)` instead, and 
 | Deciding a product fork silently | The most expensive wrong turn there is | Batch it to the user; in headless mode, record it |
 | Presenting a plan that fails lint | The user debugs your format | Lint first, fix every error, then present |
 | Setting `status: active` while planning | The drift hook pays for a wave that is not running | Leave `draft`; execution owns transitions |
-| A task whose fix is "see the conversation" | The executor sees only its prompt | Self-contained tasks, full code where known |
+| A task whose fix is "see the conversation" | The executor sees only its prompt | Self-contained tasks: decisions, interfaces and test assertions in the prose |
+| Writing the code into the plan | Planning costs as much as building, and the plan runs several times its spec | Signatures, test names and assertions, the request's values; a body only for an algorithm they do not determine |
+| A cross-task name with no `Interfaces` block | Two executors spell one function two ways | `Consumes:` and `Produces:` with exact signatures in each task |
+| Choosing the platform or language silently | The user gets a different product — measured upstream: an iOS app came out as a web app | Ask it when the repository does not settle it; otherwise name the default at Gate 1 |
+| No `## Review Focus` | A crash on an input the request implied ships unnoticed | Up to five uncovered inputs, each pinned by a test in the owning task |
 | A task spanning several modules | Hours-long attempts, repeated rejects | Split by deliverable; narrow `files_allowed` |
 | A full-repo gate in a per-task contract | Wall-clock multiplied by the task count | Scope `must_run` to the task's module |
 | Visual references left out of the plan | Fidelity defects surface as post-ship manual QA | Record Acceptance References; pin what greps can pin |

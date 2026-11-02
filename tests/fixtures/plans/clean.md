@@ -38,6 +38,10 @@ base: pending
 }
 ```
 
+## Review Focus
+
+- A server that keeps answering 503: the client stops after the last attempt and raises the last error.
+
 ## Task http-retry
 
 Add retry with backoff to the HTTP client. Full description and code go here.

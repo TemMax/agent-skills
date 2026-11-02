@@ -23,7 +23,7 @@ model identity and loads the matching profile from `references/`. There is no
 
 | Plugin | Skill | What it does |
 |---|---|---|
-| `orchestration` | `super-plan` | Wave-native planning: research to decomposition depth, questions only about product forks and contradictions, one start approval, tasks carrying machine-checkable contracts grouped into waves by file-independence, validated by the shipped `plan-lint.mjs` before the start approval. Planning discipline adapted from Jesse Vincent's superpowers (MIT, attribution shipped). |
+| `orchestration` | `super-plan` | Wave-native planning: research to decomposition depth, questions only about product forks and contradictions, one start approval, tasks carrying machine-checkable contracts grouped into waves by file-independence, validated by the shipped `plan-lint.mjs` before the start approval. Tasks record decisions, not code: signatures, test assertions, the request's values and `Consumes`/`Produces` interfaces, plus a `## Review Focus` of inputs the request implies but no test covers. Planning discipline adapted from Jesse Vincent's superpowers, last synced with v7.0.1 (MIT, attribution shipped). |
 | `orchestration` | `ship` | The pipeline conductor: one command from request to reviewed PR — super-plan → supervised waves on a feature branch → critical-review of the PR and its threads. Adds no machinery or gate of its own: the branch and the PR are stated in planning's one start approval, fixes routed by behavior change, and the merge always stays with the user. |
 | `orchestration` | `multi-model` | Model routing, effort selection, task-prompt template, review checklist, and supervised waves executed by native Claude/Codex drivers using the shipped policy — isolated executors judged against a machine-checkable contract by a separate supervisor session, never a weaker tier than the executor, with the escalation ladder as tested code — plus an orchestrator-drift advisory hook that watches the orchestrator session itself. |
 | `code-review` | `critical-review` | Scope detection, PR description+threads protocol, tiered findings table (Blocker → Nit), and a post-review fix phase that answers and resolves the PR threads its findings came from. |
@@ -393,7 +393,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.18.0, code-review 1.19.0):
+orchestration 4.19.0, code-review 1.19.0):
 
 | Before | After |
 |---|---|

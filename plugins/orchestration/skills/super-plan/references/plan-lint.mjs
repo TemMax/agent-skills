@@ -671,6 +671,75 @@ for (const id of proseIds) {
   if (!ids.includes(id)) err('prose: section "## Task ' + id + '" has no matching task in the json block')
 }
 
+// ---- plan content: a plan records decisions, not code (adapted from
+// superpowers, synced with v7.0.1) — every check here is a warning ----
+// - review-focus: a plan without "## Review Focus" skipped the inputs the
+//   request implies but no task tests; an amendment plan (`inherits`) relies
+//   on its parent's.
+// - proportion: a task section made mostly of code blocks has written the
+//   program instead of planning it.
+// - section-order: a plan-level section below a task leaks into that task —
+//   the Claude launcher appends everything up to the next "## Task" heading
+//   to a task's prose, while the Codex runner ends it at the next "## " line.
+// - fenced-heading: the Codex runner and recovery cut a task's prose at any
+//   line starting with "## ", even inside a code block, so such a line in a
+//   task's example code truncates what its executor sees.
+// Sections run from a "## Task <id>" heading to the next level-1 or level-2
+// heading outside a fence.
+const PROPORTION_MIN_CODE_LINES = 50
+{
+  const headingRe = new RegExp(TASK_HEADING_SOURCE)
+  let id = null
+  let seenTask = false
+  let reviewFocus = false
+  let fence = null
+  let code = 0
+  let total = 0
+  const flush = () => {
+    if (id !== null && code >= PROPORTION_MIN_CODE_LINES && code * 3 > total * 2) {
+      warn('proportion: "## Task ' + id + '" is mostly code (' + code + ' of ' + total
+        + ' lines) — record the signature, test names and assertions and the request\'s values; keep a body only for an algorithm they do not determine')
+    }
+  }
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\r$/, '')
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/)
+    if (fence === null) {
+      const heading = line.match(headingRe)
+      if (heading || /^#{1,2} /.test(line)) {
+        flush()
+        if (heading) seenTask = true
+        else if (/^## Review Focus[ \t]*$/.test(line)) reviewFocus = true
+        if (!heading && seenTask) {
+          warn('section-order: "' + line.trim() + '" sits below a task section — the Claude launcher would append it to the task above, so move it above the first "## Task"; inside a task use bold labels or "###"')
+        }
+        id = heading ? heading[1] : null
+        code = 0
+        total = 0
+        continue
+      }
+      if (fenceMatch) fence = fenceMatch[1]
+      if (line.trim()) total += 1
+    } else {
+      if (fenceMatch && fenceMatch[1][0] === fence[0] && fenceMatch[1].length >= fence.length
+        && line.trim() === fenceMatch[1]) {
+        fence = null
+      } else {
+        if (id !== null && /^## /.test(line)) {
+          warn('fenced-heading: a code block in "## Task ' + id + '" has a line starting with "## " ("' + line.trim()
+            + '") — the Codex runner ends the task\'s prose there; indent the block or describe the heading in words')
+        }
+        if (line.trim()) code += 1
+      }
+      if (line.trim()) total += 1
+    }
+  }
+  flush()
+  if (plan && typeof plan === 'object' && plan.inherits === undefined && !reviewFocus) {
+    warn('review-focus: no "## Review Focus" section — list up to five inputs the request implies but no task tests, each pinned by a test in the owning task, or write "none found"')
+  }
+}
+
 // A step's `working-directory:` can appear before or after its `run:`
 // within the same `- ` list item; every raw line inside that item gets the
 // item's working-directory (if any) recorded against it, so command lines
