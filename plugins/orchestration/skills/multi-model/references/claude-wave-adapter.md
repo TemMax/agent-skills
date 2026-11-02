@@ -17,6 +17,11 @@ node <this skill's base directory>/references/claude-wave-runner.mjs \
   --plan <plan> --wave <n> --base <pushed sha> --repo <abs repo> --default-branch <branch>
 ```
 
+Run it as a background command.
+In a T3 Code Claude session, call `t3_background_wait` with the runner's task
+ID right after starting it (load it with ToolSearch if it is deferred), so the
+thread shows Waiting rather than finished while the wave runs. Skip it elsewhere.
+
 It uses the same launcher and Workflow policy, supplies independent facts without
 a verifier model, and saves full evidence under the returned `summary.json` path.
 Read verdicts there before integration. A budget stop requires a strategy decision.
