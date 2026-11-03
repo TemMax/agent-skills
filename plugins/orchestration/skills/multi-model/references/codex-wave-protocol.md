@@ -60,6 +60,10 @@ node references/codex-wave-runner.mjs --plan <plan> --wave <N> --repo <abs> \
   --base <pushed sha> [--jobs 3]
 ```
 
+In a T3 Code Claude session, call `t3_background_wait` with the runner's task
+ID right after starting it (load it with ToolSearch if it is deferred), so the
+thread shows Waiting rather than finished while the wave runs. Skip it elsewhere.
+
 Run it as a background command and wait for it with long waits — not a
 polling loop of short checks; the runner does its own polling of the Codex
 children internally, and an orchestrator that also polls just burns turns on

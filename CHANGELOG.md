@@ -4,6 +4,21 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.20.1
+
+### Highlights
+
+**multi-model**
+- A T3 Code thread running a wave shows Waiting, not finished
+
+Orchestration 4.20.1 and code-review 1.20.0 apply to Claude Code and Codex.
+
+**What changes for a wave.** T3 Code treats a background command as left
+running, like a dev server, unless the agent marks it awaited, so a thread
+whose coordinator launched a wave runner looked finished while the wave ran.
+In a T3 Code Claude session the coordinator now calls `t3_background_wait`
+with the runner's task ID right after starting it. Elsewhere nothing changes.
+
 ## 4.20.0
 
 ### Highlights
