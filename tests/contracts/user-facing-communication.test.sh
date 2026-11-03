@@ -17,7 +17,12 @@ for path in skills:
                     r'Its summary must state', r'summary states the 2026-09-30 counts']:
         if re.search(pattern, text):
             errors.append(f'{path}: routine routing disclosure: {pattern}')
-    for phrase in ['Select profiles silently', 'changes, findings, checks',
+    # critical-review states its own output contract (communication_amendment
+    # in tests/fixtures/phase-policy-baseline.json): its final message reports
+    # findings and verification evidence instead of the generic update list.
+    report = ('reports findings and verification evidence' if 'critical-review' in path.parts
+              else 'changes, findings, checks')
+    for phrase in ['Select profiles silently', report,
                    'model-selection question', 'approval artifacts']:
         if phrase not in text:
             errors.append(f'{path}: missing {phrase!r}')
