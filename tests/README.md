@@ -35,6 +35,7 @@ Prior dated measurements apply to their recorded versions only.
 | `critical-review.sh` | Clean code and deliberately planted defects; gated PR thread flow | Live semantic review through either provider |
 | `supervisor.sh` | Real small repository: correct change, missing guard, unsatisfiable contract | Live independent supervision through either provider |
 | `super-plan.sh`, `seam-audit*.sh` | File overlap, product fork, broken cross-task seams and clean decoys | Live planning and audit; several fixed mini repositories |
+| `plan-content-live.py` | One producer with three consumers; an idea-stage repo whose request leaves the platform open | Live headless planning on either host, candidate or a git ref loaded disposably; frozen expectations for decisions-not-code, interfaces, review focus and the platform question |
 | `skill-navigation.sh` | Eleven process decision points (nine on Codex) and required reference reads | Live skill application through either provider |
 | `ship-smoke.sh` | Two tasks in a disposable repository with a local bare origin | Codex execution, correctness and telemetry |
 | `skill-session-ab.sh` | Scripted multi-turn task removing duplicate tests, then a narrow CI edit | Codex session behavior and before/after comparison |

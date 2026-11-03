@@ -1,0 +1,1 @@
+{"expect": "defect", "check": "interfaces", "must_name": ["parse_seconds"], "must_not_name": ["load_name"]}

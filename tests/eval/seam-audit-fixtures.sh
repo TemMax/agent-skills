@@ -69,7 +69,7 @@ import json, sys
 s = json.load(open(sys.argv[1]))
 assert isinstance(s, dict)
 assert s.get("expect") in ("defect", "clean"), "expect must be defect or clean"
-assert s.get("check") in ("same-task-readers", "producer-before-consumer", "implementers-and-fakes", "prose-vs-forbidden-moves", "base-status", "none"), "bad check"
+assert s.get("check") in ("same-task-readers", "producer-before-consumer", "implementers-and-fakes", "prose-vs-forbidden-moves", "base-status", "interfaces", "none"), "bad check"
 for key in ("must_name", "must_not_name"):
     v = s.get(key, [])
     assert isinstance(v, list) and all(isinstance(x, str) for x in v), key + " must be a list of strings"

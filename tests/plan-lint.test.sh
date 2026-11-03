@@ -215,6 +215,103 @@ expect "ancestor forbidden prefix exits 1" "1" "$rc"
 contains "ancestor forbidden prefix named" \
   'files_allowed "src/http/**" overlaps its own files_forbidden "src/**"' "$out"
 
+section "plan content: review focus, proportion, section order (warnings)"
+out="$(node "$LINT" "$CLEAN" 2>&1)"
+check "clean plan has no review-focus warning" '! grep -qF "review-focus:" <<<"$out"'
+check "clean plan has no proportion warning" '! grep -qF "proportion:" <<<"$out"'
+check "clean plan has no section-order warning" '! grep -qF "section-order:" <<<"$out"'
+
+mutate "## Review Focus" "## Risks"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "missing review focus stays a warning" "0" "$rc"
+contains "missing review focus warned" 'review-focus: no "## Review Focus" section' "$out"
+contains "a plan without a review focus stays lint-clean" "OK: 0 error(s)" "$out"
+
+python3 - "$W/m.md" "$W/inherits.md" <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+open(sys.argv[2], 'w').write(s.replace('{ "waves"', '{ "inherits": "docs/parent.md", "waves"', 1) if '{ "waves"' in s else s.replace('"waves"', '"inherits": "docs/parent.md", "waves"', 1))
+PY2
+out="$(node "$LINT" "$W/inherits.md" 2>&1)"
+check "an amendment plan (inherits) is not asked for a review focus" '! grep -qF "review-focus:" <<<"$out"'
+
+python3 - "$CLEAN" "$W/code.md" 50 <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+body = '\n'.join('    x%d = %d' % (i, i) for i in range(int(sys.argv[3])))
+s = s.replace('Full description and code go here.', 'Full description and code go here.\n\n```python\ndef retry():\n' + body + '\n```', 1)
+open(sys.argv[2], 'w').write(s)
+PY2
+out="$(node "$LINT" "$W/code.md" 2>&1)"; rc=$?
+expect "a mostly-code task stays a warning" "0" "$rc"
+contains "a mostly-code task warned" 'proportion: "## Task http-retry" is mostly code (51 of' "$out"
+check "the neighbouring task is not warned" '! grep -qF "proportion: \"## Task docs-sync\"" <<<"$out"'
+
+python3 - "$CLEAN" "$W/code.md" 30 <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+body = '\n'.join('    assert f(%d) == %d' % (i, i) for i in range(int(sys.argv[3])))
+s = s.replace('Full description and code go here.', 'Full description and code go here.\n\n```python\ndef test_retry():\n' + body + '\n```', 1)
+open(sys.argv[2], 'w').write(s)
+PY2
+out="$(node "$LINT" "$W/code.md" 2>&1)"
+check "test assertions under the threshold are not warned" '! grep -qF "proportion:" <<<"$out"'
+
+python3 - "$CLEAN" "$W/code.md" <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+prose = '\n'.join('Decision line %d about the retry policy.' % i for i in range(40))
+body = '\n'.join('    x%d = %d' % (i, i) for i in range(60))
+s = s.replace('Full description and code go here.', 'Full description and code go here.\n\n' + prose + '\n\n```python\ndef retry():\n' + body + '\n```', 1)
+open(sys.argv[2], 'w').write(s)
+PY2
+out="$(node "$LINT" "$W/code.md" 2>&1)"
+check "a long task whose code is not most of it is not warned" '! grep -qF "proportion:" <<<"$out"'
+
+python3 - "$CLEAN" "$W/order.md" <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+open(sys.argv[2], 'w').write(s.rstrip('\n') + '\n\n## Assumptions (would ask)\n\n- none\n\n```\n## not a heading inside a fence\n```\n')
+PY2
+out="$(node "$LINT" "$W/order.md" 2>&1)"; rc=$?
+expect "a section below a task stays a warning" "0" "$rc"
+contains "a section below a task warned" 'section-order: "## Assumptions (would ask)" sits below a task section' "$out"
+check "a fenced ## line is not a heading" '! grep -qF "not a heading inside a fence" <<<"$out"'
+
+python3 - "$CLEAN" "$W/order.md" <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+s = s.replace('Full description and code go here.', 'Full description and code go here.\n\n### Interfaces\n\n- Produces: `retry(fn, attempts: int) -> T`', 1)
+open(sys.argv[2], 'w').write(s)
+PY2
+out="$(node "$LINT" "$W/order.md" 2>&1)"
+check "a ### label inside a task is not a section-order problem" '! grep -qF "section-order:" <<<"$out"'
+
+python3 - "$CLEAN" "$W/fenced.md" <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+s = s.replace('Full description and code go here.', 'Full description and code go here.\n\n```markdown\n## Retries\n\nThe client retries.\n```', 1)
+open(sys.argv[2], 'w').write(s)
+PY2
+out="$(node "$LINT" "$W/fenced.md" 2>&1)"; rc=$?
+expect "a fenced ## line in a task stays a warning" "0" "$rc"
+contains "a fenced ## line in a task warned" 'fenced-heading: a code block in "## Task http-retry" has a line starting with "## " ("## Retries")' "$out"
+check "a fenced ## line in a task is not a section-order problem" '! grep -qF "section-order:" <<<"$out"'
+
+python3 - "$CLEAN" "$W/fenced-focus.md" <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+s = s.replace('## Review Focus\n', '```\n## Review Focus\n```\n', 1)
+open(sys.argv[2], 'w').write(s)
+PY2
+out="$(node "$LINT" "$W/fenced-focus.md" 2>&1)"
+contains "a fenced Review Focus heading does not count" 'review-focus: no "## Review Focus" section' "$out"
+
+printf 'status: draft\r\nbase: pending\r\n' > "$W/crlf.md"
+tail -n +3 "$CLEAN" | sed 's/$/\r/' >> "$W/crlf.md"
+out="$(node "$LINT" "$W/crlf.md" 2>&1)"
+check "a CRLF plan's Review Focus is found" '! grep -qF "review-focus:" <<<"$out"'
+
 section "warnings stay non-fatal"
 
 mutate '"must_run": [{ "cmd": "true", "evidence": "required" }],
