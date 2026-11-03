@@ -44,6 +44,7 @@ section by design.
 | "Tests passed while I was developing it" | Passing tests you also wrote test your assumptions, not your blind spots. Read their assertions and validate against independent evidence. |
 | "It's a small diff" | Small diffs hide big regressions — a one-line change to a shared helper touches every caller. |
 | "The PR description already explains this" | The description is a claim; the review verifies claims against code. |
+| "The author explained why it is this way" | A stated rationale — "left it per YAGNI", "kept it simple", "the plan said so" — is the author grading their own work. Judge the code; a rationale never lowers a tier. |
 | "Finding bugs in my own code looks bad" | Shipping them looks worse. The review's job is findings, not image. |
 | "The user seems happy with the result" | The user asked for a critical review; leniency is a failed task, not kindness. |
 
@@ -67,7 +68,8 @@ section by design.
    - tests: do new/changed tests assert real behavior (not mocks of it), do
      they cover the failure paths the diff introduces; did tests that SHOULD
      change stay untouched (a behavior change with zero test delta is itself
-     a finding)
+     a finding); warnings or other noise the diff adds to test or build
+     output are a finding
    - docs/config: README, config samples, CHANGELOG staleness if the repo
      keeps them
 4. Verify claims with the relevant build, tests and linter. Inspect assertions
@@ -88,6 +90,25 @@ section by design.
    Measured cause: in a 2026-09-22 run, findings were shown while a second
    review was still running, which forced a second fix approval and a second
    fix plan.
+
+**Behavior the requirements do not name.** The task, the plan or the PR
+description says what the change must do; it does not list every input,
+environment or condition the code will meet. Judge behavior they are silent
+on by what a reasonable person using this software would expect: that
+expectation is a requirement, and silence is not permission to crash, lose
+data or return a wrong answer. Grade such a finding by its effect on that
+person, not by whether the requirements name the trigger — a crash on an
+input the request implies is Important, not Medium. Measured upstream
+(superpowers 6.4.1): every implementer shipped the same crash on an input the
+spec implied but never named, and review let it through at its lowest tier.
+
+**Plan-mandated defects.** A diff that matches its plan proves the code does
+what the plan says, not that the plan is right. When the plan, the task or
+the PR description requires something these tiers call a defect — a test
+that asserts nothing, a duplicated logic block, a swallowed error, behavior
+a reasonable user would call wrong — it is still a finding at its tier,
+labeled `plan-mandated`. The requirement's author does not grade its
+own work; the user decides.
 
 Keep review context scoped to the artifact: diff range or PR head, acceptance
 requirements, evidence paths and unresolved findings. Load full logs only for a
@@ -124,9 +145,12 @@ Tier definitions:
 - **Blocker** — merge/ship would break something: broken build or tests,
   data loss, security hole, corrupted core behavior.
 - **Important** — a real bug or an unmet requirement from the task/PR
-  description; will bite users or teammates soon; fix before merge.
-- **Medium** — edge-case bugs, missing error handling, maintainability
-  traps; fix in this PR if cheap, otherwise track explicitly.
+  description, including behavior a reasonable user expects that the
+  requirements do not name; will bite users or teammates soon; fix before
+  merge.
+- **Medium** — edge-case bugs on inputs a user would rarely meet, missing
+  error handling, maintainability traps; fix in this PR if cheap, otherwise
+  track explicitly.
 - **Low** — minor improvements, non-urgent cleanups.
 - **Nit** — style, naming, typos; take or leave.
 
@@ -135,6 +159,18 @@ Every finding also carries a **provenance** marker:
 thread, or `own` when the session found it independently. Provenance comes
 from the ledger, and it is what the fix phase replies against — a finding
 without it never produces a PR reply.
+
+**Set aside.** After the table, list every behavior you considered and set
+aside as outside the task, plan or PR scope — one line each, with the
+reason. Whoever asked for the review rules on each line: the user, or the
+coordinator when the review runs as ship's stage. Nothing set aside is
+dropped silently. Write `Set aside: none` when you set nothing aside.
+Adapted from superpowers 6.4.1 ("Declined to judge").
+
+**Disputed.** A PR thread whose request the code contradicts (`PR.md`) is
+not a table row: list it after the table under `Disputed`, one line each
+with its provenance and the evidence. The user decides whether it is
+changed, answered as not changed, or left.
 
 Empty tiers are omitted from the table. If the table is empty, say explicitly
 that N checks were performed and found nothing, and list what was checked.
@@ -156,6 +192,9 @@ that thread.
 | Leniency toward own code | The one reader who could catch the bug waves it through | Judge the artifact as if the author were unknown |
 | Findings without file:line and scenario | Unactionable review theater | Every finding: location + failure scenario + fix |
 | Tier inflation/deflation | The table stops being a prioritization tool | Calibrate against the tier definitions |
+| Grading an unnamed input as an edge case | A crash a user would meet ships as Medium | Judge by what a reasonable user expects; grade by the effect on them |
+| Dropping what you judged out of scope | The caller never learns what nobody checked | List it under Set aside with the reason |
+| Lowering a tier because the author or the plan explained it | The rationale grades itself | Keep the tier; label a plan-required defect `plan-mandated` |
 | Fixing code during the review | Review mutates into unrequested changes | Read-only; fixes only on explicit request afterwards |
 | Reading PR threads over REST | No thread id and no resolution state — threads cannot be classified and the fix phase has nothing to reply to | Read threads with the GraphQL query in PR Protocol step 2 |
 | Inferring write capability from repository permission | `READ` on the repo still permits replies; `WRITE` does not guarantee a locked thread can be touched | Read `viewerCanReply`/`viewerCanResolve` per thread |

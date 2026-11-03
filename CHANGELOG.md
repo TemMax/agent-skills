@@ -4,6 +4,51 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.20.0
+
+### Highlights
+
+**critical-review**
+- A crash on an input the request implies is Important
+- An author's rationale never lowers a tier
+- Behavior set aside is listed for the user, not dropped
+
+**ship**
+- Each set-aside line is fixed in scope or carried into the PR body
+- Plan-mandated findings and disputed threads go to the user
+
+Orchestration 4.20.0 and code-review 1.20.0 apply to Claude Code and Codex.
+
+**What changes in a review.** critical-review now judges behavior the
+requirements are silent on by what a reasonable user expects: a crash on an
+input the request implies but never names is Important, not Medium, and
+Medium is left for inputs a user would rarely meet. A stated rationale —
+"kept it simple", "per YAGNI", "the plan said so" — no longer lowers a tier;
+a defect the plan itself requires, including behavior a user would call
+wrong, is reported at its tier, labeled `plan-mandated`, for the user to
+decide. After the findings table the review
+lists every behavior it considered and set aside, with the reason, or says
+`Set aside: none`; ship carries each line into the PR body or fixes it when
+it lies inside the agreed scope. Test or build output noise the diff adds is
+a finding. On a PR, a reviewer's request is checked against the code before
+it is carried as a finding — breakage, a reason for the current code,
+whether the thing to build out is used at all — and one the code contradicts
+is listed under `Disputed` with that evidence for the user to decide,
+instead of being adopted.
+
+**Measured.** On a fixture whose plan mandates a 0.0 rating for a product
+with no reviews, Codex `gpt-6.1-sol` passed the change as clean under 1.19.0
+and reported it Important, `plan-mandated`, under 1.20.0; Claude Sonnet 5.5
+reported it under both, with the label only under 1.20.0. A crash on the
+same implied input was already graded Important by both hosts under 1.19.0.
+The set-aside list appeared in every 1.20.0 review and in none before. One
+run per cell; `tests/eval/review-content-results-2026-11-03.md`.
+
+**Where it comes from.** The unnamed-input rule follows superpowers 6.4.1,
+where every implementer shipped the same crash on an input the spec implied;
+the set-aside list adapts that release's "declined to judge" section, and
+the disputed-request check adapts its `receiving-code-review` skill.
+
 ## 4.19.0
 
 ### Highlights

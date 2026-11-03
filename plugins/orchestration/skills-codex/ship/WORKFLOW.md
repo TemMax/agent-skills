@@ -240,6 +240,11 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    finding whose fix needs one of the decisions Stage 0 says to ask the
    user about is not fixed: list it and ask. A finding that answers a
    thread started by someone else keeps that protocol's gate.
+   Rule on each line of the review's Set aside list: carry it with its
+   reason into the PR body's honest limits, or fix it as a finding when it
+   lies inside the agreed scope — widening the scope is a Stage 0 decision
+   and is asked. Never drop a line. A `plan-mandated` finding and a
+   `Disputed` thread go to the user with their evidence, not to a fix.
    ship never adds inline prose routing or a parallel routing table. That
    protocol applies only to findings of a review the user asked for in this
    session, and the review of the pipeline's own pull request is one; a
