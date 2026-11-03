@@ -14,7 +14,7 @@
 // checkouts are on different volumes or the file system has no clones,
 // nothing is copied.
 import { spawnSync } from 'node:child_process'
-import { existsSync, lstatSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
 import { excludeFromGit } from './worktree-env.mjs'
@@ -110,6 +110,97 @@ function canClone(source, targetDir) {
   return (CLONING[process.platform] ?? []).includes(fsType(targetDir))
 }
 
+// On APFS `cp -cR` clones file by file, and each call is a file system
+// transaction: a pnpm monorepo's `node_modules` (206,000 entries) took 35 s,
+// 31 s of it system time. One clonefile(2) call clones a whole directory in
+// one transaction, but holds every rename on the volume until it ends (2 s
+// there). So a tree is cloned in subtrees: one call for a directory of at
+// most CHUNK entries, or one whose own files number CHUNK / 4 or more and
+// whose tree stays under 10 × CHUNK (an icon set of 12,000 files); a larger
+// directory is made anew, writable until its entries are in, and its
+// entries taken one by one. Measured there: 3.0 s, 2.4 s of system time, renames
+// elsewhere waiting at most 190 ms. Files and link targets come out as
+// `cp -cR` makes them; a directory cloned whole keeps its directories'
+// modes and its links' times, where `cp -cR` applies the umask and the
+// current time.
+// JavaScript for Automation ships with macOS and makes the calls; a tree
+// with a socket, FIFO or device, an unreadable directory or a failed call
+// goes to `cp -cR`.
+const CHUNK = 2000
+const CLONE_STEPS = `ObjC.import('Foundation')
+ObjC.bindFunction('clonefile', ['int', ['char *', 'char *', 'unsigned int']])
+ObjC.bindFunction('mkdir', ['int', ['char *', 'unsigned short']])
+ObjC.bindFunction('chmod', ['int', ['char *', 'unsigned short']])
+function run(argv) {
+  const data = $.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile
+  const steps = JSON.parse($.NSString.alloc.initWithDataEncoding(data, $.NSUTF8StringEncoding).js)
+  for (const [kind, rel, mode] of steps) {
+    const source = rel ? argv[0] + '/' + rel : argv[0], target = rel ? argv[1] + '/' + rel : argv[1]
+    const r = kind === 'mkdir' ? $.mkdir(target, mode) : kind === 'chmod' ? $.chmod(target, mode) : $.clonefile(source, target, 1)
+    if (r !== 0) return 'failed'
+  }
+  return 'ok'
+}`
+
+// Entry counts of a tree; throws on an entry a clone would not copy as
+// `cp -cR` does, or a directory it cannot read.
+function scanTree(dir) {
+  const node = { size: 0, files: 0, entries: [] }
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      const child = scanTree(join(dir, entry.name))
+      node.size += child.size + 1
+      node.entries.push([entry.name, child])
+    } else if (entry.isFile() || entry.isSymbolicLink()) {
+      node.size += 1; node.files += 1
+      node.entries.push([entry.name, null])
+    } else throw new Error('special file: ' + join(dir, entry.name))
+  }
+  return node
+}
+
+// The steps that clone a tree: directories made anew get the mode
+// `cp -cR` gives them (the source's, less the umask) once their entries are
+// in, deepest first.
+function cloneSteps(node, source, rel, steps, modes, umask) {
+  if (node.size + 1 <= CHUNK || (node.files >= CHUNK / 4 && node.size < 10 * CHUNK)) { steps.push(['clone', rel]); return }
+  const mode = statSync(join(source, rel)).mode & 0o777 & ~umask
+  steps.push(['mkdir', rel, mode | 0o700])
+  if ((mode | 0o700) !== mode) modes.push(['chmod', rel, mode])
+  for (const [name, child] of node.entries) {
+    const path = rel ? rel + '/' + name : name
+    if (child) cloneSteps(child, source, path, steps, modes, umask)
+    else steps.push(['clone', path])
+  }
+}
+
+function cloneTree(source, target) {
+  let steps
+  try {
+    const modes = [], umask = process.umask()
+    steps = []
+    cloneSteps(scanTree(source), source, '', steps, modes, umask)
+    steps.push(...modes.reverse())
+  } catch { return false }
+  const r = spawnSync('osascript', ['-l', 'JavaScript', '-e', CLONE_STEPS, source, target],
+    { input: JSON.stringify(steps), encoding: 'utf8', timeout: 10 * 60 * 1000, maxBuffer: 1024 * 1024 })
+  return r.status === 0 && r.stdout.trim() === 'ok'
+}
+
+// Removes a partial clone, opening its read-only directories first; never
+// follows a link out of it.
+function removeTree(path) {
+  try { rmSync(path, { recursive: true, force: true }); return true } catch { /* a read-only directory in it */ }
+  const open = (dir) => {
+    try { const s = lstatSync(dir); if (!s.isDirectory()) return; chmodSync(dir, (s.mode & 0o7777) | 0o700) } catch { return }
+    let entries = []
+    try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const entry of entries) if (entry.isDirectory()) open(join(dir, entry.name))
+  }
+  open(path)
+  try { rmSync(path, { recursive: true, force: true }); return true } catch { return false }
+}
+
 // Clones each build directory of `from` into `to`, copy-on-write, only where
 // the volume can clone; the first directory that fails ends the seeding.
 export function seedBuildDirs(from, to, { skip = [] } = {}) {
@@ -117,9 +208,13 @@ export function seedBuildDirs(from, to, { skip = [] } = {}) {
   for (const rel of candidates(from, to, skip)) {
     const source = join(from, rel), target = join(to, rel)
     if (!canClone(source, dirname(target))) break
+    if (process.platform === 'darwin') {
+      if (cloneTree(source, target)) { cloned.push(rel); continue }
+      if (!removeTree(target)) break
+    }
     const args = process.platform === 'darwin' ? ['-cR', source, target] : ['-R', '--reflink=always', source, target]
     const r = spawnSync('cp', args, { encoding: 'utf8', timeout: 10 * 60 * 1000 })
-    if (r.status !== 0) { rmSync(target, { recursive: true, force: true }); break }
+    if (r.status !== 0) { removeTree(target); break }
     cloned.push(rel)
   }
   return cloned

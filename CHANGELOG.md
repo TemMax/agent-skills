@@ -4,6 +4,40 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.21.0
+
+### Highlights
+
+**multi-model**
+- On macOS a build is cloned in a few calls, not file by file
+
+Orchestration 4.21.0 and code-review 1.20.0 apply to Claude Code and Codex.
+
+**What changes for a wave.** Every checkout a wave makes — the executor's
+worktree, the verifier's on every attempt, the supervisor's and the
+preflight's — starts from a copy-on-write clone of the repository
+checkout's build outputs. On APFS `cp -cR` made that clone one file at a
+time, and a large `node_modules` kept the kernel busy for half a minute per
+checkout. Each build directory is now cloned with clonefile(2) in subtrees
+of up to 2,000 entries, or a whole directory of 500 or more files of its
+own under 20,000 entries, one call each: a single call for a whole tree
+would hold every rename on the volume until it ended. The checkout gets the
+same files and link targets in every ecosystem. A tree with a socket, FIFO or
+device, or a failed call, is cloned with `cp -cR` as before; Linux is
+unchanged.
+
+**Measured.** On a pnpm monorepo with 40 build directories (248,468
+files, links and directories), preparing a checkout took 4.9 s instead of 28.9 s, and 2.9 s of
+system time instead of 27.4 s. A probe renaming a file every 5 ms on the
+same volume waited at most 170 ms during the clone (one call for the whole
+`node_modules`: 2 s). The two checkouts' build directories matched file for
+file, and the checkout's shared package passed its 1,090 tests and its type
+check. Removing a checkout is unchanged (11–20 s, either kind of clone).
+Under heavier load a second run took 8.6 s instead of 93.8 s. A live wave on a pnpm
+workspace was accepted on the first attempt on Claude Code and on Codex,
+with the executor's build directories cloned this way.
+`tests/eval/node-modules-results-2026-11-03.md`.
+
 ## 4.20.1
 
 ### Highlights
