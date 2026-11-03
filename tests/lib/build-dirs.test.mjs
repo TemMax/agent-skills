@@ -3,7 +3,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, lutimesSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync,
+  symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildDirs, seedBuildDirs, shareBuildDirs } from
@@ -54,6 +55,113 @@ test('seeding clones each directory; a directory already present is left alone',
     // Without copy-on-write clones nothing is copied at all.
     for (const rel of ['app/build', 'target']) assert.equal(existsSync(join(other, rel)), cloned.includes(rel))
   }
+})
+
+// A link whose time is set: one directory clone keeps it, `cp -cR` makes a
+// new link, so the time tells which of the two cloned the directory.
+function linkedPackage(r) {
+  mkdirSync(join(r, 'node_modules/.store/pkg'), { recursive: true })
+  writeFileSync(join(r, 'node_modules/.store/pkg/run.sh'), '#!/bin/sh\n')
+  chmodSync(join(r, 'node_modules/.store/pkg/run.sh'), 0o755)
+  symlinkSync('.store/pkg', join(r, 'node_modules/pkg-link'))
+  lutimesSync(join(r, 'node_modules/pkg-link'), new Date('2001-01-01'), new Date('2001-01-01'))
+  return lstatSync(join(r, 'node_modules/pkg-link')).mtimeMs
+}
+
+test('on APFS a small directory is cloned in one call: same tree, links, modes and times', { skip: process.platform !== 'darwin' }, (t) => {
+  const { r, other } = repo(t)
+  const linkTime = linkedPackage(r)
+  assert.deepEqual(seedBuildDirs(r, other).sort(), ['app/build', 'node_modules', 'target'])
+  assert.equal(readlinkSync(join(other, 'node_modules/pkg-link')), '.store/pkg')
+  assert.equal(lstatSync(join(other, 'node_modules/pkg-link')).mtimeMs, linkTime)
+  assert.equal(statSync(join(other, 'node_modules/.store/pkg/run.sh')).mode & 0o777, 0o755)
+  assert.equal(statSync(join(other, 'node_modules/.store/pkg/run.sh')).mtimeMs, statSync(join(r, 'node_modules/.store/pkg/run.sh')).mtimeMs)
+  assert.equal(readFileSync(join(other, 'target/debug/dep.rlib'), 'utf8'), 'dep\n')
+  assert.equal(spawnSync('git', ['-C', other, 'status', '--porcelain', '--untracked-files=all'], { encoding: 'utf8' }).stdout, '')
+})
+
+test('when the clone calls fail, each directory is cloned file by file', { skip: process.platform !== 'darwin' }, (t) => {
+  const { r, other } = repo(t)
+  const linkTime = linkedPackage(r)
+  const bin = mkdtempSync(join(tmpdir(), 'no-clonefile-'))
+  t.after(() => rmSync(bin, { recursive: true, force: true }))
+  writeFileSync(join(bin, 'osascript'), '#!/bin/sh\necho -1\n', { mode: 0o755 })
+  const path = process.env.PATH
+  process.env.PATH = bin + ':' + path
+  t.after(() => { process.env.PATH = path })
+  assert.deepEqual(seedBuildDirs(r, other).sort(), ['app/build', 'node_modules', 'target'])
+  assert.equal(readlinkSync(join(other, 'node_modules/pkg-link')), '.store/pkg')
+  assert.notEqual(lstatSync(join(other, 'node_modules/pkg-link')).mtimeMs, linkTime)
+  assert.equal(readFileSync(join(other, 'target/debug/dep.rlib'), 'utf8'), 'dep\n')
+})
+
+test('on APFS a large directory is cloned in subtrees with the same contents', { skip: process.platform !== 'darwin' }, (t) => {
+  const { r, other } = repo(t)
+  const linkTime = linkedPackage(r)
+  // Three packages of 900 files: too many for one call, each one call.
+  for (const name of ['a', 'b', 'c']) {
+    mkdirSync(join(r, 'node_modules', name, 'lib'), { recursive: true })
+    for (let i = 0; i < 900; i++) writeFileSync(join(r, 'node_modules', name, 'lib', i + '.js'), name + i)
+  }
+  mkdirSync(join(r, 'node_modules/ünï cødé'))
+  writeFileSync(join(r, 'node_modules/ünï cødé/日本.js'), 'x')
+  writeFileSync(join(r, 'node_modules/.modules.yaml'), 'top\n')
+  chmodSync(join(r, 'node_modules/a'), 0o700)
+  chmodSync(join(r, 'node_modules'), 0o777)
+  assert.deepEqual(seedBuildDirs(r, other).sort(), ['app/build', 'node_modules', 'target'])
+  // Split: made anew with the umask applied, as `cp -cR` does; a clone of
+  // the whole directory would have kept 777.
+  assert.equal(statSync(join(other, 'node_modules')).mode & 0o777, 0o777 & ~process.umask())
+  const list = (root) => spawnSync('find', ['.'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').sort()
+  assert.deepEqual(list(join(other, 'node_modules')), list(join(r, 'node_modules')))
+  assert.equal(readFileSync(join(other, 'node_modules/b/lib/899.js'), 'utf8'), 'b899')
+  assert.equal(readFileSync(join(other, 'node_modules/ünï cødé/日本.js'), 'utf8'), 'x')
+  assert.equal(readFileSync(join(other, 'node_modules/.modules.yaml'), 'utf8'), 'top\n')
+  assert.equal(statSync(join(other, 'node_modules/a')).mode & 0o777, 0o700)
+  assert.equal(lstatSync(join(other, 'node_modules/pkg-link')).mtimeMs, linkTime)
+})
+
+test('a read-only directory that is split gets its entries, then its mode', { skip: process.platform !== 'darwin' }, (t) => {
+  const { r, other } = repo(t)
+  const linkTime = linkedPackage(r)
+  for (const name of ['a', 'b', 'c']) {
+    mkdirSync(join(r, 'node_modules/ro', name), { recursive: true })
+    for (let i = 0; i < 900; i++) writeFileSync(join(r, 'node_modules/ro', name, i + '.js'), name + i)
+  }
+  chmodSync(join(r, 'node_modules/ro'), 0o555)
+  try {
+    assert.deepEqual(seedBuildDirs(r, other).sort(), ['app/build', 'node_modules', 'target'])
+    assert.equal(readFileSync(join(other, 'node_modules/ro/c/899.js'), 'utf8'), 'c899')
+    assert.equal(statSync(join(other, 'node_modules/ro')).mode & 0o777, 0o555 & ~process.umask())
+    assert.equal(lstatSync(join(other, 'node_modules/pkg-link')).mtimeMs, linkTime)
+  } finally {
+    for (const root of [r, other]) if (existsSync(join(root, 'node_modules/ro'))) chmodSync(join(root, 'node_modules/ro'), 0o755)
+  }
+})
+
+test('a clone that fails partway is removed, read-only parts too, and copied as before', { skip: process.platform !== 'darwin' }, (t) => {
+  const { r, other } = repo(t)
+  linkedPackage(r)
+  const bin = mkdtempSync(join(tmpdir(), 'partial-clone-'))
+  t.after(() => rmSync(bin, { recursive: true, force: true }))
+  // Leaves a read-only directory with a file in the target, then fails.
+  writeFileSync(join(bin, 'osascript'), '#!/bin/sh\nmkdir -p "$6/x" && touch "$6/x/f" && chmod 555 "$6/x"\necho failed\n', { mode: 0o755 })
+  const path = process.env.PATH
+  process.env.PATH = bin + ':' + path
+  t.after(() => { process.env.PATH = path })
+  assert.deepEqual(seedBuildDirs(r, other).sort(), ['app/build', 'node_modules', 'target'])
+  assert.equal(existsSync(join(other, 'node_modules/x')), false)
+  assert.equal(readlinkSync(join(other, 'node_modules/pkg-link')), '.store/pkg')
+  assert.equal(readFileSync(join(other, 'target/debug/dep.rlib'), 'utf8'), 'dep\n')
+})
+
+test('a tree with a FIFO is cloned file by file, as before', { skip: process.platform !== 'darwin' }, (t) => {
+  const { r, other } = repo(t)
+  const linkTime = linkedPackage(r)
+  assert.equal(spawnSync('mkfifo', [join(r, 'node_modules/.store/pipe')]).status, 0)
+  assert.deepEqual(seedBuildDirs(r, other).sort(), ['app/build', 'node_modules', 'target'])
+  assert.equal(readlinkSync(join(other, 'node_modules/pkg-link')), '.store/pkg')
+  assert.notEqual(lstatSync(join(other, 'node_modules/pkg-link')).mtimeMs, linkTime)
 })
 
 test('only build-output names count: logs, data, agent state and path-pinned outputs stay out', (t) => {

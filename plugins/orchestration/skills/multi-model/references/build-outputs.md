@@ -25,14 +25,17 @@ The plan's `worktree.share_builds` chooses:
 
 - **default — clone the repository checkout's build.** Every new checkout
   (the executor's worktree, the verifier's disposable checkout, the
-  supervisor's checkout, the preflight's) gets a copy-on-write clone (`cp -c`
-  on APFS, `cp --reflink=always` on btrfs or XFS) of the build outputs of the
-  checkout the runner was given (`--repo`). A clone costs no space until a
-  build changes a file; then only that file takes its own space. Verification
-  still never sees the executor's own artifacts. One file is cloned first
-  with a forced clone: when the two checkouts are on different volumes or the
-  file system has no clones, nothing is copied and each checkout builds as
-  before (`cp -c` alone would silently copy in full).
+  supervisor's checkout, the preflight's) gets a copy-on-write clone of the
+  build outputs of the checkout the runner was given (`--repo`): on APFS
+  clonefile(2) calls on subtrees of up to 2,000 entries, or on a whole
+  directory of 500 or more files of its own under 20,000 entries (through
+  JavaScript for Automation), `cp -cR` for a tree with a socket, FIFO or device or when
+  a call fails; `cp --reflink=always` on btrfs, XFS or ZFS.
+  A clone costs no space until a build changes a file; then only that file
+  takes its own space. Verification still never sees the executor's own
+  artifacts. When the two checkouts are on different volumes or the file
+  system has no clones, nothing is copied and each checkout builds as before
+  (`cp -c` alone would silently copy in full).
 - **`"executor"` — also reuse the executor's build.** The verifier's and the
   supervisor's checkouts link to the executor's build-output directories
   instead; they run after the executor and one after the other. Git is told
@@ -83,6 +86,18 @@ directories were 5 MB and each checkout built in 2 s with or without
 sharing: Gradle's build cache and the dependency caches live in `~/.gradle`,
 which every agent already shares. Linked `.gradle` and `build` directories
 built correctly there.
+
+On a pnpm monorepo (`t3code`, 40 build directories, 248,468 files, links
+and directories, 2026-11-03), cloning a checkout's build took 28.9 s with `cp -cR`,
+27.4 s of it system time, and 4.9 s in subtrees, 2.9 s of system time. The
+two checkouts' build directories held the same files (times, modes and
+sizes), the same link targets and the same directory modes. Subtrees, not one call per
+directory: one clonefile(2) call on the whole `node_modules` took 2 s and
+held every rename on the volume for those 2 s; in subtrees a rename
+elsewhere waited at most 170–190 ms. A subtree cloned whole keeps its
+directories' modes (777 stays 777) where `cp -cR` applies the umask.
+Removing a checkout took 11–20 s either way. See
+`tests/eval/node-modules-results-2026-11-03.md`.
 
 Not measured: Node in a linked checkout (some Node tools resolve a linked
 `node_modules` to the executor's worktree). If one breaks, set `worktree.share_builds: false` for that plan.
