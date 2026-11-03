@@ -18,3 +18,7 @@ Expected before the run, and observed:
 | The roster is empty after the runner ends | Empty; the wake turn reported verdict `ok` |
 
 The wave took 34 s and two model calls. One run; not repeated.
+
+Rebased onto orchestration 4.20.0 and released as 4.20.1: `claude-wave-adapter.md`
+and `codex-wave-protocol.md` are byte-identical to the tested candidate, so this
+run covers the released text. The Codex-wave launch point was not run live.

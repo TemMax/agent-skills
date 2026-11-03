@@ -4,20 +4,114 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
-## 4.18.1
+## 4.20.1
 
 ### Highlights
 
 **multi-model**
 - A T3 Code thread running a wave shows Waiting, not finished
 
-Orchestration 4.18.1 and code-review 1.19.0 apply to Claude Code and Codex.
+Orchestration 4.20.1 and code-review 1.20.0 apply to Claude Code and Codex.
 
 **What changes for a wave.** T3 Code treats a background command as left
 running, like a dev server, unless the agent marks it awaited, so a thread
 whose coordinator launched a wave runner looked finished while the wave ran.
 In a T3 Code Claude session the coordinator now calls `t3_background_wait`
 with the runner's task ID right after starting it. Elsewhere nothing changes.
+
+## 4.20.0
+
+### Highlights
+
+**critical-review**
+- A crash on an input the request implies is Important
+- An author's rationale never lowers a tier
+- Behavior set aside is listed for the user, not dropped
+
+**ship**
+- Each set-aside line is fixed in scope or carried into the PR body
+- Plan-mandated findings and disputed threads go to the user
+
+Orchestration 4.20.0 and code-review 1.20.0 apply to Claude Code and Codex.
+
+**What changes in a review.** critical-review now judges behavior the
+requirements are silent on by what a reasonable user expects: a crash on an
+input the request implies but never names is Important, not Medium, and
+Medium is left for inputs a user would rarely meet. A stated rationale —
+"kept it simple", "per YAGNI", "the plan said so" — no longer lowers a tier;
+a defect the plan itself requires, including behavior a user would call
+wrong, is reported at its tier, labeled `plan-mandated`, for the user to
+decide. After the findings table the review
+lists every behavior it considered and set aside, with the reason, or says
+`Set aside: none`; ship carries each line into the PR body or fixes it when
+it lies inside the agreed scope. Test or build output noise the diff adds is
+a finding. On a PR, a reviewer's request is checked against the code before
+it is carried as a finding — breakage, a reason for the current code,
+whether the thing to build out is used at all — and one the code contradicts
+is listed under `Disputed` with that evidence for the user to decide,
+instead of being adopted.
+
+**Measured.** On a fixture whose plan mandates a 0.0 rating for a product
+with no reviews, Codex `gpt-6.1-sol` passed the change as clean under 1.19.0
+and reported it Important, `plan-mandated`, under 1.20.0; Claude Sonnet 5.5
+reported it under both, with the label only under 1.20.0. A crash on the
+same implied input was already graded Important by both hosts under 1.19.0.
+The set-aside list appeared in every 1.20.0 review and in none before. One
+run per cell; `tests/eval/review-content-results-2026-11-03.md`.
+
+**Where it comes from.** The unnamed-input rule follows superpowers 6.4.1,
+where every implementer shipped the same crash on an input the spec implied;
+the set-aside list adapts that release's "declined to judge" section, and
+the disputed-request check adapts its `receiving-code-review` skill.
+
+## 4.19.0
+
+### Highlights
+
+**super-plan**
+- Plans record decisions, not code; tasks name their interfaces
+- A review focus pins inputs the request implies but no test covers
+- An open platform or language is asked; a settled one is named
+
+Orchestration 4.19.0 and code-review 1.19.0 apply to Claude Code and Codex.
+
+**What changes in a plan.** super-plan's planning rules came from Jesse
+Vincent's superpowers in August (v6.3.0); this release syncs them with
+v7.0.1. A task section now carries what the executor cannot decide alone —
+each test's name and assertions, the exact signature and file, the values
+the request pins — and a function body only for an algorithm those do not
+determine. A task that produces or uses a name another wave relies on has
+an `Interfaces` block with `Consumes:` and `Produces:` signatures, and the
+seam audit checks that they match. A `## Review Focus` section lists up to
+five inputs the request implies but no task tests, each pinned by a test in
+the owning task. A platform, language or framework the request leaves open
+and the repository does not settle is asked with the other product forks; a
+settled one is named in the design report. The linter warns on a plan
+without a review focus, on a task section that is mostly code, and on a
+plan-level section below a task, which the Claude launcher would append to
+that task's prose.
+
+**Measured upstream.** superpowers measured decision-only plans at a
+quarter of the planning time and about a third of the tokens, executing 9/9
+against planted-defect probes like full-code plans (6.4.2); the review
+focus came from every implementer shipping the same crash on an input the
+spec implied (6.4.1); the platform question from a session that designed an
+iOS app and built a web app (7.0.0).
+
+**Measured here.** Live headless planning, one run per cell, candidate
+loaded disposably: Claude Code with Opus 5.5 and Codex with GPT-6.1 Sol each
+passed every frozen check on a producer-and-three-consumers fixture (signatures
+only, `Consumes:`/`Produces:` on every consumer, five Review Focus lines above
+the first task) and on an idea-stage request (the platform asked first under
+`Assumptions (would ask)`). On the same fixture 4.18.0 wrote the parser's full
+body twice and had neither section. Executors built the parser from
+signature and assertions alone: the Codex runner's wave was merge-ready
+first try; a Sonnet 5.5 executor given the Claude plan's task passed all its
+tests. The seam audit named a planted `Consumes:`/`Produces:` mismatch on
+both hosts and flagged nothing on three sound plans; the existing planning
+tier passed 6/6 on each host. No planning-time or token saving showed on this small fixture
+(about 125 s and $0.71–0.76 either way). Records in
+`tests/eval/plan-content-results-2026-11-03.md`.
 
 ## 4.18.0
 

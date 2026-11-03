@@ -92,3 +92,26 @@ any blocking entry.
   that use it break.
 - must_name: `FakeStore`
 - must_not_name: none
+
+## interfaces-clean
+
+- expect: `clean`
+- audit check: `none`
+- Why it is sound: wave 1 `Produces:` `src.durations.parse_duration(text: str)
+  -> int`, and the wave-2 task `Consumes:` exactly that signature; its other
+  `Consumes:` line, `src.config.load_name(config: dict) -> str`, exists at the
+  base. The base-existing consumer line is a decoy for the interfaces check.
+- must_name: none
+- must_not_name: `load_name`, `parse_duration`
+
+## interfaces-mismatch
+
+- expect: `defect`
+- audit check: `interfaces`
+- Planted defect: wave 1 `Produces:` `src.durations.parse_duration(text: str)
+  -> int`, but the wave-2 task `Consumes:`
+  `src.durations.parse_seconds(value: str) -> float` — a name and a return
+  type no task produces and the base does not have. Its other `Consumes:`
+  line (`load_name`, present at the base) is sound.
+- must_name: `parse_seconds`
+- must_not_name: `load_name`

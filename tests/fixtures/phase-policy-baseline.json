@@ -3,7 +3,7 @@
   "policy_paragraph_sha256": {
     "plugins/orchestration/skills/super-plan/SKILL.md": [
       "bd73ceeacf00d914e2e85ecaa14d881d2c61cc58a9f9f4fadd54cdd00667cf3a",
-      "82422296a7e8a349db7ee0cdf247ea2e1b4d0e170c27f41422f61fa76c1cd4c4",
+      "8c05eab91fd71b99953cf0c8855827d8860410cde3bb0436b097a5060a97b0b6",
       "5a5c8adb6e54a6b6ad8f32a0fe0e637e542cd63a6cf1be303b99041b85403c7f",
       "d0c6a8f1fdb20c856fd49aa040dcd3c39ff32b67531b7c98818f57fe4c52f255",
       "9e43dd8b6b4af484dad0b3a48f005e6575441f0231d28807361c4ad552df8819",
@@ -20,9 +20,9 @@
       "765d70c13440bc63bca46d7fa522337c28082fef5465d27ab8ecf9dde6644b7d",
       "8b15e409324c586c6fac7132c489d3295ad8fbbede921d6d4b03c9032c653a6a",
       "0a6ae6aec66002dac2461e16bbe03aff6aa482a29e897a6071c62d254ae3d204",
-      "8c24799b51b03dec885ff6531ffd28f1ced47548c73c52e977481162dc180f21",
+      "d270bf01acb8126104e71332c48c7be53d18cd8ffd3d9ea0cb453f478020716a",
       "0e39a3d6f193d1258137576dc8d9030969e1cbda29c458cb9d11d08ec63c8bde",
-      "6ff13154451350a9e2299959c389f3103c4ddb6aa7dbb45e5bf92ba04d1224de",
+      "9249d8f8af3a15794286012870b50dcf762613e0152b7ca24ff1685bc433b38f",
       "b634df9671707efa5524d900c86e57ad6e441048d9928b225ca37681675e65d2",
       "034b1bd433372eacfb82a152b46657c001d00b0e199f318b65eb7c05e3283ab3",
       "12ff373fc7a27268b5cb6956080a99a05bc0a0c8d07f3dc27de2f98c430b5076",
@@ -30,8 +30,8 @@
       "13f3d8c123f7caf1a329b9acfe4b18ac8a7c46293251d66c872a092a5742b8be",
       "641011500e15846f839fce932578b5f9832fd68d6cee81bf08fb4c658eba1d23",
       "976b15fc576a0cfe03381870b0df4cfcb3e4bfd7351a108d3ec9ec3dc6ffc92f",
-      "11a5c91ee692bc6ea1e1873ded9163753f4e5bf6ea223bf9e3e2177066e49f47",
-      "900fee9c05647568ecf8eb7b61e52b0b6469cb3070df50db4e1aca5019bfc43b",
+      "c83679c581310ae8339d89dbd299f9486422aed4cf0fc0070163972a51fcaad4",
+      "bb18c726416761b42cef607176cfbfce04a49ccbbf9094edfc1ab06a642e7f2e",
       "1e6ca273644d1c3b914de50d384d5affe588ccaafd21875a007c9b16d7e4a0e7",
       "d207e08fe5741bd2f5061a7fea9ac11a75fe0d17a908bba846d2bfe8b9b2265a",
       "5d5a31a8db0b54a8320f392df47a738c08c5a87c3f551f78fbb3279a51464a7e",
@@ -58,7 +58,7 @@
       "401ad0e7d301bec73a724bec6cc3ed0f1a3efa8d3b2f8b5d143174f00b33f5b0",
       "fc908d33a2828844cc7a19c70dcfa28d9dd21962449f044a956b4b087aefef94",
       "5303018df08c6ebebad360323cbb0eb4875960f55c7420cb1dff96bdccca20c8",
-      "9c93f475c07689ea35a54fdf8eacf85973bfacc37bb38036cf9e82587d815619",
+      "1ade38745800869b7f731127e589a80a90caa2b7757c36ab8154995c6e3dca62",
       "1f469b429eb08cc123fc3ed54faa801c7412fd459932a3efb1b65f3eb5c6d9ad",
       "5b0df3700d8a09fc8954f3debab352642a080bec9dab0f431dfc12b7fe671bc0",
       "9769640205039b2f6ec0929bfe5916c0846ea0370cdaafcb9310bc81dec57483",
@@ -68,7 +68,8 @@
       "a025fb810b6b7a61afac92114e5ec2f155ade25ae84353b68e1613df40c848db",
       "448f270b5bccf644a0173e59a569c9f496032cb293c542f0d6cd998af97aa017",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
-      "57a4b2fabc3239be0e59ef19aa4167fdca4db2bdb7f0168a6b55f573abac9840"
+      "a29b2a681c8ba0d2741ddd7bc35173b3db59b8fcd86e8d2466aa091714fc0135",
+      "5eb090d879b2827310c5bebbd7b4892ec552c6dd1edefca863536dbed074b710"
     ],
     "plugins/orchestration/skills/ship/SKILL.md": [
       "7e3828b620a189bb2d51827b090237f6adb9fdf387a515569013050045ff7aa9",
@@ -99,7 +100,7 @@
       "33e5476bff6c92e50ed257563352aec535d7a496a390e0e7a181d73dc2dbee67",
       "04dac49c34add0723364c9d5956f42190238d67d0143716a4f9edc282be81e48",
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
-      "a23942430913dbd19d70b9a026f26471db7b56c6e33aab83f551d25f074eee5e",
+      "ae16fcd47f0031f9d062b8fb34912b63f836cf5a28ddf88c388005585558f7af",
       "166a972b26b78d526948781d2ceda0751c90548a240f3076f73c61ebb3198932",
       "a844229c947784d8cb1c2eb01726030d01d6fda5c826fc48911aeca92ec709d9",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
@@ -111,7 +112,7 @@
     "plugins/orchestration/skills-codex/super-plan/SKILL.md": [
       "94a2b05d69a873fbb894e7c44fec467306fb1d92b5b53d70356428ebde802bc7",
       "fd78bf29024208fdea0d0fdfebdc9fa725a35231126670cec5f165411daa518f",
-      "94352790aa739129874e2ccf7ce06cd3eb4e36040f6b0bfa8e2286153f3e3296",
+      "680868f406d8075476a2f844b417f9f279a69ed3be3b89b9c483376269f6fdc3",
       "f38ace80dc794ce71e17b7c4f91d67be1987d758e4846f02991d5addc3e6d77d",
       "cc2c660845d706030c96c116ca830d20313f859d5a3142c65f2e53ff935bce6e",
       "5a5c8adb6e54a6b6ad8f32a0fe0e637e542cd63a6cf1be303b99041b85403c7f",
@@ -135,9 +136,9 @@
       "3667f7d915f7154b6fb54d0217851bb419e9074a48eab92b72e9864248084e1e",
       "c72d1dc3bc876526aafee98f3f1fe58421195bde8c7f7ff34b2b85bc9c6c6e3f",
       "e53f19333c0a875c31211315c3eee80b063cf02cbf49f477c9210bb1f70a91a1",
-      "4b918837e293aa1c5d3397148e75e6afb2ec7edaa3501df56142ed23d5b2c02a",
+      "5f176902977dbd5aab5c95a7a9a3bf03d2f2538591262642b11f9f2c40e3a8d3",
       "3ef02274436e232b7d8a304e3d4e9bdffc55ec29c6f55b1641120e662c51d29c",
-      "6ff13154451350a9e2299959c389f3103c4ddb6aa7dbb45e5bf92ba04d1224de",
+      "9249d8f8af3a15794286012870b50dcf762613e0152b7ca24ff1685bc433b38f",
       "b634df9671707efa5524d900c86e57ad6e441048d9928b225ca37681675e65d2",
       "034b1bd433372eacfb82a152b46657c001d00b0e199f318b65eb7c05e3283ab3",
       "12ff373fc7a27268b5cb6956080a99a05bc0a0c8d07f3dc27de2f98c430b5076",
@@ -145,8 +146,8 @@
       "13f3d8c123f7caf1a329b9acfe4b18ac8a7c46293251d66c872a092a5742b8be",
       "641011500e15846f839fce932578b5f9832fd68d6cee81bf08fb4c658eba1d23",
       "976b15fc576a0cfe03381870b0df4cfcb3e4bfd7351a108d3ec9ec3dc6ffc92f",
-      "7668cd0ee36a558082515497ee3c44e5c6a73b1ef6994e6953bee5bb663daac4",
-      "900fee9c05647568ecf8eb7b61e52b0b6469cb3070df50db4e1aca5019bfc43b",
+      "a5aed4e2137938f566a7ed31b2531ea1ddfb20860394104e55893d1fbe2756d9",
+      "bb18c726416761b42cef607176cfbfce04a49ccbbf9094edfc1ab06a642e7f2e",
       "1e6ca273644d1c3b914de50d384d5affe588ccaafd21875a007c9b16d7e4a0e7",
       "aee515d18eab47fb1be55b3219e1c9006742b8f19deb7e9dc165360b5fcffed7",
       "17276b0b76a4b8b977c5bf43713bb6deebd9ccb7aad970408bce0c7adad78413",
@@ -171,7 +172,7 @@
       "401ad0e7d301bec73a724bec6cc3ed0f1a3efa8d3b2f8b5d143174f00b33f5b0",
       "520742be046ef390d7848fd824cc9af6cc74100526e1a0a86149bee590179843",
       "03c74bf6de1fa6421093a087936a6e713abf8756559ef42fde6a900a46488cc8",
-      "9c93f475c07689ea35a54fdf8eacf85973bfacc37bb38036cf9e82587d815619",
+      "1ade38745800869b7f731127e589a80a90caa2b7757c36ab8154995c6e3dca62",
       "1f469b429eb08cc123fc3ed54faa801c7412fd459932a3efb1b65f3eb5c6d9ad",
       "5b0df3700d8a09fc8954f3debab352642a080bec9dab0f431dfc12b7fe671bc0",
       "9769640205039b2f6ec0929bfe5916c0846ea0370cdaafcb9310bc81dec57483",
@@ -181,7 +182,8 @@
       "a025fb810b6b7a61afac92114e5ec2f155ade25ae84353b68e1613df40c848db",
       "dbee433061be5c9cf06913c1a80874274fb9c5d0ed6a369ca4cd790496ff77e9",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
-      "57a4b2fabc3239be0e59ef19aa4167fdca4db2bdb7f0168a6b55f573abac9840"
+      "a29b2a681c8ba0d2741ddd7bc35173b3db59b8fcd86e8d2466aa091714fc0135",
+      "5eb090d879b2827310c5bebbd7b4892ec552c6dd1edefca863536dbed074b710"
     ],
     "plugins/orchestration/skills-codex/ship/SKILL.md": [
       "4c6536ee5c2309975478d01ae953a5229d9eddebcd74287a9e96548e26dee0ef",
@@ -215,7 +217,7 @@
       "33e5476bff6c92e50ed257563352aec535d7a496a390e0e7a181d73dc2dbee67",
       "c395f99cced1c9cf182bfbd70e560e95fe8c642613a505da1f40736ea51e0c1e",
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
-      "a80d64ef61835d6357c2bf22204bbdd18f2f23a35ea0dfbfc1609e92949c7691",
+      "175f465d9f99bb62a71a18848f12b28e7e77f940111596b643829b9264ad48e4",
       "166a972b26b78d526948781d2ceda0751c90548a240f3076f73c61ebb3198932",
       "09dd7dd4734ea7fd881ef189468874b7ea0f03b69977dcb7fc20b0e6e4df1fa2",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
@@ -258,25 +260,25 @@
       "5a16bf755b5e70825b633702f7ba6ce59dc5e11b72ed605248dcd7a3bd8ed88b",
       "fe39d5f166366d799588742c1e15043a3366a5feb48cefc5297a5a688eb24283",
       "7f8d8c08e628fc8c0b43eb9012570cadc435e6c8863c071e9f7bb49154bcefe5",
-      "5028bb00cd442780b900559c251072cca62fd6efffb705e606695dc01d12ae70",
+      "8cf2142ef7cc974be669ac7e4ae28e59cb819dc4080795acee6bc030d06b9cbb",
       "d7ea9a56ae4ac94aff50394d93b774ed8b76cff7906debb7ec7960188c1dba76",
-      "0b3f0d14df56c067e0272a3b01ed0df100ddeacbe7755516377c5dbf46c1c1b1",
+      "c8b5cd96808811bd5b6e198b468f2a275e3972715c906141d0c858b35e1f0dfa",
       "7b7ddf8494a95c78cfc0cb425a3a9f65455f0f3e50ff8ac3278ed863bac6d4bc",
       "b11917efba543689f95d3e25e499503cec9e5e51a8c5e12f208baf2ea3c650f9",
       "24c5513fbcbe6bdcb00fe24ffada9aa84b5350d580cba5d4a6d1306e68875934",
       "612de3e8ac8f7d8fbdeeab51e1b567bde4d380f349a351db692fb4d42d4e0297",
       "1cbda14afb6b7e882c908e3dac14c6f2c6440dcd2e8c7cc1672b6ace9819f38c",
       "5d1afa470cc1d2c7a9003d6bb459f16c3ebf6618ec988a8e6212ce349b0fa4c9",
-      "e2084f36afd17b7b85af32d49aec4ead24c653319d651120aba6941f072f2d69",
+      "fe4553abbaaaadf697019bcc677c48b8eded8b12f31603b77a5fd4aba34d5160",
       "1090415da86bd4d852dc0f7b6661f659d3054521f3fbb8c09e375cc6c6151b26",
-      "d1bb58fccc5028d765b03e518358072b48d88557080655acc8b50c30717095bb",
+      "13c5b557524bfc307d81e51d9ea22140b2a985f8e6d56163cbc278ae4168501a",
       "173c07b7c4cd142914465f83d869ebc5c2f6e11a7c5a0192e29eca312d21a8fd",
       "2fd984b9f4b4ae5b835c8201becaf44b81370bb5b1f779235ba13c4db1b4bc37",
       "ebee587fc736970252728814c562d65c888b7d219631a597ff9f0b7409c32d7a",
       "ff014e7e64f4551bd3544d790c8b0d41bfc20b20e504b9a1ebfc7e56ad0e7a27",
       "07fbeb363b2a48d631f08b4f64224336162d5a21e9d3af8d484bae5b17339322",
       "cb167218cbe3424171a8d7dc4bb0f34a4bda01351542c8c560c87e0eab09b92a",
-      "8f1f00b92d58d4debb0286bc6aa6aebf067884af858d14ff0b9c408d5e270fde",
+      "e4ccae8c1eeaf5db15fb26f1f465f8810bba45b02b57d0f3884fd1b111fb389b",
       "aa253ddb814d9c906a922c88512b2b9682041afde26450a509bacc85f35612c4",
       "ba0e47e28df60aefeffc612ef767374a52e89561cc2a19ea4193133412716c48",
       "0b9fb206af25c91c523a7c9a1dd74a0e00f4b5b4774e6930e514418ed6d6cb6f",
@@ -302,7 +304,7 @@
       "59ff73b5d2f68208455985983fc459e7850a7d17602bd680d1d0da5855012a28",
       "4b52c936e13ef9a86e86cc5cba8387f4d6f3be8205d224b777b4a3630ba83463",
       "ee23bd8092ba83ea3f98a8678e97476c411a62a972d221abdd97768c51589e32",
-      "3bd36fd48763f59f625fa6d71459bf4fc00a0ad81bc0b79ab608181776a64269",
+      "85ae736bd60387b5e4720f449bbeace19f7b75f793e0d6937bfdb461a5e9390a",
       "55018926baf91de4e3762498777fe9f8b77dcd1984ae2cf441cc678217149ff1",
       "77da1b446b62018738c35f6b1bd443b3a532dab72a0a4f4f80e2350f45ecde5c",
       "06fc0f466b28c5b8f71196d3b2616c9341a951556702eae099414094065479aa",
@@ -320,7 +322,7 @@
       "da700893ef7bd96a9a791d44dbe56e67c942559e1aef4ab97c6b69f5ba5f866f",
       "e2c1d2a275bc5487c8d95b89098a8de9fc0a8c587f4135238eb3d104a82b5bbb",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
-      "f5cfd9f2222800f410cbc8d586e90dcae4d007942927a7fc65324b19ac1541a1",
+      "b10017c8e1fa02aa963cafa0f70a4c0a3549d05f3c0eb93e387ab03893c76c32",
       "65b72d86eeeb214ab8ca5fd24cb7cd7773e58084e95b670040df03e21e8c6fa7",
       "54e7d3c172109dfafb233e6bb4e4bcce477f8c962c1b3c91401dac6e28db2220"
     ],
@@ -361,25 +363,25 @@
       "5a16bf755b5e70825b633702f7ba6ce59dc5e11b72ed605248dcd7a3bd8ed88b",
       "fe39d5f166366d799588742c1e15043a3366a5feb48cefc5297a5a688eb24283",
       "7f8d8c08e628fc8c0b43eb9012570cadc435e6c8863c071e9f7bb49154bcefe5",
-      "ca4c9fd9fd6d7f0e56efb43c6d3b67d3f7be9fddac7972916b3b9c1e14718ff4",
+      "3a3fa52abf8d2825778903c562898209d2c570bc6fec6ca66df1be11d67d06bf",
       "d7ea9a56ae4ac94aff50394d93b774ed8b76cff7906debb7ec7960188c1dba76",
-      "0b3f0d14df56c067e0272a3b01ed0df100ddeacbe7755516377c5dbf46c1c1b1",
+      "c8b5cd96808811bd5b6e198b468f2a275e3972715c906141d0c858b35e1f0dfa",
       "7b7ddf8494a95c78cfc0cb425a3a9f65455f0f3e50ff8ac3278ed863bac6d4bc",
       "b11917efba543689f95d3e25e499503cec9e5e51a8c5e12f208baf2ea3c650f9",
       "24c5513fbcbe6bdcb00fe24ffada9aa84b5350d580cba5d4a6d1306e68875934",
       "612de3e8ac8f7d8fbdeeab51e1b567bde4d380f349a351db692fb4d42d4e0297",
       "1cbda14afb6b7e882c908e3dac14c6f2c6440dcd2e8c7cc1672b6ace9819f38c",
       "5d1afa470cc1d2c7a9003d6bb459f16c3ebf6618ec988a8e6212ce349b0fa4c9",
-      "e2084f36afd17b7b85af32d49aec4ead24c653319d651120aba6941f072f2d69",
+      "fe4553abbaaaadf697019bcc677c48b8eded8b12f31603b77a5fd4aba34d5160",
       "1090415da86bd4d852dc0f7b6661f659d3054521f3fbb8c09e375cc6c6151b26",
-      "d1bb58fccc5028d765b03e518358072b48d88557080655acc8b50c30717095bb",
+      "13c5b557524bfc307d81e51d9ea22140b2a985f8e6d56163cbc278ae4168501a",
       "173c07b7c4cd142914465f83d869ebc5c2f6e11a7c5a0192e29eca312d21a8fd",
       "2fd984b9f4b4ae5b835c8201becaf44b81370bb5b1f779235ba13c4db1b4bc37",
       "ebee587fc736970252728814c562d65c888b7d219631a597ff9f0b7409c32d7a",
       "ff014e7e64f4551bd3544d790c8b0d41bfc20b20e504b9a1ebfc7e56ad0e7a27",
       "07fbeb363b2a48d631f08b4f64224336162d5a21e9d3af8d484bae5b17339322",
       "cb167218cbe3424171a8d7dc4bb0f34a4bda01351542c8c560c87e0eab09b92a",
-      "8f1f00b92d58d4debb0286bc6aa6aebf067884af858d14ff0b9c408d5e270fde",
+      "e4ccae8c1eeaf5db15fb26f1f465f8810bba45b02b57d0f3884fd1b111fb389b",
       "aa253ddb814d9c906a922c88512b2b9682041afde26450a509bacc85f35612c4",
       "ba0e47e28df60aefeffc612ef767374a52e89561cc2a19ea4193133412716c48",
       "0b9fb206af25c91c523a7c9a1dd74a0e00f4b5b4774e6930e514418ed6d6cb6f",
@@ -405,7 +407,7 @@
       "59ff73b5d2f68208455985983fc459e7850a7d17602bd680d1d0da5855012a28",
       "4b52c936e13ef9a86e86cc5cba8387f4d6f3be8205d224b777b4a3630ba83463",
       "ee23bd8092ba83ea3f98a8678e97476c411a62a972d221abdd97768c51589e32",
-      "3bd36fd48763f59f625fa6d71459bf4fc00a0ad81bc0b79ab608181776a64269",
+      "85ae736bd60387b5e4720f449bbeace19f7b75f793e0d6937bfdb461a5e9390a",
       "55018926baf91de4e3762498777fe9f8b77dcd1984ae2cf441cc678217149ff1",
       "77da1b446b62018738c35f6b1bd443b3a532dab72a0a4f4f80e2350f45ecde5c",
       "06fc0f466b28c5b8f71196d3b2616c9341a951556702eae099414094065479aa",
@@ -423,7 +425,7 @@
       "da700893ef7bd96a9a791d44dbe56e67c942559e1aef4ab97c6b69f5ba5f866f",
       "e2c1d2a275bc5487c8d95b89098a8de9fc0a8c587f4135238eb3d104a82b5bbb",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
-      "f5cfd9f2222800f410cbc8d586e90dcae4d007942927a7fc65324b19ac1541a1",
+      "b10017c8e1fa02aa963cafa0f70a4c0a3549d05f3c0eb93e387ab03893c76c32",
       "65b72d86eeeb214ab8ca5fd24cb7cd7773e58084e95b670040df03e21e8c6fa7",
       "73843bd55abfad2c936cfd18c97513497d852cc4aa095a9a71531fc601272189"
     ]
@@ -624,7 +626,7 @@
       "path": "plugins/orchestration/skills/ship/WORKFLOW.md",
       "old": "6e5b8e7c6aa6232d2cac15c20b26c1a8ad3df3ce600f70e835a0b3a830cf8589",
       "new": "a23942430913dbd19d70b9a026f26471db7b56c6e33aab83f551d25f074eee5e",
-      "reason": "Stage 3: the body line for a missing review capability, the skipped review steps, and step 5 \u2014 inside ship the pipeline's own findings are shown and fixed without a request, except the decisions the user is asked about and threads started by someone else."
+      "reason": "Stage 3: the body line for a missing review capability, the skipped review steps, and step 5 — inside ship the pipeline's own findings are shown and fixed without a request, except the decisions the user is asked about and threads started by someone else."
     },
     {
       "path": "plugins/orchestration/skills/ship/WORKFLOW.md",
@@ -642,7 +644,7 @@
       "path": "plugins/orchestration/skills-codex/ship/WORKFLOW.md",
       "old": "fe6211432b8bf4bc9a4658b06b4a3fc72558eceff7351b471df7a372b070aaa1",
       "new": "a80d64ef61835d6357c2bf22204bbdd18f2f23a35ea0dfbfc1609e92949c7691",
-      "reason": "Stage 3: the body line for a missing review capability, the skipped review steps, and step 5 \u2014 inside ship the pipeline's own findings are shown and fixed without a request, except the decisions the user is asked about and threads started by someone else."
+      "reason": "Stage 3: the body line for a missing review capability, the skipped review steps, and step 5 — inside ship the pipeline's own findings are shown and fixed without a request, except the decisions the user is asked about and threads started by someone else."
     },
     {
       "path": "plugins/orchestration/skills-codex/ship/WORKFLOW.md",
@@ -887,6 +889,190 @@
       "old": "5be7a0a99e480e9698a827a24bb9e3c45af20371c2c56a00ac54346b8f96ba15",
       "new": "e4bfa6837a8ca22110c2638a9ae18a2c4fdc7274052ceb5c17d072ffecbdab29",
       "reason": "Plan Format, sentence under the table: new Claude plans route Haiku work to `claude-haiku-5-5`; `claude-haiku-4-5-20251001` remains valid on the same terms as `claude-sonnet-5`."
+    }
+  ],
+  "superpowers_7_0_1_sync_amendment": [
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "82422296a7e8a349db7ee0cdf247ea2e1b4d0e170c27f41422f61fa76c1cd4c4",
+      "new": "8c05eab91fd71b99953cf0c8855827d8860410cde3bb0436b097a5060a97b0b6",
+      "reason": "Attribution: names what is adapted from superpowers and the sync point (v7.0.1)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "8c24799b51b03dec885ff6531ffd28f1ced47548c73c52e977481162dc180f21",
+      "new": "d270bf01acb8126104e71332c48c7be53d18cd8ffd3d9ea0cb453f478020716a",
+      "reason": "Research/Decisions block: a blank line now separates the new \"Look before you ask; name the technical defaults\" paragraph (technical choices the repository does not settle are product forks; settled ones are named at Gate 1). Research and Decisions text unchanged."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "11a5c91ee692bc6ea1e1873ded9163753f4e5bf6ea223bf9e3e2177066e49f47",
+      "new": "c83679c581310ae8339d89dbd299f9486422aed4cf0fc0070163972a51fcaad4",
+      "reason": "Tasks step: \"Name the interfaces\", \"Name the review focus\" and \"Check proportion\" paragraphs added after the base-status rule; base-status text unchanged."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "900fee9c05647568ecf8eb7b61e52b0b6469cb3070df50db4e1aca5019bfc43b",
+      "new": "bb18c726416761b42cef607176cfbfce04a49ccbbf9094edfc1ab06a642e7f2e",
+      "reason": "Seam audit: a fifth further check (Consumes/Produces interfaces match across waves)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "9c93f475c07689ea35a54fdf8eacf85973bfacc37bb38036cf9e82587d815619",
+      "new": "1ade38745800869b7f731127e589a80a90caa2b7757c36ab8154995c6e3dca62",
+      "reason": "Prose half: a task section carries the decisions the executor cannot make alone, not full code (superpowers 6.4.2)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "57a4b2fabc3239be0e59ef19aa4167fdca4db2bdb7f0168a6b55f573abac9840",
+      "new": "a29b2a681c8ba0d2741ddd7bc35173b3db59b8fcd86e8d2466aa091714fc0135",
+      "reason": "Common Mistakes: full-code row corrected; rows for code in the plan, missing Interfaces, a silent platform choice and a missing Review Focus."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "94352790aa739129874e2ccf7ce06cd3eb4e36040f6b0bfa8e2286153f3e3296",
+      "new": "680868f406d8075476a2f844b417f9f279a69ed3be3b89b9c483376269f6fdc3",
+      "reason": "Attribution: names what is adapted from superpowers and the sync point (v7.0.1)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "4b918837e293aa1c5d3397148e75e6afb2ec7edaa3501df56142ed23d5b2c02a",
+      "new": "5f176902977dbd5aab5c95a7a9a3bf03d2f2538591262642b11f9f2c40e3a8d3",
+      "reason": "Gate 1 block: the new \"Look before you ask; name the technical defaults\" paragraph now precedes the single-task section; Gate 1 text unchanged."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "7668cd0ee36a558082515497ee3c44e5c6a73b1ef6994e6953bee5bb663daac4",
+      "new": "a5aed4e2137938f566a7ed31b2531ea1ddfb20860394104e55893d1fbe2756d9",
+      "reason": "Tasks step: \"Name the interfaces\", \"Name the review focus\" and \"Check proportion\" paragraphs added after the base-status rule; base-status text unchanged."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "900fee9c05647568ecf8eb7b61e52b0b6469cb3070df50db4e1aca5019bfc43b",
+      "new": "bb18c726416761b42cef607176cfbfce04a49ccbbf9094edfc1ab06a642e7f2e",
+      "reason": "Seam audit: a fifth further check (Consumes/Produces interfaces match across waves)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "9c93f475c07689ea35a54fdf8eacf85973bfacc37bb38036cf9e82587d815619",
+      "new": "1ade38745800869b7f731127e589a80a90caa2b7757c36ab8154995c6e3dca62",
+      "reason": "Prose half: a task section carries the decisions the executor cannot make alone, not full code (superpowers 6.4.2)."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "57a4b2fabc3239be0e59ef19aa4167fdca4db2bdb7f0168a6b55f573abac9840",
+      "new": "a29b2a681c8ba0d2741ddd7bc35173b3db59b8fcd86e8d2466aa091714fc0135",
+      "reason": "Common Mistakes: full-code row corrected; rows for code in the plan, missing Interfaces, a silent platform choice and a missing Review Focus."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "6ff13154451350a9e2299959c389f3103c4ddb6aa7dbb45e5bf92ba04d1224de",
+      "new": "9249d8f8af3a15794286012870b50dcf762613e0152b7ca24ff1685bc433b38f",
+      "reason": "Design for width: a contract-first wave writes out the contract's signatures and formats in full, not its implementation."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
+      "old": "6ff13154451350a9e2299959c389f3103c4ddb6aa7dbb45e5bf92ba04d1224de",
+      "new": "9249d8f8af3a15794286012870b50dcf762613e0152b7ca24ff1685bc433b38f",
+      "reason": "Design for width: a contract-first wave writes out the contract's signatures and formats in full, not its implementation."
+    }
+  ],
+  "superpowers_review_sync_amendment": [
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "a23942430913dbd19d70b9a026f26471db7b56c6e33aab83f551d25f074eee5e",
+      "new": "ae16fcd47f0031f9d062b8fb34912b63f836cf5a28ddf88c388005585558f7af",
+      "reason": "Stage 3 step 5: ship rules on each line of the review's Set aside list — carry it into the PR body's honest limits, or fix it when inside the agreed scope (widening scope is asked); plan-mandated findings and Disputed threads go to the user."
+    },
+    {
+      "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
+      "old": "a80d64ef61835d6357c2bf22204bbdd18f2f23a35ea0dfbfc1609e92949c7691",
+      "new": "175f465d9f99bb62a71a18848f12b28e7e77f940111596b643829b9264ad48e4",
+      "reason": "Stage 3 step 5: ship rules on each line of the review's Set aside list — carry it into the PR body's honest limits, or fix it when inside the agreed scope (widening scope is asked); plan-mandated findings and Disputed threads go to the user."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "5028bb00cd442780b900559c251072cca62fd6efffb705e606695dc01d12ae70",
+      "new": "8cf2142ef7cc974be669ac7e4ae28e59cb819dc4080795acee6bc030d06b9cbb",
+      "reason": "PR Protocol step 3 (one block with step 2 in skill_text): a fourth thread class, disputed — marked in the ledger before the code is read."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "e2084f36afd17b7b85af32d49aec4ead24c653319d651120aba6941f072f2d69",
+      "new": "fe4553abbaaaadf697019bcc677c48b8eded8b12f31603b77a5fd4aba34d5160",
+      "reason": "Critical Stance: a stated rationale never lowers a tier."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "d1bb58fccc5028d765b03e518358072b48d88557080655acc8b50c30717095bb",
+      "new": "13c5b557524bfc307d81e51d9ea22140b2a985f8e6d56163cbc278ae4168501a",
+      "reason": "Review Method item 3 tests: warnings or noise the diff adds to test or build output are a finding."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "8f1f00b92d58d4debb0286bc6aa6aebf067884af858d14ff0b9c408d5e270fde",
+      "new": "e4ccae8c1eeaf5db15fb26f1f465f8810bba45b02b57d0f3884fd1b111fb389b",
+      "reason": "Tiers: Important includes behavior a reasonable user expects that the requirements do not name; Medium is limited to inputs a user would rarely meet (superpowers 6.4.1)."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "f5cfd9f2222800f410cbc8d586e90dcae4d007942927a7fc65324b19ac1541a1",
+      "new": "b10017c8e1fa02aa963cafa0f70a4c0a3549d05f3c0eb93e387ab03893c76c32",
+      "reason": "Common Mistakes: rows for grading an unnamed input as an edge case, dropping what was set aside, and lowering a tier for a rationale."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "old": "ca4c9fd9fd6d7f0e56efb43c6d3b67d3f7be9fddac7972916b3b9c1e14718ff4",
+      "new": "3a3fa52abf8d2825778903c562898209d2c570bc6fec6ca66df1be11d67d06bf",
+      "reason": "PR Protocol step 3 (one block with step 2 in skill_text): a fourth thread class, disputed — marked in the ledger before the code is read."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "old": "e2084f36afd17b7b85af32d49aec4ead24c653319d651120aba6941f072f2d69",
+      "new": "fe4553abbaaaadf697019bcc677c48b8eded8b12f31603b77a5fd4aba34d5160",
+      "reason": "Critical Stance: a stated rationale never lowers a tier."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "old": "d1bb58fccc5028d765b03e518358072b48d88557080655acc8b50c30717095bb",
+      "new": "13c5b557524bfc307d81e51d9ea22140b2a985f8e6d56163cbc278ae4168501a",
+      "reason": "Review Method item 3 tests: warnings or noise the diff adds to test or build output are a finding."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "old": "8f1f00b92d58d4debb0286bc6aa6aebf067884af858d14ff0b9c408d5e270fde",
+      "new": "e4ccae8c1eeaf5db15fb26f1f465f8810bba45b02b57d0f3884fd1b111fb389b",
+      "reason": "Tiers: Important includes behavior a reasonable user expects that the requirements do not name; Medium is limited to inputs a user would rarely meet (superpowers 6.4.1)."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "old": "f5cfd9f2222800f410cbc8d586e90dcae4d007942927a7fc65324b19ac1541a1",
+      "new": "b10017c8e1fa02aa963cafa0f70a4c0a3549d05f3c0eb93e387ab03893c76c32",
+      "reason": "Common Mistakes: rows for grading an unnamed input as an edge case, dropping what was set aside, and lowering a tier for a rationale."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "0b3f0d14df56c067e0272a3b01ed0df100ddeacbe7755516377c5dbf46c1c1b1",
+      "new": "c8b5cd96808811bd5b6e198b468f2a275e3972715c906141d0c858b35e1f0dfa",
+      "reason": "PR Protocol step 4 (one block with the ledger rationale in skill_text): after reading the code, check each disputed thread against it; list one the code contradicts under Disputed, never adopt it on authority (superpowers receiving-code-review)."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "3bd36fd48763f59f625fa6d71459bf4fc00a0ad81bc0b79ab608181776a64269",
+      "new": "85ae736bd60387b5e4720f449bbeace19f7b75f793e0d6937bfdb461a5e9390a",
+      "reason": "Reply content: a disputed thread the user chose not to change is answered with why not and the evidence."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "old": "0b3f0d14df56c067e0272a3b01ed0df100ddeacbe7755516377c5dbf46c1c1b1",
+      "new": "c8b5cd96808811bd5b6e198b468f2a275e3972715c906141d0c858b35e1f0dfa",
+      "reason": "PR Protocol step 4 (one block with the ledger rationale in skill_text): after reading the code, check each disputed thread against it; list one the code contradicts under Disputed, never adopt it on authority (superpowers receiving-code-review)."
+    },
+    {
+      "path": "plugins/code-review/skills-codex/critical-review/SKILL.md",
+      "old": "3bd36fd48763f59f625fa6d71459bf4fc00a0ad81bc0b79ab608181776a64269",
+      "new": "85ae736bd60387b5e4720f449bbeace19f7b75f793e0d6937bfdb461a5e9390a",
+      "reason": "Reply content: a disputed thread the user chose not to change is answered with why not and the evidence."
     }
   ]
 }

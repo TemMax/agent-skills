@@ -201,8 +201,9 @@ function replaceWavePlanBlock(text, planObject) {
 }
 
 // A "## Task <id>" section runs from its heading to the next level-2 heading
-// (of any kind) or end of file — the same boundary codex-wave-state.mjs and
-// plan-lint.mjs both use.
+// (of any kind) or end of file — the same boundary codex-wave-state.mjs uses.
+// It ignores code fences; plan-lint.mjs warns (fenced-heading) on a fenced
+// "## " line inside a task section, which would cut the prose here.
 function removeTaskSections(text, idsToRemove) {
   if (idsToRemove.length === 0) return text
   const drop = new Set(idsToRemove)

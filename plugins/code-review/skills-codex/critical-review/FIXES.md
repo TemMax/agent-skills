@@ -188,7 +188,9 @@ than saying nothing.
 
 ### Reply content
 
-One or two sentences: what changed, and the commit. No preamble, no thanks.
+One or two sentences: what changed, and the commit — or, for a disputed
+thread the user chose not to change, why not, with the evidence. No
+preamble, no thanks.
 
 Fully addressed:
 
@@ -200,6 +202,12 @@ Partially addressed:
 > Partially addressed in a3f91c2 — the null path is handled (client.kt:142),
 > but the retry-ordering part is left as-is: it needs a lock refactor beyond
 > this PR. Leaving this thread open.
+
+Disputed, and the user agreed not to change it:
+
+> Not changed — `LegacyClient` still serves the pre-13 build target
+> (build.gradle:12), so removing it breaks those users. Leaving this thread
+> open.
 
 Include a `file:line` reference only when the fix landed somewhere other than
 the line the thread is already anchored to, as in the partial example above.

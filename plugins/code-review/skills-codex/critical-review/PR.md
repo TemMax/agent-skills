@@ -41,7 +41,9 @@
 3. Classify every thread: resolved — verify the fix actually landed in the
    current diff, don't re-raise it; promised but not landed — flag it as a
    finding at the appropriate tier; open question — carry it into the review
-   rather than duplicating it.
+   rather than duplicating it;
+   disputed — a requested change that may be wrong for this codebase: mark
+   it in the ledger and check it once the code is read (step 4).
 
    Record the inventory in a **finding ledger** file in the session scratchpad
    before reading any code: for every thread its `id`, the `databaseId` of its
@@ -53,7 +55,17 @@
    context is summarized, the findings table tends to survive while the exact
    identifiers do not — and a finding whose thread id is gone must never be
    answered by guessing which thread it belonged to.
-4. Only then run `gh pr diff <n>` and read the code itself.
+4. Only then run `gh pr diff <n>` and read the code itself. Check each
+   disputed thread against the code before carrying its request as a
+   finding: would the change break existing behavior or callers, is there a
+   reason for the current code (compatibility, a platform floor, a caller),
+   is what it asks to build out used at all (`rg` its call sites)? When the
+   request is wrong for this codebase, record the evidence in the ledger and
+   list the thread under `Disputed` in the review; never adopt a request
+   because a reviewer made it. The user decides. Adapted from superpowers'
+   `receiving-code-review`, whose examples are a request to "implement
+   properly" an endpoint nothing calls and a request to remove code a
+   platform floor still needs.
 
 If `gh` fails (no auth, no remote, rate limit) — report the failure and
 review what is locally available, saying so explicitly. Do not reconstruct PR
