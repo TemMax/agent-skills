@@ -47,6 +47,14 @@ The plan's `worktree.share_builds` chooses:
   on the user's word.
 - **`false`** — neither; every checkout builds from scratch.
 
+**A cache that names its checkout is never carried over.** Gradle's
+configuration cache (`.gradle/configuration-cache`) holds the absolute paths
+of the checkout that made it and is reused without checking them: cloned, it
+made another checkout print "Reusing configuration cache." and build the
+repository checkout's sources. A clone of `.gradle` leaves it out, and with
+`"executor"` a `.gradle` is not linked (`CHECKOUT_BOUND` in
+`build-dirs.mjs`).
+
 **Tool caches outside the repository** are shared by every agent in every
 mode. On Codex the runner opens the caches the repository's tools name
 (`CARGO_HOME`, `~/.m2`, Kotlin's daemon directory, the npm, pnpm, yarn, Go,

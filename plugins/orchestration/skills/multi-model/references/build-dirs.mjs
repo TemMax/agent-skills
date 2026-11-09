@@ -34,6 +34,15 @@ const isOutputName = (name) => OUTPUT_NAMES.has(name) || name.startsWith('cmake-
 // pointing at the repository checkout.
 const PINNED = new Set(['pyvenv.cfg', 'CMakeCache.txt', 'meson-private'])
 
+// Caches inside an output directory that hold the absolute paths of the
+// checkout that made them and are reused without checking them: Gradle's
+// configuration cache, cloned into another checkout, reports "Reusing
+// configuration cache." there and builds the repository checkout's sources.
+// A clone drops them; a link would share them, so such a directory is never
+// linked.
+const CHECKOUT_BOUND = { '.gradle': ['configuration-cache'] }
+const boundParts = (rel) => CHECKOUT_BOUND[rel.split('/').at(-1)] ?? []
+
 // Whether a directory, or a directory directly in it, holds such a file.
 function pinsItsPath(dir) {
   let entries = []
@@ -80,7 +89,7 @@ function candidates(from, to, skip) {
 // reuse the build its executor made. Git is told to ignore the links, which
 // the project's .gitignore may match only as directories.
 export function shareBuildDirs(from, to, { repo, skip = [] }) {
-  const dirs = candidates(from, to, skip)
+  const dirs = candidates(from, to, skip).filter((rel) => boundParts(rel).length === 0)
   for (const rel of dirs) symlinkSync(join(from, rel), join(to, rel))
   if (dirs.length > 0) excludeFromGit(repo, dirs.map((rel) => '/' + rel))
   return dirs
@@ -208,13 +217,15 @@ export function seedBuildDirs(from, to, { skip = [] } = {}) {
   for (const rel of candidates(from, to, skip)) {
     const source = join(from, rel), target = join(to, rel)
     if (!canClone(source, dirname(target))) break
-    if (process.platform === 'darwin') {
-      if (cloneTree(source, target)) { cloned.push(rel); continue }
-      if (!removeTree(target)) break
+    let done = process.platform === 'darwin' && cloneTree(source, target)
+    if (!done) {
+      if (process.platform === 'darwin' && !removeTree(target)) break
+      const args = process.platform === 'darwin' ? ['-cR', source, target] : ['-R', '--reflink=always', source, target]
+      const r = spawnSync('cp', args, { encoding: 'utf8', timeout: 10 * 60 * 1000 })
+      if (r.status !== 0) { removeTree(target); break }
+      done = true
     }
-    const args = process.platform === 'darwin' ? ['-cR', source, target] : ['-R', '--reflink=always', source, target]
-    const r = spawnSync('cp', args, { encoding: 'utf8', timeout: 10 * 60 * 1000 })
-    if (r.status !== 0) { removeTree(target); break }
+    if (!boundParts(rel).every((part) => removeTree(join(target, part)))) { removeTree(target); break }
     cloned.push(rel)
   }
   return cloned
