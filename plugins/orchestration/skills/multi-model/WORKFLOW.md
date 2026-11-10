@@ -5,7 +5,7 @@ Relative paths are based on this skill directory.
 
 ### Model identifiers — full IDs only
 
-`claude-haiku-5-5` and `claude-sonnet-5-5`: alias probes on 2026-10-08 (Claude Code 2.1.293), recorded in `tests/eval/haiku-5-5-results-2026-10-08.md`; the table's first probe was Workflow `wf_e635018e-8f3` on 2026-09-22, and the earlier `claude-sonnet-5-5` probe and Workflow `agent()` runs on 2026-09-28 are recorded in `tests/eval/wave-insession.md` and `tests/eval/sonnet-5-5-results-2026-09-28.md`.
+`claude-haiku-5-5` and `claude-sonnet-5-5`: alias probes on 2026-10-08 (Claude Code 2.1.293), recorded in `tests/eval/haiku-5-5-results-2026-10-08.md`; the table's first probe was Workflow `wf_e635018e-8f3` on 2026-09-22, and the earlier `claude-sonnet-5-5` probe and Workflow `agent()` runs on 2026-09-28 are recorded in `tests/eval/wave-insession.md` and `tests/eval/sonnet-5-5-results-2026-09-28.md`. `fable`: probed on 2026-11-10 (Claude Code 2.1.322) — `claude -p --model fable` billed `claude-fable-5-2` and an Agent-tool spawn reported `resolvedModel` `claude-fable-5-2` — recorded in `tests/eval/fable-5-2-results-2026-11-10.md`.
 
 | Model | Full ID | Agent-tool alias (probed 2026-10-08, Claude Code 2.1.293) |
 |---|---|---|
@@ -16,19 +16,23 @@ Relative paths are based on this skill directory.
 | Opus 5.5 | `claude-opus-5-5` | `opus` |
 | Opus 5 | `claude-opus-5` | none |
 | Opus 4.8 | `claude-opus-4-8` | none |
-| Fable 5.1 | `claude-fable-5-1` | `fable` (`claude -p` probe; Agent tool last probed 2026-09-22) |
+| Fable 5.1 | `claude-fable-5-1` | none (`fable` moved to Fable 5.2 by 2026-11-10) |
+| Fable 5.2 (the coordinator's own seat only — never a plan model) | `claude-fable-5-2` | `fable` (probed 2026-11-10, Claude Code 2.1.322) — never spawn through it |
 
 Plans, runner args, Workflow `agent()` and CLI `--model` name the full ID; the
 linter and the runner reject aliases by name. Why: aliases re-point silently —
 on 2026-09-22 `opus` moved from Opus 5 to Opus 5.5, so every route written as
 `opus` changed model without an edit. By 2026-10-08 `sonnet` had moved from
 Sonnet 5 to Sonnet 5.5 and `haiku` from Haiku 4.5 to Haiku 5.5 the same way.
+By 2026-11-10 `fable` had moved from Fable 5.1 to Fable 5.2.
 
 **Agent-tool exception.** The Claude Code Agent tool schema accepts only
 aliases, so a spawn through it names the alias AND the full ID from this table.
 It also passes the routed effort through the tool's effort parameter where the
-tool has one. A model without an alias (Opus 5, Opus 4.8, and the retired
-Sonnet 5 and Haiku 4.5) is spawned only through Workflow `agent()`. An alias
+tool has one. A model without an alias (Opus 5, Opus 4.8, Fable 5.1, and the
+retired Sonnet 5 and Haiku 4.5) is spawned only through Workflow `agent()`.
+Never spawn through `fable`: it resolves to Fable 5.2, which runs only as the
+coordinator's own seat and is never a child of a plan (ADR 019). An alias
 can move again, or still point at the previous model on an older Claude Code,
 so every agent spawned through an alias states its exact model ID in the first
 line of its report (`model: <id>`); a report from another model than the routed
@@ -80,7 +84,10 @@ model and supported effort selected from the shared routing rules; never inherit
 either from the coordinator or infer identity from labels. Model equality is
 allowed when task routing justifies it, not because of coordinator identity.
 Fable 5.1 (`claude-fable-5-1`) is a separate executor only for an explicit
-reasoned specialized choice or approved rung, never a blanket scoped-coding route. Effort advice is
+reasoned specialized choice or approved rung, never a blanket scoped-coding route.
+Fable 5.2 (`claude-fable-5-2`) runs only as the coordinator's own seat — never
+a child of any kind: executor, research agent, ladder rung or supervisor
+(ADR 019). Effort advice is
 conditional on an already justified selection. Every rule below is derived from
 the models' official system cards; facts and numbers live in the dossiers.
 
@@ -322,8 +329,8 @@ don't route compiled-binary reverse-engineering to Opus 5.5, Opus 5 or Fable
 The Model Routing table above routes work that changes things. Read-only
 research agents — the fan-out behind planning, decomposition and reviews — are
 routed here instead. An unrouted research agent inherits the session's model:
-on a Fable seat (5 or 5.1) that silently bills file listings at the most
-expensive rate available. Never spawn a research agent without naming its model.
+on a Fable seat (5, 5.1 or 5.2) that silently bills file listings at Fable
+rates. Never spawn a research agent without naming its model.
 
 | Research kind | Model | Why (see the dossiers) |
 |---|---|---|
@@ -647,7 +654,9 @@ executors included; Codex `gpt-6.1-sol` for Luna and Sol waves.
 
 Plans name every supervisor by its full ID (see Model identifiers above): Fable
 5.1 is `claude-fable-5-1`. Fable 5 is no longer addressable and keeps its
-profile and dossier for history.
+profile and dossier for history. Fable 5.2 (`claude-fable-5-2`) is never a
+supervisor, executor or rung: it runs only as the coordinator's own seat
+(ADR 019).
 
 Effort is `high` across the board — the shipped runner's default — and the row
 is measured, not stylistic: on 2026-08-12 a Haiku supervisor at `medium` passed
@@ -867,13 +876,13 @@ Opus 5 relays subagent claims unverified (p. 81).
 
 ## References
 
-- `references/orchestrator-opus-5-5.md`, `references/orchestrator-fable-5-1.md`,
-  `references/orchestrator-fable-5.md`, `references/orchestrator-opus-5.md`,
-  `references/orchestrator-opus-4-8.md` — the orchestrator profiles. Load exactly
-  one, per Step 0.
-- `references/model-dossiers.md` — dossiers on all nine models (Opus 5.5,
-  Fable 5.1, Fable 5, Opus 5, Opus 4.8, Sonnet 5.5, Sonnet 5, Haiku 5.5,
-  Haiku 4.5) with numbers and
+- `references/orchestrator-opus-5-5.md`, `references/orchestrator-fable-5-2.md`,
+  `references/orchestrator-fable-5-1.md`, `references/orchestrator-fable-5.md`,
+  `references/orchestrator-opus-5.md`, `references/orchestrator-opus-4-8.md` —
+  the orchestrator profiles. Load exactly one, per Step 0.
+- `references/model-dossiers.md` — dossiers on all ten models (Opus 5.5,
+  Fable 5.2, Fable 5.1, Fable 5, Opus 5, Opus 4.8, Sonnet 5.5, Sonnet 5,
+  Haiku 5.5, Haiku 4.5) with numbers and
   page references to the system cards: benchmarks, documented failure modes,
   effort curves, multi-agent harness data, orchestration takeaways. Load it for
   contested routing calls or to justify a choice.

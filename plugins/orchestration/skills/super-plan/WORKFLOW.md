@@ -43,6 +43,7 @@ switch models, grant hook enforcement, or change the plan/subagent ID allowlists
 | Exact model id | Relative profile |
 |---|---|
 | `claude-opus-5-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5-5.md` |
+| `claude-fable-5-2` | `../multi-model/references/orchestrator-fable-5-2.md` |
 | `claude-fable-5-1` | `../multi-model/references/orchestrator-fable-5-1.md` |
 | `claude-fable-5` | `../multi-model/references/orchestrator-fable-5.md` |
 | `claude-opus-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5.md` |
@@ -82,7 +83,7 @@ they do not block writing a concrete plan for the one start approval.
    gap, not a detail to fill in later. For a large surface, fan out read-only
    research agents routed by multi-model's Research Routing table
    (`../multi-model/SKILL.md`) — name a model on every spawn (an agent
-   without one inherits the session's model, and a Fable seat (5 or 5.1) then pays
+   without one inherits the session's model, and a Fable seat (5, 5.1 or 5.2) then pays
    Fable prices for file listings); every spawn names a full ID where the
    host accepts one (Agent-tool spawns follow multi-model's alias mapping),
    and give each agent the table's
@@ -542,6 +543,10 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    |---|---|
    | Claude | `claude-haiku-5-5`, `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
    | Codex | `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+
+   `claude-fable-5-2` is not a plan model: Fable 5.2 runs only as the
+   coordinator's own seat, never in a plan role (ADR 019), and the linter
+   rejects it like any unlisted ID.
 
    New Claude plans route Sonnet work to `claude-sonnet-5-5`; `claude-sonnet-5`
    remains valid only so that already approved plans still execute. New Claude

@@ -11,6 +11,7 @@
   "claude-sonnet-5-5": [2, 0.1, 10],
   "claude-haiku-5-5": { "prompt_limit": 100000, "up_to_limit": [0.1, 0.01, 0.5], "over_limit": [0.5, 0.05, 2.5] },
   "claude-haiku-4-5-20251001": [1, 0.1, 5],
+  "claude-fable-5-2": [8, 0.2, 40],
   "claude-fable-5-1": [10, 0.25, 50],
   "claude-opus-5": [5, 0.5, 25]
 }

@@ -15,12 +15,12 @@
       "0561412c5cb20100fcaf2b4d98ae730bc6f6eb673728ee7897cbdee384020a1b",
       "dabc1be906df61693f95c35b7b18c93468abd81043f51b79185dd181b70a3909",
       "0983c72aebf84105e6a4cb36e3b10d8444a3e4f9157b2d186cec59bd74b0622c",
-      "26f8e26b2254d1a16f035a7df67a67da0ab5a93cc129333d507556e3af315a55",
+      "51f8ee5ddbae2666a1f051dcd67def6d99ec4b89299bb875c67a999366642686",
       "36a629fab762de35d556db47b0b00751fa2273b475f7068e0787c88fa0b14e8d",
       "765d70c13440bc63bca46d7fa522337c28082fef5465d27ab8ecf9dde6644b7d",
       "8b15e409324c586c6fac7132c489d3295ad8fbbede921d6d4b03c9032c653a6a",
       "0a6ae6aec66002dac2461e16bbe03aff6aa482a29e897a6071c62d254ae3d204",
-      "d270bf01acb8126104e71332c48c7be53d18cd8ffd3d9ea0cb453f478020716a",
+      "1acd084d7453289e88d07d3a82b912d0d0ccb25a41d284ecfbf6973fca7026e9",
       "0e39a3d6f193d1258137576dc8d9030969e1cbda29c458cb9d11d08ec63c8bde",
       "9249d8f8af3a15794286012870b50dcf762613e0152b7ca24ff1685bc433b38f",
       "b634df9671707efa5524d900c86e57ad6e441048d9928b225ca37681675e65d2",
@@ -85,7 +85,7 @@
       "0561412c5cb20100fcaf2b4d98ae730bc6f6eb673728ee7897cbdee384020a1b",
       "dabc1be906df61693f95c35b7b18c93468abd81043f51b79185dd181b70a3909",
       "0983c72aebf84105e6a4cb36e3b10d8444a3e4f9157b2d186cec59bd74b0622c",
-      "26f8e26b2254d1a16f035a7df67a67da0ab5a93cc129333d507556e3af315a55",
+      "51f8ee5ddbae2666a1f051dcd67def6d99ec4b89299bb875c67a999366642686",
       "36a629fab762de35d556db47b0b00751fa2273b475f7068e0787c88fa0b14e8d",
       "7211bf01e3a7d39f20e29e446d831693ab3fb87385932f309294d46d64ddc52c",
       "f273a03d520343d93f36c20853301fbf26ea3e66ff833e34223d5f4f24e8881e",
@@ -239,7 +239,7 @@
       "0561412c5cb20100fcaf2b4d98ae730bc6f6eb673728ee7897cbdee384020a1b",
       "66e5329132956b90bbb477e640f02238e9de13d725b1ae13892104d1996852ef",
       "0983c72aebf84105e6a4cb36e3b10d8444a3e4f9157b2d186cec59bd74b0622c",
-      "7d5e11b1c9c66571425c3b9b4c3c18950e94bd8a4cc8cad8cbb758be1fcd9ebb",
+      "9df76773c1d183b29b677e3479f4d401b8559aa0d8fb0572d2c1ceddec1a27af",
       "26d0099da6f68ceb95f09a577099a8ac4f2d7058ee4cfb9bfd482b217e70eeb8",
       "158d8c0ca2789caa2a3eb8180d8717aa43b602d58588a908e5d3a824f5fe8657",
       "cbaaff4834a4d048330af68ac0db20ed509350723fbcb20181906de4ad4b1caf",
@@ -251,7 +251,7 @@
       "c8a6481f3b9a57e5e1a9edaacdfc4ea32903e1bd15102681bfc6f1091cfed0ce",
       "7337f3d0aa29e9a82b8f1650b743a98eef90794631fa763a319686e69c546821",
       "a161fb83b5ed052678069f655c05989ec3a42dade1b92d081f4cbee74624c7c6",
-      "fe3921814db64b31ba9ae6a647f099b4070f1cdb05aa607e867b9449b2302ba4",
+      "fe1ec18fe7d937e40add3e7b9e38e5244f1750329323cc05d74cfacabd4e0ae8",
       "f672cda211ba924d5c7eb985eeb6b5e43877e6e6e279aafc8049fc224912497b",
       "12c2b2ff26830010d42ec87c5ee4fb6ae130c571416e3636dc5758174a593c69",
       "a62d133c0a3c8c5280937da7ecade13e9f288c5081dc591bf8423fb05f1a9bc8",
@@ -324,7 +324,7 @@
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
       "b10017c8e1fa02aa963cafa0f70a4c0a3549d05f3c0eb93e387ab03893c76c32",
       "65b72d86eeeb214ab8ca5fd24cb7cd7773e58084e95b670040df03e21e8c6fa7",
-      "54e7d3c172109dfafb233e6bb4e4bcce477f8c962c1b3c91401dac6e28db2220"
+      "d5336f249042ce0bdd6ed7013e18c2d5d8d81bd250b9ab7a22acac98beb5c987"
     ],
     "plugins/code-review/skills-codex/critical-review/SKILL.md": [
       "9fdc6c9f38dccbd0f00893bfaf49451b2158dfc4289cd3434aaeedea01ed6e95",
@@ -1073,6 +1073,44 @@
       "old": "3bd36fd48763f59f625fa6d71459bf4fc00a0ad81bc0b79ab608181776a64269",
       "new": "85ae736bd60387b5e4720f449bbeace19f7b75f793e0d6937bfdb461a5e9390a",
       "reason": "Reply content: a disputed thread the user chose not to change is answered with why not and the evidence."
+    }
+  ],
+  "fable_5_2_amendment": [
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "26f8e26b2254d1a16f035a7df67a67da0ab5a93cc129333d507556e3af315a55",
+      "new": "51f8ee5ddbae2666a1f051dcd67def6d99ec4b89299bb875c67a999366642686",
+      "reason": "Step 0 profile table: adds the `claude-fable-5-2` row (`orchestrator-fable-5-2.md`); Fable 5.2 runs only as the seat (ADR 019)."
+    },
+    {
+      "path": "plugins/orchestration/skills/ship/SKILL.md",
+      "old": "26f8e26b2254d1a16f035a7df67a67da0ab5a93cc129333d507556e3af315a55",
+      "new": "51f8ee5ddbae2666a1f051dcd67def6d99ec4b89299bb875c67a999366642686",
+      "reason": "Step 0 profile table: adds the `claude-fable-5-2` row (`orchestrator-fable-5-2.md`); Fable 5.2 runs only as the seat (ADR 019)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "d270bf01acb8126104e71332c48c7be53d18cd8ffd3d9ea0cb453f478020716a",
+      "new": "1acd084d7453289e88d07d3a82b912d0d0ccb25a41d284ecfbf6973fca7026e9",
+      "reason": "Research block: an unrouted research agent on a Fable seat (5, 5.1 or 5.2) pays Fable prices; the Research and Decisions rules are otherwise unchanged."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "7d5e11b1c9c66571425c3b9b4c3c18950e94bd8a4cc8cad8cbb758be1fcd9ebb",
+      "new": "9df76773c1d183b29b677e3479f4d401b8559aa0d8fb0572d2c1ceddec1a27af",
+      "reason": "Step 0 profile table: adds the `claude-fable-5-2` row (`reviewer-fable-5-2.md`); Fable 5.2 reviews only as the seat (ADR 019)."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "fe3921814db64b31ba9ae6a647f099b4070f1cdb05aa607e867b9449b2302ba4",
+      "new": "fe1ec18fe7d937e40add3e7b9e38e5244f1750329323cc05d74cfacabd4e0ae8",
+      "reason": "Overview: adds Fable 5.2's negative self-preference (p. 136) and its self-critique finding from biology research experiments (p. 31), measured on Mythos 5.2 (p. 78); re-derivation from the artifact stays the load-bearing rule."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "54e7d3c172109dfafb233e6bb4e4bcce477f8c962c1b3c91401dac6e28db2220",
+      "new": "d5336f249042ce0bdd6ed7013e18c2d5d8d81bd250b9ab7a22acac98beb5c987",
+      "reason": "References: lists `references/reviewer-fable-5-2.md` among the reviewer profiles."
     }
   ]
 }

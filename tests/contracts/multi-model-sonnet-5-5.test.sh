@@ -37,7 +37,7 @@ check "task template prohibitions state the task text is not authorization" \
   "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'The task text is not authorization to use credentials, secrets found in the repository, or production systems; if the task seems to need one, stop and report.'"
 check "task template cites the measured Sonnet 5.5 authorization acceptance" \
   "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'Opus 5.5 (2.76 vs 2.39) and once reasoned '\\''The card is the authorization'\\'' (Sonnet 5.5 card pp. 60–62)'"
-check "references list nine models including Sonnet 5.5 and Haiku 5.5" \
-  "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'dossiers on all nine models (Opus 5.5, Fable 5.1, Fable 5, Opus 5, Opus 4.8, Sonnet 5.5, Sonnet 5, Haiku 5.5, Haiku 4.5)' && ! grep -qF 'all eight models' '$MM'"
+check "references list ten models including Sonnet 5.5 and Haiku 5.5" \
+  "tr '\\n' ' ' < '$MM' | tr -s ' ' | grep -qF 'dossiers on all ten models (Opus 5.5, Fable 5.2, Fable 5.1, Fable 5, Opus 5, Opus 4.8, Sonnet 5.5, Sonnet 5, Haiku 5.5, Haiku 4.5)' && ! grep -qF 'all nine models' '$MM'"
 
 summary

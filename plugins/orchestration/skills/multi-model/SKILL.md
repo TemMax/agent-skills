@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.21.1
+  version: 4.22.0
 ---
 
 # Orchestrating Multi-Model Development
@@ -131,6 +131,7 @@ switch models, grant hook enforcement, or change the plan/subagent ID allowlists
 | Exact model id | Relative profile |
 |---|---|
 | `claude-opus-5-5` (any context-window suffix) | `references/orchestrator-opus-5-5.md` |
+| `claude-fable-5-2` | `references/orchestrator-fable-5-2.md` |
 | `claude-fable-5-1` | `references/orchestrator-fable-5-1.md` |
 | `claude-fable-5` | `references/orchestrator-fable-5.md` |
 | `claude-opus-5` (any context-window suffix) | `references/orchestrator-opus-5.md` |

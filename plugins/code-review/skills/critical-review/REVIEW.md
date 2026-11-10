@@ -20,8 +20,15 @@ author is Claude (p. 124) — so it reviews its own code only by re-deriving
 every claim from the artifact. Opus 5.5's card measures a small,
 significant self-preference of its own — +0.07 points out of 10 with a
 Claude-identity system prompt (p. 128) — so, like Fable 5.1, it reviews its
-own code only by re-deriving every claim from the artifact. Whatever the
-model, re-derivation from the artifact is the load-bearing rule.
+own code only by re-deriving every claim from the artifact. Fable 5.2's
+card, measured on Mythos 5.2, the same underlying model (p. 78), finds the
+opposite sign — slightly harsher on work labeled Claude's, 0.17 points out
+of 9 with a Claude-identity system prompt (p. 136) — and, in biology
+research experiments rather than code, self-critique that failed where the
+model misjudged the severity of flaws in its own work (p. 31); so it too
+re-derives every claim and grades each finding by its failure scenario.
+Whatever the model, re-derivation from the artifact is the load-bearing
+rule.
 
 Always reply to the user in the language the user writes in — this skill being in
 English does not mean English replies.
@@ -205,7 +212,7 @@ that thread.
 
 ## References
 
-- `references/reviewer-opus-5-5.md`,
+- `references/reviewer-opus-5-5.md`, `references/reviewer-fable-5-2.md`,
   `references/reviewer-fable-5-1.md`, `references/reviewer-fable-5.md`,
   `references/reviewer-opus-5.md`,
   `references/reviewer-opus-4-8.md` — the reviewer profiles. Load exactly one,
