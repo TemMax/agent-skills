@@ -164,6 +164,33 @@ test('a tree with a FIFO is cloned file by file, as before', { skip: process.pla
   assert.notEqual(lstatSync(join(other, 'node_modules/pkg-link')).mtimeMs, linkTime)
 })
 
+// Gradle's configuration cache names the checkout it was made in: a clone of it
+// made another checkout build the repository checkout's sources.
+function gradleCache(r) {
+  mkdirSync(join(r, '.gradle/configuration-cache/key'), { recursive: true })
+  writeFileSync(join(r, '.gradle/configuration-cache/key/entry.bin'), 'paths of repo\n')
+  writeFileSync(join(r, '.gradle/file-system.probe'), 'probe\n')
+  writeFileSync(join(r, '.gitignore'), readFileSync(join(r, '.gitignore'), 'utf8') + '.gradle/\n')
+}
+
+test('a cloned .gradle leaves its configuration cache behind; the source keeps it', { skip: process.platform !== 'darwin' }, (t) => {
+  const { r, other } = repo(t)
+  gradleCache(r)
+  assert.ok(seedBuildDirs(r, other).includes('.gradle'))
+  assert.equal(readFileSync(join(other, '.gradle/file-system.probe'), 'utf8'), 'probe\n')
+  assert.equal(existsSync(join(other, '.gradle/configuration-cache')), false)
+  assert.equal(readFileSync(join(r, '.gradle/configuration-cache/key/entry.bin'), 'utf8'), 'paths of repo\n')
+})
+
+test('a .gradle is never linked: its configuration cache would build the other checkout', (t) => {
+  const { r, other } = repo(t)
+  gradleCache(r)
+  const linked = shareBuildDirs(r, other, { repo: r })
+  assert.ok(!linked.includes('.gradle'))
+  assert.ok(linked.includes('target'))
+  assert.equal(existsSync(join(other, '.gradle')), false)
+})
+
 test('only build-output names count: logs, data, agent state and path-pinned outputs stay out', (t) => {
   const { r } = repo(t)
   writeFileSync(join(r, '.gitignore'), 'target/\nnode_modules/\nbuild/\n.env\n*.log\n.claude/\n.venv/\ncmake-out/\n')

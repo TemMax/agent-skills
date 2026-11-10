@@ -4,6 +4,41 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.21.1
+
+### Highlights
+
+**multi-model**
+- A wave checkout builds its own Gradle sources, not the repository's
+
+Orchestration 4.21.1 and code-review 1.20.0 apply to Claude Code and Codex.
+
+**What was wrong.** A checkout cloned the repository checkout's `.gradle`,
+configuration cache included. That cache holds the absolute paths of the
+checkout that made it, and Gradle reuses it without checking them: in the
+cloned checkout `./gradlew assembleDebug` printed "Reusing configuration
+cache." and built the repository checkout's sources, so a wave task's build
+passed whatever its own changes were, and overwrote the repository
+checkout's outputs. Seen five times in one Android wave.
+
+**What changes.** A cloned `.gradle` leaves its `configuration-cache`
+behind; the first build in the checkout stores its own. With
+`share_builds: "executor"` a `.gradle` is no longer linked at all, since a
+link would share that cache; the other build directories are linked as
+before.
+
+**Checked.** On an Android project, a checkout seeded by 4.21.0 printed
+"Reusing configuration cache." for `./gradlew -m :app:assembleDevDebug`
+(0.6 s); one seeded by 4.21.1 configured the build and stored its own entry.
+A live wave on a Gradle project whose repository checkout had stored an
+entry for the task's check was accepted on Claude Code and on Codex, by
+clone and with `"executor"` (no `.gradle` linked); on 4.21.0 the same wave
+failed on both hosts, the check building the repository checkout's old
+code although the executor had made the change. On a Kotlin and an Android
+project (AGP 8.13.2) a seeded checkout's change reached the built classes
+and the APK through two incremental builds; on 4.21.0 it did not.
+`tests/eval/gradle-results-2026-11-10.md`.
+
 ## 4.21.0
 
 ### Highlights
