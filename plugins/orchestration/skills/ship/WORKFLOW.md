@@ -43,6 +43,7 @@ switch models, grant hook enforcement, or change the plan/subagent ID allowlists
 | Exact model id | Relative profile |
 |---|---|
 | `claude-opus-5-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5-5.md` |
+| `claude-fable-5-2` | `../multi-model/references/orchestrator-fable-5-2.md` |
 | `claude-fable-5-1` | `../multi-model/references/orchestrator-fable-5-1.md` |
 | `claude-fable-5` | `../multi-model/references/orchestrator-fable-5.md` |
 | `claude-opus-5` (any context-window suffix) | `../multi-model/references/orchestrator-opus-5.md` |

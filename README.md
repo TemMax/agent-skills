@@ -37,6 +37,7 @@ to exactly one profile file and forbids reading the others:
 | Model ID | orchestration profile | code-review profile |
 |---|---|---|
 | `claude-opus-5-5` (any context suffix) | `references/orchestrator-opus-5-5.md` | `references/reviewer-opus-5-5.md` |
+| `claude-fable-5-2` | `references/orchestrator-fable-5-2.md` | `references/reviewer-fable-5-2.md` |
 | `claude-fable-5-1` | `references/orchestrator-fable-5-1.md` | `references/reviewer-fable-5-1.md` |
 | `claude-fable-5` | `references/orchestrator-fable-5.md` | `references/reviewer-fable-5.md` |
 | `claude-opus-5` (any context suffix) | `references/orchestrator-opus-5.md` | `references/reviewer-opus-5.md` |
@@ -63,6 +64,22 @@ names an unverified-subagent-relay failure mode, so the Opus 5 orchestrator
 profile doubles down on verifying subagent claims. Grounded in the Claude Opus 5
 system card (193 pp., July 2026).
 
+Fable 5.2 (`claude-fable-5-2`) has its own profiles, grounded in the Claude
+Fable 5.2 & Mythos 5.2 system card (264 pp., November 2026) and Anthropic's
+guide "Prompting Claude Fable 5.2". It runs only as the session the user
+talks to — the orchestrator seat and the reviewer seat — never as an
+executor, research agent, ladder rung or supervisor; the plan linter rejects
+the ID ([decision 019](docs/decisions/019-fable-5-2.md)). The profiles carry
+what matters in those seats, from results the card measures on Mythos 5.2,
+the same underlying model (p. 78): it leaves requested work undone more
+often at lower effort (6–13% of replayed coding sessions at `medium` to
+`xhigh`, p. 34), applies approval and caution rules as written and delegates
+whatever a prompt invites (the guide), runs out of context sooner when no
+remaining-context count is shown (p. 216), and in biology research
+experiments misjudged the severity of flaws in its own work (p. 31); it is
+also among the least destructive Claudes in Claude Code (pp. 134–135) and
+the strongest model tested on most honesty metrics (pp. 112–113).
+
 Fable 5.1 (`claude-fable-5-1`) has its own profiles, grounded in the Claude
 Fable 5.1 & Mythos 5.1 system card (212 pp., September 2026). It beat Opus 5
 on long-horizon coding (FrontierSWE v2 0.57 vs Opus 5's 0.52, pp. 170–171) at
@@ -84,9 +101,9 @@ secrets or actions — and, like every Fable 5.1 executor route, only used
 with `approvals.premium` recorded from the user's word. Its card also documents an
 orchestrator failure the profile guards against: distorting user intent to
 subagents, including a fabricated user authorization and a
-`bypassPermissions` launch (pp. 95–96). Plans address it as `claude-fable-5-1`
-(`fable` is only its Agent-tool alias); Fable 5's profiles and dossier sections
-stay for history.
+`bypassPermissions` launch (pp. 95–96). Plans address it as `claude-fable-5-1`;
+it has had no Agent-tool alias since `fable` moved to Fable 5.2. Fable 5's
+profiles and dossier sections stay for history.
 
 The profile carries everything that is genuinely model-specific: the session's
 reasoning-effort guidance, amendments to the numbered process steps, and the
@@ -105,7 +122,11 @@ refused the wrong one, and applied the right effort. Repeated for Fable 5.1 on
 `claude-fable-5-1` (four multi-model, two critical-review) loaded exactly
 `orchestrator-fable-5-1.md` / `reviewer-fable-5-1.md` — one run captured with
 `--output-format stream-json` shows a single profile read and nothing else —
-and a Sonnet 5 control reported no matching profile.
+and a Sonnet 5 control reported no matching profile. Repeated for Fable 5.2 on
+2026-11-10: six live runs on `claude-fable-5-2` (two super-plan, one
+multi-model wave, ship to its start approval, two critical-review) each read
+exactly `orchestrator-fable-5-2.md` / `reviewer-fable-5-2.md`
+(`tests/eval/fable-5-2-results-2026-11-10.md`).
 
 The Opus profile also **self-checks the session effort**: Step 0 surfaces the
 live value via the `${CLAUDE_EFFORT}` substitution, and the profile halts an
@@ -140,7 +161,8 @@ aliases: `claude-haiku-5-5`, `claude-haiku-4-5-20251001` and `claude-sonnet-5`
 Aliases are rejected by name because they re-point silently — on 2026-09-22
 `opus` moved from Opus 5 to Opus 5.5, so every route still written as `opus`
 would have changed model without an edit. By 2026-10-08 `sonnet` and `haiku`
-had moved the same way. The one alias-only surface is the Claude Code Agent
+had moved the same way, and by 2026-11-10 `fable` had moved from Fable 5.1 to
+Fable 5.2. The one alias-only surface is the Claude Code Agent
 tool, whose schema accepts only aliases; that exception is covered by the
 probe-dated alias mapping in `multi-model`'s Model identifiers table, which is
 re-verified whenever a new Claude model ships.
@@ -158,6 +180,7 @@ is deliberately narrower than a claim that every profile is a production route:
 | Host | Exact model IDs with a profile | Role / effort conclusion |
 |---|---|---|
 | Claude Code | `claude-opus-5-5`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
+| Claude Code | `claude-fable-5-2` | Orchestrator and reviewer profiles for the user's own session only; never an executor, research agent, ladder rung or supervisor, and the plan linter rejects the ID ([decision 019](docs/decisions/019-fable-5-2.md)). |
 | Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
@@ -393,7 +416,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.21.1, code-review 1.20.0):
+orchestration 4.22.0, code-review 1.21.0):
 
 | Before | After |
 |---|---|
@@ -539,7 +562,7 @@ plugins/
           codex-wave-state.mjs       # deterministic Codex state and verifier
           codex-wave-runner.mjs      # default Codex wave adapter: drives codex-wave-state.mjs per task
           supervisor-prompt.md
-          orchestrator-{fable-5-1,fable-5,opus-5,opus-4-8}.md
+          orchestrator-{opus-5-5,fable-5-2,fable-5-1,fable-5,opus-5,opus-4-8}.md
           orchestrator-gpt-5-6-{sol,terra,luna}.md
           orchestrator-gpt-6-astra.md
           orchestrator-gpt-6-sol.md
@@ -564,7 +587,7 @@ plugins/
       critical-review/
         SKILL.md
         references/
-          reviewer-{fable-5-1,fable-5,opus-5,opus-4-8}.md
+          reviewer-{opus-5-5,fable-5-2,fable-5-1,fable-5,opus-5,opus-4-8}.md
           reviewer-gpt-5-6-{sol,terra,luna}.md
           reviewer-gpt-6-astra.md
           reviewer-gpt-6-sol.md

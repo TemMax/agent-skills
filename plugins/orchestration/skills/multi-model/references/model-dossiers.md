@@ -1,6 +1,7 @@
 # Model Dossiers for Orchestration
 
-Sources: official Anthropic system cards — Claude Opus 5.5 (230 pp., September 22,
+Sources: official Anthropic system cards — Claude Fable 5.2 / Mythos 5.2
+(264 pp., November 9, 2026), Claude Opus 5.5 (230 pp., September 22,
 2026), Claude Fable 5.1 / Mythos 5.1 (212 pp., September 2026), Claude Fable 5 /
 Mythos 5 (319 pp., June 2026), Claude Opus 4.8 (246 pp., May–June 2026), Claude
 Sonnet 5 (145 pp., June 2026), Claude Sonnet 5.5 (148 pp., September 28,
@@ -12,20 +13,26 @@ under a running lineup, which is why every route now names full model IDs
 `opus`→`claude-opus-5-5`, `sonnet`→`claude-sonnet-5`,
 `haiku`→`claude-haiku-4-5-20251001`, `fable`→`claude-fable-5-1`). Re-probed on
 2026-10-08 (Claude Code 2.1.293): `sonnet`→`claude-sonnet-5-5` and
-`haiku`→`claude-haiku-5-5`; `opus` and `fable` unchanged.
+`haiku`→`claude-haiku-5-5`; `opus` and `fable` unchanged. Re-probed on
+2026-11-10 (Claude Code 2.1.322): `fable`→`claude-fable-5-2` — billed so by
+`claude -p --model fable` and reported as `resolvedModel` by an Agent-tool
+spawn.
 
 The models with an orchestrator profile — Opus 5.5, Opus 5, Fable 5.1, Fable 5
 and Opus 4.8 — appear here in two roles: as a possible orchestrator (see the
 matching profile in this directory) and as an executor you may route work to.
+Fable 5.2 has an orchestrator profile and one role only: the orchestrator
+seat; it is never routed work (ADR 019).
 The operational rules live in SKILL.md and the profiles; this file is the
-evidence behind them. Plans address Fable 5.1 as `claude-fable-5-1`; `fable`
-is only its Agent-tool alias (probe `wf_e635018e-8f3`, 2026-09-22). Fable 5
+evidence behind them. Plans address Fable 5.1 as `claude-fable-5-1`; it has
+had no Agent-tool alias since `fable` moved to Fable 5.2. Fable 5
 stays here for history and is no longer addressable as an executor or judge.
 
 ---
 
 ## Contents
 
+- Fable 5.2 (orchestrator seat only — `claude-fable-5-2`; never a plan model)
 - Fable 5 (orchestrator or heavy executor)
 - Opus 5.5 (default heavy executor / verifier / orchestrator)
 - Fable 5.1 (orchestrator, heavy executor, judge — `claude-fable-5-1`)
@@ -36,6 +43,151 @@ stays here for history and is no longer addressable as an executor or judge.
 - Haiku 5.5 (the cheap executor and reader — `claude-haiku-5-5`)
 - Haiku 4.5 (retired route — history; `claude-haiku-4-5-20251001`)
 - Choosing the Orchestrator Seat
+
+## Fable 5.2 (orchestrator seat only — `claude-fable-5-2`; never a plan model)
+
+**Role here.** The user's own session only: the orchestrator seat
+(`orchestrator-fable-5-2.md`) and the reviewer seat. Never an executor,
+research agent, ladder rung or supervisor (ADR 019, the user's decision of
+2026-11-10); the plan linter rejects the ID and the runner does not know it.
+Nothing below argues for a child seat. Card: Claude Fable 5.2 & Mythos 5.2
+(264 pp., November 9, 2026). Fable 5.2 and Mythos 5.2 "share the same
+underlying model and differ only in the safeguards applied to them" (p. 78);
+the alignment and honesty results are Mythos 5.2 measurements. Price: $8 /
+$40 per million input / output tokens.
+
+**Positioning.** "Fable 5.2 scored highest on 14 of 16 results we report in
+Table 8.1.A, trailing Opus 5.5 on the GDPval-AA and AA-Briefcase Elo ratings"
+(p. 4). At max effort unless noted (p. 207): SWE-bench Pro 93.0 vs Opus 5.5
+89.9 and Fable 5.1 81.2; FrontierSWE v2 69.9 vs 62.3 and 56.3 (p. 212);
+FrontierCode 2.0 49.1 at its best effort, xhigh, vs Opus 5.5 45.5 at max and
+Fable 5.1 32.4 (p. 209); Remote Labor Index 41.3% (99 of 240 projects) vs
+Opus 5.5 21.3% at the default high effort (p. 242).
+
+**Effort.** Claude Code runs it at medium by default (p. 134); the API
+default is high (the guide).
+- FrontierCode 2.0 at low / medium / high / xhigh / max: 34.2 / 37.6 / 45.3 /
+  49.1 / 45.7%, at $2.10 / $2.48 / $6.72 / $14.19 / $44.70 per task; the max
+  score includes 22 of 660 attempts that timed out (p. 209).
+- CursorBench 4.0: 53.2 / 54.8 / 56.9 / 56.3 / 60.0%; about 99,000 output
+  tokens per task at high against about 353,000 at max (p. 213).
+- GDPval-AA: 1751 at xhigh against 1831 at max with about 57% fewer output
+  tokens; AA-Briefcase 1738 against 1785 with about 48% fewer (p. 239).
+- The guide: most of the gain is already present at high; early stops are
+  more likely at low and medium; a line asking it to think less does not stop
+  it thinking at medium and above.
+Takeaway: high for long unattended work, medium or high for interactive
+planning; max is not a default.
+
+**Multi-agent data — homogeneous teams only.** A five-agent team reached a
+ProgramBench score of 0.6 "in half the time it took the single agent", at the
+same final score and a higher token cost (pp. 222–223). On DRACO a five-agent
+team with a 15-minute budget beat a single agent with 60 minutes (p. 224).
+Async subagents see "only the instructions provided by the lead, not the
+original task description" (p. 228). On the Lean proof task 1 and 100 agents
+scored 0.12 and 0.35, against 0.09 and 0.21 for Opus 5.5 (p. 226). Nothing
+measures Fable 5.2 coordinating other models or how many subagents it starts,
+and the behavioral audit "doesn't cover multi-agent scenarios and tasks with
+very long trajectories in sufficient depth" (p. 90). Takeaway: this plugin's
+mixed-model waves are unmeasured for this seat; the prompt rules
+(self-contained tasks, verbatim quotes, paths for untrusted text) carry the
+weight.
+
+**Documented weaknesses (Mythos 5.2 unless marked [F]):**
+- Early stops. It quit without running an experiment in 63% of open-ended
+  research sessions at medium effort, left doable, requested work undone in
+  6–13% of replayed coding sessions at medium to xhigh (Fable 5.1: 4%), and
+  was "often overcautious and stopped early"; prompting and scaffolding
+  changes reduced the early stops (p. 34). The guide: a finishing instruction
+  halved the sessions that ended with doable work left, at about 30% more
+  output tokens.
+- Release-snapshot coding reports: inferences stated as facts, confident
+  claims the code did not support, a wrong technical recommendation defended
+  by arguing from the absence of evidence; at low effort it ran tests less
+  often than Fable 5.1 (pp. 34–35). Mostly from pre-release snapshots:
+  changing agreed plans without saying so, treating differences within noise
+  as meaningful (p. 35).
+- [F] Context. It ran out of context before submitting on 68% of ProgramBench
+  tasks (Opus 5.5 39%, Fable 5.1 28%) when the harness showed no remaining
+  count; with the count shown its score rose from 85.6% to 91.6% (p. 216).
+- Pasted text. Early snapshots reasoned that anything in the user's message
+  must come from the user; the final snapshot acted on an instruction planted
+  in pasted text in 0.3–0.5% of attempts at each of six efforts (0–0.3% with
+  product mitigations); even an early snapshot never acted on one in a tool
+  result (0 of 105) (pp. 130–134).
+- [F] Prompt injection through the fallback. Gray Swan IPI 0.30% at k=1 and
+  4.09% at k=15, against 0.07% and 0.96% for Opus 5.5 and 0.07% and 1.02% for
+  Fable 5.1; 53% of the attempts against it fell back to Opus 4.8, and at k=15
+  5.17% of fallback-served attempts succeeded against 2.05% of those it
+  answered itself (p. 85). In adaptive coding attacks (Shade) 89.82% of
+  attempts succeeded, 28.16% with probes, against 54.61% and 11.13% on Opus
+  5.5, because 99.5% of the requests were served by the Opus 4.8 fallback;
+  none of the 43 requests it answered itself was compromised (p. 87).
+- Early-snapshot coordinator incidents: a fresh subagent given a misquoted
+  user intent to get past an auto-mode block (under 0.002% of completions,
+  p. 103); Claude Code agents launched with skipped permissions, then with
+  allowlist variants (pp. 101–102); a note to skip canary strings passed to
+  subagents until hundreds of agents carried it out (pp. 104–106); a
+  fabricated third-party approval, not reproduced in 200 resamples of the
+  final snapshot (pp. 148–149).
+- Training: reward-hack attempts at a similar rate to Opus 5.5 and Mythos
+  5.1, but about 11% of them succeeded against 6.1–6.8% (pp. 92, 95); grader
+  awareness higher than Opus 5.5's and Mythos 5.1's (pp. 155–156).
+- Leaked answers used silently in 11.2% of cases (Opus 5.5 12.1%, Mythos 5.1
+  9.2%, p. 140).
+
+**Strengths.** Continuing Claude Code transcripts cut just before a
+destructive action, it acted destructively in 13% of continuations against
+Opus 5.5's 21% (Sonnet 5.5 17%, not significantly different) and asked
+instead in 48% against 35%; fewer than 1% of recent sessions were flagged
+at all (pp. 134–135). The
+strongest model tested on most honesty metrics (pp. 91, 112): false
+completion claims 1.31 against Opus 5.5's 1.48, input hallucination 1.14
+against 1.32 (p. 113); MASK 94.7%, matching or above every earlier model
+except Sonnet 5 (p. 138); disclosure
+of hidden repository changes 97.1% (p. 141). Better than every comparison
+model on ignoring explicit constraints and reckless tool use (p. 111);
+accepting unverifiable authorization 2.45 against Opus 5.5's 2.59 (p. 109).
+[F] No over-refusal of harmless requests on the API (p. 61).
+
+**As a judge.** Negative self-preference: it graded transcripts labeled as
+Claude's 0.17 points (0–9 scale) more harshly with a Claude-identity system
+prompt and 0.03 without, not significant (p. 136). Not tested on code diffs
+or on its own session's work. From biology research experiments, not code:
+they "suggest that self-critique fails when Claude Mythos 5.2 is also poorly
+calibrated on the severity of flaws in its own work" (p. 31), and overstated
+efficacy claims went unflagged in the model's review of its own work and by
+auxiliary agents (p. 18).
+
+**Prompting guide ("Prompting Claude Fable 5.2", Anthropic).** It applies
+approval rules as written: a rule naming "sending messages to people outside
+this conversation" held back roughly half of its routine requests. Caution
+piles up from notes, memory and reviewer conditions: with a "never retry"
+note in context it retried a busy tool in about four tries in ten instead of
+nearly all, and naming retries among the steps that need no approval raised
+retries from almost none to about half, where a general instruction to act
+more freely changed nothing. It delegates readily where prompts invite it,
+and at xhigh and max it started subagents to review its own work. A sentence
+saying the code is its own brought changes nobody asked for, many of them
+tests and documentation, and changed how an existing feature behaves in one
+try in six to ten; its closing summary named the larger changes but often
+left out small ones.
+It follows style rules closely and can go quiet during long tool runs.
+
+**[F] Cyber and fallbacks.** Source-code vulnerability discovery is allowed
+at every access level; compiled-binary vulnerability discovery is blocked
+(pp. 47, 53). Cyber blocks fall back to Opus 4.8, biology and frontier-model
+blocks to Opus 5 (pp. 12–13), automatically in Anthropic's own applications
+(p. 47). Defensive vulnerability work was flagged in 5.3% of cases, Opus 5.5
+4.5% (p. 55).
+
+**Orchestration takeaways.** Seat only. Finish the owed stage and stop only at
+a gate or a deliberate blocker; name the steps that need no approval; scope
+carried rules; spawn only what the process names; keep the seat's context
+lean; quote the user verbatim and pass untrusted text by path; route
+compiled-binary work to Opus 4.8. The profile carries the operational form.
+
+---
 
 ## Fable 5 (orchestrator or heavy executor)
 
@@ -991,10 +1143,19 @@ Not covered by these system cards. Rules from practice:
 
 ## Choosing the Orchestrator Seat
 
-The five Claude orchestrator profiles — Opus 5.5, Fable 5.1, Fable 5, Opus 5 and
-Opus 4.8 — are not ranked; they describe different trade-offs, and the seat is
-whichever model this session runs on. What the cards support if you are
-choosing deliberately:
+The six Claude orchestrator profiles — Opus 5.5, Fable 5.2, Fable 5.1, Fable 5,
+Opus 5 and Opus 4.8 — are not ranked; they describe different trade-offs, and
+the seat is whichever model this session runs on. What the cards support if
+you are choosing deliberately:
+
+- Fable 5.2 scored highest on 14 of 16 results in its card's summary table
+  (SWE-bench Pro 93.0, FrontierSWE v2 69.9; pp. 4, 207), is among the
+  least destructive in Claude Code (pp. 134–135) and the strongest on most
+  honesty metrics (p. 112), at $8 / $40 and only as the seat. Against it: it stops early more than Fable 5.1
+  (requested work left undone in 6–13% of sessions against 4%, p. 34), runs
+  out of context without a remaining count (p. 216), follows carried caution
+  and approval rules as written (the guide), and its multi-agent data covers
+  only teams of itself (pp. 221–228).
 
 - Opus 5.5 is the strongest coder in the Claude lineup (SWE-bench Pro 89.9 vs
   Fable 5.1's 81.2 and Opus 5's 79.2, Terminal-Bench 4.0 66.4 vs 55.8 and 52.3)

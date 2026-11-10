@@ -4,6 +4,56 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.22.0
+
+### Highlights
+
+**multi-model**
+- A Fable 5.2 session plans and runs waves on a profile of its own
+- Fable 5.2 is never a child: no executor, supervisor or research role
+- Nothing is spawned through `fable`, which now resolves to Fable 5.2
+
+**critical-review**
+- A Fable 5.2 session reviews on a profile of its own
+
+Orchestration 4.22.0 and code-review 1.21.0 apply to Claude Code and Codex.
+
+**What changes.** A Claude Code session on Fable 5.2 (`claude-fable-5-2`)
+now selects its own profile: `orchestrator-fable-5-2.md` in super-plan, ship
+and multi-model, `reviewer-fable-5-2.md` in critical-review. Before, the ID
+matched no row and the session ran on the generic profile. The profiles
+carry the system card's findings that matter in those two seats, with page
+references; the card measures them on Mythos 5.2, the same underlying
+model. The model stops early more often at `low` and `medium`, applies
+approval and caution rules as written, delegates whatever a prompt invites,
+runs out of context sooner without a remaining-context count, and in
+biology research experiments misjudged the severity of flaws in its own
+work; it is
+also among the least destructive and most honest models tested. Because it
+reads approval rules strictly, the orchestrator profile lists the questions
+the process does ask — product forks, a change of scope, a weakened or
+removed check — next to the steps that need no approval.
+
+**Fable 5.2 is never a child.** It runs only as the session the user talks
+to: never an executor, ladder rung, supervisor or research agent, and the
+plan linter rejects the ID in those roles. Every spawn from its seat names a
+model, and the
+independent check of a fix it makes runs on Opus 5.5. The `fable` alias now
+resolves to Fable 5.2, so nothing is spawned through it; Fable 5.1 keeps its
+premium routes and is spawned by its full ID through Workflow `agent()`.
+Codex is unchanged apart from the version numbers. Decision 019.
+
+**Checked.** On Claude Code 2.1.322 with the candidate loaded from a
+disposable snapshot, a Fable 5.2 session at the default `medium` selected
+its own profile and read no other in six live runs: two headless plans
+(lint-clean; the open platform question recorded, not decided), two reviews
+(the crash on an implied input graded Important; the plan-mandated 0.0
+rating labeled `plan-mandated`), one approved wave run through the runner,
+merged and pushed with its tests green, and ship stopped at its one start
+approval. No run gave Fable 5.2 a child role: the only spawns were the seam
+audit on Sonnet 5.5 and the wave's Haiku 5.5 executor and Sonnet 5.5 judge.
+One run per case; `tests/eval/fable-5-2-results-2026-11-10.md`.
+
 ## 4.21.1
 
 ### Highlights

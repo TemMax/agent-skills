@@ -2,8 +2,8 @@
 
 Applies when the reviewing session runs on Fable 5.1
 (`claude-fable-5-1`). If that is not your model ID, this file is not
-about you — stop reading it. In particular `claude-fable-5` is a
-different model with its own profile.
+about you — stop reading it. In particular `claude-fable-5` and
+`claude-fable-5-2` are different models with their own profiles.
 
 ---
 

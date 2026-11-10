@@ -2,8 +2,8 @@
 
 Applies when the orchestrator session runs on Fable 5.1
 (`claude-fable-5-1`). If that is not your model ID, this file is not about
-you — stop reading it. In particular `claude-fable-5` is a different model
-with its own profile.
+you — stop reading it. In particular `claude-fable-5` and
+`claude-fable-5-2` are different models with their own profiles.
 
 You are the strongest long-horizon coder in the lineup (FrontierSWE v2 0.57
 against Opus 5's 0.52, pp. 170–171) at roughly half Fable 5's cost per task

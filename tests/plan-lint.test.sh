@@ -549,6 +549,23 @@ PY
   contains "$full as explicit executor is clean" "OK: 0 error(s)" "$out"
 done
 
+section "Fable 5.2 is the coordinator's seat, never a plan model (ADR 019)"
+
+mutate '"model": "claude-sonnet-5"' '"model": "claude-fable-5-2"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "claude-fable-5-2 as executor exits 1" "1" "$rc"
+contains "claude-fable-5-2 as executor is named" "executor.model: one of" "$out"
+
+mutate '"model": "claude-fable-5-1"' '"model": "claude-fable-5-2"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "claude-fable-5-2 as supervisor exits 1" "1" "$rc"
+contains "claude-fable-5-2 as supervisor is named" "supervisor.model: one of" "$out"
+
+mutate '"ladder": ["claude-opus-5-5"]' '"ladder": ["claude-fable-5-2"]'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "claude-fable-5-2 as a ladder rung exits 1" "1" "$rc"
+contains "claude-fable-5-2 as a ladder rung is named" "ladder: array of" "$out"
+
 section "Haiku executor routes"
 
 mutate '"model": "claude-haiku-5-5"' '"model": "claude-haiku-4-5-20251001"'
