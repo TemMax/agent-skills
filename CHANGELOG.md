@@ -30,6 +30,13 @@ before.
 **Checked.** On an Android project, a checkout seeded by 4.21.0 printed
 "Reusing configuration cache." for `./gradlew -m :app:assembleDevDebug`
 (0.6 s); one seeded by 4.21.1 configured the build and stored its own entry.
+A live wave on a Gradle project whose repository checkout had stored an
+entry for the task's check was accepted on Claude Code and on Codex, by
+clone and with `"executor"`; on 4.21.0 the same wave failed, every check
+building the repository checkout's old code. On a Kotlin and an Android
+project (AGP 8.13.2) a seeded checkout's change reached the built classes
+and the APK through two incremental builds; on 4.21.0 it did not.
+`tests/eval/gradle-results-2026-11-10.md`.
 
 ## 4.21.0
 
