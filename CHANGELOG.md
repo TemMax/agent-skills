@@ -11,7 +11,7 @@ orchestration version; a code-review bump is stated inside it.
 **multi-model**
 - A wave checkout builds its own Gradle sources, not the repository's
 
-Orchestration 4.21.1 applies to Claude Code and Codex; code-review stays 1.20.0.
+Orchestration 4.21.1 and code-review 1.20.0 apply to Claude Code and Codex.
 
 **What was wrong.** A checkout cloned the repository checkout's `.gradle`,
 configuration cache included. That cache holds the absolute paths of the
