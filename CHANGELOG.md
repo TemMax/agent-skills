@@ -45,14 +45,20 @@ Codex is unchanged apart from the version numbers. Decision 019.
 
 **Checked.** On Claude Code 2.1.322 with the candidate loaded from a
 disposable snapshot, a Fable 5.2 session at the default `medium` selected
-its own profile and read no other in six live runs: two headless plans
-(lint-clean; the open platform question recorded, not decided), two reviews
+its own profile and read no other in all thirteen flow sessions, six before
+an independent review and seven after it on the final text: headless plans
+(lint-clean; the open platform question recorded, not decided), reviews
 (the crash on an implied input graded Important; the plan-mandated 0.0
-rating labeled `plan-mandated`), one approved wave run through the runner,
+rating labeled `plan-mandated`), an approved wave run through the runner,
 merged and pushed with its tests green, and ship stopped at its one start
-approval. No run gave Fable 5.2 a child role: the only spawns were the seam
+approval. On the final text the seat asked before a contract amendment that
+would drop a `must_run` and amended a widened `files_allowed` without
+asking. No run gave Fable 5.2 a child role: the only spawns were the seam
 audit on Sonnet 5.5 and the wave's Haiku 5.5 executor and Sonnet 5.5 judge.
-One run per case; `tests/eval/fable-5-2-results-2026-11-10.md`.
+One planning run on the final text labeled its interfaces
+`Consumes (wave 1, …):` instead of `Consumes:` and failed that check; its
+repeat passed it. One run per case and round;
+`tests/eval/fable-5-2-results-2026-11-10.md`.
 
 ## 4.21.1
 

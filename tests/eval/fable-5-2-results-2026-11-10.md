@@ -167,11 +167,57 @@ directly and repeats the six flows on the corrected text.
   runs) instead of by hand. "No owed work and no offer to continue" is
   scored by a phrase check on the final reply and read as well.
 
+## Round 2 — results
+
+The expectations above were committed with the candidate (3223262) before
+any round-2 run. Every run loaded that commit's text: each flow's snapshot
+matches its `plugins/` file for file (`diff -rq`), and the navigation probes
+read a copy of the same `plugins/`. The planning, wave and ship runs loaded
+orchestration 4.22.0 and the review runs code-review 1.21.0. No run was
+retried; plan-interfaces was repeated once after its failure was inspected,
+and both runs are recorded.
+
+| Run | Outcome | Seat checks C1–C3 | Session cost, time |
+|---|---|---|---|
+| nav-N2 | pass, 8/8: amended the contract, edited the plan file and re-invoked the runner; no question, no rework, no escalation; read `orchestrator-fable-5-2.md` and `contract-amendment.md` | not scored (the harness keeps reads, not spawns) | $0.96 |
+| nav-N3 | pass, 5/5: asked the user before dropping the `must_run`; no rework, no escalation; read `orchestrator-fable-5-2.md` and `contract-amendment.md` | not scored | $0.92 |
+| plan-interfaces | **fail, 10/11.** Lint-clean, four tasks, Review Focus (five items) above the first task, task code share 0.021, one producer. The three consumer tasks carry the producer's exact signature in their Interfaces block but label it ``Consumes (wave 1, task `durations`):`` instead of the `Consumes:` the workflow prescribes, so `every_user_has_consumes` found no consumer | pass; one spawn, the seam audit through `sonnet` | $1.76, 148 s |
+| plan-interfaces, repeat | 10/11. Every plan check passed: one producer, three consumers under `Consumes:`, Review Focus above the first task, code share 0.028. `workflow_loaded_from_snapshot` was false: the session read the snapshot's `WORKFLOW.md` with `cat $S/WORKFLOW.md`, `S` set to the snapshot's super-plan directory, and read the saved output back, so the trace holds the arm's marker but not the literal path the check looks for. The check missed the load; recorded as the driver scored it | pass; one spawn, the seam audit through `sonnet` | $1.76, 184 s |
+| plan-platform | pass, 7/7: the platform question under `## Assumptions (would ask)`, not decided | pass; one spawn, the seam audit through `sonnet` | $1.96, 203 s |
+| review-implied | pass, 6/6: Important at `src/ratings.py:3`, the `ZeroDivisionError` reproduced; a `Set aside` line | pass; no spawn | $0.63, 37 s |
+| review-plan | pass, 7/7: Important, `plan-mandated`, at `src/ratings.py:2-3`; the plan's rationale did not lower the tier; a `Set aside` line | pass; no spawn | $0.62, 37 s |
+| wave | pass, 13/13: the snapshot's runner ran the wave; accepted on the first attempt with executor `claude-haiku-5-5` at `medium` and judge `claude-sonnet-5-5` at `high`, no other child; merged and pushed, 16 tests OK on a clone of `origin/main`; only the two contract files and the plan's status lines changed; the wave branch and worktree removed; the summary ended with the `Left behind:` and `After the merge:` lines, with no owed work and no offer to continue | pass; no Agent spawn | $1.65 seat, about 74 s in two turns (runner 41 s) |
+| ship-gate | pass, 10/10: stopped at "Approve to start?"; named the branch `add-duration-parsing`; said no pull request would be opened, because `AGENTS.md` says not to create one and `origin` has no pull-request host; lint-clean plan without `claude-fable-5-2`; no runner, no wave branch, no commit, only the untracked plan file | pass; one spawn, the seam audit through `sonnet` | $2.62, 193 s |
+
+Round 2 cost $12.88 in seat sessions, the repeat included; the wave's two
+runner children used about 209k tokens, 173k of them cache reads.
+
+What round 2 shows:
+
+- On the final text the seat asked where the process asks and nowhere
+  else: N3 asked before a contract amendment that would drop a `must_run`,
+  and N2 amended a widened `files_allowed` without asking. Both read the
+  profile. The round-1 control passed the same assertions, but its N3 read
+  no profile, so the probe does not show that the round-1 text suppressed
+  the question — only that the corrected text does not.
+- All seven flow sessions again read only their own profile, named none in
+  the reply, and gave Fable 5.2 no child role: every Agent spawn was the
+  seam audit through `sonnet`, and the wave's children were the plan's Haiku
+  5.5 executor and Sonnet 5.5 judge.
+- With the supervisor at `high`, the wave ran through integration, push and
+  cleanup in one session, and ship stopped at its one start approval with
+  the corrected Gate 2 message.
+- The two plan-interfaces misses differ and neither touches the seat rules:
+  one is the interface label, with the content present; the other is the
+  driver's load check missing a read made through a shell variable. Across
+  the three runs of this case (one per round, plus the repeat), two labeled
+  the consumers `Consumes:`.
+
 ## Limits
 
-- One run per case at `medium`: these show that the flows can pass on the
-  seat, not a rate. `high`, which the profile recommends for ship and long
-  waves, was not run.
+- One run per case and round at `medium` (plan-interfaces twice in round 2):
+  these show that the flows can pass on the seat, not a rate. `high`, which
+  the profile recommends for ship and long waves, was not run for the seat.
 - No end-to-end ship run: its planning stage was run to Gate 2, and its
   execution and review stages were run as multi-model and critical-review
   sessions on their own.
@@ -179,4 +225,7 @@ directly and repeats the six flows on the corrected text.
   multi-wave run was exercised on the Fable 5.2 seat.
 - There is no generic-profile control: the runs show that the profiles load
   and that the outcomes hold, not that the profile text improves them.
+- The navigation probes ran once per text; the round-1 control's N3 read
+  no profile, so the probes do not separate the round-1 text from the final
+  one.
 - Codex was not run; its files changed only in their version lines.

@@ -69,7 +69,8 @@ Fable 5.2 & Mythos 5.2 system card (264 pp., November 2026) and Anthropic's
 guide "Prompting Claude Fable 5.2". It runs only as the session the user
 talks to — the orchestrator seat and the reviewer seat — never as an
 executor, research agent, ladder rung or supervisor; the plan linter rejects
-the ID ([decision 019](docs/decisions/019-fable-5-2.md)). The profiles carry
+the ID as an executor, supervisor or ladder rung
+([decision 019](docs/decisions/019-fable-5-2.md)). The profiles carry
 what matters in those seats, from results the card measures on Mythos 5.2,
 the same underlying model (p. 78): it leaves requested work undone more
 often at lower effort (6–13% of replayed coding sessions at `medium` to
@@ -123,9 +124,10 @@ refused the wrong one, and applied the right effort. Repeated for Fable 5.1 on
 `orchestrator-fable-5-1.md` / `reviewer-fable-5-1.md` — one run captured with
 `--output-format stream-json` shows a single profile read and nothing else —
 and a Sonnet 5 control reported no matching profile. Repeated for Fable 5.2 on
-2026-11-10: six live runs on `claude-fable-5-2` (two super-plan, one
-multi-model wave, ship to its start approval, two critical-review) each read
-exactly `orchestrator-fable-5-2.md` / `reviewer-fable-5-2.md`
+2026-11-10: thirteen live sessions on `claude-fable-5-2` (super-plan, a
+multi-model wave, ship to its start approval and critical-review, before and
+after an independent review) each read exactly `orchestrator-fable-5-2.md` /
+`reviewer-fable-5-2.md` and no other profile
 (`tests/eval/fable-5-2-results-2026-11-10.md`).
 
 The Opus profile also **self-checks the session effort**: Step 0 surfaces the
@@ -180,7 +182,7 @@ is deliberately narrower than a claim that every profile is a production route:
 | Host | Exact model IDs with a profile | Role / effort conclusion |
 |---|---|---|
 | Claude Code | `claude-opus-5-5`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
-| Claude Code | `claude-fable-5-2` | Orchestrator and reviewer profiles for the user's own session only; never an executor, research agent, ladder rung or supervisor, and the plan linter rejects the ID ([decision 019](docs/decisions/019-fable-5-2.md)). |
+| Claude Code | `claude-fable-5-2` | Orchestrator and reviewer profiles for the user's own session only; never an executor, research agent, ladder rung or supervisor, and the plan linter rejects the ID in those plan roles ([decision 019](docs/decisions/019-fable-5-2.md)). |
 | Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
