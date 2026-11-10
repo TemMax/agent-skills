@@ -14,7 +14,8 @@ reuses the repository checkout's entry builds the old `greet` and fails.
 loads `git archive R`, the control. `--mode executor` sets
 `worktree.share_builds: "executor"`. Expectations are frozen in
 expected.json before the run. Needs the Gradle 8.14.2 distribution in
-`~/.gradle/wrapper/dists` and a JDK on PATH; builds run `--offline`.
+`~/.gradle/wrapper/dists` and a JDK on PATH; builds run `--offline`, and a
+daemon the fixture starts stops after ten idle minutes.
 """
 import argparse
 import glob
@@ -43,7 +44,7 @@ public final class Greeter {
 FILES = {
     '.gitignore': '.gradle/\nbuild/\n.worktrees/\n',
     'settings.gradle': "rootProject.name = 'greet'\n",
-    'gradle.properties': 'org.gradle.configuration-cache=true\n',
+    'gradle.properties': 'org.gradle.configuration-cache=true\norg.gradle.daemon.idletimeout=600000\n',
     'build.gradle': '''plugins { id 'java' }
 
 tasks.register('checkGreeting', JavaExec) {
@@ -86,9 +87,18 @@ def digest(path):
 
 
 def gradlew(cwd, out, name):
-    r = subprocess.run(CHECK.split(), cwd=cwd, capture_output=True, text=True, timeout=600)
+    try:
+        r = subprocess.run(CHECK.split(), cwd=cwd, capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired as e:
+        r = subprocess.CompletedProcess(e.cmd, 124, str(e.stdout or ''), str(e.stderr or '') + '\ntimed out')
     (out / (name + '.log')).write_text(f'exit {r.returncode}\n--- stdout\n{r.stdout}\n--- stderr\n{r.stderr}')
     return r
+
+
+def excluded(repo):
+    """Entries of the common info/exclude, where the runner records links."""
+    path = repo / '.git/info/exclude'
+    return [l.strip() for l in path.read_text().splitlines() if l.strip() and not l.startswith('#')] if path.exists() else []
 
 
 def fixture(out, provider, mode):
@@ -136,9 +146,10 @@ def main():
     p.add_argument('--provider', required=True, choices=['claude', 'codex'])
     p.add_argument('--mode', default='repository', choices=['repository', 'executor'])
     p.add_argument('--arm', default='new', choices=['new', 'old'])
-    p.add_argument('--ref', default='main', help='git ref loaded by --arm old')
+    p.add_argument('--ref', help='git ref loaded by --arm old, e.g. b0680d2 (4.21.0)')
     p.add_argument('--out', required=True, type=Path)
     args = p.parse_args(); out = args.out.resolve()
+    if args.arm == 'old' and not args.ref: p.error('--arm old needs --ref')
     if out.exists(): p.error('Fresh result directory required; do not overwrite failures')
     if out.is_relative_to(ROOT): p.error('Results must be outside the repository')
     os.umask(0o077); out.mkdir(parents=True)
@@ -147,10 +158,14 @@ def main():
     refs = pkg / 'plugins/orchestration/skills/multi-model/references'
     if args.arm == 'new':
         expected = {'wave_exit': True, 'task_accepted': True, 'executor_gradle_cloned': True,
-                    'worktree_check_passes': True, 'repository_cache_unchanged': True,
-                    'repository_build_unchanged': True, 'repository_source_unchanged': True}
-    else:  # the control: the reused entry builds the old greet, so the task cannot pass
-        expected = {'task_accepted': False}
+                    'executor_changed_greet': True, 'worktree_check_passes': True,
+                    'repository_cache_unchanged': True, 'repository_build_unchanged': True,
+                    'repository_source_unchanged': True}
+        if args.mode == 'executor': expected['only_build_linked'] = True
+    else:
+        # The control: the executor makes the change, yet the check in its
+        # worktree still builds the repository checkout's old greet.
+        expected = {'task_accepted': False, 'executor_changed_greet': True, 'worktree_check_passes': False}
     bench.dump(out / 'expected.json', expected)
     before = {'cache': digest(repo / '.gradle/configuration-cache'), 'build': digest(repo / 'build')}
     cli = shutil.which(args.provider)
@@ -175,7 +190,12 @@ def main():
         'executor_gradle_cloned': bool(worktrees) and all(
             (w / '.gradle').is_dir() and not (w / '.gradle').is_symlink() and (w / '.gradle/repository-marker').exists()
             for w in worktrees),
+        'executor_changed_greet': bool(worktrees) and all(
+            '"Hello, " + name + "!"' in (w / 'src/main/java/greet/Greeter.java').read_text() for w in worktrees),
         'worktree_check_passes': bool(reruns) and all(r.returncode == 0 for r in reruns),
+        # With "executor" the runner links the executor's build directories and
+        # records each link in info/exclude: the build, never .gradle.
+        'only_build_linked': '/build' in excluded(repo) and '/.gradle' not in excluded(repo),
         'repository_cache_unchanged': digest(repo / '.gradle/configuration-cache') == before['cache'],
         'repository_build_unchanged': digest(repo / 'build') == before['build'],
         'repository_source_unchanged': (repo / 'src/main/java/greet/Greeter.java').read_text() == OLD_GREETER,
