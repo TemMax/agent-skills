@@ -16,13 +16,25 @@ Cases:
   ship — the session runs ship on the `interfaces` request. With no user to
          answer, the run must stop at its one start approval (Gate 2): a
          lint-clean plan, no runner, no wave branch, no product file changed.
+  ship-e2e — ship end to end: the same request, a fixture whose AGENTS.md
+         allows a pull request and whose `origin` is a GitHub ssh remote
+         served from the local bare repository (GIT_SSH_COMMAND; the global
+         git config is the fixture's own), and gh-stub.py first on PATH as
+         the pull request host. The real `gh` gets an empty GH_CONFIG_DIR, so nothing
+         can reach GitHub. The session stops at Gate 2; the driver resumes the
+         same session with an approval (run2) and, if it stops again, at most
+         twice more with "proceed with your recommendation" (run3, run4).
+         Expected: waves run by the snapshot's runner, one pull request into
+         main, critical-review in the session on that pull request, any direct
+         fix checked on Opus 5.5, main untouched, the feature branch's tests
+         green, and a handoff with the PR link and the `Left behind:` line.
 
 Every check is computed from the retained artifacts into checks.json: the
 seat checks C1-C3 from run.stdout (the profile the session read with Read or
 a shell call, every Agent spawn's model, the final reply) and the case checks
 from the repository, the bare origin and the runner's summary.json.
-`--score DIR --profile NAME` recomputes the seat checks of any retained
-Claude run directory, including plan-content-live.py and
+`--score DIR --profile NAME[,NAME]` recomputes the seat checks of any
+retained Claude run directory, including plan-content-live.py and
 review-content-live.py runs. Results: tests/eval/fable-5-2-results-2026-11-10.md.
 """
 import argparse
@@ -34,6 +46,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import uuid
 
 from claude_session_events import read_events, final_result, usage
@@ -120,7 +133,9 @@ def tool_uses(rows, main_only=True):
 
 def seat_checks(rows, profile):
     """C1-C3: own profile read and no other; every spawn names a model, none
-    through `fable`; the final reply names no profile file."""
+    through `fable`; the final reply names no profile file. `profile` is one
+    file name or several (ship end to end reads both seats' profiles)."""
+    profiles = {profile} if isinstance(profile, str) else set(profile)
     reads, touched, spawns = set(), set(), []
     for name, inp in tool_uses(rows):
         if name in ('Read', 'Bash'):
@@ -132,8 +147,8 @@ def seat_checks(rows, profile):
             touched.update(PROFILE_RE.findall(json.dumps(inp)))
     res = final_result(rows)
     checks = {'run_complete': res.get('subtype') == 'success' and not res.get('is_error'),
-              'profile_read': profile in reads,
-              'no_other_profile_read': not (touched - {profile}),
+              'profile_read': profiles <= reads,
+              'no_other_profile_read': not (touched - profiles),
               'no_spawn_without_model': all(spawns),
               'no_spawn_through_fable': not any(str(m).startswith('fable') or m == 'claude-fable-5-2'
                                                 for m in spawns),
@@ -143,10 +158,16 @@ def seat_checks(rows, profile):
 
 
 def score(run_dir, profile):
-    checks, facts = seat_checks(read_events(run_dir / 'run.stdout'), profile)
+    rows = [r for name in ('run', 'run2', 'run3', 'run4') if (run_dir / f'{name}.stdout').exists()
+            for r in read_events(run_dir / f'{name}.stdout')]
+    checks, facts = seat_checks(rows, profile.split(','))
     bench.dump(run_dir / 'seat-checks.json', {'checks': checks, 'facts': facts})
     print(json.dumps({'checks': checks, 'facts': facts}, indent=1))
     return 0 if all(checks.values()) else 1
+
+
+APPROVE = 'Approved — start the run.\n'
+PROCEED = 'Proceed with your recommendation.\n'
 
 
 def prompt_for(case):
@@ -157,18 +178,22 @@ def prompt_for(case):
                 'Run its wave, integrate the result into main, verify it, and finish the run. '
                 'The remote `origin` is a local bare repository; pushing to it is allowed. '
                 'Do not open a pull request.\n')
+    if case == 'ship-e2e':
+        return f'Use orchestration:ship for the change below.\n\nChange: {plan_live.REQUESTS["interfaces"]}\n'
     return ("Use orchestration:ship for the change below. This repository's remote `origin` "
             'is a local bare repository with no pull-request host.\n\n'
             f'Change: {plan_live.REQUESTS["interfaces"]}\n')
 
 
-def command(out, pkg, model, effort, budget):
+def command(out, pkg, model, effort, budget, session=None, plugins=('orchestration',)):
+    session = session or ['--session-id', str(uuid.uuid4())]
     return [shutil.which('claude'), '-p', '--verbose', '--output-format', 'stream-json',
-            '--model', model, '--effort', effort, '--session-id', str(uuid.uuid4()),
+            '--model', model, '--effort', effort, *session,
             '--permission-mode', 'acceptEdits', '--permission-prompts', 'none',
             '--allowedTools', 'Read,Glob,Grep,Bash,Skill,Write,Edit,Agent',
             '--setting-sources', 'project', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
-            '--add-dir', str(out), '--plugin-dir', str(pkg / 'plugins/orchestration'),
+            '--add-dir', str(out),
+            *[a for name in plugins for a in ('--plugin-dir', str(pkg / 'plugins' / name))],
             '--max-budget-usd', str(budget)]
 
 
@@ -177,11 +202,236 @@ def files(repo):
             for f in repo.rglob('*') if f.is_file() and '.git' not in f.parts}
 
 
+OWNER, REPO_NAME = 'fixture-owner', 'duration-fixture'
+GH_URL = f'git@github.com:{OWNER}/{REPO_NAME}.git'
+E2E_SCOPE = re.compile(r'^(?:src/(?:durations|cli|config)\.py|README\.md|tests/test_\w+\.py'
+                       r'|docs/superpowers/plans/[^/]+\.md)$')
+RUNNER = ('claude-wave-runner.mjs', 'wave-launch.mjs')
+
+
+SSH = """import os, shlex, sys
+words = shlex.split(sys.argv[-1])
+if len(words) != 2 or words[0] not in ('git-upload-pack', 'git-receive-pack', 'git-upload-archive') \\
+        or not words[1].strip('/').endswith(%r):
+    sys.exit('fixture-ssh: only the fixture repository is served: ' + sys.argv[-1])
+os.execvp('git', ['git', words[0][4:], os.environ['GH_STUB_ORIGIN']])
+"""
+
+
+def e2e_environment(out, origin):
+    """The session's environment: the stub gh first on PATH, the real gh with
+    no credentials, a global git config of the fixture's own, and an ssh
+    command that serves the GitHub-style origin from the local bare
+    repository, so `git remote -v` shows a GitHub remote."""
+    bindir = out / 'bin'; bindir.mkdir()
+    stub = bindir / 'gh'
+    stub.write_text(f'#!{sys.executable}\n' + Path(__file__).with_name('gh-stub.py').read_text())
+    stub.chmod(0o755)
+    ssh = bindir / 'fixture-ssh'
+    ssh.write_text(f'#!{sys.executable}\n' + SSH % f'{OWNER}/{REPO_NAME}.git')
+    ssh.chmod(0o755)
+    (out / 'gh-config').mkdir()
+    gitconfig = out / 'gitconfig'
+    gitconfig.write_text('[init]\n\tdefaultBranch = main\n[commit]\n\tgpgsign = false\n[tag]\n\tgpgsign = false\n')
+    for k in ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_HOST'):
+        os.environ.pop(k, None)
+    os.environ.update({'PATH': f'{bindir}{os.pathsep}{os.environ["PATH"]}',
+                       'GH_CONFIG_DIR': str(out / 'gh-config'), 'GIT_CONFIG_GLOBAL': str(gitconfig),
+                       'GIT_SSH_COMMAND': str(ssh), 'GIT_SSH_VARIANT': 'simple',
+                       'GH_STUB_STATE': str(out / 'gh-state.json'), 'GH_STUB_LOG': str(out / 'gh-calls.jsonl'),
+                       'GH_STUB_ORIGIN': str(origin), 'GH_STUB_OWNER': OWNER, 'GH_STUB_REPO': REPO_NAME})
+
+
+def gh_calls(out):
+    path = out / 'gh-calls.jsonl'
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+
+
+def pr_state(out):
+    path = out / 'gh-state.json'
+    return json.loads(path.read_text()).get('prs', []) if path.exists() else []
+
+
+def bare(origin, *args):
+    return bench.call(['git', '--git-dir', str(origin), *args])
+
+
+def last_reply(out, name):
+    return final_result(read_events(out / f'{name}.stdout')).get('result') or ''
+
+
+def ship_e2e(args, out, pkg, versions):
+    repo, _ = plan_live.fixture(out, 'interfaces')
+    (repo / 'AGENTS.md').write_text('Read README.md before changing the repository.\n')
+    bench.git(repo, 'commit', '-q', '-a', '--amend', '-m', 'Frozen fixture')
+    origin = out / 'origin.git'
+    bench.call(['git', 'init', '--bare', '-b', 'main', str(origin)])
+    e2e_environment(out, origin)
+    bench.git(repo, 'remote', 'add', 'origin', GH_URL)
+    bench.git(repo, 'push', '-q', '-u', 'origin', 'main')
+    base = bench.git(repo, 'rev-parse', 'HEAD')
+    profiles = ['orchestrator-fable-5-2.md', 'reviewer-fable-5-2.md']
+    expected = {
+        'case': 'ship-e2e', 'seat_model': args.model, 'effort': args.effort,
+        'run_complete': 'every invocation ends in success', 'profile_read': profiles,
+        'no_other_profile_read': True, 'no_spawn_without_model': True, 'no_spawn_through_fable': True,
+        'final_reply_names_no_profile_file': 'no reply names a profile file',
+        'stops_at_gate_2': 'run 1 stops at the one start approval: no runner, no branch on origin, '
+                           'only docs/ changed',
+        'gate_2_message': 'asks for the approval, names the branch and says what happens about a pull request',
+        'plan_lint_clean': True, 'plan_names_no_claude_fable_5_2': True,
+        'no_stop_after_approval': 'after the approval the session reaches the handoff in that one invocation',
+        'branch_pushed': 'the feature branch is on origin',
+        'waves_by_snapshot_runner': "the snapshot's runner ran the waves and launched children",
+        'no_role_on_claude_fable_5_2': 'no child and no plan file names claude-fable-5-2',
+        'plan_done': 'every plan file in the checkout ends with status: done',
+        'pr_opened_once': 'one successful gh pr create, into main from the feature branch',
+        'pr_body_runtime_line': 'the pull request body carries a Runtime pass: line',
+        'review_protocol_ran': 'after the pull request: gh pr view, the review-threads GraphQL query, gh pr diff',
+        'direct_fix_checked_on_opus': 'a commit pushed after the pull request outside a supervised wave '
+                                      'comes with an Agent spawn on opus after the pull request',
+        'no_merge': 'origin main unchanged and no gh pr merge',
+        'feature_tests_pass': 'the unit tests pass on a clone of the feature branch',
+        'scope': 'main...feature touches only src/durations.py, src/cli.py, src/config.py, README.md, '
+                 'tests/test_*.py and plan files',
+        'handoff_report': 'the last reply carries the pull request link, Left behind: and Runtime pass:',
+        'handoff_asks_yes_no': 'the last reply ends its recommendation with a question'}
+    bench.dump(out / 'expected.json', expected)
+    bench.dump(out / 'meta.json', {'case': 'ship-e2e', 'model': args.model, 'effort': args.effort,
+                                   'versions': versions, 'base': base, 'pkg': str(pkg), 'origin_url': GH_URL,
+                                   'loading': 'disposable --plugin-dir (orchestration, code-review), '
+                                              '--setting-sources project; gh-stub.py as the PR host',
+                                   'cli_version': bench.call([shutil.which('claude'), '--version'])})
+    if args.prepare_only:
+        print(json.dumps({'prepared': str(out), 'origin': GH_URL,
+                          'gh': bench.call(['gh', 'auth', 'status'])}, indent=1)); return 0
+    sid, plugins, rcs = str(uuid.uuid4()), ('orchestration', 'code-review'), {}
+    print(f'ship-e2e: seat {args.model}/{args.effort}, session {sid}', flush=True)
+    rcs['run'] = bench.run_logged(command(out, pkg, args.model, args.effort, args.budget_usd,
+                                          ['--session-id', sid], plugins),
+                                  out, 'run', cwd=repo, prompt=prompt_for('ship-e2e'), timeout=1200)
+    gate_cmds = [inp.get('command') or '' for name, inp in tool_uses(read_events(out / 'run.stdout'))
+                 if name == 'Bash']
+    gate_final = last_reply(out, 'run')
+    gate_changed = [l[3:] for l in bench.git(repo, 'status', '--porcelain', '-uall').splitlines()]
+    plans = sorted(repo.glob('docs/superpowers/plans/*.md'))
+    lints = {str(f.relative_to(repo)): subprocess.run(['node', str(pkg / LINT), str(f), '--repo', str(repo)],
+                                                      capture_output=True, text=True).returncode for f in plans}
+    gate = {'stops_at_gate_2': not any(r in c for c in gate_cmds for r in RUNNER)
+                                and bench.git(repo, 'rev-parse', 'HEAD') == base
+                                and bare(origin, 'for-each-ref', '--format=%(refname:short)', 'refs/heads') == 'main'
+                                and all(f.startswith('docs/') for f in gate_changed),
+            'gate_2_message': bool(re.search(r'(?i)approv', gate_final) and re.search(r'(?i)\bbranch\b', gate_final)
+                                   and re.search(r'(?i)pull request|\bPR\b', gate_final)),
+            'plan_lint_clean': bool(lints) and not any(lints.values()),
+            'plan_names_no_claude_fable_5_2': not any('claude-fable-5-2' in f.read_text() for f in plans)}
+    bench.dump(out / 'gate.json', {'checks': gate, 'lint': lints, 'changed': gate_changed})
+    names = ['run']
+    for name, prompt, timeout in (('run2', APPROVE, 3600), ('run3', PROCEED, 900), ('run4', PROCEED, 900)):
+        prs = pr_state(out)
+        if prs and 'Left behind:' in last_reply(out, names[-1]) or rcs[names[-1]] != 0:
+            break
+        print(f'ship-e2e: {name}', flush=True)
+        rcs[name] = bench.run_logged(command(out, pkg, args.model, args.effort, args.budget_usd,
+                                             ['--resume', sid], plugins),
+                                     out, name, cwd=repo, prompt=prompt, timeout=timeout)
+        names.append(name)
+    per_run = {n: final_result(read_events(out / f'{n}.stdout')) for n in names}
+    rows = [r for n in names for r in read_events(out / f'{n}.stdout')]
+    seq = list(tool_uses(rows))
+    seat, facts = seat_checks(rows, profiles)
+    seat['run_complete'] = all(rc == 0 for rc in rcs.values()) and all(
+        r.get('subtype') == 'success' and not r.get('is_error') for r in per_run.values())
+    seat['final_reply_names_no_profile_file'] = not any(PROFILE_RE.search(r.get('result') or '')
+                                                        for r in per_run.values())
+    final = per_run[names[-1]].get('result') or ''
+    prs, calls = pr_state(out), gh_calls(out)
+    heads = bare(origin, 'for-each-ref', '--format=%(refname:short)', 'refs/heads').split()
+    feature = prs[0]['headRefName'] if prs else next((h for h in heads if h != 'main' and not h.startswith('wave/')), None)
+    created = next((i for i, c in enumerate(calls) if c['argv'][:2] == ['pr', 'create'] and c['exit'] == 0), None)
+    after = calls[created + 1:] if created is not None else []
+    pr_idx = next((i for i, (n, inp) in enumerate(seq) if n == 'Bash' and 'pr create' in (inp.get('command') or '')), None)
+    later = seq[pr_idx + 1:] if pr_idx is not None else []
+    commands = [inp.get('command') or '' for n, inp in seq if n == 'Bash']
+    runner_calls = [c for c in commands if any(r in c for r in RUNNER)]
+    summaries = sorted(set(repo.rglob('claude-runner/*/summary.json')))
+    children = [c.get('model') for f in summaries for c in json.loads(f.read_text()).get('children') or []]
+    fix_commits = bare(origin, 'log', '--format=%H %s', f'{prs[0]["createdHeadOid"]}..{feature}').splitlines() \
+        if prs and feature in heads else []
+    changed = bare(origin, 'diff', '--name-only', f'main...{feature}').split() if feature in heads else []
+    tests_rc = None
+    if feature in heads:
+        clone = out / 'feature-clone'
+        bench.call(['git', 'clone', '-q', '-b', feature, str(origin), str(clone)])
+        t = subprocess.run(TESTS, cwd=clone, capture_output=True, text=True)
+        (out / 'feature-tests.txt').write_text(t.stdout + t.stderr); tests_rc = t.returncode
+    # The checkout's plan files (latest status), else the feature branch's.
+    plan_texts = {str(f.relative_to(repo)): f.read_text() for f in repo.glob('docs/superpowers/plans/*.md')}
+    if feature in heads:
+        for rel in bare(origin, 'ls-tree', '-r', '--name-only', feature, '--', 'docs/superpowers/plans').split():
+            plan_texts.setdefault(rel, bare(origin, 'show', f'{feature}:{rel}'))
+    checks = {**seat, **gate,
+              'no_stop_after_approval': names == ['run', 'run2'] and bool(prs) and 'Left behind:' in final,
+              'branch_pushed': bool(feature) and feature in heads,
+              'waves_by_snapshot_runner': bool(runner_calls) and bool(children)
+                                          and not any('/.claude/plugins/' in c for c in runner_calls),
+              'no_role_on_claude_fable_5_2': 'claude-fable-5-2' not in children
+                                             and not any('claude-fable-5-2' in t for t in plan_texts.values()),
+              'plan_done': bool(plan_texts) and all(re.search(r'(?m)^status: done\b', t)
+                                                    for t in plan_texts.values()),
+              'pr_opened_once': len(prs) == 1 and prs[0]['baseRefName'] == 'main'
+                                and prs[0]['headRefName'] == feature
+                                and sum(c['argv'][:2] == ['pr', 'create'] and c['exit'] == 0 for c in calls) == 1,
+              'pr_body_runtime_line': bool(prs) and 'Runtime pass:' in prs[0]['body'],
+              'review_protocol_ran': any(c['argv'][:2] == ['pr', 'view'] for c in after)
+                                     and any(c['argv'][:1] == ['api'] and 'graphql' in c['argv'] for c in after)
+                                     and any(c['argv'][:2] == ['pr', 'diff'] for c in after),
+              'direct_fix_checked_on_opus': not fix_commits
+                                            or any(n == 'Bash' and any(r in (inp.get('command') or '') for r in RUNNER)
+                                                   for n, inp in later)
+                                            or any(n in ('Agent', 'Task') and inp.get('model') in ('opus', 'claude-opus-5-5')
+                                                   for n, inp in later),
+              'no_merge': bare(origin, 'rev-parse', 'main') == base
+                          and not any(c['argv'][:2] == ['pr', 'merge'] for c in calls),
+              'feature_tests_pass': tests_rc == 0,
+              'scope': bool(changed) and all(E2E_SCOPE.match(f) for f in changed),
+              'handoff_report': bool(prs) and prs[0]['url'] in final and 'Left behind:' in final
+                                and 'Runtime pass:' in final,
+              'handoff_asks_yes_no': bool(re.search(r'\?\s*$', final, re.M))}
+    facts.update({'invocations': {n: {'rc': rcs[n], 'subtype': per_run[n].get('subtype'),
+                                      'cost_usd': per_run[n].get('total_cost_usd'),
+                                      'turns': per_run[n].get('num_turns'),
+                                      'seconds': json.loads((out / f'{n}.status.json').read_text())['seconds'],
+                                      'usage': usage(read_events(out / f'{n}.stdout'))} for n in names},
+                  'feature_branch': feature, 'origin_heads': heads, 'runner_calls': len(runner_calls),
+                  'runner_children': children,
+                  'agent_spawns': [{'model': inp.get('model'), 'description': inp.get('description'),
+                                    'after_pr': i > pr_idx if pr_idx is not None else None}
+                                   for i, (n, inp) in enumerate(seq) if n in ('Agent', 'Task')],
+                  'gh_calls': [' '.join(c['argv'][:3]) + f' -> {c["exit"]}' for c in calls],
+                  'pr': {k: prs[0].get(k) for k in ('url', 'title', 'headRefName', 'baseRefName', 'isDraft')}
+                        if prs else None,
+                  'pr_body_chars': len(prs[0]['body']) if prs else 0,
+                  'pr_comments': len(prs[0]['comments']) if prs else 0,
+                  'fix_commits_after_pr': fix_commits, 'changed_vs_main': changed,
+                  'feature_tests_rc': tests_rc, 'plan_status': {k: next(iter(re.findall(r'(?m)^status: (\S+)', t)), None)
+                                                                     for k, t in plan_texts.items()}})
+    bench.dump(out / 'checks.json', {'checks': checks, 'facts': facts})
+    if prs:
+        (out / 'pr-body.md').write_text(prs[0]['body'])
+    (out / 'final.md').write_text(final)
+    print(json.dumps({'checks': checks, 'facts': {k: v for k, v in facts.items() if k != 'invocations'},
+                      'invocations': {n: {k: v for k, v in i.items() if k != 'usage'}
+                                      for n, i in facts['invocations'].items()}},
+                     ensure_ascii=False, indent=1))
+    return 0 if all(checks.values()) else 1
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--case', choices=['wave', 'ship'])
+    p.add_argument('--case', choices=['wave', 'ship', 'ship-e2e'])
     p.add_argument('--score', type=Path, help='Recompute the seat checks of a retained run directory')
-    p.add_argument('--profile', help='With --score: the profile the session should read')
+    p.add_argument('--profile', help='With --score: the profile(s) the session should read, comma-separated')
     p.add_argument('--model', default='claude-fable-5-2')
     p.add_argument('--effort', default='medium')
     p.add_argument('--budget-usd', type=float, default=10)
@@ -198,6 +448,8 @@ def main():
     if out.is_relative_to(ROOT): p.error('Results must be outside the repository')
     os.umask(0o077); out.mkdir(parents=True)
     pkg, _, versions = bench.snapshot(out, 'new', 'HEAD')
+    if args.case == 'ship-e2e':
+        return ship_e2e(args, out, pkg, versions)
     repo, _ = plan_live.fixture(out, 'interfaces')
     origin = out / 'origin.git'
     bench.call(['git', 'init', '--bare', '-b', 'main', str(origin)])
