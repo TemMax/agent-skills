@@ -1207,3 +1207,100 @@ test('--records decides a --summary in a default runner directory once, and an i
   assert.deepEqual(r.json.kept, [])
   assert.equal(existsSync(join(repo, '.worktrees')), false)
 })
+
+// A runner's --out must not exist yet, so a later run can be given a
+// directory inside an earlier run's record.
+test('--records keeps a --summary record that holds a record which stays, in the dry run and the real one', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']], [2, ['b']]])
+  addTask(repo, 'a', base)
+  addTask(repo, 'b', base)
+  merge(repo, 'a') // b is not integrated: its branch and worktree are left
+  const outer = join(repo, '.worktrees', 'runs')
+  writeSummary(join(outer, 'summary.json'), { tasks: [{ id: 'a', status: 'ok' }] })
+  const inner = writeRecord(repo, 'runs', 'wave-2', ['b'], 'ok')
+  const named = ['--summary', join(outer, 'summary.json'), '--summary', join(inner, 'summary.json')]
+  const expected = [
+    { kind: 'record', path: inner, reason: 'task b still has a branch or worktree' },
+    { kind: 'record', path: outer, reason: 'holds ' + inner + ', which stays' },
+  ]
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--dry-run', ...named)
+  assert.equal(dry.status, 0, dry.stderr)
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', ...named)
+  assert.equal(r.status, 0, r.stderr)
+  for (const run of [dry, r]) {
+    assert.deepEqual(run.json.removed.filter((item) => item.kind === 'record'), [])
+    assert.deepEqual(run.json.kept.filter((item) => item.kind === 'record'), expected)
+  }
+  assert.equal(existsSync(join(inner, 'summary.json')), true)
+  assert.equal(existsSync(join(outer, 'summary.json')), true)
+})
+
+test('--records keeps a record directory that holds another plan\'s run record, named or default', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const named = writeRecord(repo, 'runs', 'wave-1', ['a'], 'ok')
+  const strangerInNamed = join(named, 'x')
+  writeSummary(join(strangerInNamed, 'summary.json'), { tasks: [{ id: 'zzz', status: 'ok' }] })
+  const usual = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
+  const strangerInUsual = join(usual, 'resume')
+  writeSummary(join(strangerInUsual, 'summary.json'), { tasks: [{ id: 'zzz', status: 'ok' }] })
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', join(named, 'summary.json'))
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed.filter((item) => item.kind === 'record'), [])
+  assert.deepEqual(entry(r.json.kept, 'record', 'path', named),
+    { kind: 'record', path: named, reason: 'holds ' + strangerInNamed + ', which stays' })
+  assert.deepEqual(entry(r.json.kept, 'record', 'path', usual),
+    { kind: 'record', path: usual, reason: 'holds ' + strangerInUsual + ', which stays' })
+  assert.equal(existsSync(join(strangerInNamed, 'summary.json')), true)
+  assert.equal(existsSync(join(strangerInUsual, 'summary.json')), true)
+})
+
+test('--records leaves .worktrees itself and the default directories\' records to their own rules', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const worktrees = join(repo, '.worktrees')
+  const top = writeSummary(join(worktrees, 'summary.json'), { tasks: [{ id: 'a', status: 'ok' }] })
+  const logs = writeLogs(repo, 'a')
+  const inLogs = writeSummary(join(logs, 'summary.json'), { tasks: [{ id: 'a', status: 'ok' }] })
+  const named = ['--summary', top, '--summary', inLogs]
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--dry-run', ...named)
+  assert.equal(dry.status, 0, dry.stderr)
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', ...named)
+  assert.equal(r.status, 0, r.stderr)
+  for (const run of [dry, r]) {
+    assert.deepEqual(run.json.removed.filter((item) => item.kind === 'record'), [{ kind: 'record', path: logs }])
+    assert.deepEqual(run.json.kept, [
+      { kind: 'record', path: worktrees, reason: 'not a run record directory' },
+      { kind: 'other', path: top, reason: 'not recognized as a run record of the given plans' },
+    ])
+  }
+  assert.equal(existsSync(top), true)
+  assert.equal(existsSync(logs), false)
+})
+
+test('--records takes a relative --summary from the working directory and prunes a checkout the record held', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const record = writeRecord(repo, 'runs', 'wave-1', ['a'], 'ok')
+  const checkout = addJudgeCheckout(repo, record, base)
+  assert.equal(registered(repo, checkout), true)
+
+  const r = spawnSync(process.execPath, [SCRIPT, '--repo', repo, '--plan', plan, '--records',
+    '--summary', join('.worktrees', 'runs', 'wave-1', 'summary.json')], { encoding: 'utf8', cwd: repo })
+  assert.equal(r.status, 0, r.stderr)
+  const json = JSON.parse(r.stdout)
+  assert.deepEqual(json.removed.filter((item) => item.kind === 'record'), [{ kind: 'record', path: record }])
+  assert.deepEqual(json.kept, [])
+  assert.equal(existsSync(join(repo, '.worktrees')), false)
+  assert.equal(git(repo, 'worktree', 'list', '--porcelain').includes('judge-1.checkout'), false)
+})

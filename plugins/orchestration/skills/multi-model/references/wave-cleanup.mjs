@@ -34,9 +34,10 @@ const USAGE = [
   '  --records        also remove the run records of the given plans, the',
   '                   verification-logs/<id> directories of their tasks among',
   '                   them, and the directory of each --summary file that',
-  '                   lies inside <repo>/.worktrees; when a record directory',
-  '                   was removed, worktree registrations whose directories',
-  '                   are gone are pruned',
+  '                   lies inside <repo>/.worktrees; a record directory that',
+  '                   holds a record which stays is kept; when a record',
+  '                   directory was removed, worktree registrations whose',
+  '                   directories are gone are pruned',
   '  --dry-run        run every check, change nothing',
   '',
   'A task is removed only when it is accepted: a summary.json — one named',
@@ -417,14 +418,38 @@ function stillLeft(id) {
   return left.get(id)
 }
 
+function ofPlans(ids) {
+  return ids !== null && ids.length > 0 && ids.every((id) => typeof id === 'string' && planIds.includes(id))
+}
+
+// A record directory goes whole, so one that holds another run's record (a
+// directory whose summary.json lists tasks) goes only when that record would
+// go too: a record of the given plans none of whose tasks is still left.
+function heldRecord(dir) {
+  const stack = [dir]
+  while (stack.length > 0) {
+    const current = stack.pop()
+    for (const child of children(current)) {
+      const path = join(current, child)
+      const stat = lstat(path)
+      if (stat === null || stat.isSymbolicLink() || !stat.isDirectory()) continue
+      const ids = summaryIds(path)
+      if (ids !== null && (!ofPlans(ids) || ids.some(stillLeft))) return path
+      stack.push(path)
+    }
+  }
+  return null
+}
+
 // One run record or state file: `ids` is null when it is not this plan's.
 function cleanRecord(kind, path, ids, remove) {
   const keep = (reason) => kept.push({ kind, path, reason })
-  if (ids === null || ids.length === 0 || !ids.every((id) => typeof id === 'string' && planIds.includes(id))) {
-    return keep('not a run record of the given plans')
-  }
+  if (!ofPlans(ids)) return keep('not a run record of the given plans')
   const busy = ids.find(stillLeft)
   if (busy !== undefined) return keep('task ' + busy + ' still has a branch or worktree')
+  const stat = kind === 'record' ? lstat(path) : null
+  const held = stat !== null && stat.isDirectory() ? heldRecord(path) : null
+  if (held !== null) return keep('holds ' + held + ', which stays')
   if (!dryRun) {
     try {
       remove(path)
@@ -453,11 +478,11 @@ function stateIds(file) {
 const UNRECOGNIZED = 'not recognized as a run record of the given plans'
 
 // The records of runs given an --out of their own: the directory of each
-// --summary file inside .worktrees. The default runner directories are left
-// to the scan in step C; the state and log directories and a task's
-// worktree are never a record; a directory in another git work tree is
-// kept. Each entry is { path } to decide, or { path, reason } to keep;
-// deepest first, so a record inside another one is decided before it.
+// --summary file inside .worktrees. The default runner, state and log
+// directories are left to the scan in step C; .worktrees itself and a task's
+// worktree are never a record; a directory in another git work tree is kept.
+// Each entry is { path } to decide, or { path, reason } to keep; deepest
+// first, so a record inside another one is decided before it.
 function summaryRecords() {
   const records = new Map()
   const root = real(worktreesDir)
@@ -470,12 +495,11 @@ function summaryRecords() {
       continue
     }
     const parts = rel === '' ? [] : rel.split(sep)
-    if (RUNNER_DIRS.includes(parts[0])) continue
+    if ([...RUNNER_DIRS, STATE_DIR, LOGS_DIR].includes(parts[0])) continue
     const path = join(worktreesDir, ...parts)
     if (records.has(path)) continue
     const keep = (reason) => records.set(path, { path, reason })
-    if (parts.length === 0 || parts[0] === STATE_DIR || parts[0] === LOGS_DIR
-      || planIds.some((id) => parts[0] === 'wave-' + id)) {
+    if (parts.length === 0 || planIds.some((id) => parts[0] === 'wave-' + id)) {
       keep('not a run record directory')
       continue
     }
@@ -557,14 +581,23 @@ function cleanRecords() {
   // step removed (a task worktree with only ignored files) is no longer there.
   const fromSummaries = summaryRecordsAtStart.filter((record) => lstat(record.path) !== null)
   const named = new Set(fromSummaries.map((record) => record.path))
-  // The directories between .worktrees and a named record: what else they
-  // hold is reported, and they go once the records were their only content.
+  // The directories between .worktrees and a named record that lies in this
+  // work tree: what else they hold is reported, and they go once the records
+  // were their only content. Nothing is walked on the way to a record kept for
+  // where it is (a link, another work tree, a task's worktree).
   const between = new Set()
-  for (const { path } of fromSummaries) {
+  for (const { path, reason } of fromSummaries) {
+    if (reason !== undefined) continue
     for (let dir = dirname(path); dir.startsWith(worktreesDir + sep); dir = dirname(dir)) between.add(dir)
   }
   for (const record of fromSummaries) {
-    if (record.reason !== undefined) kept.push({ kind: 'record', path: record.path, reason: record.reason })
+    if (record.reason !== undefined) {
+      kept.push({ kind: 'record', path: record.path, reason: record.reason })
+      continue
+    }
+    // Deepest first: an entry kept inside this record is already listed.
+    const inner = kept.find((item) => typeof item.path === 'string' && item.path.startsWith(record.path + sep))
+    if (inner !== undefined) kept.push({ kind: 'record', path: record.path, reason: 'holds ' + inner.path + ', which stays' })
     else cleanRecord('record', record.path, summaryIds(record.path), (target) => rmSync(target, { recursive: true }))
   }
   const unrecognized = (dir) => {

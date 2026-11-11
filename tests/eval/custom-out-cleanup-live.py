@@ -7,10 +7,9 @@ gives the runner `--out <repo>/.worktrees/runs/wave-1`. It integrates the wave
 into `feature/durations` and pushes that branch to a local bare `origin`.
 With `--wave-by driver` the driver runs the shipped runner with that `--out`
 first, and the session finishes the run: integration, verification, push and
-the handoff.
-The driver then fast-forwards origin's `main` to the branch, as a merge would.
-Turn 2 resumes the session with the user's word that the branch is merged.
-The documented answer is to run the `After the merge:` command.
+the handoff. The driver then fast-forwards origin's `main` to the branch, as a
+merge would. Turn 2 resumes the session with the user's word that the branch
+is merged; the documented answer is to run the `After the merge:` command.
 
 The candidate is loaded disposably. Claude uses a `--plugin-dir` snapshot with
 `--setting-sources project`. Codex uses workspace skills linked to the
@@ -18,10 +17,12 @@ snapshot, `--ignore-user-config` and `--disable plugins`. A Codex session that
 launches the runner runs outside the sandbox, as in ship-smoke (macOS seatbelt
 cannot nest; the runner sandboxes its children). With `--wave-by driver` it
 runs in `workspace-write`, writable roots limited to the repository, its
-`.git` and `origin`.
-Runner children use the normal CLI configuration. GitHub credentials are
-removed from the environment, and `origin` is local.
+`.git` and `origin`. Runner children use the normal CLI configuration. GitHub
+credentials are removed from the environment, and `origin` is local.
 
+The cleanup is judged by what wave-cleanup.mjs itself reported in the
+session's tool output (its JSON `removed` list), not by the command text: only
+the candidate script can remove a record outside the default directories.
 Expectations are frozen in expected.json before the host starts. The state
 after each turn is saved to state-1.json and state-2.json. checks.json is
 computed from those files and the traces; `--score DIR` recomputes it.
@@ -53,10 +54,17 @@ seat = load('seat_live', 'fable-seat-live.py')
 OUT_REL = '.worktrees/runs/wave-1'
 RECORD = OUT_REL + '/summary.json'
 FEATURE = 'feature/durations'
-FIX_MARK = 'per run record kept outside'
+FIX_MARK = 'for each runner given an `--out`'
 SEAT = {'claude': 'claude-fable-5-2', 'codex': 'gpt-6.1-sol'}
 SCRIPTS = ('wave-cleanup.mjs', 'claude-wave-runner.mjs', 'codex-wave-runner.mjs', 'wave-launch.mjs')
 PROMPT_2 = f'`{FEATURE}` is merged into `main` on `origin`.\n'
+# Removing by hand what the cleanup script owns: .worktrees itself, a run
+# record, a task worktree, the state or log directories. A scratch checkout
+# the session made and removed itself is not counted.
+OWNED = r'\.worktrees(?:/(?:runs|wave-|claude-runner|codex-runner|codex-wave|verification-logs)|/?(?=[\s\'"`)]|$))'
+MANUAL = re.compile(r'(?:\brm\b|\brmdir\b|rmtree|os\.remove|os\.rmdir|\bunlink\b|'
+                    r'git\s+(?:-C\s+\S+\s+)?worktree\s+remove)[^\n;&|]*' + OWNED
+                    + r'|\bfind\b[^\n;&|]*' + OWNED + r'[^\n;&|]*-delete')
 
 
 def plan_text(provider):
@@ -138,16 +146,41 @@ def commands(rows):
     return found
 
 
-def read_paths(rows):
+def outputs(rows):
+    """What the main session's tools returned, in order: Codex command output,
+    Claude tool results (file reads and command output alike)."""
     found = []
     for r in rows:
-        if r.get('type') == 'assistant' and not r.get('parent_tool_use_id'):
-            for b in (r.get('message') or {}).get('content') or []:
-                if isinstance(b, dict) and b.get('type') == 'tool_use' and b.get('name') == 'Read':
-                    found.append((b.get('input') or {}).get('file_path') or '')
-    for c in commands(rows):
-        found += re.findall(r'[^\s\'"`;|&()<>]*multi-model/WORKFLOW\.md', c)
+        item = r.get('item') or {}
+        if r.get('type') == 'item.completed' and item.get('type') == 'command_execution':
+            found.append(item.get('aggregated_output') or '')
+        if r.get('type') == 'user' and not r.get('parent_tool_use_id'):
+            content = (r.get('message') or {}).get('content')
+            for b in content if isinstance(content, list) else []:
+                if isinstance(b, dict) and b.get('type') == 'tool_result':
+                    c = b.get('content')
+                    found.append(c if isinstance(c, str) else ''.join(
+                        x.get('text') or '' for x in c or [] if isinstance(x, dict)))
     return found
+
+
+def reports(rows):
+    """The JSON reports wave-cleanup.mjs printed, wherever they sit in the output."""
+    found, decoder = [], json.JSONDecoder()
+    for text in outputs(rows):
+        for m in re.finditer(r'\{\s*"into"', text):
+            try:
+                obj, _ = decoder.raw_decode(text, m.start())
+            except ValueError:
+                continue
+            if isinstance(obj, dict) and isinstance(obj.get('removed'), list) and 'dryRun' in obj:
+                found.append(obj)
+    return found
+
+
+def removes_record(report):
+    return any(isinstance(item, dict) and item.get('kind') == 'record'
+               and str(item.get('path', '')).rstrip('/').endswith('/' + OUT_REL) for item in report['removed'])
 
 
 def replies(rows):
@@ -192,7 +225,14 @@ def handoff(text):
     """The `Left behind:` section (up to `After the merge:`) and the After-the-merge command."""
     left = re.search(MARK.format('left behind'), text)
     after = re.search(MARK.format('after the merge'), text)
-    left_text = text[left.end():after.start() if after and after.start() > left.end() else len(text)] if left else ''
+    left_text = ''
+    if left:
+        # The marker's paragraph or list: up to a blank line or the After-the-merge line.
+        end = after.start() if after and after.start() > left.end() else len(text)
+        seg = text[left.end():end]
+        lead = len(seg) - len(seg.lstrip(':*_ \t\n'))
+        blank = re.search(r'\n[ \t]*\n', seg[lead:])
+        left_text = seg[:lead + blank.start()] if blank else seg
     cmd = ''
     if after:
         rest = text[after.end():]
@@ -210,11 +250,6 @@ def names_record(cmd):
     return any(t.rstrip('/').endswith(RECORD) for t in summary_args(cmd))
 
 
-def cleanups(cmds, dry):
-    return [c for c in cmds if 'wave-cleanup.mjs' in c and '--records' in c
-            and ('--dry-run' in c) == dry and names_record(c)]
-
-
 def expand(token, cmd):
     """Substitute `NAME=value` assignments made earlier in the same command."""
     values = {m.group(1): m.group(3) for m in re.finditer(r'\b([A-Za-z_]\w*)=([\'"]?)([^\s\'";&|]+)\2', cmd)}
@@ -226,17 +261,6 @@ def script_paths(cmds):
     names = '|'.join(re.escape(s) for s in SCRIPTS)
     return [expand(m.group(2), c) for c in cmds
             for m in re.finditer(rf'\bnode\s+([\'"]?)([^\s\'";|&()<>`]*(?:{names}))\1', c)]
-
-
-def inside(path, root, cwd):
-    """True or False for a path that exists; None when it cannot be resolved here."""
-    if '$' in path:
-        return None
-    p = Path(os.path.expanduser(path))
-    p = p if p.is_absolute() else Path(cwd) / p
-    if not p.exists():
-        return None
-    return os.path.realpath(p).startswith(os.path.realpath(root) + os.sep)
 
 
 # Repository state.
@@ -300,40 +324,38 @@ def score(out):
     status = {k: json.loads((out / f'turn-{k}.status.json').read_text())['exit']
               for k in (1, 2) if (out / f'turn-{k}.status.json').exists()}
     c1, c2 = commands(rows1), commands(rows2)
-    text2 = reply(rows2)
+    r1, r2 = reports(rows1), reports(rows2)
     left, after = handoff(handoff_reply(rows1))
-    workflows = [p for p in read_paths(rows1) if inside(p, pkg, repo)]
     if provider == 'claude':
         plugin = next((p for p in init_plugins(rows1) if p.get('name') == 'orchestration'), {})
         loaded = plugin.get('path') == str(pkg / 'plugins/orchestration') and plugin.get('version') == meta['versions']['orchestration']
     else:
-        loaded = bool(workflows)
-    host_dir = 'skills' if provider == 'claude' else 'skills-codex'
-    scripts = script_paths(c1 + c2)
-    placed = [inside(p, pkg, repo) for p in scripts]
+        link = repo / '.agents/skills/multi-model'
+        loaded = os.path.realpath(link).startswith(os.path.realpath(pkg) + os.sep)
     checks = {
-        'candidate_loaded': loaded and FIX_MARK in (pkg / 'plugins/orchestration' / host_dir / 'multi-model/WORKFLOW.md').read_text(),
+        'candidate_loaded': loaded,
+        'instruction_read': any(FIX_MARK in t for t in outputs(rows1)),
         'turn_1_complete': complete(rows1, status.get(1)),
         'record_under_out': bool(s1.get('record_summary')),
         'wave_accepted': s1.get('record_status') == s1.get('accepted_status') and bool(s1.get('record_tasks')),
         'feature_pushed_and_green': {'src/durations.py', 'tests/test_durations.py'} <= set(s1.get('feature_files') or [])
                                     and s1.get('feature_tests_rc') == 0 and s1.get('origin_main') == meta['base'],
-        'dry_run_named_record': bool(cleanups(c1, dry=True)),
+        'dry_run_lists_record': any(r['dryRun'] is True and removes_record(r) for r in r1),
         'left_behind_names_record': 'runs/wave-1' in left,
         'after_merge_names_record': '--records' in after and names_record(after),
-        'scripts_from_snapshot': True in placed and False not in placed,
         'turn_2_complete': complete(rows2, status.get(2)),
-        'cleanup_ran_with_summary': bool(cleanups(c2, dry=False)),
+        'cleanup_removed_record': any(r['dryRun'] is False and removes_record(r) for r in r2),
         'record_removed': s2.get('record_dir_exists') is False,
         'no_wave_worktree_or_branch': bool(s2) and sum(line.startswith('worktree ') for line in
                                                      s2.get('worktree_list', '').splitlines()) == 1
                                       and not any(b.startswith('wave/') for b in s2.get('branches') or []),
+        'no_removal_by_hand': not any(MANUAL.search(c) for c in c1 + c2),
     }
-    facts = {'workflow_reads_in_snapshot': workflows, 'script_paths': scripts,
+    facts = {'script_paths': script_paths(c1 + c2), 'reports_turn_1': r1, 'reports_turn_2': r2,
              'after_merge_command': after, 'after_merge_absolute_summary': [t.startswith('/') for t in summary_args(after)],
              'after_merge_branch': f'--branch {FEATURE}' in after, 'after_merge_into': '--into origin/main' in after,
-             'dry_runs': cleanups(c1, dry=True), 'cleanup_commands': cleanups(c2, dry=False),
-             'left_behind': left.strip(), 'reply_2': text2,
+             'removals_by_hand': [c for c in c1 + c2 if MANUAL.search(c)],
+             'left_behind': left.strip(), 'reply_2': reply(rows2),
              'local_feature_after': FEATURE in (s2.get('branches') or []), 'origin_feature_after': s2.get('origin_feature'),
              'worktrees_dir_after': s2.get('worktrees_dir'), 'head_branch_after': s2.get('head_branch')}
     bench.dump(out / 'checks.json', {'checks': checks, 'facts': facts})
@@ -404,19 +426,21 @@ def main():
             f.write('\n.agents/\n')
     bench.dump(out / 'expected.json', {
         'provider': args.provider, 'seat_model': model, 'effort': args.effort, 'wave_by': args.wave_by,
-        'candidate_loaded': 'the snapshot (with the --summary rule) is what the host loaded',
+        'candidate_loaded': 'claude: the init event lists the snapshot plugin and version; codex: the '
+                            'workspace skill resolves into the snapshot',
+        'instruction_read': 'a turn-1 tool output carries the new --summary instruction text',
         'turn_1_complete': True,
         'record_under_out': RECORD + ' exists after turn 1',
         'wave_accepted': 'the runner summary is accepted (claude: done; codex: merge-ready)',
         'feature_pushed_and_green': f'origin {FEATURE} has the task files and its tests pass; origin main is unchanged',
-        'dry_run_named_record': 'a turn-1 wave-cleanup.mjs --dry-run --records names the record with --summary',
-        'left_behind_names_record': 'the Left behind: section names runs/wave-1',
+        'dry_run_lists_record': "a turn-1 wave-cleanup.mjs report with dryRun true lists the record under removed",
+        'left_behind_names_record': 'the Left behind: paragraph names runs/wave-1',
         'after_merge_names_record': 'the After the merge: command carries --records and --summary <record>',
-        'scripts_from_snapshot': 'every resolvable runner or cleanup script path is in the snapshot',
         'turn_2_complete': True,
-        'cleanup_ran_with_summary': 'a turn-2 wave-cleanup.mjs --records (not a dry run) names the record',
+        'cleanup_removed_record': "a turn-2 wave-cleanup.mjs report with dryRun false lists the record under removed",
         'record_removed': OUT_REL + ' is gone after turn 2',
-        'no_wave_worktree_or_branch': 'only the main checkout is registered and no wave/* branch is left'})
+        'no_wave_worktree_or_branch': 'only the main checkout is registered and no wave/* branch is left',
+        'no_removal_by_hand': 'no rm, rmdir, rmtree, find -delete or git worktree remove under .worktrees'})
     bench.dump(out / 'meta.json', {'provider': args.provider, 'model': model, 'effort': args.effort,
                                    'wave_by': args.wave_by,
                                    'versions': versions, 'base': base, 'pkg': str(pkg), 'repo': str(repo),
@@ -454,7 +478,7 @@ def main():
         bench.dump(out / 'state-2.json', state_2(repo, origin))
     checks, facts = score(out)
     bench.dump(out / 'spend.json', spend(out, args.provider))
-    print(json.dumps({'checks': checks, 'facts': {k: facts[k] for k in ('after_merge_command', 'script_paths',
+    print(json.dumps({'checks': checks, 'facts': {k: facts[k] for k in ('after_merge_command', 'removals_by_hand',
                       'local_feature_after', 'origin_feature_after', 'worktrees_dir_after')},
                       'merge': merged, 'spend': json.loads((out / 'spend.json').read_text())},
                      ensure_ascii=False, indent=1))

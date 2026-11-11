@@ -190,22 +190,22 @@ stays. Run records (`summary.json`, verdicts, state files) stay until the pull
 request is merged, because review and `--resume-from` read them. The completion
 summary carries a `Left behind:` line: every branch, worktree, run record and
 temporary directory this run created that still exists — taken from
-`wave-cleanup.mjs --dry-run --records` with one `--summary`
-per run record kept outside `.worktrees/claude-runner/` and
-`.worktrees/codex-runner/` (a runner given `--out`), plus any scratch directory
-the orchestrator itself created outside the repository — or
-`Left behind: nothing`. Whenever something is left behind, the summary also
-carries one line starting `After the merge:` with the ready command —
-`wave-cleanup.mjs` with absolute paths, `--repo <repo>`, one `--plan` per plan
-this run executed (fix plans included), `--into origin/<default branch>`,
-`--records`, the same `--summary` options and `--branch <feature branch>`
-(without `--branch` when the wave was not integrated into a feature branch of
-its own). When the user confirms the integration branch is merged, run that
-command at once and report: delete the remote feature branch only if the script
-reported the local feature branch removed and the remote branch tip equals the
-`tip` it printed; everything the script kept is named and asked about. Remove
-only what this run created, clean and already integrated; anything else is named
-and asked about, never deleted.
+`wave-cleanup.mjs --dry-run --records` with `--summary <out>/summary.json`
+for each runner given an `--out` outside `.worktrees/claude-runner/` and
+`.worktrees/codex-runner/` that wrote one, plus any scratch directory the
+orchestrator itself created outside the repository — or `Left behind: nothing`.
+Whenever something is left behind, the summary also carries one line starting
+`After the merge:` with the ready command — `wave-cleanup.mjs` with absolute
+paths, `--repo <repo>`, one `--plan` per plan this run executed (fix plans
+included), `--into origin/<default branch>`, `--records`,
+the same `--summary` options and `--branch <feature branch>` (without `--branch`
+when the wave was not integrated into a feature branch of its own). When the
+user confirms the integration branch is merged, run that command at once and
+report: delete the remote feature branch only if the script reported the local
+feature branch removed and the remote branch tip equals the `tip` it printed;
+everything the script kept is named and asked about. Remove only what this run
+created, clean and already integrated; anything else is named and asked about,
+never deleted.
 
 **Scope of a bypass.** The user's instruction to implement directly covers
 exactly what the user named, review fixes included. Record that scope in the

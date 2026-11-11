@@ -31,9 +31,12 @@ still has a branch or worktree. It keeps, and lists with the reason, a
 directory outside `.worktrees`, a task's worktree, a directory in another
 git work tree and a `--summary` not named `summary.json`; directories the
 records leave empty are removed, and anything else next to a record is
-reported. The `Left behind:` dry run and the `After the merge:` command in
-multi-model and ship, on both hosts, carry one `--summary` per record kept
-outside the default directories.
+reported. Any record directory, default or named, that holds another run's
+record which stays (one of another plan, or one whose task is still left) is
+kept whole. The `Left behind:` dry run and the `After the merge:` command in
+multi-model and ship, on both hosts, carry `--summary <out>/summary.json`
+for each runner given an `--out` outside the default directories; a
+directory without one is listed under `Left behind:`.
 
 ## 4.22.0
 
