@@ -5,14 +5,20 @@ Turn 1: the session runs multi-model on a one-task approved plan (the
 duration-parsing plan of fable-seat-live.py, with Codex models on Codex) and
 gives the runner `--out <repo>/.worktrees/runs/wave-1`. It integrates the wave
 into `feature/durations` and pushes that branch to a local bare `origin`.
+With `--wave-by driver` the driver runs the shipped runner with that `--out`
+first, and the session finishes the run: integration, verification, push and
+the handoff.
 The driver then fast-forwards origin's `main` to the branch, as a merge would.
 Turn 2 resumes the session with the user's word that the branch is merged.
 The documented answer is to run the `After the merge:` command.
 
 The candidate is loaded disposably. Claude uses a `--plugin-dir` snapshot with
 `--setting-sources project`. Codex uses workspace skills linked to the
-snapshot, `--ignore-user-config` and `--disable plugins`; the coordinator runs
-outside the sandbox, as in ship-smoke, and the runner sandboxes its children.
+snapshot, `--ignore-user-config` and `--disable plugins`. A Codex session that
+launches the runner runs outside the sandbox, as in ship-smoke (macOS seatbelt
+cannot nest; the runner sandboxes its children). With `--wave-by driver` it
+runs in `workspace-write`, writable roots limited to the repository, its
+`.git` and `origin`.
 Runner children use the normal CLI configuration. GitHub credentials are
 removed from the environment, and `origin` is local.
 
@@ -59,20 +65,32 @@ def plan_text(provider):
     return seat.PLAN.replace('claude-sonnet-5-5', 'gpt-6.1-sol').replace('claude-haiku-5-5', 'gpt-6-luna')
 
 
-def prompt_1(provider, repo):
+def prompt_1(provider, repo, wave_by):
     skill = 'orchestration:multi-model' if provider == 'claude' else '$multi-model'
-    text = (f'Use {skill} to execute the approved plan at {seat.PLAN_REL} in this repository. The user '
-            'gave the start approval (Gate 2) for this plan as written; no user can answer questions '
-            f'during this run. Create the branch `{FEATURE}` from `main` and run the wave with the '
-            f'runner given `--out {repo / OUT_REL}`. Integrate the result into `{FEATURE}`, verify it '
-            'there and push that branch to `origin`, a local bare repository. Do not open a pull '
-            f'request and do not merge into `main`; the user merges `{FEATURE}` later. Finish the run.\n')
+    finish = (f'Integrate the result into `{FEATURE}`, verify it there and push that branch to `origin`, '
+              'a local bare repository. Do not open a pull request and do not merge into `main`; the user '
+              f'merges `{FEATURE}` later. Finish the run.\n')
+    if wave_by == 'session':
+        text = (f'Use {skill} to execute the approved plan at {seat.PLAN_REL} in this repository. The user '
+                'gave the start approval (Gate 2) for this plan as written; no user can answer questions '
+                f'during this run. Create the branch `{FEATURE}` from `main` and run the wave with the '
+                f'runner given `--out {repo / OUT_REL}`. ' + finish)
+        if provider == 'codex':
+            text += 'This session runs outside a sandbox; the runner sandboxes each child it starts.\n'
+        return text
+    text = (f'Use {skill} to finish the approved plan at {seat.PLAN_REL} in this repository. The user gave '
+            'the start approval (Gate 2) for this plan as written; no user can answer questions during '
+            'this run. Its wave has already run: the shipped runner was launched with '
+            f'`--out {repo / OUT_REL}` and finished; its summary is `{repo / RECORD}`. Create the branch '
+            f'`{FEATURE}` from `main`. ' + finish)
     if provider == 'codex':
-        text += 'This session runs outside a sandbox; the runner sandboxes each child it starts.\n'
+        text += ('This session runs in a sandbox that can write to the repository, its `.git` and `origin`; '
+                 'commits are not signed here (`commit.gpgsign` is false), so no command needs to run '
+                 'outside the sandbox.\n')
     return text
 
 
-def command(provider, turn, sid, repo, out, pkg, model, effort, budget):
+def command(provider, turn, sid, repo, out, pkg, model, effort, budget, wave_by='session'):
     if provider == 'claude':
         cmd = [shutil.which('claude'), '-p', '--verbose', '--output-format', 'stream-json',
                '--model', model, '--effort', effort,
@@ -85,9 +103,17 @@ def command(provider, turn, sid, repo, out, pkg, model, effort, budget):
     common = ['--ignore-user-config', '--disable', 'plugins', '--json', '--skip-git-repo-check',
               '--model', model, '-c', f'model_reasoning_effort="{effort}"',
               '-c', 'memories.use_memories=false', '-c', 'memories.generate_memories=false']
+    if wave_by == 'session':
+        if turn == 1:
+            return [shutil.which('codex'), 'exec', *common, '-C', str(repo), '--sandbox', 'danger-full-access', '-']
+        return [shutil.which('codex'), 'exec', 'resume', *common, '-c', 'sandbox_mode="danger-full-access"', sid, '-']
+    roots = [str(repo / '.git'), str(out / 'origin.git')]
+    sandbox = ['-c', 'sandbox_mode="workspace-write"',
+               '-c', 'sandbox_workspace_write.writable_roots=' + json.dumps(roots)]
     if turn == 1:
-        return [shutil.which('codex'), 'exec', *common, '-C', str(repo), '--sandbox', 'danger-full-access', '-']
-    return [shutil.which('codex'), 'exec', 'resume', *common, '-c', 'sandbox_mode="danger-full-access"', sid, '-']
+        return [shutil.which('codex'), 'exec', *common, *sandbox, '-C', str(repo), '--sandbox', 'workspace-write',
+                *[a for r in roots for a in ('--add-dir', r)], '-']
+    return [shutil.which('codex'), 'exec', 'resume', *common, *sandbox, sid, '-']
 
 
 def isolate(out):
@@ -339,6 +365,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--provider', choices=['claude', 'codex'])
     p.add_argument('--model')
+    p.add_argument('--wave-by', choices=['session', 'driver'], default='session',
+                   help='Who runs the wave: the session (default) or the driver, before the session')
     p.add_argument('--effort', default='medium')
     p.add_argument('--budget-usd', type=float, default=6, help='Claude: cap per invocation')
     p.add_argument('--timeout', type=int, default=2400, help='Seconds for turn 1; turn 2 gets 900')
@@ -375,7 +403,7 @@ def main():
         with (repo / '.git/info/exclude').open('a') as f:
             f.write('\n.agents/\n')
     bench.dump(out / 'expected.json', {
-        'provider': args.provider, 'seat_model': model, 'effort': args.effort,
+        'provider': args.provider, 'seat_model': model, 'effort': args.effort, 'wave_by': args.wave_by,
         'candidate_loaded': 'the snapshot (with the --summary rule) is what the host loaded',
         'turn_1_complete': True,
         'record_under_out': RECORD + ' exists after turn 1',
@@ -390,6 +418,7 @@ def main():
         'record_removed': OUT_REL + ' is gone after turn 2',
         'no_wave_worktree_or_branch': 'only the main checkout is registered and no wave/* branch is left'})
     bench.dump(out / 'meta.json', {'provider': args.provider, 'model': model, 'effort': args.effort,
+                                   'wave_by': args.wave_by,
                                    'versions': versions, 'base': base, 'pkg': str(pkg), 'repo': str(repo),
                                    'loading': 'disposable --plugin-dir, --setting-sources project' if args.provider == 'claude'
                                    else 'workspace skills linked to the snapshot, user config and plugins off',
@@ -398,10 +427,20 @@ def main():
     if args.prepare_only:
         print(json.dumps({'prepared': str(out), 'lint': lint.stdout.strip()}, indent=1)); return 0
     isolate(out)
+    if args.wave_by == 'driver':
+        refs = pkg / 'plugins/orchestration/skills/multi-model/references'
+        runner = ['node', str(refs / f'{args.provider}-wave-runner.mjs'), '--plan', str(plan), '--wave', '1',
+                  '--repo', str(repo), '--base', base, '--jobs', '1', '--timeout-min', '20', '--out', str(repo / OUT_REL)]
+        if args.provider == 'claude': runner += ['--default-branch', 'main']
+        print(f'{args.provider}: the driver runs the wave', flush=True)
+        bench.run_logged(runner, out, 'wave-run', cwd=repo, timeout=1800)
+        record = json.loads((repo / RECORD).read_text()) if (repo / RECORD).is_file() else {}
+        if record.get('status') != ('done' if args.provider == 'claude' else 'merge-ready'):
+            raise SystemExit(f'blocked: the driver-run wave was not accepted ({record.get("status")}); see wave-run.*')
     sid = str(uuid.uuid4()) if args.provider == 'claude' else None
     print(f'{args.provider}: turn 1, seat {model}/{args.effort}', flush=True)
-    rc = bench.run_logged(command(args.provider, 1, sid, repo, out, pkg, model, args.effort, args.budget_usd),
-                          out, 'turn-1', cwd=repo, prompt=prompt_1(args.provider, repo), timeout=args.timeout)
+    rc = bench.run_logged(command(args.provider, 1, sid, repo, out, pkg, model, args.effort, args.budget_usd, args.wave_by),
+                          out, 'turn-1', cwd=repo, prompt=prompt_1(args.provider, repo, args.wave_by), timeout=args.timeout)
     rows = read_events(out / 'turn-1.stdout')
     sid = session_id(rows, sid)
     bench.dump(out / 'state-1.json', state_1(out, repo, origin, args.provider))
@@ -409,7 +448,8 @@ def main():
     bench.dump(out / 'merge.json', merged)
     if complete(rows, rc) and merged['merged'] and sid:
         print(f'{args.provider}: turn 2', flush=True)
-        bench.run_logged(command(args.provider, 2, sid, repo, out, pkg, model, args.effort, min(args.budget_usd, 3)),
+        bench.run_logged(command(args.provider, 2, sid, repo, out, pkg, model, args.effort, min(args.budget_usd, 3),
+                                 args.wave_by),
                          out, 'turn-2', cwd=repo, prompt=PROMPT_2, timeout=900)
         bench.dump(out / 'state-2.json', state_2(repo, origin))
     checks, facts = score(out)
