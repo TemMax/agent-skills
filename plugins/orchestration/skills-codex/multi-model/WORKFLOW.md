@@ -121,8 +121,9 @@ request is merged, because review and `--resume-from` read them. The completion
 summary carries a `Left behind:` line: every branch, worktree, run record and
 temporary directory this run created that still exists — taken from
 `wave-cleanup.mjs --dry-run --records` with `--summary <out>/summary.json`
-for each runner given an `--out` outside `.worktrees/claude-runner/` and
-`.worktrees/codex-runner/` that wrote one, plus any scratch directory the
+for each runner given an `--out` under `.worktrees/` other than
+`.worktrees/claude-runner/` and `.worktrees/codex-runner/` that wrote one,
+plus any runner `--out` outside `.worktrees/` and any scratch directory the
 orchestrator itself created outside the repository — or `Left behind: nothing`.
 Whenever something is left behind, the summary also carries one line starting
 `After the merge:` with the ready command — `wave-cleanup.mjs` with absolute

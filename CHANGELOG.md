@@ -27,16 +27,20 @@ in #47, whose waves ran with `--out <repo>/.worktrees/runs/wave-<n>`.
 **What changes.** With `--records`, `wave-cleanup.mjs` also removes the
 directory of each `--summary` file inside `<repo>/.worktrees`, by the rules
 of a default record: it is a record of the given plans and none of its tasks
-still has a branch or worktree. It keeps, and lists with the reason, a
-directory outside `.worktrees`, a task's worktree, a directory in another
-git work tree and a `--summary` not named `summary.json`; directories the
-records leave empty are removed, and anything else next to a record is
+still has a branch or worktree. It keeps, and lists with the reason, one
+outside `.worktrees` (at its real place, links resolved), one in a task's
+worktree that stays, one in another git work tree and one named by a file
+other than `summary.json`, whatever the order of the options; directories
+the records leave empty are removed, and anything else next to a record is
 reported. Any record directory, default or named, that holds another run's
-record which stays (one of another plan, or one whose task is still left) is
-kept whole. The `Left behind:` dry run and the `After the merge:` command in
-multi-model and ship, on both hosts, carry `--summary <out>/summary.json`
-for each runner given an `--out` outside the default directories; a
-directory without one is listed under `Left behind:`.
+directory which stays is kept whole: a record of another plan, one whose
+task is still left, or a run with no `summary.json` yet, such as a killed
+one. A `--summary` whose directory an earlier cleanup removed is skipped, so
+the same command can run again. The `Left behind:` dry run and the
+`After the merge:` command in multi-model and ship, on both hosts, carry
+`--summary <out>/summary.json` for each runner given an `--out` under
+`.worktrees/` other than the default directories; any other runner `--out`
+is listed under `Left behind:`.
 
 ## 4.22.0
 

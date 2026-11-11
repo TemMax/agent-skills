@@ -524,16 +524,18 @@ init  next  record-executor  verify  supervisor-prompt  record-verdict  summary
    End the completion summary with a `Left behind:` line: every branch,
    worktree, run record and temporary directory this run created that still
    exists, taken from `wave-cleanup.mjs --dry-run --records` with
-   `--summary <out>/summary.json` for each runner given an `--out` outside
-   `.worktrees/claude-runner/` and `.worktrees/codex-runner/` that wrote one,
-   plus any scratch directory you created outside the repository, or
-   `Left behind: nothing`. Whenever something is left behind, also add an
-   `After the merge:` line with the ready command: `wave-cleanup.mjs` with
-   absolute paths, `--repo <repo>`, one `--plan` per plan this run executed,
-   `--into origin/<default branch>`, `--records`, the same `--summary` options,
-   and `--branch <feature branch>` when the wave was integrated into a feature
-   branch of its own. These two lines are required even when the request asks
-   for a short final message or a fixed last line: put them before that line.
+   `--summary <out>/summary.json` for each runner
+   given an `--out` under `.worktrees/` other than `.worktrees/claude-runner/`
+   and `.worktrees/codex-runner/` that wrote one, plus any runner `--out`
+   outside `.worktrees/` and any scratch directory you created outside the
+   repository, or `Left behind: nothing`. Whenever something is left behind,
+   also add an `After the merge:` line with the ready command:
+   `wave-cleanup.mjs` with absolute paths, `--repo <repo>`, one `--plan` per
+   plan this run executed, `--into origin/<default branch>`, `--records`, the
+   same `--summary` options, and `--branch <feature branch>` when the wave was
+   integrated into a feature branch of its own. These two lines are required
+   even when the request asks for a short final message or a fixed last line:
+   put them before that line.
    Branch
    final integration on multi-model's publication contract, never on host or
    model. In normal `publication: push` mode, multi-model pushes and then

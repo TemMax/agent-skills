@@ -8,11 +8,12 @@ supervision and the six-attempt maximum. Never relax a contract to save calls.
 Run `node references/claude-wave-runner.mjs --plan <file> --wave <n> --repo <abs>
 --base <pushed sha> --default-branch <branch>`. Options: `--claude <executable>`,
 `--jobs 3`, `--timeout-min 45`, `--out <new directory>`, `--preflight on|off`.
-`wave-cleanup.mjs` finds the record of a runner given an `--out` outside
-`.worktrees/claude-runner/` (or `.worktrees/codex-runner/`) only through
-`--summary <out>/summary.json`; name it in every cleanup of that run, the one
-after the merge included. A directory with no `summary.json`, such as a killed
-runner's, cannot be named: list it under `Left behind:`.
+`wave-cleanup.mjs` finds the record of a runner
+given an `--out` under `.worktrees/` other than `.worktrees/claude-runner/` and
+`.worktrees/codex-runner/` only through `--summary <out>/summary.json`; name it
+in every cleanup of that run, the one after the merge included. The script never
+removes an `--out` outside `.worktrees/`, nor a directory with no
+`summary.json`, such as a killed runner's: list those under `Left behind:`.
 The launcher still lints and checks the pushed base and dependencies. The runner
 uses the shipped Workflow escalation policy.
 

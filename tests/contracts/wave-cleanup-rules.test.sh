@@ -41,20 +41,25 @@ done
 
 check "the cleanup script exists" "[ -f $P/skills/multi-model/references/wave-cleanup.mjs ]"
 
-# A record a runner kept under --out outside the two default directories is
-# found and removed only through --summary, after each wave and after the merge.
+# A record a runner kept under an --out elsewhere in .worktrees is found and
+# removed only through --summary, after each wave and after the merge; an --out
+# outside .worktrees is listed, never named.
 for s in skills/multi-model skills-codex/multi-model skills/ship skills-codex/ship; do
   W=$P/$s/WORKFLOW.md
-  check "$s names --summary for records outside the default directories" "one_line $W | grep -qF 'for each runner given an \`--out\` outside'"
+  check "$s names --summary for records outside the default directories" "one_line $W | grep -qF 'for each runner given an \`--out\` under \`.worktrees/\` other than'"
+  check "$s lists a runner --out outside .worktrees" "one_line $W | grep -qF 'plus any runner \`--out\` outside \`.worktrees/\`'"
   check "$s passes the same --summary options after the merge" "one_line $W | grep -qF 'the same \`--summary\` options'"
 done
 for r in claude-wave-adapter codex-wave-protocol; do
   F=$P/skills/multi-model/references/$r.md
-  check "$r names --summary for records outside the default directories" "one_line '$F' | grep -qF 'for each runner given an \`--out\` outside'"
+  check "$r names --summary for records outside the default directories" "one_line '$F' | grep -qF 'for each runner given an \`--out\` under \`.worktrees/\` other than'"
+  check "$r lists a runner --out outside .worktrees" "one_line '$F' | grep -qF 'plus any runner \`--out\` outside \`.worktrees/\`'"
   check "$r passes the same --summary options after the merge" "one_line '$F' | grep -qF 'the same \`--summary\` options'"
 done
 check "execution-cost-controls: a record outside the default directories needs --summary" \
   "one_line $P/skills/multi-model/references/execution-cost-controls.md | grep -qF 'only through \`--summary <out>/summary.json\`'"
+check "execution-cost-controls: the script never removes an --out outside .worktrees" \
+  "one_line $P/skills/multi-model/references/execution-cost-controls.md | grep -qF 'never removes an \`--out\` outside \`.worktrees/\`'"
 check "the cleanup script removes the directory of a --summary under .worktrees" \
   "grep -qF 'the directory of each --summary file that' $P/skills/multi-model/references/wave-cleanup.mjs"
 check "codex-wave-runner prints afterIntegration" "grep -qF afterIntegration $P/skills/multi-model/references/codex-wave-runner.mjs"

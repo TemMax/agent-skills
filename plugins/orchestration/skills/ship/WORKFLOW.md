@@ -280,8 +280,9 @@ The handoff report also carries a `Left behind:` line — every branch, worktree
 run record and temporary directory this run created that still exists, taken
 from the cleanup script (`../multi-model/references/wave-cleanup.mjs`) run with
 `--dry-run --records` and `--summary <out>/summary.json`
-for each runner given an `--out` outside `.worktrees/claude-runner/` and
-`.worktrees/codex-runner/` that wrote one, plus any scratch directory the
+for each runner given an `--out` under `.worktrees/` other than
+`.worktrees/claude-runner/` and `.worktrees/codex-runner/` that wrote one,
+plus any runner `--out` outside `.worktrees/` and any scratch directory the
 orchestrator itself created outside the repository — or `Left behind: nothing`.
 Ending the run without that line leaves the user to find the leftovers by hand.
 When anything is left behind, the report also carries one line starting
