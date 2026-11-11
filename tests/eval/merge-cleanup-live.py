@@ -42,8 +42,12 @@ commands in a login shell by default, and the login profile puts the real gh
 ahead of the stub on PATH, so Codex sessions run with
 `allow_login_shell=false`. A run whose session reached a real gh or a GitHub
 connector is reported as blocked (exit 2), not scored as the product's result.
-Expectations are frozen in expected.json before the host starts. The state
-before the merge turn goes to state-before.json and after it to
+In every scenario the last reply before the merge turn with an `After the
+merge:` line (in ship-merge, the handoff's own) must hold the cleanup command
+itself, written out, word for word as a `--dry-run` report printed it (the two
+checks of custom-out-cleanup-live.py), and each `--plan` in it must be a plan a
+wave ran with. Expectations are frozen in expected.json before the host starts.
+The state before the merge turn goes to state-before.json and after it to
 state-after.json; checks.json is computed from those files, the traces and the
 stub's call log, and `--score DIR` recomputes it.
 """
@@ -53,6 +57,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import uuid
@@ -71,10 +76,11 @@ def load(name, file):
 cleanup = load('out_live', 'custom-out-cleanup-live.py')
 bench, plan_live, seat = cleanup.bench, cleanup.plan_live, cleanup.seat
 SCENARIOS = ('mm-merge', 'mm-merged-worktree', 'ship-merge')
+WAVE_SCRIPTS = ('claude-wave-runner.mjs', 'codex-wave-runner.mjs', 'wave-launch.mjs')
 FEATURE = 'feature/durations'
 SEAT = cleanup.SEAT
 # Text only the candidate's after-the-merge instructions carry.
-FIX_MARK = 'The cleanup asks no question.'
+FIX_MARK = 'Take that command from the `command` field that'
 TASK_FILES = {'src/durations.py', 'tests/test_durations.py'}
 SHIP_REQUEST = ('Add `parse_duration(text)` in a new module `src/durations.py`: it turns strings such as '
                 '"1h30m", "45s" and "2m" into whole seconds. Each unit (h, m, s) appears at most once and in '
@@ -248,6 +254,35 @@ def squash_merge_ok(calls):
     ok = [c for c in merges if c.get('exit') == 0]
     return (len(ok) == 1 and bool({'--squash', '-s'} & set(merge_flags(ok[0]['argv'])))
             and not any(FORBIDDEN_MERGE_FLAGS & set(merge_flags(c['argv'])) for c in merges))
+
+
+def shell_script(cmd):
+    """The script a `/bin/zsh -c …` command runs, quotes decoded as the shell
+    decodes them (Codex joins quoted pieces such as '…'"'"'…'); else the command."""
+    try:
+        words = shlex.split(cmd or '')
+    except ValueError:
+        return cmd or ''
+    if len(words) >= 3 and re.fullmatch(r'/bin/(?:ba|z)?sh', words[0]) and words[1] in ('-c', '-lc'):
+        return words[2]
+    return cmd or ''
+
+
+_NAMES = '(?:' + '|'.join(re.escape(n) for n in WAVE_SCRIPTS) + ')'
+# node, then the script path: double- or single-quoted (it may hold "$(realpath …)"), or bare.
+RUNNER_CALL = re.compile(r'\bnode\s+(?:"[^"\n]*' + _NAMES + r'"|\'[^\'\n]*' + _NAMES + r'\'|[^\s;&|<>]*' + _NAMES
+                         + r')([^\n;&|]*)')
+
+
+def runner_calls(cmds):
+    """How many times the session started a wave runner or the launcher with
+    node, and the --plan values of those calls."""
+    calls, plans = 0, []
+    for c in cmds:
+        for m in RUNNER_CALL.finditer(shell_script(c).replace('\\\n', ' ')):
+            calls += 1
+            plans += [v.strip('\'"') for v in re.findall(r'--plan(?:=|\s+)(\S+)', m.group(1))]
+    return calls, plans
 
 
 def unwrap(cmd):
@@ -466,11 +501,42 @@ def score(out):
     }
     if scenario == 'ship-merge':
         checks['handoff_offers_merge'] = offers_merge(handoff)
+    # Every scenario leaves at least the feature branch before the merge, so the
+    # last reply before the merge turn must carry the command after the merge,
+    # with or without a plan.
+    pre_rows = [r for t in turns if t != merge_turn for r in rows.get(t, [])]
+    # ship: the handoff itself, never an earlier turn's line.
+    source = rows.get(handoff_turn, []) if scenario == 'ship-merge' and handoff_turn else pre_rows
+    carrying = [t for t in replies(source) if re.search(cleanup.MARK.format('after the merge'), t)]
+    pre_reply = carrying[-1] if carrying else ''
+    written = cleanup.after_merge_written(pre_reply)
+    words = cleanup.command_words(written) or []
+    plans = [words[i + 1] for i, w in enumerate(words[:-1]) if w == '--plan']
+    # A wave ran when a run record exists before the merge turn or the session
+    # started a runner or the launcher; each --plan written out must be one of
+    # the plans those calls named (by path, or by name when the call used a
+    # variable or another working directory).
+    started, run_plans = runner_calls(commands(pre_rows))
+    waved = bool(started) or bool(before.get('summaries'))
+    known = {os.path.realpath(p if os.path.isabs(p) else os.path.join(cwd, p)) for p in run_plans}
+    names = {os.path.basename(p) for p in run_plans}
+    # A --plan given through a variable cannot be compared: then any plan passes.
+    opaque = not run_plans or any(re.search(r'[$`]', p) for p in run_plans)
+    from_run = lambda p: opaque or os.path.realpath(p) in known or os.path.basename(p) in names
+    checks['after_merge_written_out'] = bool(written)
+    checks['after_merge_as_printed'] = cleanup.as_printed(pre_reply, pre_rows)
+    checks['after_merge_plans_from_run'] = (all('/.git/' not in p for p in plans) and (waved or not plans)
+                                            and all(from_run(p) for p in plans))
     blocked = boundary(meta, calls, all_rows)
     facts = {'feature': feature, 'merge_calls': merge_calls(merge_session), 'blocked': blocked,
              'merge_turn_commands': merge_cmds, 'merge_turn_reports': merge_reports,
              'manual_branch_removal': manual_branch_removal(merge_cmds, feature or FEATURE),
              'handoff_last_question': (questions(handoff) or [''])[-1], 'final_questions': questions(final),
+             'after_merge_command': cleanup.after_merge_written(pre_reply),
+             'after_merge_commands': cleanup.after_merge_commands(pre_reply),
+             'printed_commands': [' '.join(w) for w in cleanup.printed_commands(pre_rows) if w],
+             'run_records_before': before.get('summaries'), 'after_merge_plans': plans, 'wave_ran': waved,
+             'runner_calls': started, 'runner_plans': run_plans,
              'final_reply': final,
              'head_after': after.get('head_branch'), 'branches_after': after.get('branches'),
              'summaries_after': after.get('summaries'), 'origin_feature_after': after.get('origin_feature'),
@@ -531,6 +597,16 @@ EXPECTED = {
                                       'origin/main (merge-base, diff, log, cherry, rev-list, range-diff, show, '
                                       'merge-tree, branch --contains or --merged); commands count at command '
                                       'position, indented lines, if/while, ! and VAR=value prefixes included',
+    'after_merge_written_out': cleanup.AFTER_MERGE_WRITTEN_OUT.format(
+        reply='the last reply before the merge turn with an After the merge: line, in ship-merge the last such reply '
+              'of the handoff turn (no such reply fails)'),
+    'after_merge_as_printed': cleanup.AFTER_MERGE_AS_PRINTED.format(turn='a turn before the merge turn'),
+    'after_merge_plans_from_run': 'every --plan of the command written out is a plan the run executed: none under '
+                                  '.git; none at all when no wave ran before the merge turn (no summary.json under '
+                                  '.worktrees in state-before.json and no node call of claude-wave-runner.mjs, '
+                                  'codex-wave-runner.mjs or wave-launch.mjs); and, when those calls name --plan '
+                                  'values, each one of them (the same path, or the same file name; any plan when '
+                                  'a call gives --plan through a shell variable)',
     'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark (? or ？) "
                                'outside code and links, and offers no more work (shall/should I, do you want '
                                'me, would you like me, want me to — not "whether you want me to" —, let me '

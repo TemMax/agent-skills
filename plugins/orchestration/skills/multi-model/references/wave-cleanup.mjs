@@ -11,17 +11,21 @@
 import { spawnSync } from 'node:child_process'
 import { lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { readPlanJson } from './worktree-env.mjs'
 
 const USAGE = [
-  'node wave-cleanup.mjs --repo <abs> --plan <file> [--plan <file> ...]',
+  'node wave-cleanup.mjs --repo <abs> [--plan <file> ...]',
   '                      [--wave <n>] [--into <ref>] [--branch <name>]',
   '                      [--summary <file> ...] [--accepted <id> ...]',
   '                      [--records] [--dry-run]',
   'node wave-cleanup.mjs --help',
   '',
   '  --repo <abs>     main checkout, the top level of a git work tree',
-  '  --plan <file>    wave plan; repeatable, the task ids are the union',
+  '  --plan <file>    wave plan; repeatable, the task ids are the union;',
+  '                   without one (a run that executed no plan) only',
+  '                   --branch is handled, and every record is kept;',
+  '                   one of --plan and --branch is required',
   '  --wave <n>       only the tasks of wave <n> (with exactly one --plan)',
   '  --into <ref>     integration target (default HEAD of --repo)',
   '  --branch <name>  also delete this local branch when it is integrated;',
@@ -43,7 +47,8 @@ const USAGE = [
   '                   summary.json yet) is kept; when a record directory was',
   '                   removed, worktree registrations whose directories are',
   '                   gone are pruned',
-  '  --dry-run        run every check, change nothing',
+  '  --dry-run        run every check, change nothing, and also print the',
+  '                   same cleanup as a ready command (below)',
   '',
   'A task is removed only when it is accepted: a summary.json — one named',
   'with --summary, or <repo>/.worktrees/{claude-runner,codex-runner}/*/',
@@ -51,7 +56,10 @@ const USAGE = [
   'the task\'s head, the head is the current tip of wave/<id>; or --accepted',
   'names it. An accepted task still has to be integrated and clean.',
   '',
-  'Prints one JSON object: { into, dryRun, removed, kept }.',
+  'Prints one JSON object: { into, dryRun, removed, kept }. A dry run adds',
+  'command: these options without --dry-run, this script\'s path and every',
+  'path option absolute, each word quoted for a POSIX shell, so it runs as',
+  'it is from any directory.',
   'Exit 0: completed (kept entries are not an error); 1: a removal command',
   'failed; 2: usage error, nothing changed.',
 ].join('\n')
@@ -138,7 +146,9 @@ function parseArgs(argv) {
     options[name] = value
   }
   if (options.repo === undefined) throw new UsageError('missing --repo')
-  if (options.plan.length === 0) throw new UsageError('missing --plan')
+  if (options.plan.length === 0 && options.branch === undefined) {
+    throw new UsageError('missing --plan (or, for a run that executed no plan, --branch)')
+  }
   if (!isAbsolute(options.repo)) throw new UsageError('--repo: absolute path required')
   if (options.wave !== undefined && options.plan.length !== 1) {
     throw new UsageError('--wave is allowed only with exactly one --plan')
@@ -165,6 +175,7 @@ function readWaves(planPath) {
       }
     }
   }
+  if (!plan.waves.some((wave) => wave.tasks.length > 0)) throw bad('no task in any wave')
   return plan.waves
 }
 
@@ -198,11 +209,32 @@ function children(dir) {
   }
 }
 
+// A --summary taken once where the file system finds its directory (symbolic
+// links and `..` resolved by the kernel, as a read resolves them, not as a
+// string join would), the file name kept as given: every later step reads,
+// classifies and prints this one path. One whose directory is gone stays as
+// given, made absolute without resolving `..` as text, so it cannot name
+// another directory that exists.
+function canonical(file) {
+  if (lstat(dirname(file)) !== null) return join(stored(dirname(file)), basename(file))
+  return isAbsolute(file) ? file : process.cwd() + sep + file
+}
+
+// A --plan where the file system finds it; one it cannot find stays as given,
+// so reading it fails rather than reading another file.
+function canonicalPlan(plan) {
+  try {
+    return realpathSync.native(plan)
+  } catch {
+    return plan
+  }
+}
+
 // A --summary whose directory no longer exists names a record an earlier
 // cleanup removed: nothing is left to read or to remove, so the same
 // after-the-merge command can run again.
 function gone(file) {
-  return lstat(dirname(resolve(file))) === null
+  return lstat(dirname(file)) === null
 }
 
 // The summaries acceptance is read from: every --summary file, then every
@@ -240,9 +272,30 @@ function fail(message) {
   process.exit(2)
 }
 
+function shellQuote(value) {
+  return /^[A-Za-z0-9_@%+=:,.\/-]+$/.test(value) ? value : "'" + value.replace(/'/g, "'\\''") + "'"
+}
+
+// The same cleanup without --dry-run, as a summary's `After the merge:` line
+// carries it: this script's own path and the --plan and --summary paths this
+// run read and classified (see canonical), so nothing depends on the directory
+// it is run from, and --into as given (absent when it was not given).
+function readyCommand(options, repo) {
+  const words = ['node', fileURLToPath(import.meta.url), '--repo', repo]
+  for (const plan of options.plan) words.push('--plan', plan)
+  if (options.wave !== undefined) words.push('--wave', options.wave)
+  if (options.into !== undefined) words.push('--into', options.into)
+  if (options.records) words.push('--records')
+  for (const file of options.summary) words.push('--summary', file)
+  if (options.branch !== undefined) words.push('--branch', options.branch)
+  for (const id of options.accepted) words.push('--accepted', id)
+  return words.map(shellQuote).join(' ')
+}
+
 // ---- everything up to `main` validates; nothing is changed before it ----
 
 let options
+let command
 let repo
 let planIds
 let taskIds
@@ -259,6 +312,8 @@ try {
   const top = git(repo, 'rev-parse', '--show-toplevel')
   if (!top.ok || real(top.out) !== real(repo)) throw new UsageError('--repo is not the top level of a git work tree: ' + repo)
 
+  options.plan = options.plan.map(canonicalPlan)
+  options.summary = options.summary.map(canonical)
   const plans = options.plan.map(readWaves)
   planIds = unique(plans.flat().flatMap((wave) => wave.tasks.map((task) => task.id)))
   taskIds = planIds
@@ -271,6 +326,7 @@ try {
   if (stranger !== undefined) throw new UsageError('--accepted names no task of the given plans: ' + stranger)
   summaries = readSummaries(options.summary, join(repo, '.worktrees'))
 
+  command = readyCommand(options, repo)
   options.into ??= 'HEAD'
   const commit = git(repo, 'rev-parse', '--verify', '--quiet', '--end-of-options', options.into + '^{commit}')
   if (!commit.ok || !/^[0-9a-f]{40,64}$/.test(commit.out)) {
@@ -542,7 +598,7 @@ function summaryRecords() {
   // directory, default ones included.
   const root = stored(worktreesDir)
   for (const file of options.summary) {
-    const named = resolve(file)
+    const named = file
     if (gone(named)) continue
     const dir = stored(dirname(named))
     const rel = relative(root, dir)
@@ -700,5 +756,5 @@ for (const id of taskIds) cleanTask(id)
 if (options.branch !== undefined) cleanBranch(options.branch)
 if (options.records) cleanRecords()
 
-console.log(JSON.stringify({ into, dryRun, removed, kept }, null, 2))
+console.log(JSON.stringify({ into, dryRun, removed, kept, ...(dryRun ? { command } : {}) }, null, 2))
 process.exit(removalFailed ? 1 : 0)

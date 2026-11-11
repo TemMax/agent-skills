@@ -4,6 +4,68 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.23.1
+
+### Highlights
+
+**multi-model**
+- A dry run of wave-cleanup.mjs prints the ready cleanup command
+- The summary writes that command out, never a link to a file
+
+**ship**
+- The handoff writes the cleanup command out as the dry run printed it
+- A run without a plan gets the cleanup command too
+
+Orchestration 4.23.1 and code-review 1.21.0 apply to Claude Code and Codex.
+
+**What was wrong.** The `After the merge:` line should carry a ready command,
+but the session had to assemble it from the script's path and the run's
+paths. Codex sessions often did not write a ready command there. Three times
+they built it in a script that saved it to a file without printing it, so
+the reply could only point to that file: two ship handoffs and a summary
+with a custom `--out`. Five multi-model summaries wrote it with shell
+variables such as `$ROOT` or `$(pwd -P)`, which the user's shell does not
+have. Over rounds 2–5 of the 4.23.0 live checks, 2 of 11 Codex replies
+carried a command that runs as it is; all 13 Claude replies did. A ship
+run that implemented the work directly executed no plan, and the script
+would not run without `--plan`, so its handoff had no command to give: one
+Codex handoff left the line out.
+
+**What changes.** `wave-cleanup.mjs --dry-run` also prints `command`: the
+same cleanup without `--dry-run`, with the script's own path and every
+`--plan` and `--summary` absolute, and each word quoted for a POSIX shell, so
+it runs as it is from any directory. The script takes each `--plan`, and the
+directory of each `--summary`, once where the file system finds it, links and
+`..` included, so the dry run and the printed command read and decide the
+same record; a path it cannot find stays as given. It also
+runs without `--plan`, for a run that executed none: it then handles only
+`--branch` and keeps every record. A call with neither `--plan` nor
+`--branch`, or a plan with no task, is a usage error. multi-model and ship,
+on both hosts, take `Left behind:` and the `After the merge:` command from
+one dry run given the after-the-merge options, and write out the printed
+command as it is, on that line or in a code block right below it: never a
+link, a file to open, a shell variable or a path relative to the current
+directory. After the merge they run that command as written and read all of
+its output; only the script path may change, to the installed plugin's when
+the printed one is gone.
+
+**Checked.** Offline, the cleanup script's behaviour tests cover the printed
+command, a run without `--plan`, the new usage errors and paths through links
+and `..` (63 tests, 10 new). The cleanup contract pins the rule in all six
+instruction files (102 checks), the two live drivers' offline tests have 49
+and 119 cases, and the full suite passes. Live checks ran on Claude Code
+2.1.322 and Codex CLI 0.167.0, with the candidate loaded from a disposable
+copy. Four rounds covered the four merge and cleanup scenarios, one run per
+host and scenario. On the final commit all 8 runs passed every frozen check.
+Every `After the merge:` line held the command the dry run printed, word for
+word. Codex's ship run implemented the work directly and wrote the command
+without `--plan`. Rescored with the final drivers, 29 of the 32 runs pass
+every check. One of the 3 failures is a plan Codex made up before the script
+could run without one; the failing checks of the other two are ones this
+change does not touch. Over the four rounds the Fable 5.2 seat sessions cost
+$43.42, and Codex used 17.6M input (16.8M cached) and 61k output tokens;
+`tests/eval/after-merge-command-results-2026-11-12.md`.
+
 ## 4.23.0
 
 ### Highlights

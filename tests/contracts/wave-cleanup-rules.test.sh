@@ -64,6 +64,48 @@ check "execution-cost-controls: the script never removes an --out outside .workt
   "one_line $P/skills/multi-model/references/execution-cost-controls.md | grep -qF 'never removes an \`--out\` outside \`.worktrees/\`'"
 check "the cleanup script removes the directory of a --summary under .worktrees" \
   "grep -qF 'the directory of each --summary file that' $P/skills/multi-model/references/wave-cleanup.mjs"
+# The After the merge: command is the one a dry run printed, written out in
+# the reply itself: a model that builds it by hand links a file it wrote or
+# leaves shell variables in it.
+for f in skills/multi-model/WORKFLOW.md skills-codex/multi-model/WORKFLOW.md skills/ship/WORKFLOW.md \
+  skills-codex/ship/WORKFLOW.md skills/multi-model/references/claude-wave-adapter.md \
+  skills/multi-model/references/codex-wave-protocol.md; do
+  F=$P/$f
+  check "$f takes the After the merge: command from the dry run's command field" \
+    "one_line '$F' | grep -qF 'Take that command from the \`command\` field that'"
+  check "$f writes the command out as printed, on the line or in a code block below it" \
+    "one_line '$F' | grep -qF 'as printed, on that line or in a code block right below it'"
+  check "$f allows no link, file, shell variable or relative path for it" \
+    "one_line '$F' | grep -qF 'never a link, a file to open, a shell variable or a path relative to the current directory'"
+  check "$f takes the field's value from the one dry run behind Left behind:" \
+    "one_line '$F' | grep -qF 'from the \`command\` field that this dry run printed, and write out its value'"
+  check "$f runs that dry run with the options of the After the merge: command" \
+    "one_line '$F' | grep -qE 'one \`wave-cleanup\.mjs --dry-run\` with the options of the \`After the merge:\` command|run once with \`--dry-run\` and the options of the \`After the merge:\` command'"
+done
+for s in skills/ship skills-codex/ship; do
+  check "$s passes no --plan when the run executed none" \
+    "one_line $P/$s/WORKFLOW.md | grep -qF 'one \`--plan\` per plan this run executed (fix plans included; none when it executed none'"
+done
+for s in skills/multi-model skills-codex/multi-model skills/ship skills-codex/ship; do
+  check "$s runs the After the merge: command as written and reads all of its output" \
+    "one_line $P/$s/WORKFLOW.md | grep -qE 'Then run that command as written and read all of its output|as written, only its script path changed as above when needed, and read all of its output'"
+done
+for s in skills/multi-model skills-codex/multi-model; do
+  check "$s lets only the script path change, to the installed plugin's" \
+    "one_line $P/$s/WORKFLOW.md | grep -qF 'only its script path may change, to the same script of the installed plugin when the printed one no longer exists'"
+  check "$s passes no --plan when the run executed none" \
+    "one_line $P/$s/WORKFLOW.md | grep -qF 'one \`--plan\` per plan this run executed (fix plans included; none when it executed none)'"
+done
+check "the cleanup script runs without --plan, handling only --branch" \
+  "grep -qF 'without one (a run that executed no plan) only' $P/skills/multi-model/references/wave-cleanup.mjs"
+check "the cleanup script still needs --plan or --branch" \
+  "grep -qF 'one of --plan and --branch is required' $P/skills/multi-model/references/wave-cleanup.mjs"
+check "the cleanup script rejects a plan with no task" \
+  "grep -qF \"bad('no task in any wave')\" $P/skills/multi-model/references/wave-cleanup.mjs"
+check "README says the cleanup command is written out ready to run" \
+  "one_line README.md | grep -qF 'written out in the report as the cleanup script printed it, ready to run'"
+check "the cleanup script prints the ready command in a dry run" \
+  "grep -qF 'command: these options without --dry-run' $P/skills/multi-model/references/wave-cleanup.mjs"
 check "codex-wave-runner prints afterIntegration" "grep -qF afterIntegration $P/skills/multi-model/references/codex-wave-runner.mjs"
 check "claude-wave-runner prints afterIntegration" "grep -qF afterIntegration $P/skills/multi-model/references/claude-wave-runner.mjs"
 

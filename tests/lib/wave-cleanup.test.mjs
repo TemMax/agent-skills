@@ -806,7 +806,7 @@ test('a failing removal is kept with the error, the other tasks continue, exit 1
 test('--help prints the usage and exits 0', () => {
   const r = cleanup('--help')
   assert.equal(r.status, 0)
-  assert.match(r.stdout, /wave-cleanup\.mjs --repo <abs> --plan <file>/)
+  assert.match(r.stdout, /wave-cleanup\.mjs --repo <abs> \[--plan <file> \.\.\.\]/)
   assert.equal(r.stderr, '')
 })
 
@@ -826,13 +826,21 @@ test('every usage error exits 2 with one line on stderr and changes nothing', ()
   writeFileSync(badJson, '```json wave-plan\n{ "waves": [\n```\n')
   const noWaves = join(root, 'no-waves.md')
   writeFileSync(noWaves, '```json wave-plan\n{ "tasks": [] }\n```\n')
+  const noTasks = join(root, 'no-tasks.md')
+  writeFileSync(noTasks, '```json wave-plan\n{ "waves": [] }\n```\n')
+  const emptyWaves = join(root, 'empty-waves.md')
+  writeFileSync(emptyWaves, '```json wave-plan\n{ "waves": [{ "wave": 1, "tasks": [] }] }\n```\n')
   const badId = join(root, 'bad-id.md')
   writeFileSync(badId, '```json wave-plan\n{ "waves": [{ "wave": 1, "tasks": [{ "id": "../escape" }] }] }\n```\n')
   const before = snapshot(repo)
 
   const cases = {
     'missing --repo': ['--plan', plan],
-    'missing --plan': ['--repo', repo],
+    '--wave without --plan': ['--repo', repo, '--branch', 'x', '--wave', '1'],
+    'neither --plan nor --branch': ['--repo', repo],
+    'a plan with no waves': ['--repo', repo, '--plan', noTasks],
+    'a plan whose waves have no task': ['--repo', repo, '--plan', emptyWaves],
+    '--accepted without --plan': ['--repo', repo, '--branch', 'x', '--accepted', 'a'],
     'relative --repo': ['--repo', 'repo', '--plan', plan],
     '--repo below the top level': ['--repo', join(repo, 'sub'), '--plan', plan],
     '--repo outside any repository': ['--repo', notGit, '--plan', plan],
@@ -1529,4 +1537,259 @@ test('--records takes a --summary in other letter case as the directory it names
     assert.deepEqual(run.json.kept, [])
   }
   assert.equal(existsSync(join(repo, '.worktrees')), false)
+})
+
+// ---- the ready command a dry run prints ----
+//
+// A summary's `After the merge:` line carries this command as printed, so it
+// has to run as it is from any directory: the script's own path and every
+// path option absolute, every word quoted for a POSIX shell.
+
+function shellQuote(value) {
+  return /^[A-Za-z0-9_@%+=:,.\/-]+$/.test(value) ? value : "'" + value.replace(/'/g, "'\\''") + "'"
+}
+
+function readyCommand(...words) {
+  return ['node', realpathSync(SCRIPT), ...words].map(shellQuote).join(' ')
+}
+
+test('--dry-run also prints the same cleanup as a ready command: absolute paths, quoted, no --dry-run', () => {
+  const { root, repo, base, main } = makeRepo()
+  writePlan(root, "the plan's wave.md", [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  git(repo, 'branch', 'feature', base)
+  writeRecord(repo, 'runs', 'wave 1', ['a'], 'ok')
+  const before = snapshot(repo)
+
+  // --plan and --summary relative to the working directory
+  const r = spawnSync(process.execPath, [SCRIPT, '--dry-run', '--repo', repo, '--plan', join('..', "the plan's wave.md"),
+    '--into', main, '--records', '--summary', join('.worktrees', 'runs', 'wave 1', 'summary.json'),
+    '--branch', 'feature', '--accepted', 'a'], { encoding: 'utf8', cwd: repo })
+  assert.equal(r.status, 0, r.stderr)
+  const json = JSON.parse(r.stdout)
+  assert.equal(json.dryRun, true)
+  assert.equal(json.command, readyCommand('--repo', repo, '--plan', join(realpathSync(root), "the plan's wave.md"),
+    '--into', main, '--records', '--summary', join(realpathSync(repo), '.worktrees', 'runs', 'wave 1', 'summary.json'),
+    '--branch', 'feature', '--accepted', 'a'))
+  assert.match(json.command, /^node \//)
+  assert.match(json.command, /the plan'\\''s wave\.md'/)
+  assert.doesNotMatch(json.command, /--dry-run/)
+  assert.deepEqual(snapshot(repo), before)
+})
+
+test('the printed command keeps the options as given: every --plan, --wave, and no --into when none was given', () => {
+  const { root, repo, base } = makeRepo()
+  const one = writePlan(root, 'one.md', [[1, ['a']], [2, ['b']]])
+  const two = writePlan(root, 'two.md', [[1, ['c']]])
+  addTask(repo, 'a', base)
+
+  let r = cleanup('--repo', repo, '--plan', one, '--plan', two, '--dry-run')
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.json.command, readyCommand('--repo', repo, '--plan', realpathSync(one), '--plan', realpathSync(two)))
+
+  r = cleanup('--repo', repo, '--plan', one, '--wave', '2', '--dry-run')
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.json.command, readyCommand('--repo', repo, '--plan', realpathSync(one), '--wave', '2'))
+})
+
+test('the printed command runs from any directory and removes what the dry run listed; a real run prints none', () => {
+  const { root, repo, base, main } = makeRepo()
+  writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  git(repo, 'branch', 'feature', base)
+  const record = writeRecord(repo, 'runs', 'wave-1', ['a'], 'ok')
+
+  const dry = spawnSync(process.execPath, [SCRIPT, '--repo', repo, '--plan', 'plan.md', '--into', main, '--records',
+    '--summary', join('repo', '.worktrees', 'runs', 'wave-1', 'summary.json'), '--branch', 'feature', '--dry-run'],
+  { encoding: 'utf8', cwd: root })
+  assert.equal(dry.status, 0, dry.stderr)
+  const listed = JSON.parse(dry.stdout)
+  assert.equal(existsSync(record), true)
+
+  const elsewhere = mkdtempSync(join(tmpdir(), 'wave-cleanup-elsewhere-'))
+  roots.push(elsewhere)
+  const run = spawnSync('/bin/sh', ['-c', listed.command], {
+    encoding: 'utf8', cwd: elsewhere, env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH },
+  })
+  assert.equal(run.status, 0, run.stderr)
+  const done = JSON.parse(run.stdout)
+  assert.equal(done.dryRun, false)
+  assert.equal('command' in done, false)
+  assert.deepEqual(done.removed, listed.removed)
+  assert.deepEqual(done.kept, listed.kept)
+  assert.equal(existsSync(record), false)
+  assert.equal(branchExists(repo, 'feature'), false)
+})
+
+test('without --plan only --branch is handled: the integrated feature branch goes, the rest stays', () => {
+  const { root, repo, base } = makeRepo()
+  writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const record = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
+  git(repo, 'branch', 'feature', base)
+
+  const dry = cleanup('--repo', repo, '--branch', 'feature', '--records', '--dry-run')
+  assert.equal(dry.status, 0, dry.stderr)
+  assert.deepEqual(dry.json.removed, [{ kind: 'branch', branch: 'feature', tip: base }])
+  assert.deepEqual(entry(dry.json.kept, 'record', 'path', record),
+    { kind: 'record', path: record, reason: 'not a run record of the given plans' })
+  assert.equal(dry.json.command, readyCommand('--repo', repo, '--records', '--branch', 'feature'))
+
+  const r = cleanup('--repo', repo, '--branch', 'feature', '--records')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed, dry.json.removed)
+  assert.equal(branchExists(repo, 'feature'), false)
+  assert.equal(branchExists(repo, 'wave/a'), true)
+  assert.equal(existsSync(worktreePath(repo, 'a')), true)
+  assert.equal(existsSync(record), true)
+})
+
+test('the printed command names the script and each --plan and --summary where they really are', () => {
+  const { root, repo, base } = makeRepo()
+  const real = mkdtempSync(join(tmpdir(), 'wave-cleanup-real-'))
+  roots.push(real)
+  mkdirSync(join(real, 'deep'))
+  writePlan(real, 'plan.md', [[1, ['a']]])
+  symlinkSync(join(real, 'deep'), join(root, 'link'))
+  const linkedScript = join(root, 'wave-cleanup.mjs')
+  symlinkSync(SCRIPT, linkedScript)
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  writeRecord(repo, 'runs', 'wave-1', ['a'], 'ok')
+  symlinkSync(join(repo, '.worktrees', 'runs'), join(root, 'runs-link'))
+
+  // `link/..` is `real` to the kernel, `root` to a string join
+  const plan = root + '/link/../plan.md' // not join(), which would drop `link/..` as a string
+  const summary = join(root, 'runs-link', 'wave-1', 'summary.json')
+  const r = spawnSync(process.execPath, [linkedScript, '--repo', repo, '--plan', plan, '--records', '--summary', summary,
+    '--dry-run'], { encoding: 'utf8' })
+  assert.equal(r.status, 0, r.stderr)
+  const json = JSON.parse(r.stdout)
+  assert.equal(json.command, readyCommand('--repo', repo, '--plan', realpathSync(join(real, 'plan.md')), '--records',
+    '--summary', realpathSync(summary)))
+  const run = spawnSync('/bin/sh', ['-c', json.command], { encoding: 'utf8', cwd: tmpdir(),
+    env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH } })
+  assert.equal(run.status, 0, run.stderr)
+  assert.deepEqual(JSON.parse(run.stdout).removed, json.removed)
+})
+
+test('the printed command survives quotes, $ and spaces in every path when a shell runs it', () => {
+  const base0 = mkdtempSync(join(tmpdir(), 'wave cleanup $HOME "q" it\'s-'))
+  roots.push(base0)
+  const repo = join(base0, 'the repo')
+  mkdirSync(repo)
+  git(repo, 'init')
+  git(repo, 'config', 'user.name', 'Wave Cleanup Test')
+  git(repo, 'config', 'user.email', 'wave-cleanup-test@example.invalid')
+  git(repo, 'config', 'commit.gpgsign', 'false')
+  writeFileSync(join(repo, 'shared.txt'), 'one\n')
+  git(repo, 'add', '.')
+  git(repo, 'commit', '-m', 'base')
+  const base = git(repo, 'rev-parse', 'HEAD')
+  const plan = writePlan(base0, "a plan's $1 \"x\".md", [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const record = writeRecord(repo, 'runs', 'wave $2 "1"', ['a'], 'ok')
+  git(repo, 'branch', 'feature', base)
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--into', 'HEAD', '--records', '--summary', join(record, 'summary.json'),
+    '--branch', 'feature', '--dry-run')
+  assert.equal(dry.status, 0, dry.stderr)
+  const run = spawnSync('/bin/sh', ['-c', dry.json.command], { encoding: 'utf8', cwd: '/',
+    env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH } })
+  assert.equal(run.status, 0, run.stderr)
+  const done = JSON.parse(run.stdout)
+  assert.equal(done.dryRun, false)
+  assert.deepEqual(done.removed, dry.json.removed)
+  assert.deepEqual(done.kept, dry.json.kept)
+  assert.equal(existsSync(record), false)
+  assert.equal(branchExists(repo, 'feature'), false)
+})
+
+test('a --summary through a link and `..` is read, listed and printed as the same record', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const record = writeRecord(repo, join('runs', 'b'), 'a', ['a'], 'ok') // .worktrees/runs/b/a
+  mkdirSync(join(repo, '.worktrees', 'runs', 'b', 'c'))
+  symlinkSync(join(repo, '.worktrees', 'runs', 'b', 'c'), join(repo, '.worktrees', 'runs', 'lnk'))
+  // `lnk/..` is .worktrees/runs/b to the kernel, .worktrees/runs to a string join
+  const summary = repo + '/.worktrees/runs/lnk/../a/summary.json'
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', summary, '--dry-run')
+  assert.equal(dry.status, 0, dry.stderr)
+  assert.deepEqual(dry.json.removed.filter((item) => item.kind === 'record'), [{ kind: 'record', path: record }])
+  assert.match(dry.json.command, /--summary \S*\/runs\/b\/a\/summary\.json/)
+  const run = spawnSync('/bin/sh', ['-c', dry.json.command], { encoding: 'utf8', cwd: tmpdir(),
+    env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH } })
+  assert.equal(run.status, 0, run.stderr)
+  const done = JSON.parse(run.stdout)
+  assert.deepEqual(done.removed, dry.json.removed)
+  assert.deepEqual(done.kept, dry.json.kept)
+  assert.equal(existsSync(record), false)
+})
+
+test('a --summary that is itself a link is decided the same in the dry run and by the printed command', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const target = writeRecord(repo, 'runs', 'w2', ['a'], 'ok')
+  const named = join(repo, '.worktrees', 'runs', 'w1')
+  mkdirSync(named)
+  symlinkSync(join(target, 'summary.json'), join(named, 'summary.json'))
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', join(named, 'summary.json'), '--dry-run')
+  assert.equal(dry.status, 0, dry.stderr)
+  // the link's own directory is the named record; the file name is not resolved
+  assert.match(dry.json.command, /--summary \S*\/runs\/w1\/summary\.json/)
+  assert.deepEqual(entry(dry.json.kept, 'record', 'path', named),
+    { kind: 'record', path: named, reason: 'not a run record of the given plans' })
+  const run = spawnSync('/bin/sh', ['-c', dry.json.command], { encoding: 'utf8', cwd: tmpdir(),
+    env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH } })
+  assert.equal(run.status, 0, run.stderr)
+  const done = JSON.parse(run.stdout)
+  assert.deepEqual(done.removed, dry.json.removed)
+  assert.deepEqual(done.kept, dry.json.kept)
+  assert.equal(existsSync(join(named, 'summary.json')), true)
+  assert.equal(existsSync(join(target, 'summary.json')), true)
+})
+
+test('a --summary whose directory is gone through a link and `..` is skipped, never read as another record', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const other = writeRecord(repo, 'runs', 'a', ['a'], 'ok') // .worktrees/runs/a, not the named one
+  mkdirSync(join(repo, '.worktrees', 'runs', 'b', 'c'), { recursive: true })
+  symlinkSync(join(repo, '.worktrees', 'runs', 'b', 'c'), join(repo, '.worktrees', 'runs', 'lnk'))
+  // the kernel's .worktrees/runs/b/a is gone; a string join would name .worktrees/runs/a
+  const summary = repo + '/.worktrees/runs/lnk/../a/summary.json'
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', summary, '--dry-run')
+  assert.equal(dry.status, 0, dry.stderr)
+  assert.equal(dry.stderr, 'wave-cleanup: skipped --summary ' + summary + ': its directory does not exist\n')
+  assert.equal(entry(dry.json.removed, 'record', 'path', other), undefined)
+  assert.match(dry.json.command, /--summary \S*\/runs\/lnk\/\.\.\/a\/summary\.json/)
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', summary)
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(existsSync(other), true)
+})
+
+test('a --plan the file system cannot find is not read as another file a string join would name', () => {
+  const { root, repo, base } = makeRepo()
+  writePlan(root, 'plan.md', [[1, ['a']]]) // root/plan.md exists
+  const real = mkdtempSync(join(tmpdir(), 'wave-cleanup-real-'))
+  roots.push(real)
+  mkdirSync(join(real, 'deep'))
+  symlinkSync(join(real, 'deep'), join(root, 'link'))
+  addTask(repo, 'a', base)
+  // to the kernel this is real/plan.md, which does not exist
+  const r = cleanup('--repo', repo, '--plan', root + '/link/../plan.md', '--dry-run')
+  assert.equal(r.status, 2, r.stdout)
+  assert.match(r.stderr, /^wave-cleanup: cannot read plan /)
 })

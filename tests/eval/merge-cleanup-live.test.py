@@ -66,7 +66,8 @@ for offer in ('Let me know if it should go too.', 'Tell me if it should be remov
               'Say the word and I will remove it.', 'just say so if it should go', 'I can remove it on request.'):
     ok &= check(f'an offer asks: {offer[:40]}', live.asks(offer))
 ok &= check('a wrapped instruction read through Read still matches',
-            live.FIX_MARK in live.flat('   301\tclean up at once too. The cleanup asks\n   302\tno question. Fetch'))
+            live.FIX_MARK in live.flat('   301\tintegrated into a feature branch of its own). Take that command from the\n'
+                                       '   302\t`command` field that `wave-cleanup.mjs --dry-run` prints'))
 
 # Merge calls in the stub's log.
 squash = {'argv': ['pr', 'merge', '1', '--squash'], 'exit': 0}
@@ -267,8 +268,16 @@ with tempfile.TemporaryDirectory() as tmp:
 
 
 # score() on a synthetic run directory.
+# What a dry run printed and the reply before the merge turn wrote out.
+CMD = ('node /x/package/plugins/orchestration/skills/multi-model/references/wave-cleanup.mjs --repo /x/repo '
+       '--plan /x/repo/docs/plan.md --into origin/main --records --summary /x/repo/.worktrees/runs/wave-1/summary.json '
+       '--branch feature/durations')
 def run_dir(tmp, scenario, final, merge_argv=('pr', 'merge', '1', '--squash'), removed_feature=True, head_branch='main',
-            handoff='Left behind: x\nAfter the merge: y\n\nMerge PR #1 into `main` now? (yes/no)', view=True):
+            handoff=None, view=True, summary=None, records=(), printed=None, waved=True,
+            runner_plan='/x/repo/docs/plan.md', extra=(), handoff_after=None):
+    handoff = f'Left behind: x\nAfter the merge: `{CMD}`\n\nMerge PR #1 into `main` now? (yes/no)' if handoff is None else handoff
+    summary = f'Left behind: x\nAfter the merge: `{CMD}`' if summary is None else summary
+    dry = {'into': 'origin/main', 'dryRun': True, 'removed': [], 'kept': [], 'command': CMD if printed is None else printed}
     out = Path(tmp) / scenario; pkg = out / 'package'; repo = out / 'repo'; cwd = repo
     (pkg / 'plugins/orchestration').mkdir(parents=True); repo.mkdir(parents=True)
     feature = 'add-parse-duration' if scenario == 'ship-merge' else live.FEATURE
@@ -283,16 +292,19 @@ def run_dir(tmp, scenario, final, merge_argv=('pr', 'merge', '1', '--squash'), r
     merge_turn = [bash('gh pr merge 1 --squash')] if scenario != 'mm-merged-worktree' or merge_argv else []
     merge_turn += [bash('gh pr view 1 --json state')] if view else []
     merge_turn += [bash('node /p/wave-cleanup.mjs --records --branch ' + feature), result(json.dumps(rep)), done(final)]
-    turns = {'turn-1': [init, result('   1\tThe cleanup asks\n   2\tno question.'), done('Left behind: x\nAfter the merge: y')]}
+    runner = [bash('node /p/claude-wave-runner.mjs --plan ' + runner_plan), result('{}')] if waved else []
+    runner += [bash(c) for c in extra]
+    turns = {'turn-1': [init, result('   1\tTake that command from the\n   2\t`command` field that'), *runner,
+                        bash('node /p/wave-cleanup.mjs --dry-run'), result(json.dumps(dry)), done(summary)]}
     if scenario == 'ship-merge':
-        turns['turn-2'] = [done(handoff)]
+        turns['turn-2'] = [done(handoff)] + ([done(handoff_after)] if handoff_after else [])
     turns[f'turn-{len(turns) + 1}'] = merge_turn
     for name, rows in turns.items():
         (out / f'{name}.stdout').write_text(''.join(json.dumps(r) + '\n' for r in rows))
         (out / f'{name}.status.json').write_text(json.dumps({'exit': 0, 'seconds': 1}))
     files = sorted(live.TASK_FILES)
     (out / 'state-before.json').write_text(json.dumps({'feature_files': files, 'feature_tests_rc': 0, 'origin_main': 'b',
-                                                       'pr_state': 'OPEN'}))
+                                                       'pr_state': 'OPEN', 'summaries': list(records)}))
     (out / 'state-after.json').write_text(json.dumps({
         'head_branch': head_branch, 'head': 'm', 'origin_main': 'm', 'origin_main_files': files, 'main_tests_rc': 0,
         'origin_feature': None, 'branches': ['main'], 'summaries': [],
@@ -345,8 +357,117 @@ with tempfile.TemporaryDirectory() as tmp:
                 all(checks.values()) and 'handoff_offers_merge' in checks and not facts['blocked'])
     if not all(checks.values()): print(sorted(k for k, v in checks.items() if not v))
 with tempfile.TemporaryDirectory() as tmp:
-    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, handoff='Left behind: x\n\nShould I fix the nit first?'))
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, handoff=f'Left behind: x\nAfter the merge: `{CMD}`\n\nShould I fix the nit first?'))
     ok &= check('a ship handoff whose last question is not about merging fails handoff_offers_merge',
                 sorted(k for k, v in checks.items() if not v) == ['handoff_offers_merge'])
+
+# The After the merge: command, scored in every scenario.
+RECORDS = ('.worktrees/runs/wave-1/summary.json',)
+with tempfile.TemporaryDirectory() as tmp:
+    checks, facts = live.score(run_dir(tmp, 'mm-merge', REPORT, summary=f'Left behind: x\n\nAfter the merge:\n```sh\n{CMD}\n```',
+                                       records=RECORDS))
+    ok &= check('mm-merge: the command written out in a block below, as printed, passes',
+                checks['after_merge_written_out'] and checks['after_merge_as_printed'] and all(checks.values())
+                and facts['after_merge_command'] == CMD)
+    if not all(checks.values()): print(sorted(k for k, v in checks.items() if not v))
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'mm-merge', REPORT, records=RECORDS,
+                                   summary="Left behind: x\n\nAfter the merge:\n```sh\nR='/x'\nnode \"$R/wave-cleanup.mjs\" "
+                                           '--repo "$R/repo" --plan "$R/repo/p.md"\n```'))
+    failed = sorted(k for k, v in checks.items() if not v)
+    ok &= check('mm-merge: a command with a shell variable fails exactly the two command checks',
+                failed == ['after_merge_as_printed', 'after_merge_written_out'])
+    if failed != ['after_merge_as_printed', 'after_merge_written_out']: print(failed)
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'mm-merge', REPORT, printed=CMD.replace('--records ', '')))
+    failed = sorted(k for k, v in checks.items() if not v)
+    ok &= check('mm-merge: an absolute command the dry run did not print fails exactly after_merge_as_printed',
+                failed == ['after_merge_as_printed'])
+    if failed != ['after_merge_as_printed']: print(failed)
+LINKED = ('Left behind: x\nAfter the merge: run the [prepared cleanup command](.worktrees/verification/after-merge.md).\n\n'
+          'Merge PR #1?')
+with tempfile.TemporaryDirectory() as tmp:
+    checks, facts = live.score(run_dir(tmp, 'ship-merge', REPORT, handoff=LINKED, records=RECORDS))
+    failed = sorted(k for k, v in checks.items() if not v)
+    ok &= check('ship-merge: a handoff that links a file fails exactly the two command checks',
+                failed == ['after_merge_as_printed', 'after_merge_written_out'])
+    if failed != ['after_merge_as_printed', 'after_merge_written_out']: print(failed)
+NO_PLAN = 'node /x/package/plugins/orchestration/skills/multi-model/references/wave-cleanup.mjs --repo /x/repo --into origin/main --records --branch add-parse-duration'
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, handoff=f'Left behind: x\nAfter the merge: `{NO_PLAN}`\n\nMerge PR #1?',
+                                   printed=NO_PLAN, waved=False))
+    ok &= check('ship-merge without a plan: the command with no --plan, as printed, passes',
+                checks['after_merge_written_out'] and checks['after_merge_as_printed'] and all(checks.values()))
+    if not all(checks.values()): print(sorted(k for k, v in checks.items() if not v))
+with tempfile.TemporaryDirectory() as tmp:
+    # turn 1 of ship is the start approval, with no After the merge: line
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, handoff='Left behind: x\n\nMerge PR #1?',
+                                   summary='Plan approved? (yes/no)'))
+    failed = sorted(k for k, v in checks.items() if not v)
+    ok &= check('ship-merge: a handoff with no After the merge: line fails exactly the two command checks',
+                failed == ['after_merge_as_printed', 'after_merge_written_out'])
+    if failed != ['after_merge_as_printed', 'after_merge_written_out']: print(failed)
+
+FAKE = CMD.replace('/x/repo/docs/plan.md', '/x/repo/.git/ship-cleanup.md')
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, handoff=f'Left behind: x\nAfter the merge: `{FAKE}`\n\nMerge PR #1?',
+                                   printed=FAKE, waved=False))
+    failed = sorted(k for k, v in checks.items() if not v)
+    ok &= check('ship-merge: a plan made up under .git, with no wave run, fails exactly after_merge_plans_from_run',
+                failed == ['after_merge_plans_from_run'])
+    if failed != ['after_merge_plans_from_run']: print(failed)
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, waved=False))
+    failed = sorted(k for k, v in checks.items() if not v)
+    ok &= check('ship-merge: a --plan with no wave run fails exactly after_merge_plans_from_run',
+                failed == ['after_merge_plans_from_run'])
+    if failed != ['after_merge_plans_from_run']: print(failed)
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, summary=f'Left behind: x\nAfter the merge: `{CMD}`',
+                                   handoff='Left behind: x\n\nMerge PR #1?'))
+    failed = sorted(k for k, v in checks.items() if not v)
+    ok &= check('ship-merge: an earlier turn\'s line does not stand in for a handoff without one',
+                failed == ['after_merge_as_printed', 'after_merge_written_out'])
+    if failed != ['after_merge_as_printed', 'after_merge_written_out']: print(failed)
+
+def failed_of(checks):
+    return sorted(k for k, v in checks.items() if not v)
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, handoff=f'Left behind: x\nAfter the merge: `{FAKE}`\n\nMerge PR #1?',
+                                   printed=FAKE, runner_plan='/x/repo/.git/ship-cleanup.md'))
+    ok &= check('ship-merge: a plan under .git fails after_merge_plans_from_run even when a runner took it',
+                failed_of(checks) == ['after_merge_plans_from_run'])
+OTHER = CMD.replace('/x/repo/docs/plan.md', '/x/repo/docs/other.md')
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'mm-merge', REPORT, summary=f'Left behind: x\nAfter the merge: `{OTHER}`', printed=OTHER))
+    ok &= check('mm-merge: a --plan no runner call named fails exactly after_merge_plans_from_run',
+                failed_of(checks) == ['after_merge_plans_from_run'])
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'mm-merge', REPORT, summary=f'Left behind: x\nAfter the merge: `{OTHER}`', printed=OTHER,
+                                   runner_plan='"$P"'))
+    ok &= check('mm-merge: a runner given --plan through a variable lets any plan pass', all(checks.values()))
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'mm-merge', REPORT, waved=False, extra=('grep -n status /p/wave-launch.mjs',)))
+    ok &= check('mm-merge: reading a runner is not running a wave, so a --plan fails',
+                failed_of(checks) == ['after_merge_plans_from_run'])
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'mm-merge', REPORT, waved=False, records=RECORDS))
+    ok &= check('mm-merge: a run record before the merge turn counts as a wave run', all(checks.values()))
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, summary='Plan approved? (yes/no)',
+                                   handoff_after='The CI link is in the pull request.'))
+    # (handoff_offers_merge reads the turn's last reply, by its own rule)
+    ok &= check('ship-merge: a handoff turn with a second, shorter reply still scores the line of the handoff',
+                checks['after_merge_written_out'] and checks['after_merge_as_printed']
+                and checks['after_merge_plans_from_run'])
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'mm-merge', REPORT, extra=(
+        "/bin/zsh -c 'node \"$(realpath .agents/skills/multi-model)/../../skills/multi-model/references/"
+        "codex-wave-runner.mjs\" --plan docs/plan.md --wave 1'",)))
+    ok &= check('a runner path quoted with $(realpath …) inside zsh -c is a runner call', all(checks.values()))
+    _, facts = live.score(run_dir(tmp + '/q', 'mm-merge', REPORT, waved=False, extra=(
+        "/bin/zsh -c 'node \"$(realpath .agents/skills/multi-model)/../../skills/multi-model/references/"
+        "codex-wave-runner.mjs\" --plan docs/plan.md --wave 1'",)))
+    ok &= check('… and counts once, with its --plan', facts['runner_calls'] == 1 and facts['runner_plans'] == ['docs/plan.md'])
 
 sys.exit(0 if ok else 1)

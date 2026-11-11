@@ -23,6 +23,8 @@ credentials are removed from the environment, and `origin` is local.
 The cleanup is judged by what wave-cleanup.mjs itself reported in the
 session's tool output (its JSON `removed` list), not by the command text: only
 the candidate script can remove a record outside the default directories.
+The turn-1 reply's `After the merge:` line must hold the cleanup command
+itself, written out, word for word as a `--dry-run` report printed it.
 Expectations are frozen in expected.json before the host starts. The state
 after each turn is saved to state-1.json and state-2.json. checks.json is
 computed from those files and the traces; `--score DIR` recomputes it.
@@ -33,6 +35,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import uuid
@@ -54,10 +57,21 @@ seat = load('seat_live', 'fable-seat-live.py')
 OUT_REL = '.worktrees/runs/wave-1'
 RECORD = OUT_REL + '/summary.json'
 FEATURE = 'feature/durations'
-FIX_MARK = 'given an `--out` under `.worktrees/`'
+FIX_MARK = 'Take that command from the `command` field that'
 SEAT = {'claude': 'claude-fable-5-2', 'codex': 'gpt-6.1-sol'}
 SCRIPTS = ('wave-cleanup.mjs', 'claude-wave-runner.mjs', 'codex-wave-runner.mjs', 'wave-launch.mjs')
 PROMPT_2 = f'`{FEATURE}` is merged into `main` on `origin`.\n'
+# The frozen wording of the two After the merge: checks, shared with
+# merge-cleanup-live.py.
+AFTER_MERGE_WRITTEN_OUT = ("{reply}: an After the merge: line holds the cleanup command itself — in an inline "
+                           "code span of that line naming wave-cleanup.mjs, in the rest of the line, or in a logical "
+                           "line of the code block right below it, from node on; any such line of the reply counts: "
+                           "the cleanup script and every --repo, --plan and --summary path absolute, --repo present, "
+                           "no --dry-run or --help, and no $ or backtick the shell would expand (outside single quotes "
+                           "and not escaped: no shell variable or command substitution); block lines starting with # "
+                           "and trailing # comments are not part of a command; a link or a file in its place fails")
+AFTER_MERGE_AS_PRINTED = ("a command on that line is, word for word (shell words), the command field of a "
+                          "wave-cleanup.mjs --dry-run report in {turn}")
 # Removing by hand what the cleanup script owns: .worktrees itself, a run
 # record, a task worktree, the state or log directories. A scratch checkout
 # the session made and removed itself is not counted.
@@ -248,6 +262,104 @@ def handoff(text):
     return left_text, cmd
 
 
+def after_merge_commands(text):
+    """Every command an `After the merge:` line carries, from `node` on, in
+    order: in each inline code span of the line that names the script, in the
+    rest of the line, and in each logical line (backslash continuations
+    joined) of the code block right below it. Every such line of the reply
+    counts, so prose that starts with "After the merge" does not hide the real
+    one."""
+    found = []
+    for m in re.finditer(MARK.format('after the merge'), text):
+        line, _, below = text[m.end():].partition('\n')
+        parts = [s for s in re.findall(r'`([^`\n]+)`', line) if 'wave-cleanup.mjs' in s] + [line]
+        block = re.match(r'(?:[ \t]*\n)?[ \t]*(`{3,}|~{3,})[^\n]*\n(.*?)\n[ \t]*\1', below, re.S)
+        if block:
+            parts += [p for p in re.split(r'(?<!\\)\n', block.group(2)) if not p.lstrip().startswith('#')]
+        for part in parts:
+            for node in re.finditer(r'(?<![\w/.-])node\s', part):
+                cmd = part[node.start():].strip()
+                if 'wave-cleanup.mjs' in cmd and cmd not in found:
+                    found.append(cmd)
+    return found
+
+
+def strip_comment(cmd):
+    """The command up to a `#` that starts a word outside quotes, as a POSIX
+    shell reads a comment; a `#` inside a word is part of it."""
+    single = double = escaped = False
+    prev = ' '
+    for i, ch in enumerate(cmd):
+        if escaped:
+            escaped = False
+        elif ch == '\\' and not single:
+            escaped = True
+        elif ch == "'" and not double:
+            single = not single
+        elif ch == '"' and not single:
+            double = not double
+        elif ch == '#' and not single and not double and prev.isspace():
+            return cmd[:i].rstrip()
+        prev = ch
+    return cmd
+
+
+def command_words(cmd):
+    try:
+        return shlex.split(strip_comment(cmd.replace('\\\n', ' ')))
+    except ValueError:
+        return None
+
+
+def expands(cmd):
+    """A `$` or a backtick the shell would expand: outside single quotes and
+    not escaped, before any comment."""
+    single = double = escaped = False
+    for ch in strip_comment(cmd.replace('\\\n', ' ')):
+        if escaped:
+            escaped = False
+        elif ch == '\\' and not single:
+            escaped = True
+        elif ch == "'" and not double:
+            single = not single
+        elif ch == '"' and not single:
+            double = not double
+        elif ch in '$`' and not single:
+            return True
+    return False
+
+
+def written_out(cmd):
+    """The command is the cleanup itself and runs as it is from any directory:
+    `node`, the cleanup script and every --repo, --plan and --summary path
+    absolute, --repo present, no --dry-run or --help, and nothing the shell
+    would expand (a variable or a command substitution)."""
+    words = command_words(cmd) if cmd and not expands(cmd) else None
+    if not words or len(words) < 2 or words[0] != 'node' or not words[1].startswith('/') \
+            or not words[1].endswith('/wave-cleanup.mjs') or '--repo' not in words \
+            or '--dry-run' in words or '--help' in words:
+        return False
+    values = [words[i + 1] if i + 1 < len(words) else '' for i, w in enumerate(words) if w in ('--repo', '--plan', '--summary')]
+    return all(v.startswith('/') for v in values)
+
+
+def printed_commands(rows):
+    return [command_words(r['command']) for r in reports(rows)
+            if r.get('dryRun') is True and isinstance(r.get('command'), str)]
+
+
+def after_merge_written(text):
+    """The first command on an `After the merge:` line that is written out, or ''."""
+    return next((c for c in after_merge_commands(text) if written_out(c)), '')
+
+
+def as_printed(text, rows):
+    """A command on an `After the merge:` line is, word for word, the `command`
+    a dry run printed in these rows."""
+    printed = [w for w in printed_commands(rows) if w]
+    return any(command_words(c) in printed for c in after_merge_commands(text))
+
+
 def summary_args(cmd):
     return [t.strip('\'"') for t in re.findall(r'--summary(?:=|\s+)(\S+)', cmd.replace('\\\n', ' '))]
 
@@ -331,7 +443,11 @@ def score(out):
               for k in (1, 2) if (out / f'turn-{k}.status.json').exists()}
     c1, c2 = commands(rows1), commands(rows2)
     r1, r2 = reports(rows1), reports(rows2)
-    left, after = handoff(handoff_reply(rows1))
+    turn_1 = handoff_reply(rows1)
+    left, after = handoff(turn_1)
+    # The record and the options are read from the command written out, or
+    # from the first command the line carries.
+    after = after_merge_written(turn_1) or next(iter(after_merge_commands(turn_1)), after)
     if provider == 'claude':
         plugin = next((p for p in init_plugins(rows1) if p.get('name') == 'orchestration'), {})
         loaded = plugin.get('path') == str(pkg / 'plugins/orchestration') and plugin.get('version') == meta['versions']['orchestration']
@@ -349,6 +465,8 @@ def score(out):
         'dry_run_lists_record': any(r['dryRun'] is True and removes_record(r) for r in r1),
         'left_behind_names_record': 'runs/wave-1' in left,
         'after_merge_names_record': '--records' in after and names_record(after),
+        'after_merge_written_out': bool(after_merge_written(turn_1)),
+        'after_merge_as_printed': as_printed(turn_1, rows1),
         'turn_2_complete': complete(rows2, status.get(2)),
         'cleanup_removed_record': any(r['dryRun'] is False and removes_record(r) for r in r2),
         'record_removed': s2.get('record_dir_exists') is False,
@@ -359,6 +477,8 @@ def score(out):
     }
     facts = {'script_paths': script_paths(c1 + c2), 'reports_turn_1': r1, 'reports_turn_2': r2,
              'after_merge_command': after, 'after_merge_absolute_summary': [t.startswith('/') for t in summary_args(after)],
+             'after_merge_written': after_merge_written(turn_1), 'after_merge_commands': after_merge_commands(turn_1),
+             'printed_commands': [' '.join(w) for w in printed_commands(rows1) if w],
              'after_merge_branch': f'--branch {FEATURE}' in after, 'after_merge_into': '--into origin/main' in after,
              'removals_by_hand': [c for c in c1 + c2 if MANUAL.search(c)],
              'left_behind': left.strip(), 'reply_2': reply(rows2),
@@ -434,7 +554,7 @@ def main():
         'provider': args.provider, 'seat_model': model, 'effort': args.effort, 'wave_by': args.wave_by,
         'candidate_loaded': 'claude: the init event lists the snapshot plugin and version; codex: the '
                             'workspace skill resolves into the snapshot',
-        'instruction_read': 'a turn-1 tool output carries the new --summary instruction text',
+        'instruction_read': f'a turn-1 tool output carries the new After the merge: instruction text ({FIX_MARK!r})',
         'turn_1_complete': True,
         'record_under_out': RECORD + ' exists after turn 1',
         'wave_accepted': 'the runner summary is accepted (claude: done; codex: merge-ready)',
@@ -442,6 +562,8 @@ def main():
         'dry_run_lists_record': "a turn-1 wave-cleanup.mjs report with dryRun true lists the record under removed",
         'left_behind_names_record': 'the Left behind: paragraph names runs/wave-1',
         'after_merge_names_record': 'the After the merge: command carries --records and --summary <record>',
+        'after_merge_written_out': AFTER_MERGE_WRITTEN_OUT.format(reply="the turn-1 reply"),
+        'after_merge_as_printed': AFTER_MERGE_AS_PRINTED.format(turn='turn 1'),
         'turn_2_complete': True,
         'cleanup_removed_record': "a turn-2 wave-cleanup.mjs report with dryRun false lists the record under removed",
         'record_removed': OUT_REL + ' is gone after turn 2',

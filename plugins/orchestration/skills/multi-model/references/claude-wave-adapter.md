@@ -169,17 +169,22 @@ reports use different recovery semantics.
      accepted.
      End the completion summary with a `Left behind:` line: every branch,
      worktree, run record and temporary directory this run created that still
-     exists, taken from `wave-cleanup.mjs --dry-run --records` with
-     `--summary <out>/summary.json` for each runner
-     given an `--out` under `.worktrees/` other than `.worktrees/claude-runner/`
-     and `.worktrees/codex-runner/` that wrote one, plus any runner `--out`
-     outside `.worktrees/` and any scratch directory you created outside the
-     repository, or `Left behind: nothing`. Whenever something is left behind,
-     also add an `After the merge:` line with the ready command:
-     `wave-cleanup.mjs` with absolute paths, `--repo <repo>`, one `--plan` per
-     plan this run executed, `--into origin/<default branch>`, `--records`, the
-     same `--summary` options, and `--branch <feature branch>` when the wave was
-     integrated into a feature branch of its own. These two lines are required
+     exists, taken from one `wave-cleanup.mjs --dry-run` with the options of the
+     `After the merge:` command below (they include `--records` and
+     `--summary <out>/summary.json` for each runner given an `--out` under
+     `.worktrees/` other than `.worktrees/claude-runner/` and
+     `.worktrees/codex-runner/` that wrote one), plus any runner `--out` outside
+     `.worktrees/` and any scratch directory you created outside the repository,
+     or `Left behind: nothing`. Whenever something is left behind, also add an
+     `After the merge:` line with the ready command: `wave-cleanup.mjs` with
+     absolute paths, `--repo <repo>`, one `--plan` per plan this run executed,
+     `--into origin/<default branch>`, `--records`, the same `--summary`
+     options, and `--branch <feature branch>` when the wave was integrated into
+     a feature branch of its own. Take that command from the `command` field
+     that this dry run printed, and write out its value as printed, on that line
+     or in a code block right below it — never a link, a file to open, a shell
+     variable or a path relative to the current directory. These two lines are
+     required
      even when the request asks for a short final message or a fixed last line:
      put them before that line.
    - `contract-unsatisfiable` — run the amendment flow (multi-model WORKFLOW.md → Escalation ladder → `references/contract-amendment.md`) (one amendment

@@ -381,7 +381,8 @@ runner runs that check outside the sandbox and the wave goes on; it stops for
 the environment only when the machine itself is broken.
 After each wave the orchestrator removes the merged tasks' worktrees and
 `wave/<id>` branches; the final report lists what is left under `Left behind:`
-together with the command to clean up after the merge. Ask it to merge the
+together with the command to clean up after the merge, written out in the
+report as the cleanup script printed it, ready to run. Ask it to merge the
 pull request, or tell it you merged it yourself: once it has confirmed the
 merge, it moves the checkout to the default branch, removes the run records
 and deletes the feature branch, locally and on the remote — only what the run
@@ -421,7 +422,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.23.0, code-review 1.21.0):
+orchestration 4.23.1, code-review 1.21.0):
 
 | Before | After |
 |---|---|
