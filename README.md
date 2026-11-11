@@ -382,8 +382,8 @@ the environment only when the machine itself is broken.
 After each wave the orchestrator removes the merged tasks' worktrees and
 `wave/<id>` branches; the final report lists what is left under `Left behind:`
 together with the command to clean up after the merge. Ask it to merge the
-pull request, or tell it you merged it yourself: once the pull request shows as
-merged, it moves the checkout to the default branch, removes the run records
+pull request, or tell it you merged it yourself: once it has confirmed the
+merge, it moves the checkout to the default branch, removes the run records
 and deletes the feature branch, locally and on the remote — only what the run
 created, clean and already merged — and asks nothing; whatever stays is listed
 with the reason.

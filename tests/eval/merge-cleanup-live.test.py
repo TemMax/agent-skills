@@ -117,6 +117,26 @@ ok &= check('looking at the script before the merge is not the cleanup',
 ok &= check('the pulls API confirms too (merged by the user)',
             live.confirmed_before_cleanup(st('gh api repos/o/r/pulls/1 --jq .merged', 'node wave-cleanup.mjs'),
                                           [{'argv': ['api', 'repos/o/r/pulls/1', '--jq', '.merged'], 'exit': 0}]))
+ok &= check('a fetch and then a git check against origin/main confirms without gh',
+            live.confirmed_before_cleanup(st('git fetch --prune origin 2>&1 | tail -5; git merge-base --is-ancestor '
+                                             'feature/x origin/main || git diff --stat feature/x origin/main',
+                                             'git switch --detach origin/main; node /p/wave-cleanup.mjs --records'), [])
+            and live.confirmed_before_cleanup(st('gh pr merge 1 --squash', 'git -C /r fetch -q && git -C /r log '
+                                                 '--oneline -3 origin/main', 'node wave-cleanup.mjs'), [merge_ok]))
+ok &= check('a git check without a fetch, or before it, does not confirm',
+            not live.confirmed_before_cleanup(st('git diff --stat feature/x origin/main', 'node wave-cleanup.mjs'), [])
+            and not live.confirmed_before_cleanup(st('git log origin/main -3', 'git fetch', 'node wave-cleanup.mjs'), []))
+ok &= check('a fetch and git check before the merge, or git that does not read origin/main, do not confirm',
+            not live.confirmed_before_cleanup(st('git fetch; git log --oneline origin/main', 'gh pr merge 1 --squash',
+                                                 'node wave-cleanup.mjs'), [merge_ok])
+            and not live.confirmed_before_cleanup(st('gh pr merge 1 --squash', 'git fetch --prune; git log --oneline '
+                                                     '-3; git rev-parse origin/main; git merge --ff-only origin/main',
+                                                     'node wave-cleanup.mjs'), [merge_ok]))
+ok &= check('a git check named in an echo or found after the cleanup does not confirm',
+            not live.confirmed_before_cleanup(st('git fetch', 'echo "git diff feature/x origin/main"',
+                                                 'node wave-cleanup.mjs'), [])
+            and not live.confirmed_before_cleanup(st('git fetch', 'node wave-cleanup.mjs',
+                                                     'git diff feature/x origin/main'), []))
 
 # The fixture boundary.
 codex_cmd = lambda c, o: {'type': 'item.completed', 'item': {'type': 'command_execution', 'command': c,

@@ -300,24 +300,23 @@ reviews, and never by a push to the default branch; with no pull request, open
 one first or report why not. Wait for running checks; on a failed check or a
 refused merge, report it and stop. Before any cleanup — after this merge, or
 when the user says they merged it themselves — confirm the merge:
-`gh pr view <number> --json state` shows `MERGED`, or, with no pull request
-this session can view, `origin/<default branch>` after a fetch contains the
-feature branch or its squashed change. Anything else — a queued or auto-merge
-pull request included — is reported as not merged yet, and the run stops there.
-Then clean up at once. The cleanup asks no question. Run `git fetch --prune`;
-when the checkout this run works in (the `--repo` of `After the merge:`) is on
-the feature branch, switch it to the default branch and fast-forward it. When
-the switch is refused because that branch is checked out in another worktree,
-detach the checkout at `origin/<default branch>` instead; when the switch is
-refused for another reason, or the fast-forward is refused, leave the checkout
-as it is, never stash, and say why. Then run the `After the merge:` command of
-the report: the cleanup script with `--repo <repo>`, one `--plan` per plan this
-run executed (fix plans included), `--into origin/<default branch>`,
-`--records`, the same `--summary` options and `--branch <feature branch>`.
-Local branches go only through that script. Delete the remote feature branch
-only if the script reported the local feature branch removed and
-`git ls-remote --heads origin <feature branch>` shows the `tip` it printed.
-Remove temporary directories this run created outside the repository.
+`gh pr view <number> --json state` shows `MERGED`, or `origin/<default branch>`
+after a fetch contains the feature branch or its squashed change. Anything else
+— a queued or auto-merge pull request included — is reported as not merged yet,
+and the run stops there. Then clean up at once. The cleanup asks no question.
+Run `git fetch --prune`; when the checkout this run works in (the `--repo` of
+`After the merge:`) is on the feature branch, switch it to the default branch
+and fast-forward it. When the switch is refused because that branch is checked
+out in another worktree, detach the checkout at `origin/<default branch>`
+instead; when the switch is refused for another reason, or the fast-forward is
+refused, leave the checkout as it is, never stash, and say why. Then run the
+`After the merge:` command of the report: the cleanup script with
+`--repo <repo>`, one `--plan` per plan this run executed (fix plans included),
+`--into origin/<default branch>`, `--records`, the same `--summary` options and
+`--branch <feature branch>`. Local branches go only through that script. Delete
+the remote feature branch only if the script reported the local feature branch
+removed and `git ls-remote --heads origin <feature branch>` shows the `tip` it
+printed. Remove temporary directories this run created outside the repository.
 Everything the script kept, and anything this run did not create, is named in
 the report with the reason it stayed — never deleted, and never turned into a
 question.

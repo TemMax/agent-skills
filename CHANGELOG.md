@@ -37,8 +37,8 @@ a push to the default branch. With no pull request it opens one first or
 says why not. It waits for running checks and stops on a failed check or a
 refused merge. Before any cleanup — after its own merge, or when the user
 says the work is merged — it confirms the merge: the pull request's state
-is `MERGED`, or, with no pull request it can view, `origin/<default branch>`
-contains the feature branch or its squashed change. Anything else, a queued
+is `MERGED`, or `origin/<default branch>` after a fetch contains the feature
+branch or its squashed change. Anything else, a queued
 or auto-merge pull request included, is reported as not merged yet, and
 nothing is removed. Then it cleans up at once and asks nothing. It runs
 `git fetch --prune`; when the checkout it works in is on the feature branch,
