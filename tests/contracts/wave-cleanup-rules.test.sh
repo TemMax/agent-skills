@@ -77,7 +77,17 @@ for f in skills/multi-model/WORKFLOW.md skills-codex/multi-model/WORKFLOW.md ski
     "one_line '$F' | grep -qF 'as printed, on that line or in a code block right below it'"
   check "$f allows no link, file, shell variable or relative path for it" \
     "one_line '$F' | grep -qF 'never a link, a file to open, a shell variable or a path relative to the current directory'"
+  check "$f takes the field's value from the one dry run behind Left behind:" \
+    "one_line '$F' | grep -qF 'from the \`command\` field that this dry run printed, and write out its value'"
+  check "$f runs that dry run with the options of the After the merge: command" \
+    "one_line '$F' | grep -qE 'one \`wave-cleanup\.mjs --dry-run\` with the options of the \`After the merge:\` command|run once with \`--dry-run\` and the options of the \`After the merge:\` command'"
 done
+for s in skills/ship skills-codex/ship; do
+  check "$s passes no --plan when the run executed none" \
+    "one_line $P/$s/WORKFLOW.md | grep -qF 'one \`--plan\` per plan this run executed (fix plans included; none when it executed none'"
+done
+check "the cleanup script runs without --plan, handling only --branch" \
+  "grep -qF 'without one (a run that executed no plan) only' $P/skills/multi-model/references/wave-cleanup.mjs"
 check "README says the cleanup command is written out ready to run" \
   "one_line README.md | grep -qF 'written out in the report as the cleanup script printed it, ready to run'"
 check "the cleanup script prints the ready command in a dry run" \

@@ -190,23 +190,24 @@ rejected task always stays. Run records (`summary.json`, verdicts, state files)
 stay until the pull request is merged, because review and `--resume-from` read
 them. The completion summary carries a `Left behind:` line: every branch,
 worktree, run record and temporary directory this run created that still exists
-— taken from `wave-cleanup.mjs --dry-run --records` with
+— taken from one `wave-cleanup.mjs --dry-run` with the options of the
+`After the merge:` command below (they include `--records` and
 `--summary <out>/summary.json` for each runner given an `--out` under
 `.worktrees/` other than `.worktrees/claude-runner/` and
-`.worktrees/codex-runner/` that wrote one, plus any runner `--out` outside
+`.worktrees/codex-runner/` that wrote one), plus any runner `--out` outside
 `.worktrees/` and any scratch directory the orchestrator itself created outside
 the repository — or `Left behind: nothing`. Whenever something is left behind,
 the summary also carries one line starting `After the merge:` with the ready
 command — `wave-cleanup.mjs` with absolute paths, `--repo <repo>`, one `--plan`
 per plan this run executed (fix plans included),
 `--into origin/<default branch>`, `--records`, the same `--summary` options and
-`--branch <feature branch>` (without `--branch` when the wave was not
-integrated into a feature branch of its own). Take that command from the
-`command` field that `wave-cleanup.mjs --dry-run` prints when given exactly
-these options, and write it out in the summary as printed, on that line or in
-a code block right below it — never a link, a file to open, a shell variable
-or a path relative to the current directory. The merge happens only on the
-user's word. When the user asks for it, merge the pull request — squash when
+`--branch <feature branch>` (without `--branch` when the wave was not integrated
+into a feature branch of its own). Take that command from the `command` field
+that this dry run printed, and write out its value in the summary as printed, on
+that line or in a code block right below it — never a link, a file to open, a
+shell variable or a path relative to the current directory. The merge happens
+only on the user's word. When the user asks for it, merge the pull request —
+squash when
 the repository allows it, otherwise a method it allows — never with `--admin`,
 `--auto`, `--delete-branch` or another bypass of the repository's required
 checks or reviews, and never by a push to the default branch; with no pull

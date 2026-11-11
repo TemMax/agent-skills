@@ -282,25 +282,25 @@ The report also carries the same `Runtime pass: ran with <capability>` /
 
 The handoff report also carries a `Left behind:` line — every branch, worktree,
 run record and temporary directory this run created that still exists, taken
-from the cleanup script (`../multi-model/references/wave-cleanup.mjs`) run with
-`--dry-run --records` and `--summary <out>/summary.json`
-for each runner given an `--out` under `.worktrees/` other than
-`.worktrees/claude-runner/` and `.worktrees/codex-runner/` that wrote one,
-plus any runner `--out` outside `.worktrees/` and any scratch directory the
-orchestrator itself created outside the repository — or `Left behind: nothing`.
-Ending the run without that line leaves the user to find the leftovers by hand.
-When anything is left behind, the report also carries one line starting
-`After the merge:` with the ready command — the cleanup script with absolute
-paths, `--repo <repo>`, one `--plan` per plan this run executed (fix plans
-included), `--into origin/<default branch>`, `--records`,
+from the cleanup script (`../multi-model/references/wave-cleanup.mjs`) run once
+with `--dry-run` and the options of the `After the merge:` command below (they
+include `--records` and `--summary <out>/summary.json` for each runner given an
+`--out` under `.worktrees/` other than `.worktrees/claude-runner/` and
+`.worktrees/codex-runner/` that wrote one), plus any runner `--out` outside
+`.worktrees/` and any scratch directory the orchestrator itself created outside
+the repository — or `Left behind: nothing`. Ending the run without that line
+leaves the user to find the leftovers by hand. When anything is left behind, the
+report also carries one line starting `After the merge:` with the ready command
+— the cleanup script with absolute paths, `--repo <repo>`, one `--plan` per plan
+this run executed (fix plans included; none when it executed none, as when the
+work was implemented directly), `--into origin/<default branch>`, `--records`,
 the same `--summary` options and `--branch <feature branch>` — so the user, or
-any later session, can run it once the pull request is merged. Take that
-command from the `command` field that the cleanup script prints in a
-`--dry-run` with exactly these options, and write it out in the report as
-printed, on that line or in a code block right below it — never a link, a file
-to open, a shell variable or a path relative to the current directory. If the
-script path no longer exists by then, the same script of the installed plugin
-is used.
+any later session, can run it once the pull request is merged. Take that command
+from the `command` field that this dry run printed, and write out its value in
+the report as printed, on that line or in a code block right below it — never a
+link, a file to open, a shell variable or a path relative to the current
+directory. If the script path no longer exists by then, the same script of the
+installed plugin is used.
 
 **After the merge.** The merge happens only on the user's word. When the user
 asks for it, merge the pull request — squash when the repository allows it,

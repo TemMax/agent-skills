@@ -15,14 +15,16 @@ import { fileURLToPath } from 'node:url'
 import { readPlanJson } from './worktree-env.mjs'
 
 const USAGE = [
-  'node wave-cleanup.mjs --repo <abs> --plan <file> [--plan <file> ...]',
+  'node wave-cleanup.mjs --repo <abs> [--plan <file> ...]',
   '                      [--wave <n>] [--into <ref>] [--branch <name>]',
   '                      [--summary <file> ...] [--accepted <id> ...]',
   '                      [--records] [--dry-run]',
   'node wave-cleanup.mjs --help',
   '',
   '  --repo <abs>     main checkout, the top level of a git work tree',
-  '  --plan <file>    wave plan; repeatable, the task ids are the union',
+  '  --plan <file>    wave plan; repeatable, the task ids are the union;',
+  '                   without one (a run that executed no plan) only',
+  '                   --branch is handled, and every record is kept',
   '  --wave <n>       only the tasks of wave <n> (with exactly one --plan)',
   '  --into <ref>     integration target (default HEAD of --repo)',
   '  --branch <name>  also delete this local branch when it is integrated;',
@@ -143,7 +145,6 @@ function parseArgs(argv) {
     options[name] = value
   }
   if (options.repo === undefined) throw new UsageError('missing --repo')
-  if (options.plan.length === 0) throw new UsageError('missing --plan')
   if (!isAbsolute(options.repo)) throw new UsageError('--repo: absolute path required')
   if (options.wave !== undefined && options.plan.length !== 1) {
     throw new UsageError('--wave is allowed only with exactly one --plan')
@@ -250,16 +251,17 @@ function shellQuote(value) {
 }
 
 // The same cleanup without --dry-run, as a summary's `After the merge:` line
-// carries it: this script's own path (symbolic links resolved) and every path
-// option absolute, so nothing depends on the directory it is run from, and
-// --into as given (absent when it was not given).
+// carries it: this script's own path and every --plan and --summary where it
+// really is (symbolic links and `..` resolved by the file system, as the reads
+// resolve them, not as strings), so nothing depends on the directory it is
+// run from, and --into as given (absent when it was not given).
 function readyCommand(options, repo) {
   const words = ['node', fileURLToPath(import.meta.url), '--repo', repo]
-  for (const plan of options.plan) words.push('--plan', resolve(plan))
+  for (const plan of options.plan) words.push('--plan', stored(plan))
   if (options.wave !== undefined) words.push('--wave', options.wave)
   if (options.into !== undefined) words.push('--into', options.into)
   if (options.records) words.push('--records')
-  for (const file of options.summary) words.push('--summary', resolve(file))
+  for (const file of options.summary) words.push('--summary', stored(file))
   if (options.branch !== undefined) words.push('--branch', options.branch)
   for (const id of options.accepted) words.push('--accepted', id)
   return words.map(shellQuote).join(' ')

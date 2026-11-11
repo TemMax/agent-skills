@@ -42,10 +42,13 @@ commands in a login shell by default, and the login profile puts the real gh
 ahead of the stub on PATH, so Codex sessions run with
 `allow_login_shell=false`. A run whose session reached a real gh or a GitHub
 connector is reported as blocked (exit 2), not scored as the product's result.
-Expectations are frozen in expected.json before the host starts. The state
-before the merge turn goes to state-before.json and after it to
-state-after.json; checks.json is computed from those files, the traces and the
-stub's call log, and `--score DIR` recomputes it.
+In every scenario the last reply before the merge turn with an
+`After the merge:` line must hold the cleanup command itself, written out,
+word for word as a `--dry-run` report printed it (the two checks of
+custom-out-cleanup-live.py). Expectations are frozen in expected.json before
+the host starts. The state before the merge turn goes to state-before.json and
+after it to state-after.json; checks.json is computed from those files, the
+traces and the stub's call log, and `--score DIR` recomputes it.
 """
 import argparse
 import importlib.util
@@ -466,19 +469,22 @@ def score(out):
     }
     if scenario == 'ship-merge':
         checks['handoff_offers_merge'] = offers_merge(handoff)
-    # The command after the merge needs a plan: a run that left no run record
-    # (no wave ran) has none to write out.
+    # Every scenario leaves at least the feature branch before the merge, so the
+    # last reply before the merge turn must carry the command after the merge,
+    # with or without a plan.
     pre_rows = [r for t in turns if t != merge_turn for r in rows.get(t, [])]
     carrying = [t for t in replies(pre_rows) if re.search(cleanup.MARK.format('after the merge'), t)]
-    after_cmd = cleanup.after_merge_command(carrying[-1]) if carrying else ''
-    if before.get('summaries'):
-        checks['after_merge_written_out'] = cleanup.written_out(after_cmd)
+    pre_reply = carrying[-1] if carrying else ''
+    checks['after_merge_written_out'] = bool(cleanup.after_merge_written(pre_reply))
+    checks['after_merge_as_printed'] = cleanup.as_printed(pre_reply, pre_rows)
     blocked = boundary(meta, calls, all_rows)
     facts = {'feature': feature, 'merge_calls': merge_calls(merge_session), 'blocked': blocked,
              'merge_turn_commands': merge_cmds, 'merge_turn_reports': merge_reports,
              'manual_branch_removal': manual_branch_removal(merge_cmds, feature or FEATURE),
              'handoff_last_question': (questions(handoff) or [''])[-1], 'final_questions': questions(final),
-             'after_merge_command': after_cmd, 'after_merge_as_printed': cleanup.as_printed(after_cmd, pre_rows),
+             'after_merge_command': cleanup.after_merge_written(pre_reply),
+             'after_merge_commands': cleanup.after_merge_commands(pre_reply),
+             'printed_commands': [' '.join(w) for w in cleanup.printed_commands(pre_rows) if w],
              'run_records_before': before.get('summaries'),
              'final_reply': final,
              'head_after': after.get('head_branch'), 'branches_after': after.get('branches'),
@@ -540,13 +546,9 @@ EXPECTED = {
                                       'origin/main (merge-base, diff, log, cherry, rev-list, range-diff, show, '
                                       'merge-tree, branch --contains or --merged); commands count at command '
                                       'position, indented lines, if/while, ! and VAR=value prefixes included',
-    'after_merge_written_out': 'when a run record (a summary.json under .worktrees) exists before the merge turn: '
-                               'the last reply before the merge turn that has an After the merge: line holds the '
-                               "command itself — in that line's inline code naming wave-cleanup.mjs, else the rest "
-                               'of the line, else the code block right below it, from node on: the cleanup script '
-                               'and every --repo, --plan and --summary path absolute, --repo and --plan present, no $ '
-                               'or backtick (no shell variable or command substitution); a link or a file in its '
-                               'place fails. A run with no run record is not scored on it',
+    'after_merge_written_out': cleanup.AFTER_MERGE_WRITTEN_OUT.format(
+        reply='the last reply before the merge turn with an After the merge: line (no such reply fails)'),
+    'after_merge_as_printed': cleanup.AFTER_MERGE_AS_PRINTED.format(turn='a turn before the merge turn'),
     'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark (? or ？) "
                                'outside code and links, and offers no more work (shall/should I, do you want '
                                'me, would you like me, want me to — not "whether you want me to" —, let me '

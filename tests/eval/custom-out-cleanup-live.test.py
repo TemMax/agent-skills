@@ -39,9 +39,9 @@ left, after = live.handoff('After the merge: `node /p/wave-cleanup.mjs --records
 ok &= check('a default-directory summary is not the custom record', not live.names_record(after) and left == '')
 
 
-def report(dry, *paths):
+def report(dry, *paths, command=None):
     return json.dumps({'into': 'abc', 'dryRun': dry, 'removed': [{'kind': 'record', 'path': p} for p in paths],
-                       'kept': []}, indent=2)
+                       'kept': [], **({'command': command} if command else {})}, indent=2)
 
 
 RECORD_DIR = '/private/x/repo/.worktrees/runs/wave-1'
@@ -85,6 +85,13 @@ WRITTEN_OUT = {
         'After the merge: run this cleanup command:\n\n```bash\n' + FULL + '\n```\n',
     'a quoted path with a space': "After the merge: `node '/x/my dir/wave-cleanup.mjs' --repo /x/repo --plan '/x/a plan.md'`\n",
     'a fetch before it in the same block': 'After the merge:\n```sh\ngit fetch --prune\n' + FULL + '\n```\n',
+    'the second inline span of the line': ('After the merge (the `command` of `wave-cleanup.mjs --dry-run`): '
+                                           f'`{FULL}`\n'),
+    'a comment naming node above it in the block': 'After the merge:\n```sh\n# needs node 20\n' + FULL + '\n```\n',
+    'prose starting with "After the merge" before the real line':
+        f'- After the merge, the records go too.\n\nAfter the merge: `{FULL}`\n',
+    'a path the script quoted that holds a $': "After the merge: `node '/x/a$b/wave-cleanup.mjs' --repo /x/repo`\n",
+    'no --plan, for a run that executed none': f'After the merge: `node {SCRIPT} --repo /x/repo --into origin/main --branch f`\n',
 }
 NOT_WRITTEN_OUT = {
     'a link to a script it wrote': 'After the merge: [ready cleanup command](/x/repo/.worktrees/runs/wave-1/after-merge.sh).\n',
@@ -99,21 +106,28 @@ NOT_WRITTEN_OUT = {
     'a relative script path': 'After the merge: `node ../package/wave-cleanup.mjs --repo /x/repo --plan /x/p.md`\n',
     'a home-relative --repo': f'After the merge: `node {SCRIPT} --repo ~/repo --plan /x/p.md`\n',
     'a relative --summary': f'After the merge: `node {SCRIPT} --repo /x/repo --plan /x/p.md --summary .worktrees/r/summary.json`\n',
-    'no --plan': f'After the merge: `node {SCRIPT} --repo /x/repo --records`\n',
+    'no --repo': f'After the merge: `node {SCRIPT} --plan /x/p.md --records`\n',
+    'the dry run itself': f'After the merge: `{FULL} --dry-run`\n',
+    'the usage': f'After the merge: `node {SCRIPT} --repo /x/repo --help`\n',
+    'a link, with the dry run in a block below': ('After the merge: [command](/x/after-merge.sh)\n```sh\n' + FULL
+                                                   + ' --dry-run\n```\n'),
+    'a $ inside double quotes': 'After the merge: `node "$HOME/wave-cleanup.mjs" --repo /x/repo`\n',
     'no After the merge: line': f'Left behind: x\n\n`{FULL}`\n',
     'a code block that is not right below the line': 'After the merge: see below.\n\nMore text.\n\n```sh\n' + FULL + '\n```\n',
 }
 for name, text in WRITTEN_OUT.items():
-    ok &= check(f'written out: {name}', live.written_out(live.after_merge_command(text)))
+    ok &= check(f'written out: {name}', bool(live.after_merge_written(text)))
 for name, text in NOT_WRITTEN_OUT.items():
-    ok &= check(f'not written out: {name}', not live.written_out(live.after_merge_command(text)))
-printed = json.dumps({'into': 'abc', 'dryRun': True, 'removed': [], 'kept': [], 'command': FULL})
-dry_rows = [{'type': 'item.completed', 'item': {'type': 'command_execution', 'command': 'x', 'aggregated_output': printed}}]
+    ok &= check(f'not written out: {name}', not live.after_merge_written(text))
+dry_rows = [{'type': 'item.completed', 'item': {'type': 'command_execution', 'command': 'x',
+                                                'aggregated_output': report(True, command=FULL)}}]
 ok &= check('as printed: the same words as a dry run printed, however the reply wraps them',
-            live.as_printed(live.after_merge_command(WRITTEN_OUT['a code block right below, continued lines (Codex)']),
-                            dry_rows))
+            live.as_printed(WRITTEN_OUT['a code block right below, continued lines (Codex)'], dry_rows))
 ok &= check('as printed: a command the dry run did not print is not',
-            not live.as_printed(f'node {SCRIPT} --repo /x/repo --plan /x/repo/docs/plan.md', dry_rows))
+            not live.as_printed(f'After the merge: `node {SCRIPT} --repo /x/repo --plan /x/repo/docs/plan.md`', dry_rows))
+ok &= check('as printed: a real run\'s report carries no command to copy',
+            not live.as_printed(WRITTEN_OUT['bare on the line'], [{'type': 'item.completed', 'item': {
+                'type': 'command_execution', 'command': 'x', 'aggregated_output': report(False)}}]))
 
 
 def run_dir(tmp, provider, handoff_text, read_text, dry_out, real_out, real_cmd, record_gone):
@@ -153,12 +167,13 @@ def run_dir(tmp, provider, handoff_text, read_text, dry_out, real_out, real_cmd,
     return out
 
 
-GOOD = ('Done.\nLeft behind: .worktrees/runs/wave-1\nAfter the merge: `node /p/wave-cleanup.mjs --repo /x/repo '
-        '--plan /x/repo/docs/plan.md --into origin/main --records --summary ' + REC + ' --branch feature/durations`\n')
+GOOD_CMD = ('node /p/wave-cleanup.mjs --repo /x/repo --plan /x/repo/docs/plan.md --into origin/main --records --summary '
+            + REC + ' --branch feature/durations')
+GOOD = 'Done.\nLeft behind: .worktrees/runs/wave-1\nAfter the merge: `' + GOOD_CMD + '`\n'
 READ_NEW = '... with `--summary <out>/summary.json` ' + live.FIX_MARK + ' outside ...'
 with tempfile.TemporaryDirectory() as tmp:
     for provider in ('claude', 'codex'):
-        checks, _ = live.score(run_dir(tmp, provider, GOOD, READ_NEW, report(True, RECORD_DIR), report(False, RECORD_DIR),
+        checks, _ = live.score(run_dir(tmp, provider, GOOD, READ_NEW, report(True, RECORD_DIR, command=GOOD_CMD), report(False, RECORD_DIR),
                                        'python3 cleanup.py', True))
         ok &= check(f'{provider}: a complete run passes every check', all(checks.values()))
         if not all(checks.values()): print(sorted(k for k, v in checks.items() if not v))
@@ -168,12 +183,12 @@ with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'claude', OLD_HANDOFF, 'the old instruction', report(True), report(False),
                                    'node c.mjs --records', False))
     failed = sorted(k for k, v in checks.items() if not v)
-    expected = ['after_merge_names_record', 'after_merge_written_out', 'cleanup_removed_record',
+    expected = ['after_merge_as_printed', 'after_merge_names_record', 'after_merge_written_out', 'cleanup_removed_record',
                 'dry_run_lists_record', 'instruction_read', 'left_behind_names_record', 'record_removed']
     ok &= check('the old instruction and script fail exactly the record checks', failed == expected)
     if failed != expected: print(failed)
 with tempfile.TemporaryDirectory() as tmp:
-    checks, _ = live.score(run_dir(tmp, 'codex', GOOD, READ_NEW, report(True, RECORD_DIR), report(False),
+    checks, _ = live.score(run_dir(tmp, 'codex', GOOD, READ_NEW, report(True, RECORD_DIR, command=GOOD_CMD), report(False),
                                    'node c.mjs --records; rm -rf .worktrees/runs/wave-1', True))
     failed = sorted(k for k, v in checks.items() if not v)
     ok &= check('a record removed by hand after a cleanup that kept it fails',
@@ -182,10 +197,11 @@ with tempfile.TemporaryDirectory() as tmp:
 LINKED = ('Done.\nLeft behind: .worktrees/runs/wave-1\n'
           'After the merge: [ready cleanup command](/x/repo/.worktrees/runs/wave-1/after-merge.sh).\n')
 with tempfile.TemporaryDirectory() as tmp:
-    checks, facts = live.score(run_dir(tmp, 'codex', LINKED, READ_NEW, report(True, RECORD_DIR), report(False, RECORD_DIR),
+    checks, facts = live.score(run_dir(tmp, 'codex', LINKED, READ_NEW, report(True, RECORD_DIR, command=GOOD_CMD), report(False, RECORD_DIR),
                                        'python3 cleanup.py', True))
     failed = sorted(k for k, v in checks.items() if not v)
     ok &= check('a link in place of the command fails exactly the command checks',
-                failed == ['after_merge_names_record', 'after_merge_written_out'] and facts['after_merge_written'] == '')
-    if failed != ['after_merge_names_record', 'after_merge_written_out']: print(failed)
+                failed == ['after_merge_as_printed', 'after_merge_names_record', 'after_merge_written_out']
+                and facts['after_merge_written'] == '')
+    if failed != ['after_merge_as_printed', 'after_merge_names_record', 'after_merge_written_out']: print(failed)
 raise SystemExit(0 if ok else 1)
