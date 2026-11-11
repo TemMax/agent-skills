@@ -470,4 +470,37 @@ with tempfile.TemporaryDirectory() as tmp:
         "codex-wave-runner.mjs\" --plan docs/plan.md --wave 1'",)))
     ok &= check('… and counts once, with its --plan', facts['runner_calls'] == 1 and facts['runner_plans'] == ['docs/plan.md'])
 
+# Instruction files named or linked in a message to the user.
+codex_msg = lambda t: {'type': 'item.completed', 'item': {'type': 'agent_message', 'text': t}}
+NAMED = {
+    'the merge question justified by a link (Codex, 4.23.1)':
+        'Shall I merge PR #1?\n\nThe [delivery instructions](.agents/skills/ship/SKILL.md) require merging "only when the user asks for it."',
+    'a skill linked by name (Codex, 4.23.0)': 'Merge PR #1? [ship](/x/.agents/skills/ship/SKILL.md) requires: "merge only when the user asks."',
+    'the start approval citing the planning workflow':
+        'Approve the plan to start? The [planning workflow](/x/skills-codex/super-plan/WORKFLOW.md) asks for it.',
+    'a profile named in an update': 'Loaded orchestrator-fable-5-2.md; starting the wave.',
+    'a reference document': 'Following references/codex-wave-protocol.md, the wave is merged.',
+    'a workspace skill path': 'Read .agents/skills/multi-model before the run.',
+}
+for name, text in NAMED.items():
+    ok &= check(f'named: {name}', bool(live.instruction_files_named([codex_msg(text)])))
+CLEAN = {
+    'the command after the merge in a block':
+        'After the merge:\n```sh\nnode /x/package/plugins/orchestration/skills/multi-model/references/wave-cleanup.mjs --repo /x\n```',
+    'the command inline': 'After the merge: `node /x/.agents/skills/multi-model/../../skills/multi-model/references/wave-cleanup.mjs --repo /x`',
+    'the plan, README and AGENTS.md': 'The plan docs/superpowers/plans/plan.md is done; README.md and AGENTS.md are unchanged.',
+    'a plain merge question': 'Nothing is left open. Merge PR #1 into main and clean up?',
+}
+for name, text in CLEAN.items():
+    ok &= check(f'not named: {name}', not live.instruction_files_named([codex_msg(text)]))
+claude_rows = [{'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': 'I will follow WORKFLOW.md now.'}]}},
+               {'type': 'assistant', 'parent_tool_use_id': 'child', 'message': {'content': [{'type': 'text', 'text': 'SKILL.md says so'}]}}]
+ok &= check('a Claude text block counts, a child agent\'s does not', live.instruction_files_named(claude_rows) == ['WORKFLOW.md'])
+with tempfile.TemporaryDirectory() as tmp:
+    checks, facts = live.score(run_dir(tmp, 'ship-merge', REPORT, summary='Plan approved? (yes/no)',
+                                       handoff=f'Left behind: x\nAfter the merge: `{CMD}`\n\n' + NAMED['the merge question justified by a link (Codex, 4.23.1)']))
+    ok &= check('ship-merge: a handoff that links the skill file fails exactly no_instruction_file_named',
+                failed_of(checks) == ['no_instruction_file_named'] and 'SKILL.md' in facts['instruction_files_named'])
+    if failed_of(checks) != ['no_instruction_file_named']: print(failed_of(checks), facts['instruction_files_named'])
+
 sys.exit(0 if ok else 1)

@@ -46,7 +46,8 @@ In every scenario the last reply before the merge turn with an `After the
 merge:` line (in ship-merge, the handoff's own) must hold the cleanup command
 itself, written out, word for word as a `--dry-run` report printed it (the two
 checks of custom-out-cleanup-live.py), and each `--plan` in it must be a plan a
-wave ran with. Expectations are frozen in expected.json before the host starts.
+wave ran with. No message to the user may name or link an
+instruction file (SKILL.md, WORKFLOW.md, a profile, a reference document). Expectations are frozen in expected.json before the host starts.
 The state before the merge turn goes to state-before.json and after it to
 state-after.json; checks.json is computed from those files, the traces and the
 stub's call log, and `--score DIR` recomputes it.
@@ -212,6 +213,41 @@ def prose(text):
 
 def questions(text):
     return [m.group(0).strip() for m in QUESTION.finditer(prose(text))]
+
+
+# A message to the user that names or links an instruction file: a skill's
+# entry or workflow file, a profile, a reference document, or a path into the
+# workspace skills. Code that names the cleanup script is the command after
+# the merge, which names its own path, so it is left out.
+INSTRUCTION_FILE = re.compile(r'\b(?:SKILL|WORKFLOW)\.md\b|orchestrator-[\w.-]+\.md|references/[\w.-]+\.md|\.agents/skills/')
+
+
+def messages(rows):
+    """Every message the main session showed the user, in order: Codex agent
+    messages; Claude assistant text and results."""
+    found = []
+    for r in rows:
+        item = r.get('item') or {}
+        if r.get('type') == 'item.completed' and item.get('type') == 'agent_message':
+            found.append(item.get('text') or '')
+        if r.get('type') == 'assistant' and not r.get('parent_tool_use_id'):
+            found += [b.get('text') or '' for b in (r.get('message') or {}).get('content') or []
+                      if isinstance(b, dict) and b.get('type') == 'text']
+        if r.get('type') == 'result' and r.get('result'):
+            found.append(r['result'])
+    return found
+
+
+def instruction_files_named(rows):
+    """Each instruction file a message names or links, outside code that names
+    wave-cleanup.mjs."""
+    named = []
+    for text in messages(rows):
+        text = re.sub(r'(`{3,}|~{3,})[^\n]*\n.*?\n[ \t]*\1',
+                      lambda m: '' if 'wave-cleanup.mjs' in m.group(0) else m.group(0), text, flags=re.S)
+        text = re.sub(r'`[^`\n]*wave-cleanup\.mjs[^`\n]*`', '', text)
+        named += [m.group(0) for m in INSTRUCTION_FILE.finditer(text)]
+    return named
 
 
 def asks(text):
@@ -498,6 +534,7 @@ def score(out):
                               and not manual_branch_removal(merge_cmds, feature or FEATURE),
         'merge_confirmed_before_cleanup': confirmed_before_cleanup(steps(merge_rows), merge_session, feature or FEATURE),
         'no_question_after_merge': bool(merge_rows) and not asks(final),
+        'no_instruction_file_named': not instruction_files_named(all_rows),
     }
     if scenario == 'ship-merge':
         checks['handoff_offers_merge'] = offers_merge(handoff)
@@ -536,6 +573,7 @@ def score(out):
              'after_merge_commands': cleanup.after_merge_commands(pre_reply),
              'printed_commands': [' '.join(w) for w in cleanup.printed_commands(pre_rows) if w],
              'run_records_before': before.get('summaries'), 'after_merge_plans': plans, 'wave_ran': waved,
+             'instruction_files_named': instruction_files_named(all_rows),
              'runner_calls': started, 'runner_plans': run_plans,
              'final_reply': final,
              'head_after': after.get('head_branch'), 'branches_after': after.get('branches'),
@@ -607,6 +645,10 @@ EXPECTED = {
                                   'codex-wave-runner.mjs or wave-launch.mjs); and, when those calls name --plan '
                                   'values, each one of them (the same path, or the same file name; any plan when '
                                   'a call gives --plan through a shell variable)',
+    'no_instruction_file_named': 'no message the main session showed the user, in any turn (Codex agent messages; '
+                                 'Claude text and results), names or links an instruction file outside code that '
+                                 'names wave-cleanup.mjs: SKILL.md, WORKFLOW.md, an orchestrator-*.md profile, a '
+                                 'references/*.md document or a path under .agents/skills/',
     'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark (? or ？) "
                                'outside code and links, and offers no more work (shall/should I, do you want '
                                'me, would you like me, want me to — not "whether you want me to" —, let me '
