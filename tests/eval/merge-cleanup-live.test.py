@@ -66,8 +66,8 @@ for offer in ('Let me know if it should go too.', 'Tell me if it should be remov
               'Say the word and I will remove it.', 'just say so if it should go', 'I can remove it on request.'):
     ok &= check(f'an offer asks: {offer[:40]}', live.asks(offer))
 ok &= check('a wrapped instruction read through Read still matches',
-            live.FIX_MARK in live.flat('   301\tintegrated into a feature branch of its own). Take that command from the\n'
-                                       '   302\t`command` field that `wave-cleanup.mjs --dry-run` prints'))
+            live.FIX_MARK in live.flat('   21\tthe final report — never name, quote or link an instruction file of a\n'
+                                       '   22\tskill (its entry, workflow, profile or reference files).'))
 
 # Merge calls in the stub's log.
 squash = {'argv': ['pr', 'merge', '1', '--squash'], 'exit': 0}
@@ -294,7 +294,7 @@ def run_dir(tmp, scenario, final, merge_argv=('pr', 'merge', '1', '--squash'), r
     merge_turn += [bash('node /p/wave-cleanup.mjs --records --branch ' + feature), result(json.dumps(rep)), done(final)]
     runner = [bash('node /p/claude-wave-runner.mjs --plan ' + runner_plan), result('{}')] if waved else []
     runner += [bash(c) for c in extra]
-    turns = {'turn-1': [init, result('   1\tTake that command from the\n   2\t`command` field that'), *runner,
+    turns = {'turn-1': [init, result('   1\tnever name, quote or link an instruction\n   2\tfile of a skill'), *runner,
                         bash('node /p/wave-cleanup.mjs --dry-run'), result(json.dumps(dry)), done(summary)]}
     if scenario == 'ship-merge':
         turns['turn-2'] = [done(handoff)] + ([done(handoff_after)] if handoff_after else [])

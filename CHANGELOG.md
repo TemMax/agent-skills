@@ -4,6 +4,38 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.23.2
+
+### Highlights
+
+**ship**
+- Questions and the handoff give reasons, never instruction files
+
+**super-plan**
+- The start approval gives its reason, never an instruction file
+
+**multi-model**
+- Messages never name or link a skill's instruction files
+
+Orchestration 4.23.2 and code-review 1.21.0 apply to Claude Code and Codex.
+
+**What was wrong.** The skills kept instruction filenames out of "updates"
+and "routine messages", but said nothing about questions to the user or the
+final report. Codex then justified its questions with the instruction that
+asks for them, linking the file. In ship's handoff it wrote "Shall I merge
+PR #1? The [delivery instructions](…/SKILL.md) require merging only when the
+user asks for it." At ship's start approval it linked the planning workflow
+file. The live checks of 4.23.0 and 4.23.1 saw this in 3 of 7 Codex ship
+runs, and never on Claude Code.
+
+**What changes.** All six orchestration entry points, on both hosts, say:
+in every message to the user, whether an update, a question, an approval
+request or the final report, never name, quote or link a skill's entry,
+workflow, profile or reference files. When a question needs a reason, give
+the reason itself in plain words. `merge-cleanup-live.py` gains the frozen
+check `no_instruction_file_named` over every message the session shows the
+user.
+
 ## 4.23.1
 
 ### Highlights

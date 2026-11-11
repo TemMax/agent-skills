@@ -3,7 +3,7 @@ name: super-plan
 description: 'Use when a feature or change needs a wave-ready implementation plan for parallel or multi-agent execution. Do not use to implement the plan. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.23.1
+  version: 4.23.2
 ---
 
 # Planning Waves (super-plan)
@@ -18,6 +18,12 @@ is not evidence that AGENTS.md was loaded. Read-only lookups follow this step to
 
 Do not narrate loading or selecting internal instructions. Say which task or
 check you will perform.
+
+In every message to the user — an update, a question, an approval request or
+the final report — never name, quote or link an instruction file of a skill
+(its entry, workflow, profile or reference files). When a question needs a
+reason, give the reason itself in plain words, such as "merging changes
+`main`", not the instruction that asks for it.
 
 Start with the task and next useful action. Progress and completion messages
 cover changes, findings, checks, and remaining blockers. Select profiles silently;
