@@ -1530,3 +1530,87 @@ test('--records takes a --summary in other letter case as the directory it names
   }
   assert.equal(existsSync(join(repo, '.worktrees')), false)
 })
+
+// ---- the ready command a dry run prints ----
+//
+// A summary's `After the merge:` line carries this command as printed, so it
+// has to run as it is from any directory: the script's own path and every
+// path option absolute, every word quoted for a POSIX shell.
+
+function shellQuote(value) {
+  return /^[A-Za-z0-9_@%+=:,.\/-]+$/.test(value) ? value : "'" + value.replace(/'/g, "'\\''") + "'"
+}
+
+function readyCommand(...words) {
+  return ['node', realpathSync(SCRIPT), ...words].map(shellQuote).join(' ')
+}
+
+test('--dry-run also prints the same cleanup as a ready command: absolute paths, quoted, no --dry-run', () => {
+  const { root, repo, base, main } = makeRepo()
+  writePlan(root, "the plan's wave.md", [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  git(repo, 'branch', 'feature', base)
+  writeRecord(repo, 'runs', 'wave 1', ['a'], 'ok')
+  const before = snapshot(repo)
+
+  // --plan and --summary relative to the working directory
+  const r = spawnSync(process.execPath, [SCRIPT, '--dry-run', '--repo', repo, '--plan', join('..', "the plan's wave.md"),
+    '--into', main, '--records', '--summary', join('.worktrees', 'runs', 'wave 1', 'summary.json'),
+    '--branch', 'feature', '--accepted', 'a'], { encoding: 'utf8', cwd: repo })
+  assert.equal(r.status, 0, r.stderr)
+  const json = JSON.parse(r.stdout)
+  assert.equal(json.dryRun, true)
+  assert.equal(json.command, readyCommand('--repo', repo, '--plan', join(realpathSync(root), "the plan's wave.md"),
+    '--into', main, '--records', '--summary', join(realpathSync(repo), '.worktrees', 'runs', 'wave 1', 'summary.json'),
+    '--branch', 'feature', '--accepted', 'a'))
+  assert.match(json.command, /^node \//)
+  assert.match(json.command, /the plan'\\''s wave\.md'/)
+  assert.doesNotMatch(json.command, /--dry-run/)
+  assert.deepEqual(snapshot(repo), before)
+})
+
+test('the printed command keeps the options as given: every --plan, --wave, and no --into when none was given', () => {
+  const { root, repo, base } = makeRepo()
+  const one = writePlan(root, 'one.md', [[1, ['a']], [2, ['b']]])
+  const two = writePlan(root, 'two.md', [[1, ['c']]])
+  addTask(repo, 'a', base)
+
+  let r = cleanup('--repo', repo, '--plan', one, '--plan', two, '--dry-run')
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.json.command, readyCommand('--repo', repo, '--plan', one, '--plan', two))
+
+  r = cleanup('--repo', repo, '--plan', one, '--wave', '2', '--dry-run')
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.json.command, readyCommand('--repo', repo, '--plan', one, '--wave', '2'))
+})
+
+test('the printed command runs from any directory and removes what the dry run listed; a real run prints none', () => {
+  const { root, repo, base, main } = makeRepo()
+  writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  git(repo, 'branch', 'feature', base)
+  const record = writeRecord(repo, 'runs', 'wave-1', ['a'], 'ok')
+
+  const dry = spawnSync(process.execPath, [SCRIPT, '--repo', repo, '--plan', 'plan.md', '--into', main, '--records',
+    '--summary', join('repo', '.worktrees', 'runs', 'wave-1', 'summary.json'), '--branch', 'feature', '--dry-run'],
+  { encoding: 'utf8', cwd: root })
+  assert.equal(dry.status, 0, dry.stderr)
+  const listed = JSON.parse(dry.stdout)
+  assert.equal(existsSync(record), true)
+
+  const elsewhere = mkdtempSync(join(tmpdir(), 'wave-cleanup-elsewhere-'))
+  roots.push(elsewhere)
+  const run = spawnSync('/bin/sh', ['-c', listed.command], {
+    encoding: 'utf8', cwd: elsewhere, env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH },
+  })
+  assert.equal(run.status, 0, run.stderr)
+  const done = JSON.parse(run.stdout)
+  assert.equal(done.dryRun, false)
+  assert.equal('command' in done, false)
+  assert.deepEqual(done.removed, listed.removed)
+  assert.deepEqual(done.kept, listed.kept)
+  assert.equal(existsSync(record), false)
+  assert.equal(branchExists(repo, 'feature'), false)
+})

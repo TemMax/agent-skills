@@ -11,6 +11,7 @@
 import { spawnSync } from 'node:child_process'
 import { lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { readPlanJson } from './worktree-env.mjs'
 
 const USAGE = [
@@ -43,7 +44,8 @@ const USAGE = [
   '                   summary.json yet) is kept; when a record directory was',
   '                   removed, worktree registrations whose directories are',
   '                   gone are pruned',
-  '  --dry-run        run every check, change nothing',
+  '  --dry-run        run every check, change nothing, and also print the',
+  '                   same cleanup as a ready command (below)',
   '',
   'A task is removed only when it is accepted: a summary.json — one named',
   'with --summary, or <repo>/.worktrees/{claude-runner,codex-runner}/*/',
@@ -51,7 +53,10 @@ const USAGE = [
   'the task\'s head, the head is the current tip of wave/<id>; or --accepted',
   'names it. An accepted task still has to be integrated and clean.',
   '',
-  'Prints one JSON object: { into, dryRun, removed, kept }.',
+  'Prints one JSON object: { into, dryRun, removed, kept }. A dry run adds',
+  'command: these options without --dry-run, this script\'s path and every',
+  'path option absolute, each word quoted for a POSIX shell, so it runs as',
+  'it is from any directory.',
   'Exit 0: completed (kept entries are not an error); 1: a removal command',
   'failed; 2: usage error, nothing changed.',
 ].join('\n')
@@ -240,9 +245,30 @@ function fail(message) {
   process.exit(2)
 }
 
+function shellQuote(value) {
+  return /^[A-Za-z0-9_@%+=:,.\/-]+$/.test(value) ? value : "'" + value.replace(/'/g, "'\\''") + "'"
+}
+
+// The same cleanup without --dry-run, as a summary's `After the merge:` line
+// carries it: this script's own path (symbolic links resolved) and every path
+// option absolute, so nothing depends on the directory it is run from, and
+// --into as given (absent when it was not given).
+function readyCommand(options, repo) {
+  const words = ['node', fileURLToPath(import.meta.url), '--repo', repo]
+  for (const plan of options.plan) words.push('--plan', resolve(plan))
+  if (options.wave !== undefined) words.push('--wave', options.wave)
+  if (options.into !== undefined) words.push('--into', options.into)
+  if (options.records) words.push('--records')
+  for (const file of options.summary) words.push('--summary', resolve(file))
+  if (options.branch !== undefined) words.push('--branch', options.branch)
+  for (const id of options.accepted) words.push('--accepted', id)
+  return words.map(shellQuote).join(' ')
+}
+
 // ---- everything up to `main` validates; nothing is changed before it ----
 
 let options
+let command
 let repo
 let planIds
 let taskIds
@@ -271,6 +297,7 @@ try {
   if (stranger !== undefined) throw new UsageError('--accepted names no task of the given plans: ' + stranger)
   summaries = readSummaries(options.summary, join(repo, '.worktrees'))
 
+  command = readyCommand(options, repo)
   options.into ??= 'HEAD'
   const commit = git(repo, 'rev-parse', '--verify', '--quiet', '--end-of-options', options.into + '^{commit}')
   if (!commit.ok || !/^[0-9a-f]{40,64}$/.test(commit.out)) {
@@ -700,5 +727,5 @@ for (const id of taskIds) cleanTask(id)
 if (options.branch !== undefined) cleanBranch(options.branch)
 if (options.records) cleanRecords()
 
-console.log(JSON.stringify({ into, dryRun, removed, kept }, null, 2))
+console.log(JSON.stringify({ into, dryRun, removed, kept, ...(dryRun ? { command } : {}) }, null, 2))
 process.exit(removalFailed ? 1 : 0)

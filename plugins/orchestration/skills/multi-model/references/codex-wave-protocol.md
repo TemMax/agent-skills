@@ -533,7 +533,11 @@ init  next  record-executor  verify  supervisor-prompt  record-verdict  summary
    `wave-cleanup.mjs` with absolute paths, `--repo <repo>`, one `--plan` per
    plan this run executed, `--into origin/<default branch>`, `--records`, the
    same `--summary` options, and `--branch <feature branch>` when the wave was
-   integrated into a feature branch of its own. These two lines are required
+   integrated into a feature branch of its own. Take that command from the
+   `command` field that `wave-cleanup.mjs --dry-run` prints when given exactly
+   these options, and write it out as printed, on that line or in a code
+   block right below it — never a link, a file to open, a shell variable or a
+   path relative to the current directory. These two lines are required
    even when the request asks for a short final message or a fixed last line:
    put them before that line.
    Branch

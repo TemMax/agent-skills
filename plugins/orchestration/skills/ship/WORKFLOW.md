@@ -294,8 +294,13 @@ When anything is left behind, the report also carries one line starting
 paths, `--repo <repo>`, one `--plan` per plan this run executed (fix plans
 included), `--into origin/<default branch>`, `--records`,
 the same `--summary` options and `--branch <feature branch>` — so the user, or
-any later session, can run it once the pull request is merged. If the script
-path no longer exists by then, the same script of the installed plugin is used.
+any later session, can run it once the pull request is merged. Take that
+command from the `command` field that the cleanup script prints in a
+`--dry-run` with exactly these options, and write it out in the report as
+printed, on that line or in a code block right below it — never a link, a file
+to open, a shell variable or a path relative to the current directory. If the
+script path no longer exists by then, the same script of the installed plugin
+is used.
 
 **After the merge.** The merge happens only on the user's word. When the user
 asks for it, merge the pull request — squash when the repository allows it,

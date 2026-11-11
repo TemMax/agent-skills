@@ -4,6 +4,38 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.23.1
+
+### Highlights
+
+**multi-model**
+- A dry run of wave-cleanup.mjs prints the ready cleanup command
+- The summary writes that command out, never a link to a file
+
+**ship**
+- The handoff writes the cleanup command out as the dry run printed it
+
+Orchestration 4.23.1 and code-review 1.21.0 apply to Claude Code and Codex.
+
+**What was wrong.** The `After the merge:` line should carry a ready command,
+but the session had to assemble it from the script's path and the run's
+paths. Codex sessions often did not write a ready command there. Three times
+they built it in a script that saved it to a file without printing it, so
+the reply could only link that file: two ship handoffs and a summary with a
+custom `--out`. Five multi-model summaries wrote it with shell variables such
+as `$ROOT` or `$(pwd -P)`, which the user's shell does not have. Over rounds
+2–5 of the 4.23.0 live checks, 2 of 10 scored Codex replies carried a
+command that runs as it is; every Claude reply did.
+
+**What changes.** `wave-cleanup.mjs --dry-run` also prints `command`: the
+same cleanup without `--dry-run`, with the script's own path and every path
+option absolute and each word quoted for a POSIX shell, so it runs as it is
+from any directory. multi-model and ship, on both hosts, take the
+`After the merge:` command from that field of a dry run given exactly the
+after-the-merge options, and write it out as printed, on that line or in a
+code block right below it: never a link, a file to open, a shell variable or
+a path relative to the current directory.
+
 ## 4.23.0
 
 ### Highlights

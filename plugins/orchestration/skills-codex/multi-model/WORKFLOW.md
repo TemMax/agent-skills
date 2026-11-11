@@ -131,7 +131,11 @@ command — `wave-cleanup.mjs` with absolute paths, `--repo <repo>`, one `--plan
 per plan this run executed (fix plans included),
 `--into origin/<default branch>`, `--records`, the same `--summary` options and
 `--branch <feature branch>` (without `--branch` when the wave was not
-integrated into a feature branch of its own). The merge happens only on the
+integrated into a feature branch of its own). Take that command from the
+`command` field that `wave-cleanup.mjs --dry-run` prints when given exactly
+these options, and write it out in the summary as printed, on that line or in
+a code block right below it — never a link, a file to open, a shell variable
+or a path relative to the current directory. The merge happens only on the
 user's word. When the user asks for it, merge the pull request — squash when
 the repository allows it, otherwise a method it allows — never with `--admin`,
 `--auto`, `--delete-branch` or another bypass of the repository's required

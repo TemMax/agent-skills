@@ -64,6 +64,24 @@ check "execution-cost-controls: the script never removes an --out outside .workt
   "one_line $P/skills/multi-model/references/execution-cost-controls.md | grep -qF 'never removes an \`--out\` outside \`.worktrees/\`'"
 check "the cleanup script removes the directory of a --summary under .worktrees" \
   "grep -qF 'the directory of each --summary file that' $P/skills/multi-model/references/wave-cleanup.mjs"
+# The After the merge: command is the one a dry run printed, written out in
+# the reply itself: a model that builds it by hand links a file it wrote or
+# leaves shell variables in it.
+for f in skills/multi-model/WORKFLOW.md skills-codex/multi-model/WORKFLOW.md skills/ship/WORKFLOW.md \
+  skills-codex/ship/WORKFLOW.md skills/multi-model/references/claude-wave-adapter.md \
+  skills/multi-model/references/codex-wave-protocol.md; do
+  F=$P/$f
+  check "$f takes the After the merge: command from the dry run's command field" \
+    "one_line '$F' | grep -qF 'Take that command from the \`command\` field that'"
+  check "$f writes the command out as printed, on the line or in a code block below it" \
+    "one_line '$F' | grep -qF 'as printed, on that line or in a code block right below it'"
+  check "$f allows no link, file, shell variable or relative path for it" \
+    "one_line '$F' | grep -qF 'never a link, a file to open, a shell variable or a path relative to the current directory'"
+done
+check "README says the cleanup command is written out ready to run" \
+  "one_line README.md | grep -qF 'written out in the report as the cleanup script printed it, ready to run'"
+check "the cleanup script prints the ready command in a dry run" \
+  "grep -qF 'command: these options without --dry-run' $P/skills/multi-model/references/wave-cleanup.mjs"
 check "codex-wave-runner prints afterIntegration" "grep -qF afterIntegration $P/skills/multi-model/references/codex-wave-runner.mjs"
 check "claude-wave-runner prints afterIntegration" "grep -qF afterIntegration $P/skills/multi-model/references/claude-wave-runner.mjs"
 

@@ -74,7 +74,7 @@ SCENARIOS = ('mm-merge', 'mm-merged-worktree', 'ship-merge')
 FEATURE = 'feature/durations'
 SEAT = cleanup.SEAT
 # Text only the candidate's after-the-merge instructions carry.
-FIX_MARK = 'The cleanup asks no question.'
+FIX_MARK = 'Take that command from the `command` field that'
 TASK_FILES = {'src/durations.py', 'tests/test_durations.py'}
 SHIP_REQUEST = ('Add `parse_duration(text)` in a new module `src/durations.py`: it turns strings such as '
                 '"1h30m", "45s" and "2m" into whole seconds. Each unit (h, m, s) appears at most once and in '
@@ -466,11 +466,20 @@ def score(out):
     }
     if scenario == 'ship-merge':
         checks['handoff_offers_merge'] = offers_merge(handoff)
+    # The command after the merge needs a plan: a run that left no run record
+    # (no wave ran) has none to write out.
+    pre_rows = [r for t in turns if t != merge_turn for r in rows.get(t, [])]
+    carrying = [t for t in replies(pre_rows) if re.search(cleanup.MARK.format('after the merge'), t)]
+    after_cmd = cleanup.after_merge_command(carrying[-1]) if carrying else ''
+    if before.get('summaries'):
+        checks['after_merge_written_out'] = cleanup.written_out(after_cmd)
     blocked = boundary(meta, calls, all_rows)
     facts = {'feature': feature, 'merge_calls': merge_calls(merge_session), 'blocked': blocked,
              'merge_turn_commands': merge_cmds, 'merge_turn_reports': merge_reports,
              'manual_branch_removal': manual_branch_removal(merge_cmds, feature or FEATURE),
              'handoff_last_question': (questions(handoff) or [''])[-1], 'final_questions': questions(final),
+             'after_merge_command': after_cmd, 'after_merge_as_printed': cleanup.as_printed(after_cmd, pre_rows),
+             'run_records_before': before.get('summaries'),
              'final_reply': final,
              'head_after': after.get('head_branch'), 'branches_after': after.get('branches'),
              'summaries_after': after.get('summaries'), 'origin_feature_after': after.get('origin_feature'),
@@ -531,6 +540,13 @@ EXPECTED = {
                                       'origin/main (merge-base, diff, log, cherry, rev-list, range-diff, show, '
                                       'merge-tree, branch --contains or --merged); commands count at command '
                                       'position, indented lines, if/while, ! and VAR=value prefixes included',
+    'after_merge_written_out': 'when a run record (a summary.json under .worktrees) exists before the merge turn: '
+                               'the last reply before the merge turn that has an After the merge: line holds the '
+                               "command itself — in that line's inline code naming wave-cleanup.mjs, else the rest "
+                               'of the line, else the code block right below it, from node on: the cleanup script '
+                               'and every --repo, --plan and --summary path absolute, --repo and --plan present, no $ '
+                               'or backtick (no shell variable or command substitution); a link or a file in its '
+                               'place fails. A run with no run record is not scored on it',
     'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark (? or ？) "
                                'outside code and links, and offers no more work (shall/should I, do you want '
                                'me, would you like me, want me to — not "whether you want me to" —, let me '
