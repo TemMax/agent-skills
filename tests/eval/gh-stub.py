@@ -9,8 +9,9 @@ It implements what ship and critical-review call: auth status, `api user`,
 repo view, pr create/view/diff/list/edit/comment/checks/ready, and the review
 threads query (the fixture's pull request has no threads). `pr merge` and
 `pr close` are refused. Anything else fails like an unknown command. Every
-call is appended to GH_STUB_LOG; the pull request lives in GH_STUB_STATE; diffs
-and head SHAs come from the bare origin at GH_STUB_ORIGIN.
+call is appended to GH_STUB_LOG, a crash of the stub included; the pull
+request lives in GH_STUB_STATE; diffs and head SHAs come from the bare origin
+at GH_STUB_ORIGIN.
 """
 import datetime
 import json
@@ -385,4 +386,12 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except BaseException as error:  # logged like any other call, then failed
+        import traceback
+        traceback.print_exc()
+        log(1, 'gh-stub crashed: ' + ''.join(traceback.format_exception_only(type(error), error)).strip())
+        sys.exit(1)

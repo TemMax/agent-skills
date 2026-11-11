@@ -5,9 +5,13 @@ Record for [decision 019](../../docs/decisions/019-fable-5-2.md), following
 limits named the missing end-to-end ship run.
 
 Candidate: orchestration 4.22.0 and code-review 1.21.0 as merged into `main`
-(3371d03), loaded disposably: Claude Code 2.1.322, both plugins from a
-snapshot as `--plugin-dir`, `--setting-sources project`, no MCP servers. No
-installed plugin, marketplace or configuration is touched.
+(3371d03), on Claude Code 2.1.322. The seat session loaded both plugins
+disposably: a snapshot as `--plugin-dir`, `--setting-sources project`, no
+MCP servers. The wave runner's children start with the normal CLI
+configuration, as in every run (`execution-cost-controls.md`), so they
+loaded the user's installed plugins and hooks, a third-party hook among
+them. The installed orchestration and code-review were 4.22.0 and 1.21.0,
+the same text as the candidate. Nothing installed was changed.
 
 ## Fixture
 
@@ -23,9 +27,15 @@ installed plugin, marketplace or configuration is touched.
   status, `api user`, repo view, `pr create/view/diff/list/edit/comment/
   checks/ready` and the review-threads query (the pull request has no
   threads); merge and close are refused; every call is logged. The real `gh`
-  runs with an empty `GH_CONFIG_DIR`, so no call can reach GitHub.
-- Driver: `fable-seat-live.py --case ship-e2e`. Seat `claude-fable-5-2` at
-  `medium`, Claude Code's default; one run.
+  ran with an empty `GH_CONFIG_DIR` and no token.
+- Not blocked in this run: git over https and a plain `ssh`. The system git
+  config's credential helper and the ssh agent were inherited. The kept
+  transcripts — the seat, its subagents and the four executors, 78 shell
+  commands — contain no https GitHub URL and no `ssh` or `curl` command. The
+  driver now blocks both (see the independent review below).
+- Driver: `fable-seat-live.py --case ship-e2e`, `--max-budget-usd 30` per
+  invocation. Seat `claude-fable-5-2` at `medium`, Claude Code's default;
+  one run.
 
 ## Frozen expectations
 
@@ -74,7 +84,7 @@ stopped at the start approval; run 2, resumed once with the approval,
 reached the handoff, so the driver did not resume again. Both invocations
 ended in `success`. The run directory (transcripts, `gh-calls.jsonl`,
 `gate.json`, `checks.json`, `checks-rescored.json`) is kept outside the
-repository.
+repository, on the machine that ran it.
 
 ### As run: 21 of 24, exit 1
 
@@ -94,25 +104,62 @@ inspected before any retry; each is a defect of the check, not of the run:
   "Will you merge PR #1? Once you confirm it is merged, I'll run that
   cleanup."
 
-The driver's fixes, in this commit:
+Fixes after that inspection:
 
 - a launch is `node` running `claude-wave-runner.mjs` or `wave-launch.mjs`
-  for a `--wave`, also in the `wave` and `ship-gate` cases;
+  for a `--wave`, also in the `wave` and `ship` cases;
 - run records are found anywhere under `.worktrees/`;
-- a `?` followed by whitespace or the end of the reply counts;
-- `gate.json` now keeps HEAD and origin's branches at the gate;
+- a `?` followed by whitespace counts;
+- `gate.json` keeps HEAD, the branches and the worktrees at the gate;
 - each invocation's cost is the difference of the cumulative
   `total_cost_usd`;
 - `--score <dir> --case ship-e2e` rescores a kept run into
   `checks-rescored.json`.
 
-This run's `gate.json` predates the HEAD record, so the rescoring judges
-the stop from run 1's trace: no launch and no `git push`, `commit`,
-`merge`, `switch -c` or `checkout -b`.
+This run's `gate.json` predates those facts, so the rescoring judges the
+stop from run 1's trace: no launch and no `git push`, `commit`, `merge`,
+new branch or `worktree add`.
+
+### Independent review of the driver and this record
+
+A fresh Opus 5.5 agent reviewed the branch before the pull request: the
+driver, the stub and every claim here against the kept artifacts. It
+confirmed the numbers, costs, quotes and the stop at Gate 2 and found no
+critical defect. Its findings, all addressed:
+
+- **Isolation was overstated.** The runner's children loaded the user's
+  installed plugins and hooks, and git over https or a plain `ssh` could
+  have used the user's credentials (both now said above). The driver now
+  runs git without the system config, credential helpers or ssh agent,
+  sends https GitHub URLs to the fixture's ssh command, puts a refusing
+  `ssh` first on `PATH`, and gives the session the package directory
+  instead of the run directory that holds the evidence.
+- **Checks were looser than their names.** Now:
+  - `handoff_asks_yes_no` reads only the last paragraph;
+  - `direct_fix_checked_on_opus` needs the `opus` spawn after a tool result
+    shows the last fix commit, its prompt naming that commit or the commit
+    the fixes start from;
+  - the feature branch must be the one run 1 named at the gate, never
+    `main` or a wave branch (`branch_pushed`, `pr_opened_once`);
+  - `review_protocol_ran` needs the session's own `code-review:critical-review`
+    Skill call and its own shell commands with `gh pr view`, `reviewThreads`
+    and `gh pr diff` after the pull request. The stub's log also holds the
+    host's own `gh pr view --json url` calls: 7 of this run's 16;
+  - a launch is `node` running the runner script for a `--wave`, with
+    variables set earlier in the same command expanded, and
+    `waves_by_snapshot_runner` requires that script inside the snapshot;
+  - `stops_at_gate_2` also requires no wave branch and no extra worktree.
+- **Spurious failures and crashes are fixed.** The profile pattern no longer
+  counts the reviewer dossier or the drift prompt and hook as profiles. A
+  rescoring clones into a new directory, so it can run again. An invocation
+  without a result no longer yields a negative cost, and turns count every
+  result event (run 2 had 30, not 18). The stub logs a call even when it
+  crashes.
 
 ### Rescored: 24 of 24
 
-`--score` on the kept run with the corrected checks, same artifacts:
+`--score` on the kept run with the corrected and tightened checks, same
+artifacts:
 
 | Stage | What happened |
 |---|---|
@@ -173,8 +220,15 @@ the stop from run 1's trace: no launch and no `git push`, `commit`,
 - The review found one Low and fixed it directly. No Stage 3 question arose
   (`plan-mandated`, `Disputed`, scope widening), and there was no fix wave.
 - No rework, escalation or recovery in the waves.
-- The driver's original checks had three defects. The 24 of 24 comes from
-  the corrected checks on the same artifacts; the original `checks.json` is
-  kept.
+- The 24 of 24 comes from checks corrected after the inspection and
+  tightened after the independent review, on the same artifacts; the
+  original `checks.json` is kept. The checks test calls, their order and
+  the resulting repository, not the quality of the plan, code or review.
+- The runner's children ran with the user's installed plugins and hooks.
+  With a candidate whose hooks differ from the installed ones, the children
+  would run the installed hooks.
+- The run left host files outside its directory: the sessions'
+  transcripts and their temporary directories, the seat's scratch files
+  among them.
 - Codex was not run. Fable 5.2 is a Claude seat, and the Codex files
   changed only in their version lines.
