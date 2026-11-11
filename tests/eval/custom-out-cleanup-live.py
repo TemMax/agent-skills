@@ -67,8 +67,9 @@ AFTER_MERGE_WRITTEN_OUT = ("{reply}: an After the merge: line holds the cleanup 
                            "code span of that line naming wave-cleanup.mjs, in the rest of the line, or in a logical "
                            "line of the code block right below it, from node on; any such line of the reply counts: "
                            "the cleanup script and every --repo, --plan and --summary path absolute, --repo present, "
-                           "no --dry-run or --help, and no $ or backtick outside single quotes (no shell variable or "
-                           "command substitution); a link or a file in its place fails")
+                           "no --dry-run or --help, and no $ or backtick the shell would expand (outside single quotes "
+                           "and not escaped: no shell variable or command substitution); block lines starting with # "
+                           "and trailing # comments are not part of a command; a link or a file in its place fails")
 AFTER_MERGE_AS_PRINTED = ("a command on that line is, word for word (shell words), the command field of a "
                           "wave-cleanup.mjs --dry-run report in {turn}")
 # Removing by hand what the cleanup script owns: .worktrees itself, a run
@@ -274,7 +275,7 @@ def after_merge_commands(text):
         parts = [s for s in re.findall(r'`([^`\n]+)`', line) if 'wave-cleanup.mjs' in s] + [line]
         block = re.match(r'(?:[ \t]*\n)?[ \t]*(`{3,}|~{3,})[^\n]*\n(.*?)\n[ \t]*\1', below, re.S)
         if block:
-            parts += re.split(r'(?<!\\)\n', block.group(2))
+            parts += [p for p in re.split(r'(?<!\\)\n', block.group(2)) if not p.lstrip().startswith('#')]
         for part in parts:
             for node in re.finditer(r'(?<![\w/.-])node\s', part):
                 cmd = part[node.start():].strip()
@@ -285,7 +286,7 @@ def after_merge_commands(text):
 
 def command_words(cmd):
     try:
-        return shlex.split(cmd.replace('\\\n', ' '))
+        return shlex.split(cmd.replace('\\\n', ' '), comments=True)
     except ValueError:
         return None
 
@@ -421,8 +422,11 @@ def score(out):
               for k in (1, 2) if (out / f'turn-{k}.status.json').exists()}
     c1, c2 = commands(rows1), commands(rows2)
     r1, r2 = reports(rows1), reports(rows2)
-    left, after = handoff(handoff_reply(rows1))
     turn_1 = handoff_reply(rows1)
+    left, after = handoff(turn_1)
+    # The record and the options are read from the command written out, or
+    # from the first command the line carries.
+    after = after_merge_written(turn_1) or next(iter(after_merge_commands(turn_1)), after)
     if provider == 'claude':
         plugin = next((p for p in init_plugins(rows1) if p.get('name') == 'orchestration'), {})
         loaded = plugin.get('path') == str(pkg / 'plugins/orchestration') and plugin.get('version') == meta['versions']['orchestration']

@@ -24,7 +24,8 @@ const USAGE = [
   '  --repo <abs>     main checkout, the top level of a git work tree',
   '  --plan <file>    wave plan; repeatable, the task ids are the union;',
   '                   without one (a run that executed no plan) only',
-  '                   --branch is handled, and every record is kept',
+  '                   --branch is handled, and every record is kept;',
+  '                   one of --plan and --branch is required',
   '  --wave <n>       only the tasks of wave <n> (with exactly one --plan)',
   '  --into <ref>     integration target (default HEAD of --repo)',
   '  --branch <name>  also delete this local branch when it is integrated;',
@@ -145,6 +146,9 @@ function parseArgs(argv) {
     options[name] = value
   }
   if (options.repo === undefined) throw new UsageError('missing --repo')
+  if (options.plan.length === 0 && options.branch === undefined) {
+    throw new UsageError('missing --plan (or, for a run that executed no plan, --branch)')
+  }
   if (!isAbsolute(options.repo)) throw new UsageError('--repo: absolute path required')
   if (options.wave !== undefined && options.plan.length !== 1) {
     throw new UsageError('--wave is allowed only with exactly one --plan')
@@ -171,6 +175,7 @@ function readWaves(planPath) {
       }
     }
   }
+  if (!plan.waves.some((wave) => wave.tasks.length > 0)) throw bad('no task in any wave')
   return plan.waves
 }
 
@@ -202,6 +207,15 @@ function children(dir) {
   } catch {
     return []
   }
+}
+
+// A --summary taken once where the file system finds its directory (symbolic
+// links and `..` resolved by the kernel, as a read resolves them, not as a
+// string join would), the file name kept as given: every later step reads,
+// classifies and prints this one path. One whose directory is gone stays as
+// given, made absolute.
+function canonical(file) {
+  return lstat(dirname(file)) === null ? resolve(file) : join(stored(dirname(file)), basename(file))
 }
 
 // A --summary whose directory no longer exists names a record an earlier
@@ -251,17 +265,16 @@ function shellQuote(value) {
 }
 
 // The same cleanup without --dry-run, as a summary's `After the merge:` line
-// carries it: this script's own path and every --plan and --summary where it
-// really is (symbolic links and `..` resolved by the file system, as the reads
-// resolve them, not as strings), so nothing depends on the directory it is
-// run from, and --into as given (absent when it was not given).
+// carries it: this script's own path and the --plan and --summary paths this
+// run read and classified (see canonical), so nothing depends on the directory
+// it is run from, and --into as given (absent when it was not given).
 function readyCommand(options, repo) {
   const words = ['node', fileURLToPath(import.meta.url), '--repo', repo]
-  for (const plan of options.plan) words.push('--plan', stored(plan))
+  for (const plan of options.plan) words.push('--plan', plan)
   if (options.wave !== undefined) words.push('--wave', options.wave)
   if (options.into !== undefined) words.push('--into', options.into)
   if (options.records) words.push('--records')
-  for (const file of options.summary) words.push('--summary', stored(file))
+  for (const file of options.summary) words.push('--summary', file)
   if (options.branch !== undefined) words.push('--branch', options.branch)
   for (const id of options.accepted) words.push('--accepted', id)
   return words.map(shellQuote).join(' ')
@@ -287,6 +300,8 @@ try {
   const top = git(repo, 'rev-parse', '--show-toplevel')
   if (!top.ok || real(top.out) !== real(repo)) throw new UsageError('--repo is not the top level of a git work tree: ' + repo)
 
+  options.plan = options.plan.map((plan) => stored(plan))
+  options.summary = options.summary.map(canonical)
   const plans = options.plan.map(readWaves)
   planIds = unique(plans.flat().flatMap((wave) => wave.tasks.map((task) => task.id)))
   taskIds = planIds

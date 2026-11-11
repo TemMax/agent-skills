@@ -33,14 +33,19 @@ Codex handoff left the line out.
 
 **What changes.** `wave-cleanup.mjs --dry-run` also prints `command`: the
 same cleanup without `--dry-run`, with the script's own path and every
-`--plan` and `--summary` where it really is, all absolute, and each word
-quoted for a POSIX shell, so it runs as it is from any directory. The script
-also runs without `--plan`, for a run that executed none: it then handles
-only `--branch` and keeps every record. multi-model and ship, on both hosts,
-take `Left behind:` and the `After the merge:` command from one dry run given
-the after-the-merge options, and write out the printed command as it is, on
-that line or in a code block right below it: never a link, a file to open, a
-shell variable or a path relative to the current directory.
+`--plan` and `--summary` absolute, and each word quoted for a POSIX shell, so
+it runs as it is from any directory. The script takes each `--plan` and
+`--summary` once where the file system finds it, links and `..` included, so
+the dry run and the printed command read and decide the same record. It also
+runs without `--plan`, for a run that executed none: it then handles only
+`--branch` and keeps every record. A call with neither `--plan` nor
+`--branch`, or a plan with no task, is a usage error. multi-model and ship,
+on both hosts, take `Left behind:` and the `After the merge:` command from
+one dry run given the after-the-merge options, and write out the printed
+command as it is, on that line or in a code block right below it: never a
+link, a file to open, a shell variable or a path relative to the current
+directory. After the merge they run that command as written and read all of
+its output.
 
 ## 4.23.0
 

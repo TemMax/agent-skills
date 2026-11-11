@@ -225,7 +225,8 @@ and fast-forward it. When the switch is refused because that branch is checked
 out in another worktree, detach the checkout at `origin/<default branch>`
 instead; when the switch is refused for another reason, or the fast-forward is
 refused, leave the checkout as it is, never stash, and say why. Then run that
-command. Local branches go only through that script. Delete the remote feature
+command as written and read all of its output. Local branches go only through
+that script. Delete the remote feature
 branch only if the script reported the local feature branch removed and
 `git ls-remote --heads origin <feature branch>` shows the `tip` it printed.
 Remove only what this run created, clean and already integrated; everything

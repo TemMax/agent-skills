@@ -826,6 +826,8 @@ test('every usage error exits 2 with one line on stderr and changes nothing', ()
   writeFileSync(badJson, '```json wave-plan\n{ "waves": [\n```\n')
   const noWaves = join(root, 'no-waves.md')
   writeFileSync(noWaves, '```json wave-plan\n{ "tasks": [] }\n```\n')
+  const noTasks = join(root, 'no-tasks.md')
+  writeFileSync(noTasks, '```json wave-plan\n{ "waves": [] }\n```\n')
   const badId = join(root, 'bad-id.md')
   writeFileSync(badId, '```json wave-plan\n{ "waves": [{ "wave": 1, "tasks": [{ "id": "../escape" }] }] }\n```\n')
   const before = snapshot(repo)
@@ -833,6 +835,8 @@ test('every usage error exits 2 with one line on stderr and changes nothing', ()
   const cases = {
     'missing --repo': ['--plan', plan],
     '--wave without --plan': ['--repo', repo, '--wave', '1'],
+    'neither --plan nor --branch': ['--repo', repo],
+    'a plan with no task in any wave': ['--repo', repo, '--plan', noTasks],
     '--accepted without --plan': ['--repo', repo, '--accepted', 'a'],
     'relative --repo': ['--repo', 'repo', '--plan', plan],
     '--repo below the top level': ['--repo', join(repo, 'sub'), '--plan', plan],
@@ -1700,4 +1704,48 @@ test('the printed command survives quotes, $ and spaces in every path when a she
   assert.deepEqual(done.kept, dry.json.kept)
   assert.equal(existsSync(record), false)
   assert.equal(branchExists(repo, 'feature'), false)
+})
+
+test('a --summary through a link and `..` is read, listed and printed as the same record', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const record = writeRecord(repo, join('runs', 'b'), 'a', ['a'], 'ok') // .worktrees/runs/b/a
+  mkdirSync(join(repo, '.worktrees', 'runs', 'b', 'c'))
+  symlinkSync(join(repo, '.worktrees', 'runs', 'b', 'c'), join(repo, '.worktrees', 'runs', 'lnk'))
+  // `lnk/..` is .worktrees/runs/b to the kernel, .worktrees/runs to a string join
+  const summary = repo + '/.worktrees/runs/lnk/../a/summary.json'
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', summary, '--dry-run')
+  assert.equal(dry.status, 0, dry.stderr)
+  assert.deepEqual(dry.json.removed.filter((item) => item.kind === 'record'), [{ kind: 'record', path: record }])
+  assert.match(dry.json.command, /--summary \S*\/runs\/b\/a\/summary\.json/)
+  const run = spawnSync('/bin/sh', ['-c', dry.json.command], { encoding: 'utf8', cwd: tmpdir(),
+    env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH } })
+  assert.equal(run.status, 0, run.stderr)
+  const done = JSON.parse(run.stdout)
+  assert.deepEqual(done.removed, dry.json.removed)
+  assert.deepEqual(done.kept, dry.json.kept)
+  assert.equal(existsSync(record), false)
+})
+
+test('a --summary that is itself a link is decided the same in the dry run and by the printed command', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const target = writeRecord(repo, 'runs', 'w2', ['a'], 'ok')
+  const named = join(repo, '.worktrees', 'runs', 'w1')
+  mkdirSync(named)
+  symlinkSync(join(target, 'summary.json'), join(named, 'summary.json'))
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', join(named, 'summary.json'), '--dry-run')
+  assert.equal(dry.status, 0, dry.stderr)
+  const run = spawnSync('/bin/sh', ['-c', dry.json.command], { encoding: 'utf8', cwd: tmpdir(),
+    env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH } })
+  assert.equal(run.status, 0, run.stderr)
+  const done = JSON.parse(run.stdout)
+  assert.deepEqual(done.removed, dry.json.removed)
+  assert.deepEqual(done.kept, dry.json.kept)
 })

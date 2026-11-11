@@ -74,6 +74,7 @@ def load(name, file):
 cleanup = load('out_live', 'custom-out-cleanup-live.py')
 bench, plan_live, seat = cleanup.bench, cleanup.plan_live, cleanup.seat
 SCENARIOS = ('mm-merge', 'mm-merged-worktree', 'ship-merge')
+WAVE_SCRIPTS = ('claude-wave-runner.mjs', 'codex-wave-runner.mjs', 'wave-launch.mjs')
 FEATURE = 'feature/durations'
 SEAT = cleanup.SEAT
 # Text only the candidate's after-the-merge instructions carry.
@@ -473,10 +474,19 @@ def score(out):
     # last reply before the merge turn must carry the command after the merge,
     # with or without a plan.
     pre_rows = [r for t in turns if t != merge_turn for r in rows.get(t, [])]
-    carrying = [t for t in replies(pre_rows) if re.search(cleanup.MARK.format('after the merge'), t)]
+    # ship: the handoff itself, never an earlier turn's line.
+    source = rows.get(handoff_turn, []) if scenario == 'ship-merge' and handoff_turn else pre_rows
+    carrying = [t for t in replies(source) if re.search(cleanup.MARK.format('after the merge'), t)]
     pre_reply = carrying[-1] if carrying else ''
-    checks['after_merge_written_out'] = bool(cleanup.after_merge_written(pre_reply))
+    written = cleanup.after_merge_written(pre_reply)
+    words = cleanup.command_words(written) or []
+    plans = [words[i + 1] for i, w in enumerate(words[:-1]) if w == '--plan']
+    # A wave ran when a run record exists before the merge turn or a command
+    # names a runner or the launcher (Codex quoting defeats parsing the call).
+    waved = bool(before.get('summaries')) or any(name in c for c in commands(pre_rows) for name in WAVE_SCRIPTS)
+    checks['after_merge_written_out'] = bool(written)
     checks['after_merge_as_printed'] = cleanup.as_printed(pre_reply, pre_rows)
+    checks['after_merge_plans_from_run'] = all('/.git/' not in p for p in plans) and (waved or not plans)
     blocked = boundary(meta, calls, all_rows)
     facts = {'feature': feature, 'merge_calls': merge_calls(merge_session), 'blocked': blocked,
              'merge_turn_commands': merge_cmds, 'merge_turn_reports': merge_reports,
@@ -485,7 +495,7 @@ def score(out):
              'after_merge_command': cleanup.after_merge_written(pre_reply),
              'after_merge_commands': cleanup.after_merge_commands(pre_reply),
              'printed_commands': [' '.join(w) for w in cleanup.printed_commands(pre_rows) if w],
-             'run_records_before': before.get('summaries'),
+             'run_records_before': before.get('summaries'), 'after_merge_plans': plans, 'wave_ran': waved,
              'final_reply': final,
              'head_after': after.get('head_branch'), 'branches_after': after.get('branches'),
              'summaries_after': after.get('summaries'), 'origin_feature_after': after.get('origin_feature'),
@@ -547,8 +557,13 @@ EXPECTED = {
                                       'merge-tree, branch --contains or --merged); commands count at command '
                                       'position, indented lines, if/while, ! and VAR=value prefixes included',
     'after_merge_written_out': cleanup.AFTER_MERGE_WRITTEN_OUT.format(
-        reply='the last reply before the merge turn with an After the merge: line (no such reply fails)'),
+        reply='the last reply before the merge turn with an After the merge: line, in ship-merge the last such reply '
+              'of the handoff turn (no such reply fails)'),
     'after_merge_as_printed': cleanup.AFTER_MERGE_AS_PRINTED.format(turn='a turn before the merge turn'),
+    'after_merge_plans_from_run': 'every --plan of the command written out is a plan the run executed: none under '
+                                  '.git, and none at all when no wave ran before the merge turn (no summary.json '
+                                  'under .worktrees in state-before.json and no command naming '
+                                  'claude-wave-runner.mjs, codex-wave-runner.mjs or wave-launch.mjs)',
     'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark (? or ？) "
                                'outside code and links, and offers no more work (shall/should I, do you want '
                                'me, would you like me, want me to — not "whether you want me to" —, let me '

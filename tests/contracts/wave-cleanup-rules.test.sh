@@ -86,8 +86,16 @@ for s in skills/ship skills-codex/ship; do
   check "$s passes no --plan when the run executed none" \
     "one_line $P/$s/WORKFLOW.md | grep -qF 'one \`--plan\` per plan this run executed (fix plans included; none when it executed none'"
 done
+for s in skills/multi-model skills-codex/multi-model skills/ship skills-codex/ship; do
+  check "$s runs the After the merge: command as written and reads all of its output" \
+    "one_line $P/$s/WORKFLOW.md | grep -qE 'Then run that command as written and read all of its output|command of the report as written, and read all of its output'"
+done
 check "the cleanup script runs without --plan, handling only --branch" \
   "grep -qF 'without one (a run that executed no plan) only' $P/skills/multi-model/references/wave-cleanup.mjs"
+check "the cleanup script still needs --plan or --branch" \
+  "grep -qF 'one of --plan and --branch is required' $P/skills/multi-model/references/wave-cleanup.mjs"
+check "the cleanup script rejects a plan with no task" \
+  "grep -qF \"bad('no task in any wave')\" $P/skills/multi-model/references/wave-cleanup.mjs"
 check "README says the cleanup command is written out ready to run" \
   "one_line README.md | grep -qF 'written out in the report as the cleanup script printed it, ready to run'"
 check "the cleanup script prints the ready command in a dry run" \

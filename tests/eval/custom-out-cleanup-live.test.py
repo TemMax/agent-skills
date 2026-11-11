@@ -92,6 +92,7 @@ WRITTEN_OUT = {
         f'- After the merge, the records go too.\n\nAfter the merge: `{FULL}`\n',
     'a path the script quoted that holds a $': "After the merge: `node '/x/a$b/wave-cleanup.mjs' --repo /x/repo`\n",
     'no --plan, for a run that executed none': f'After the merge: `node {SCRIPT} --repo /x/repo --into origin/main --branch f`\n',
+    'a trailing comment after it in the block': 'After the merge:\n```sh\n' + FULL + '  # after the merge\n```\n',
 }
 NOT_WRITTEN_OUT = {
     'a link to a script it wrote': 'After the merge: [ready cleanup command](/x/repo/.worktrees/runs/wave-1/after-merge.sh).\n',
@@ -112,6 +113,7 @@ NOT_WRITTEN_OUT = {
     'a link, with the dry run in a block below': ('After the merge: [command](/x/after-merge.sh)\n```sh\n' + FULL
                                                    + ' --dry-run\n```\n'),
     'a $ inside double quotes': 'After the merge: `node "$HOME/wave-cleanup.mjs" --repo /x/repo`\n',
+    'a commented-out command alone in the block': 'After the merge:\n```sh\n# ' + FULL + '\n```\n',
     'no After the merge: line': f'Left behind: x\n\n`{FULL}`\n',
     'a code block that is not right below the line': 'After the merge: see below.\n\nMore text.\n\n```sh\n' + FULL + '\n```\n',
 }
@@ -125,6 +127,8 @@ ok &= check('as printed: the same words as a dry run printed, however the reply 
             live.as_printed(WRITTEN_OUT['a code block right below, continued lines (Codex)'], dry_rows))
 ok &= check('as printed: a command the dry run did not print is not',
             not live.as_printed(f'After the merge: `node {SCRIPT} --repo /x/repo --plan /x/repo/docs/plan.md`', dry_rows))
+ok &= check('as printed: a trailing comment is not part of the command',
+            live.as_printed(WRITTEN_OUT['a trailing comment after it in the block'], dry_rows))
 ok &= check('as printed: a real run\'s report carries no command to copy',
             not live.as_printed(WRITTEN_OUT['bare on the line'], [{'type': 'item.completed', 'item': {
                 'type': 'command_execution', 'command': 'x', 'aggregated_output': report(False)}}]))

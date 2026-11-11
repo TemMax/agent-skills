@@ -317,10 +317,11 @@ switch is refused because that branch is checked out in another worktree,
 detach the checkout at `origin/<default branch>` instead; when the switch is
 refused for another reason, or the fast-forward is refused, leave the checkout
 as it is, never stash, and say why. Then run the `After the merge:` command of
-the report: the cleanup script with `--repo <repo>`, one `--plan` per plan this
-run executed (fix plans included), `--into origin/<default branch>`,
-`--records`, the same `--summary` options and `--branch <feature branch>`.
-Local branches go only through that script. Delete the remote feature branch
+the report as written, and read all of its output: the cleanup script with
+`--repo <repo>`, one `--plan` per plan this run executed (fix plans included;
+none when it executed none), `--into origin/<default branch>`, `--records`, the
+same `--summary` options and `--branch <feature branch>`. Local branches go only
+through that script. Delete the remote feature branch
 only if the script reported the local feature branch removed and
 `git ls-remote --heads origin <feature branch>` shows the `tip` it printed.
 Remove temporary directories this run created outside the repository.
