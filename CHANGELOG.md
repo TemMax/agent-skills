@@ -59,6 +59,25 @@ user's word, counts the handoff's merge question among the questions the
 process asks, and lists the cleanup after a confirmed merge among the steps
 that need no approval.
 
+**Checked.** Offline, the merge contract pins each rule in the four workflow
+files, the Fable 5.2 profile and the README (109 checks). The live driver's
+scoring and the GitHub CLI stub have 102 offline cases, and the full suite
+passes. Live checks ran on Claude Code 2.1.322 and Codex CLI 0.167.0, with
+the candidate loaded from a disposable copy and the stub as the pull-request
+host, one run per host and scenario. On the final commit a session confirmed
+a merge the user had made while its checkout was a linked worktree and
+`main` was checked out elsewhere. It then detached, cleaned up and asked
+nothing: 15 of 15 frozen checks on each host. On Claude Code a run without a
+pull request did the same (14 of 14). On the commit before, which lacks only
+the gh-precedence sentence and the profile's wording, sessions merged on
+"merge it yourself" (15 of 15 on each host). They also ran ship end to end,
+offered the merge in the handoff and merged on "yes" (16 of 16 on each
+host). In that round a Codex summary linked a script instead of printing the
+`After the merge:` command (13 of 14); this change does not touch that rule.
+Over five rounds the Fable 5.2 seat sessions cost $41.48; the Codex token
+counts and every failure are in
+`tests/eval/merge-cleanup-results-2026-11-11.md`.
+
 ## 4.22.1
 
 ### Highlights
