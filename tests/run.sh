@@ -58,6 +58,7 @@ run "behaviour — acceptance dialogue evidence (offline)" python3 tests/eval/ac
 run "behaviour — retained dialogue replay (offline)" python3 tests/eval/acceptance-dialogue-replay.test.py
 run "behaviour — executor-lane driver (offline)" python3 tests/eval/executor-lane.test.py
 run "behaviour — review-content answer analysis (offline)" python3 tests/eval/review-content-live.test.py
+run "behaviour — custom-out cleanup scoring (offline)" python3 tests/eval/custom-out-cleanup-live.test.py
 run "behaviour — seam-audit scorer" bash tests/eval/seam-audit.test.sh
 run "behaviour — seam-audit fixture runner" bash tests/eval/seam-audit-fixtures.test.sh
 run "behaviour — drift fixture runner" bash tests/eval/drift-fixtures.test.sh

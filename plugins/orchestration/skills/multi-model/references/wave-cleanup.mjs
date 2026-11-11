@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Removes what a wave left behind — task worktrees, `wave/<id>` branches and,
-// on request, run records (a task's verification logs among them) — and
-// only what is provably safe to remove: a
+// on request, run records (a task's verification logs among them, and the
+// directory of a --summary kept under .worktrees by a runner given --out) —
+// and only what is provably safe to remove: a
 // task must be accepted (a finished run's summary.json marks it `ok` at the
 // branch's current tip, or --accepted names it), its branch proven integrated
 // into the target and its worktree clean. Anything not proven is kept and
@@ -9,7 +10,7 @@
 // outside <repo>/.worktrees.
 import { spawnSync } from 'node:child_process'
 import { lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync } from 'node:fs'
-import { isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { readPlanJson } from './worktree-env.mjs'
 
 const USAGE = [
@@ -27,13 +28,21 @@ const USAGE = [
   '                   never the integration target itself and never the',
   '                   default branch of a remote',
   '  --summary <file> a run\'s summary.json kept outside the two default',
-  '                   directories; repeatable',
+  '                   directories (a runner given --out); repeatable; one',
+  '                   whose directory is gone (an earlier cleanup removed',
+  '                   it) is skipped with a line on stderr',
   '  --accepted <id>  this task was accepted although no run record says so',
   '                   (a host that leaves none); repeatable',
   '  --records        also remove the run records of the given plans, the',
   '                   verification-logs/<id> directories of their tasks among',
-  '                   them; when a record directory was removed, worktree',
-  '                   registrations whose directories are gone are pruned',
+  '                   them, and the directory of each --summary file that',
+  '                   lies inside <repo>/.worktrees but not in a default',
+  '                   record directory (those are scanned one level deep);',
+  '                   a record directory that holds another run\'s directory',
+  '                   which stays (a record that stays, or a run with no',
+  '                   summary.json yet) is kept; when a record directory was',
+  '                   removed, worktree registrations whose directories are',
+  '                   gone are pruned',
   '  --dry-run        run every check, change nothing',
   '',
   'A task is removed only when it is accepted: a summary.json — one named',
@@ -92,6 +101,16 @@ function lstat(path) {
 function real(path) {
   try {
     return realpathSync(path)
+  } catch {
+    return resolve(path)
+  }
+}
+
+// The same, spelled the way the file system stores it: a case-insensitive
+// file system takes any letter case in a path, and this returns the stored one.
+function stored(path) {
+  try {
+    return realpathSync.native(path)
   } catch {
     return resolve(path)
   }
@@ -179,11 +198,23 @@ function children(dir) {
   }
 }
 
+// A --summary whose directory no longer exists names a record an earlier
+// cleanup removed: nothing is left to read or to remove, so the same
+// after-the-merge command can run again.
+function gone(file) {
+  return lstat(dirname(resolve(file))) === null
+}
+
 // The summaries acceptance is read from: every --summary file, then every
 // run directory under the two default runner directories. A symbolic link
 // on the way to a default summary is never followed.
 function readSummaries(files, worktrees) {
-  const summaries = files.map((file) => {
+  const summaries = files.filter((file) => {
+    if (!gone(file)) return true
+    // Named, so a mistyped path does not pass unseen.
+    process.stderr.write('wave-cleanup: skipped --summary ' + file + ': its directory does not exist\n')
+    return false
+  }).map((file) => {
     try {
       return parseJson(readFileSync(file, 'utf8'))
     } catch (error) {
@@ -414,14 +445,54 @@ function stillLeft(id) {
   return left.get(id)
 }
 
+function ofPlans(ids) {
+  return ids !== null && ids.length > 0 && ids.every((id) => typeof id === 'string' && planIds.includes(id))
+}
+
+// The first files a runner writes into its --out, long before summary.json:
+// the Claude runner's launch script, the Codex runner's verdict schema, and
+// the progress log of both.
+const RUN_STARTED = ['launch.workflow.mjs', 'verdict.schema.json', 'progress.log']
+
+// A record directory goes whole, so one that holds another run's directory
+// goes only when that run's record would go too: its summary.json is a record
+// of the given plans none of whose tasks is still left. A run with no
+// summary.json yet (still running, or killed) always stays. A checkout the run
+// added inside its record (a judge's or a supervisor's, whose .git is a file)
+// belongs to that run and is not searched; a repository of its own (a .git
+// directory) stays.
+function heldRecord(dir) {
+  const stack = [dir]
+  while (stack.length > 0) {
+    const current = stack.pop()
+    for (const child of children(current)) {
+      const path = join(current, child)
+      const stat = lstat(path)
+      if (stat === null || stat.isSymbolicLink() || !stat.isDirectory()) continue
+      const dotGit = lstat(join(path, '.git'))
+      if (dotGit !== null && dotGit.isFile()) continue
+      if (dotGit !== null) return path
+      if (lstat(join(path, 'summary.json')) !== null) {
+        const ids = summaryIds(path)
+        if (!ofPlans(ids) || ids.some(stillLeft)) return path
+      } else if (RUN_STARTED.some((name) => lstat(join(path, name)) !== null)) {
+        return path
+      }
+      stack.push(path)
+    }
+  }
+  return null
+}
+
 // One run record or state file: `ids` is null when it is not this plan's.
 function cleanRecord(kind, path, ids, remove) {
   const keep = (reason) => kept.push({ kind, path, reason })
-  if (ids === null || ids.length === 0 || !ids.every((id) => typeof id === 'string' && planIds.includes(id))) {
-    return keep('not a run record of the given plans')
-  }
+  if (!ofPlans(ids)) return keep('not a run record of the given plans')
   const busy = ids.find(stillLeft)
   if (busy !== undefined) return keep('task ' + busy + ' still has a branch or worktree')
+  const stat = kind === 'record' ? lstat(path) : null
+  const held = stat !== null && stat.isDirectory() ? heldRecord(path) : null
+  if (held !== null) return keep('holds ' + held + ', which stays')
   if (!dryRun) {
     try {
       remove(path)
@@ -448,6 +519,59 @@ function stateIds(file) {
 }
 
 const UNRECOGNIZED = 'not recognized as a run record of the given plans'
+
+// The records of runs given an --out of their own: the directory of each
+// --summary file inside .worktrees, taken where it really is (symbolic links
+// resolved; one outside .worktrees is listed at that real place). The default
+// runner, state and log directories are left to the scan in step C;
+// .worktrees itself and a task's worktree are never a record; a directory in
+// another git work tree is kept. Each entry is { path } to decide, or
+// { path, reason } to keep (with `task` when it lies in that task's worktree).
+// One entry per directory, whatever the order of the --summary options: a
+// reason to keep wins. Deepest first, so a record inside another one is
+// decided before it.
+function summaryRecords() {
+  const records = new Map()
+  const add = (record) => {
+    const before = records.get(record.path)
+    if (before === undefined || (before.reason === undefined && record.reason !== undefined)) {
+      records.set(record.path, record)
+    }
+  }
+  // Stored spelling, so a path in other letter case still names the same
+  // directory, default ones included.
+  const root = stored(worktreesDir)
+  for (const file of options.summary) {
+    const named = resolve(file)
+    if (gone(named)) continue
+    const dir = stored(dirname(named))
+    const rel = relative(root, dir)
+    if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
+      add({ path: dir, reason: 'outside ' + worktreesDir })
+      continue
+    }
+    const parts = rel === '' ? [] : rel.split(sep)
+    if ([...RUNNER_DIRS, STATE_DIR, LOGS_DIR].includes(parts[0])) continue
+    const path = join(worktreesDir, ...parts)
+    if (parts.length === 0) {
+      add({ path, reason: 'not a run record directory' })
+      continue
+    }
+    const task = planIds.find((id) => parts[0] === 'wave-' + id)
+    if (task !== undefined) {
+      add({ path, task, reason: 'inside the worktree of task ' + task })
+      continue
+    }
+    const top = git(path, 'rev-parse', '--show-toplevel')
+    if (!top.ok || real(top.out) !== real(repo)) {
+      add({ path, reason: 'inside another git work tree' })
+      continue
+    }
+    add(basename(named) === 'summary.json' ? { path } : { path, reason: 'the --summary file is not named summary.json' })
+  }
+  return [...records.values()].sort((a, b) => b.path.split(sep).length - a.path.split(sep).length
+    || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+}
 
 // Step C.
 function cleanRecords() {
@@ -501,10 +625,56 @@ function cleanRecords() {
       }
     }
   }
+  // Decided before anything was removed. A record inside a task's worktree
+  // goes with that worktree when step A removed it — in a dry run, would.
+  const fromSummaries = summaryRecordsAtStart.filter((record) => record.task === undefined
+    || !removed.some((item) => item.kind === 'worktree' && item.task === record.task))
+  const named = new Set(fromSummaries.map((record) => record.path))
+  // The directories between .worktrees and a named record that lies in this
+  // work tree: what else they hold is reported, and they go once the records
+  // were their only content. Nothing is walked on the way to a record kept for
+  // a reason (one in another work tree or in a task's worktree, say).
+  const between = new Set()
+  for (const { path, reason } of fromSummaries) {
+    if (reason !== undefined) continue
+    for (let dir = dirname(path); dir.startsWith(worktreesDir + sep); dir = dirname(dir)) between.add(dir)
+  }
+  for (const record of fromSummaries) {
+    if (record.reason !== undefined) {
+      kept.push({ kind: 'record', path: record.path, reason: record.reason })
+      continue
+    }
+    // Removed meanwhile by something else: nothing is left to decide.
+    if (lstat(record.path) === null) continue
+    // Deepest first: an entry kept inside this record is already listed.
+    const inner = kept.find((item) => typeof item.path === 'string' && item.path.startsWith(record.path + sep))
+    if (inner !== undefined) kept.push({ kind: 'record', path: record.path, reason: 'holds ' + inner.path + ', which stays' })
+    else cleanRecord('record', record.path, summaryIds(record.path), (target) => rmSync(target, { recursive: true }))
+  }
+  const unrecognized = (dir) => {
+    for (const child of children(dir)) {
+      const path = join(dir, child)
+      if (named.has(path)) continue
+      if (between.has(path)) unrecognized(path)
+      else kept.push({ kind: 'other', path, reason: UNRECOGNIZED })
+    }
+  }
   for (const child of children(worktreesDir)) {
-    if (!known.has(child)) kept.push({ kind: 'other', path: join(worktreesDir, child), reason: UNRECOGNIZED })
+    const path = join(worktreesDir, child)
+    if (known.has(child) || named.has(path)) continue
+    if (between.has(path)) unrecognized(path)
+    else kept.push({ kind: 'other', path, reason: UNRECOGNIZED })
   }
   if (dryRun) return
+  for (const dir of [...between].sort((a, b) => b.length - a.length)) {
+    const stat = lstat(dir)
+    if (stat === null || !stat.isDirectory() || children(dir).length > 0) continue
+    try {
+      rmdirSync(dir)
+    } catch {
+      // Not empty after all (a concurrent writer): leaving it is the safe outcome.
+    }
+  }
   for (const dir of [...RUNNER_DIRS, STATE_DIR, LOGS_DIR].map((name) => join(worktreesDir, name)).concat(worktreesDir)) {
     const stat = lstat(dir)
     if (stat === null || !stat.isDirectory() || children(dir).length > 0) continue
@@ -523,6 +693,9 @@ function cleanRecords() {
   }
 }
 
+// A removal changes what a path resolves to, so the --summary directories are
+// classified before step A removes anything.
+const summaryRecordsAtStart = options.records ? summaryRecords() : []
 for (const id of taskIds) cleanTask(id)
 if (options.branch !== undefined) cleanBranch(options.branch)
 if (options.records) cleanRecords()

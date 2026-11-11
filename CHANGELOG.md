@@ -4,6 +4,56 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.22.1
+
+### Highlights
+
+**multi-model**
+- Cleanup after the merge removes records kept under a custom --out
+
+**ship**
+- The after-the-merge command names those records with --summary
+
+Orchestration 4.22.1 and code-review 1.21.0 apply to Claude Code and Codex.
+
+**What was wrong.** A wave runner given `--out` keeps its run record outside
+`.worktrees/claude-runner/` and `.worktrees/codex-runner/`, and
+`wave-cleanup.mjs --records` removed records only from those two
+directories. After the merge such a record stayed, reported as "not
+recognized". A recovery run, which takes a new `--out`, could leave one the
+same way. Seen in the end-to-end ship run on the Fable 5.2 seat recorded
+in #47, whose waves ran with `--out <repo>/.worktrees/runs/wave-<n>`.
+
+**What changes.** With `--records`, `wave-cleanup.mjs` also removes the
+directory of each `--summary` file inside `<repo>/.worktrees`, by the rules
+of a default record: it is a record of the given plans and none of its tasks
+still has a branch or worktree. It keeps, and lists with the reason, one
+outside `.worktrees` (at its real place, links resolved), one in a task's
+worktree that stays, one in another git work tree and one named by a file
+other than `summary.json`, whatever the order or the spelling of the
+options; directories the records leave empty are removed, and anything else
+next to a record is reported. Any record directory, default or named, that
+holds another run's directory which stays is kept whole: a record of another
+plan, one whose task is still left, or a run with no `summary.json` yet,
+such as a killed one. A `--summary` whose directory an earlier cleanup
+removed is skipped with a line on stderr, so the same command can run again.
+The `Left behind:` dry run and the `After the merge:` command in multi-model
+and ship, on both hosts, carry `--summary <out>/summary.json` for each
+runner given an `--out` under `.worktrees/` other than the default
+directories; any other runner `--out` is listed under `Left behind:`.
+
+**Checked.** Behaviour tests on real repositories cover each rule above (15
+new, 53 in `wave-cleanup.test.mjs`). Live, on Claude Code 2.1.322 and Codex
+CLI 0.167.0 with the candidate loaded from a disposable snapshot, a one-task
+wave ran with `--out <repo>/.worktrees/runs/wave-1`. On the final commit
+both hosts named the record with `--summary` in the `Left behind:` dry run
+and the `After the merge:` command, and after "merged" the script removed
+it, with nothing removed by hand: 14 of 14 frozen checks on each host, as in
+the round before the second review. On Codex the driver ran the wave, since
+a Codex session that launches the runner itself needs `danger-full-access`,
+which the checking agent was not allowed to start. One run per host and
+round; `tests/eval/custom-out-cleanup-results-2026-11-11.md`.
+
 ## 4.22.0
 
 ### Highlights
