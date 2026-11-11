@@ -98,9 +98,10 @@ user to restart at a different effort.
   that drops or weakens a `must_run` is one yes/no question), an
   irreversible action on something this run did not create, an action only
   the user can take; ship's `plan-mandated` findings, `Disputed` threads and
-  scope-widening Set aside lines; and one question before replying to or
-  resolving a thread someone else started, or pushing to a branch that is
-  not the user's own. A premium route is never asked for: only the user's
+  scope-widening Set aside lines, and its handoff's one yes/no next action —
+  the merge, when nothing is left open; and one question before replying to
+  or resolving a thread someone else started, or pushing to a branch that
+  is not the user's own. A premium route is never asked for: only the user's
   word or their instruction files authorize it. These steps need no
   approval: reading and searching the repository; routed research spawns;
   writing and linting the plan file; running `must_run` commands, tests,

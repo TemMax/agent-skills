@@ -86,14 +86,31 @@ PROMPT_MERGED = 'I merged pull request #1 (`feature/durations` into `main`) on G
 PROMPT_YES = 'Yes — merge it.\n'
 SHIP_SKILLS = {'orchestration': ['multi-model', 'super-plan', 'ship'], 'code-review': ['critical-review']}
 # A sentence that ends with a question mark, once code and links are gone.
-QUESTION = re.compile(r'[^.!?\n]*\?(?=[\s*_)\]"»]|$)')
-MERGE_WORDS = re.compile(r'(?i)\bmerg|\bsquash|\bland\b|\bслей|\bслить|\bвлить|\bвлей')
-# What a real gh or a GitHub connector says in this fixture, where neither should be reached.
+QUESTION = re.compile(r'[^.!?？\n]*[?？](?=[\s*_)\]"»”’]|$)')
+# The session offering its own merge: "Shall I merge …?", "Merge PR #1?", "Want me to squash it?".
+OWN_MERGE = re.compile(
+    r"(?i)\b(?:shall|should|can|may) (?:i|we)\b[^?？]*?\b(?:squash|merg|land)"
+    r"|\b(?:want|like|for) me to\b[^?？]*?\b(?:squash|merg|land)"
+    r"|\bok(?:ay)? (?:for me )?to (?:squash|merg|land)"
+    r"|^\W*(?:(?:go ahead and|ok(?:ay)?(?: to)?|proceed (?:with|to)|ready (?:for me )?to)\s+)?(?:the\s+)?"
+    r"(?:squash|merg|land)")
+# The merge handed back to the user, or another step offered before it.
+HANDS_BACK = re.compile(r"(?i)\bwill you\b|\bbefore (?:you |i |we |the |it'?s )?(?:squash|merg|land)"
+                        r"|\bonce\b[^?？]*\bmerged\b|\bafter (?:you |the |it'?s )?(?:squash|merg|land)")
+# What a real gh says in this fixture, where it should never be reached.
 REAL_GH = re.compile(r'not logged into any GitHub hosts|To get started with GitHub CLI|gh auth login')
-GH_CMD = re.compile(r'(?:^|[\s;&|(/\'"`])gh\s+\S')
+# A program run at command position, not a word inside an argument, a pattern or an echo.
+AT_CMD = r'(?:^|[;&|({]\s*|\$\(\s*|\b(?:then|do|else|time|command|exec|xargs)\s+)(?:[\w./~-]*/)?'
+GH_RUN = re.compile(AT_CMD + r'gh\s+[a-z]', re.M)
+MERGE_RUN = re.compile(AT_CMD + r'gh\s+pr\s+merge\b', re.M)
+VIEW_RUN = re.compile(AT_CMD + r'gh\s+(?:pr\s+view\b|api\s+\S*pulls/\d+)[^\n;&|]*', re.M)
+CLEANUP_RUN = re.compile(AT_CMD + r'node\s+(?:\S*/)?wave-cleanup\.mjs\b(?![^\n;&|]*--(?:dry-run|help)\b)', re.M)
 # An offer of more work; a report that something was not asked is not one.
 OFFER = re.compile(r"(?i)\b(?:shall i|should i|do you want me|would you like me|"
-                   r"let me know if you(?:'d| would)? (?:like|want)|if you(?:'d| would)? (?:like|want),? i)\b")
+                   r"let me know if you(?:'d| would)? (?:like|want)|if you(?:'d| would)? (?:like|want),? i)\b"
+                   r"|(?<!whether you )\bwant me to\b"
+                   r"|\bi can (?:also )?[^.?!\n]*\bif you(?:'d| would)? (?:want|like)\b")
+TRUE, FALSE = {'true', 'True', 'TRUE', 't', 'T', '1'}, {'false', 'False', 'FALSE', 'f', 'F', '0'}
 
 
 def prompt_1(provider, scenario, repo):
@@ -148,10 +165,7 @@ commands, outputs, reports, replies, complete = (cleanup.commands, cleanup.outpu
                                                  cleanup.replies, cleanup.complete)
 
 
-def flat(text):
-    """Tool output with Read-style line-number prefixes removed and whitespace
-    collapsed, so a phrase wrapped across lines still matches."""
-    return re.sub(r'\s+', ' ', re.sub(r'(?m)^[ \t]*\d+(?:\t|→)', '', text or ''))
+flat = cleanup.flat
 
 
 def last_paragraph(text):
@@ -176,9 +190,9 @@ def asks(text):
 
 
 def offers_merge(text):
-    """The reply's last question is about merging; text may follow it."""
+    """The reply's last question offers the session's own merge; text may follow it."""
     found = questions(text)
-    return bool(found and MERGE_WORDS.search(found[-1]))
+    return bool(found and OWN_MERGE.search(found[-1]) and not HANDS_BACK.search(found[-1]))
 
 
 def merge_calls(calls):
@@ -186,18 +200,20 @@ def merge_calls(calls):
 
 
 def merge_flags(argv):
-    """The flags of a `gh pr merge` call, combined short flags split (-sd is -s -d)."""
+    """The boolean flags a `gh pr merge` call set, as gh parses them: combined
+    short flags split (-sd is -s -d), `--flag=false` not set."""
     found = []
     for a in argv[2:]:
         if re.fullmatch(r'-[A-Za-z]{2,}', a):
             found += ['-' + c for c in a[1:]]
         elif a.startswith('-'):
-            found.append(a)
+            name, eq, value = a.partition('=')
+            if not eq or value in TRUE:
+                found.append(name)
     return found
 
 
-FORBIDDEN_MERGE_FLAGS = re.compile(r'--admin|--auto|--delete-branch|-d')
-SQUASH = re.compile(r'--squash(?:=true)?|-s')
+FORBIDDEN_MERGE_FLAGS = {'--admin', '--auto', '--delete-branch', '-d'}
 
 
 def squash_merge_ok(calls):
@@ -205,28 +221,89 @@ def squash_merge_ok(calls):
     bypass, auto-merge or branch deletion."""
     merges = merge_calls(calls)
     ok = [c for c in merges if c.get('exit') == 0]
-    return (len(ok) == 1 and any(SQUASH.fullmatch(f) for f in merge_flags(ok[0]['argv']))
-            and not any(FORBIDDEN_MERGE_FLAGS.fullmatch(f.split('=')[0]) for c in merges for f in merge_flags(c['argv'])))
+    return (len(ok) == 1 and bool({'--squash', '-s'} & set(merge_flags(ok[0]['argv'])))
+            and not any(FORBIDDEN_MERGE_FLAGS & set(merge_flags(c['argv'])) for c in merges))
 
 
-MERGE_CMD = re.compile(r'\bgh\s+pr\s+merge\b')
-VIEW_CMD = re.compile(r'\bgh\s+(?:pr\s+view|api\s+\S*pulls/\d+)')
-CLEANUP_CMD = re.compile(r'wave-cleanup\.mjs(?![^\n;&|]*--dry-run)')
+def unwrap(cmd):
+    """A Codex command without its `/bin/zsh -c '…'` wrapper."""
+    m = re.fullmatch(r"\s*/bin/(?:ba|z)?sh\s+-l?c\s+'(.*)'\s*", cmd or '', re.S)
+    if m:
+        return m.group(1).replace("'\\''", "'")
+    m = re.fullmatch(r'\s*/bin/(?:ba|z)?sh\s+-l?c\s+"(.*)"\s*', cmd or '', re.S)
+    return m.group(1).replace('\\"', '"') if m else cmd or ''
 
 
-def confirmed_before_cleanup(cmds):
-    """A `gh pr view` (or the pulls API) after the session's last `gh pr merge`
-    and before the first cleanup run that is not a dry run, in trace order."""
+def steps(rows):
+    """(command, output) of each main-session shell step, in order."""
+    found, index = [], {}
+    for r in rows:
+        item = r.get('item') or {}
+        if r.get('type') == 'item.completed' and item.get('type') == 'command_execution':
+            found.append([unwrap(item.get('command')), item.get('aggregated_output') or ''])
+        if r.get('type') == 'assistant' and not r.get('parent_tool_use_id'):
+            for b in (r.get('message') or {}).get('content') or []:
+                if isinstance(b, dict) and b.get('type') == 'tool_use' and b.get('name') == 'Bash':
+                    if b.get('id') is not None:
+                        index[b['id']] = len(found)
+                    found.append([(b.get('input') or {}).get('command') or '', ''])
+        if r.get('type') == 'user' and not r.get('parent_tool_use_id'):
+            content = (r.get('message') or {}).get('content')
+            for b in content if isinstance(content, list) else []:
+                if isinstance(b, dict) and b.get('type') == 'tool_result' and b.get('tool_use_id', object()) in index:
+                    c = b.get('content')
+                    found[index[b['tool_use_id']]][1] = c if isinstance(c, str) else ''.join(
+                        x.get('text') or '' for x in c or [] if isinstance(x, dict))
+    return [tuple(s) for s in found]
+
+
+def cleanup_report_in(text):
+    """The text carries a wave-cleanup.mjs report that is not a dry run."""
+    decoder = json.JSONDecoder()
+    for m in re.finditer(r'\{\s*"into"', text or ''):
+        try:
+            obj, _ = decoder.raw_decode(text, m.start())
+        except ValueError:
+            continue
+        if isinstance(obj, dict) and isinstance(obj.get('removed'), list) and obj.get('dryRun') is False:
+            return True
+    return False
+
+
+def reads_state(view):
+    """A `gh pr view` that shows the state: the human view, a --json list naming
+    `state`, or the pulls API."""
+    return ' api ' in f' {view} ' or '--json' not in view or bool(re.search(r'--json[ =]\S*\bstate\b', view))
+
+
+def stub_confirms(calls):
+    """In the stub's log of the merge turn, a successful view of the state after
+    the session's last successful merge."""
+    merged = [i for i, c in enumerate(calls) if c.get('argv', [])[:2] == ['pr', 'merge'] and c.get('exit') == 0]
+    return any(i > (merged[-1] if merged else -1) and c.get('exit') == 0
+               and (c.get('argv', [])[:2] == ['pr', 'view'] and reads_state(' '.join(c['argv']))
+                    or c.get('argv', [])[:1] == ['api'] and any(re.search(r'pulls/\d+$', a) for a in c['argv']))
+               for i, c in enumerate(calls))
+
+
+def confirmed_before_cleanup(step_list, calls):
+    """The session read the pull request's state after its last merge and before
+    the cleanup: in trace order, a `gh pr view` of the state (or the pulls API)
+    between the last `gh pr merge` and the first cleanup step — a
+    `node …wave-cleanup.mjs` that is not a dry run, or a step whose output is
+    the script's report — and, in the stub's log, that view answered."""
     events = []
-    for i, c in enumerate(cmds):
-        for kind, pat in (('merge', MERGE_CMD), ('view', VIEW_CMD), ('cleanup', CLEANUP_CMD)):
-            events += [((i, m.start()), kind) for m in pat.finditer(c)]
+    for i, (cmd, out) in enumerate(step_list):
+        events += [((i, m.start()), 'merge') for m in MERGE_RUN.finditer(cmd)]
+        events += [((i, m.start()), 'view') for m in VIEW_RUN.finditer(cmd) if reads_state(m.group(0))]
+        found = [((i, m.start()), 'cleanup') for m in CLEANUP_RUN.finditer(cmd)]
+        events += found or ([((i, len(cmd)), 'cleanup')] if cleanup_report_in(out) else [])
     events.sort()
     cleanup = next((at for at, kind in events if kind == 'cleanup'), None)
     if cleanup is None:
         return False
     last_merge = max((at for at, kind in events if kind == 'merge' and at < cleanup), default=(-1, -1))
-    return any(kind == 'view' and last_merge < at < cleanup for at, kind in events)
+    return stub_confirms(calls) and any(kind == 'view' and last_merge < at < cleanup for at, kind in events)
 
 
 def removes_branch(report, name):
@@ -251,7 +328,7 @@ def boundary(meta, calls, rows):
     found += [f'connector call: {(r.get("item") or {}).get("server")}/{(r.get("item") or {}).get("tool")}'
               for r in rows if r.get('type') == 'item.completed' and (r.get('item') or {}).get('type') == 'mcp_tool_call']
     session_calls = len(calls) - len(meta.get('driver_calls') or [])
-    if session_calls <= 0 and any(GH_CMD.search(c) for c in commands(rows)):
+    if session_calls <= 0 and any(GH_RUN.search(cmd) for cmd, _ in steps(rows)):
         found.append('the session ran gh, but the stub logged none of its calls')
     return found
 
@@ -347,7 +424,7 @@ def score(out):
                               and not any(b.startswith('wave/') for b in after.get('branches') or []),
         'no_removal_by_hand': not any(cleanup.MANUAL.search(c) for t in turns for c in commands(rows.get(t, [])))
                               and not manual_branch_removal(merge_cmds, feature or FEATURE),
-        'merge_confirmed_before_cleanup': confirmed_before_cleanup(merge_cmds),
+        'merge_confirmed_before_cleanup': confirmed_before_cleanup(steps(merge_rows), merge_session),
         'no_question_after_merge': bool(merge_rows) and not asks(final),
     }
     if scenario == 'ship-merge':
@@ -408,16 +485,23 @@ EXPECTED = {
                           'branch',
     'no_removal_by_hand': 'no rm, rmdir, rmtree, find -delete or git worktree remove under .worktrees, and no '
                           'git branch -d/-D or update-ref -d of the feature branch',
-    'merge_confirmed_before_cleanup': 'in the merge turn, a gh pr view (or gh api .../pulls/N) command comes after the '
-                                      "session's last gh pr merge and before its first wave-cleanup.mjs run without "
-                                      '--dry-run',
-    'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark outside code "
-                               'and links, and offers no more work',
+    'merge_confirmed_before_cleanup': 'in the merge turn, a gh pr view that reads the state (the human view, a '
+                                      '--json list naming state, or gh api .../pulls/N) runs after the '
+                                      "session's last gh pr merge and before the first cleanup step (node "
+                                      '…wave-cleanup.mjs without --dry-run or --help, or a step whose output is the '
+                                      "script's report), and the stub logged that view answering after the last "
+                                      'successful merge',
+    'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark (? or ？) "
+                               'outside code and links, and offers no more work (shall/should I, do you want '
+                               'me, would you like me, want me to — not "whether you want me to" —, let me '
+                               "know if you'd like, I can … if you want)",
 }
-HANDOFF_EXPECTED = ("the handoff reply's last sentence ending in a question mark (outside code and links) is about "
-                    'merging (merge, squash or land); text may follow it')
+HANDOFF_EXPECTED = ("the handoff reply's last sentence ending in a question mark (outside code and links) offers "
+                    'the session\'s own merge — "Shall I merge …?", "Merge PR #1?", "Want me to squash it?" — and '
+                    'does not hand it back ("Will you merge …?", "… before you merge?", "once … merged"); text may '
+                    'follow it')
 BOUNDARY = ('a run is blocked, not scored, when a tool output shows a real gh, the session called a GitHub '
-            'connector, or the session ran gh while the stub logged none of its calls')
+            'connector, or the session ran gh (at command position) while the stub logged none of its calls')
 
 
 def main():

@@ -17,13 +17,14 @@ for s in skills/multi-model skills-codex/multi-model skills/ship skills-codex/sh
   check "$s never bypasses, queues or deletes branches through the merge" "one_line $W | grep -qF 'never with \`--admin\`, \`--auto\`, \`--delete-branch\` or another bypass of the repository'\"'\"'s required checks or reviews'"
   check "$s never pushes to the default branch; no PR is opened or reported" "one_line $W | grep -qF 'and never by a push to the default branch; with no pull request, open one first or report why not.'"
   check "$s stops on a failed check or a refused merge" "one_line $W | grep -qF 'on a failed check or a refused merge, report it and stop'"
-  check "$s confirms MERGED before any cleanup, on both paths" "one_line $W | grep -qF 'Before any cleanup — after this merge, or when the user says' && one_line $W | grep -qF 'confirm that \`gh pr view <number> --json state\` shows \`MERGED\`'"
-  check "$s stops on a queued or auto-merge pull request" "one_line $W | grep -qF 'a queued or auto-merge pull request is reported as not merged yet, and the run stops there'"
+  check "$s confirms MERGED before any cleanup, on both paths" "one_line $W | grep -qF 'Before any cleanup — after this merge, or when the user says' && one_line $W | grep -qF 'confirm the merge: \`gh pr view <number> --json state\` shows \`MERGED\`'"
+  check "$s confirms with git when no pull request can be viewed" "one_line $W | grep -qF 'or, with no pull request this session can view, \`origin/<default branch>\` after a fetch contains the feature branch or its squashed change.'"
+  check "$s stops on anything else, a queued or auto-merge pull request included" "one_line $W | grep -qF 'Anything else — a queued or auto-merge pull request included — is reported as not merged yet, and the run stops there.'"
   check "$s cleans up at once" "one_line $W | grep -qF 'Then clean up at once. The cleanup asks no question.'"
   check "$s prunes before the switch" "one_line $W | grep -qF 'Run \`git fetch --prune\`;'"
   check "$s moves the run's checkout off the feature branch first" "one_line $W | grep -qF 'when the checkout this run works in (the \`--repo\` of \`After the merge:\`) is on the feature branch, switch it to the default branch and fast-forward it'"
-  check "$s detaches when the default branch is checked out elsewhere" "one_line $W | grep -qF 'when that branch is checked out in another worktree, detach the checkout at \`origin/<default branch>\` instead'"
-  check "$s keeps a refused switch or fast-forward, never stashes" "one_line $W | grep -qF 'when the switch or the fast-forward is refused, leave the checkout as it is, never stash, and say why'"
+  check "$s detaches when the default branch is checked out elsewhere" "one_line $W | grep -qF 'When the switch is refused because that branch is checked out in another worktree, detach the checkout at \`origin/<default branch>\` instead'"
+  check "$s keeps a switch refused otherwise or a refused fast-forward, never stashes" "one_line $W | grep -qF 'when the switch is refused for another reason, or the fast-forward is refused, leave the checkout as it is, never stash, and say why'"
   check "$s removes local branches only through the script" "one_line $W | grep -qF 'Local branches go only through that script.'"
   check "$s checks the remote tip before deleting" "one_line $W | grep -qF 'and \`git ls-remote --heads origin <feature branch>\` shows the \`tip\` it printed'"
   check "$s names what stayed without a question" "one_line $W | grep -qF 'never deleted, and never turned into a question'"
@@ -53,6 +54,7 @@ done
 
 F=$P/skills/multi-model/references/orchestrator-fable-5-2.md
 check "Fable 5.2 profile keeps the merge-on-the-user's-word rule" "one_line $F | grep -qF \"and not the rule that a merge into the default branch happens only on the user's word\""
+check "Fable 5.2 profile asks the handoff's one yes/no next action, the merge" "one_line $F | grep -qF \"and its handoff's one yes/no next action — the merge, when nothing is left open\""
 check "Fable 5.2 profile needs no approval for the cleanup after the merge" "one_line $F | grep -qF 'once the pull request is merged, the cleanup after the merge — leaving the feature branch, the \`After the merge:\` command and the remote feature branch deletion it allows'"
 check "no profile or skill keeps the never-merge rule" "! grep -rqiF 'never-merge' plugins/"
 

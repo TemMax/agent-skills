@@ -10,12 +10,12 @@ repo view, pr create/view/diff/list/edit/comment/checks/ready, and the review
 threads query (the fixture's pull request has no threads). `pr close` is
 refused, and so is `pr merge` unless GH_STUB_MERGE=allow: then it squashes or
 merges the pull request into the base branch of the bare origin, as GitHub
-would, and refuses `--admin`, `--auto`, `--rebase` and `--delete-branch` (the
-fixture leaves branch deletion to git). Anything else fails like an unknown
-command. Every
-call is appended to GH_STUB_LOG, a crash of the stub included; the pull
-request lives in GH_STUB_STATE; diffs and head SHAs come from the bare origin
-at GH_STUB_ORIGIN.
+would; `--auto` on a clean pull request merges at once, as gh does; the
+repository does not allow rebase merges; `--admin`, `--disable-auto` and
+`--delete-branch` are not available here. Anything else fails like an unknown
+command. Every call is appended to GH_STUB_LOG, a crash of the stub included;
+the pull request lives in GH_STUB_STATE; diffs and head SHAs come from the
+bare origin at GH_STUB_ORIGIN.
 """
 import datetime
 import json
@@ -96,10 +96,13 @@ def parse(args, valued, flags=()):
                 done(f'flag needs an argument: {name}', 1)
             opts.setdefault(valued[name], []).append(val)
         elif name in flags:
-            if inline not in ('', 'true', 'false'):
+            # Booleans parse as Go's strconv.ParseBool, as in gh.
+            truth = {'': True, '1': True, 't': True, 'T': True, 'TRUE': True, 'true': True, 'True': True,
+                     '0': False, 'f': False, 'F': False, 'FALSE': False, 'false': False, 'False': False}
+            if inline not in truth:
                 done(f'invalid argument "{inline}" for "{name}" flag: strconv.ParseBool: parsing '
                      f'"{inline}": invalid syntax', 1)
-            opts[flags[name]] = inline != 'false'
+            opts[flags[name]] = truth[inline]
         elif len(a) > 2 and a[0] == '-' and a[1] != '-':
             # Short flags combine as in pflag: -sd is -s -d; a valued one takes the rest or the next arg.
             for k, c in enumerate(a[1:], 1):

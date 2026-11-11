@@ -11,6 +11,7 @@ orchestration version; a code-review bump is stated inside it.
 **ship**
 - Merges the pull request when you ask, then cleans up at once
 - When nothing is open, the handoff offers the merge as its next step
+- Confirms the merge before cleanup; no --auto or --delete-branch
 
 **multi-model**
 - Merges when you ask and leaves the feature branch before cleanup
@@ -35,24 +36,27 @@ another bypass of the repository's required checks or reviews, and never by
 a push to the default branch. With no pull request it opens one first or
 says why not. It waits for running checks and stops on a failed check or a
 refused merge. Before any cleanup — after its own merge, or when the user
-says the pull request is merged — it confirms that the pull request's state
-is `MERGED`; a queued or auto-merge pull request is reported as not merged
-yet, and nothing is removed. Then it cleans up at once and asks nothing. It
-runs `git fetch --prune`; when the checkout it works in is on the feature
-branch, it switches that checkout to the default branch and fast-forwards
-it, or detaches it at `origin/<default branch>` when that branch is checked
-out in another worktree. When the switch or the fast-forward is refused, it
-leaves the checkout, never stashes, and says why. Then it runs the
-`After the merge:` command; local branches go only through that script, and
-the remote feature branch is deleted only when the script removed the local
-one and `git ls-remote` still shows the tip it printed. Whatever stays is
-named in the report with the reason, never deleted and never turned into a
-question. When nothing is left open, ship's handoff recommends the merge as
-its one yes/no next action; a missing independent review counts as open.
-The ship description says "merge only when the user asks", and the Fable
-5.2 seat profile no longer carries a never-merge rule: it keeps the merge on
-the user's word and lists the cleanup after the merge among the steps that
-need no approval.
+says the work is merged — it confirms the merge: the pull request's state
+is `MERGED`, or, with no pull request it can view, `origin/<default branch>`
+contains the feature branch or its squashed change. Anything else, a queued
+or auto-merge pull request included, is reported as not merged yet, and
+nothing is removed. Then it cleans up at once and asks nothing. It runs
+`git fetch --prune`; when the checkout it works in is on the feature branch,
+it switches that checkout to the default branch and fast-forwards it. When
+the switch is refused because the default branch is checked out in another
+worktree, it detaches the checkout at `origin/<default branch>`; for any
+other refusal, or a refused fast-forward, it leaves the checkout, never
+stashes, and says why. Then it runs the `After the merge:` command; local
+branches go only through that script, and the remote feature branch is
+deleted only when the script removed the local one and `git ls-remote` still
+shows the tip it printed. Whatever stays is named in the report with the
+reason, never deleted and never turned into a question. When nothing is
+left open, ship's handoff recommends the merge as its one yes/no next
+action; a missing independent review counts as open. The ship description
+says "merge only when the user asks". The Fable 5.2 seat profile no longer
+carries a never-merge rule: it keeps the merge on the user's word, counts
+the handoff's merge question among the questions the process asks, and
+lists the cleanup after the merge among the steps that need no approval.
 
 ## 4.22.1
 

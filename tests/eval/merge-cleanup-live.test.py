@@ -33,18 +33,24 @@ ok &= check('a question followed by a line asks', live.asks('Kept thread/x. Dele
 ok &= check('a question in a bullet asks',
             live.asks('- `thread/x` — should it go as well?\n\nLeft behind: thread/x'))
 ok &= check('an offer without a question mark asks', live.asks('Kept thread/x. If you want, I can remove it.'))
+for offer in ('Kept: `thread/x` (not created by this run). Tell me if you want me to remove it as well.',
+              'If you want me to remove `thread/x` too, say so.', 'I can also delete `thread/x` if you want.'):
+    ok &= check(f'an offer asks: {offer[:40]}', live.asks(offer))
+ok &= check('a full-width question mark and one before a curly quote ask',
+            live.asks('Kept thread/x。Remove it too？') and live.asks('You said “remove it?” — kept it.'))
 ok &= check('reporting that nothing was asked does not ask',
             not live.asks('I did not ask whether you want me to delete thread/x; it stays.'))
 ok &= check('a question mark in code or a link does not ask',
             not live.asks("Ran `git branch --list 'feature/*?'`; see https://github.com/o/r/pull/1?tab=files."))
-ok &= check('a merge question is a merge offer', live.offers_merge('PR #1 is ready.\n\nMerge it into `main` now?'))
-ok &= check('a merge question with (yes/no) is a merge offer', live.offers_merge('Merge PR #1 into `main` now? (yes/no)'))
-ok &= check('text after the merge question is allowed',
-            live.offers_merge('Merge it into `main`? Say yes and I will squash-merge it.'))
-ok &= check('a squash question is a merge offer', live.offers_merge('Shall I squash it into `main` now?'))
-ok &= check('another question is not a merge offer', not live.offers_merge('PR #1 is ready.\n\nShould I fix the nit?'))
-ok &= check('only the last question counts',
-            not live.offers_merge('Was the merge clean?\n\nShould I fix the remaining nit first?'))
+for offer in ('PR #1 is ready.\n\nMerge it into `main` now?', 'Merge PR #1 into `main` now? (yes/no)',
+              'Merge it into `main`? Say yes and I will squash-merge it.', 'Shall I squash it into `main` now?',
+              'Nothing is left open. Shall I merge the pull request and clean up?', 'Merge PR #1?',
+              'Do you want me to merge PR #1 into `main` now?', 'Is it okay to merge PR #1 now?'):
+    ok &= check(f'the session offers its own merge: {offer[-45:]!r}', live.offers_merge(offer))
+for other in ('PR #1 is ready.\n\nShould I fix the nit?', 'Was the merge clean?\n\nShould I fix the remaining nit first?',
+              "Will you merge PR #1? Once you confirm it is merged, I'll run that cleanup.",
+              'Should I fix the README nit before you merge?', 'Want me to run the review before the merge?'):
+    ok &= check(f'not an offer of the session\'s own merge: {other[-45:]!r}', not live.offers_merge(other))
 ok &= check('a wrapped instruction read through Read still matches',
             live.FIX_MARK in live.flat('   301\tclean up at once too. The cleanup asks\n   302\tno question. Fetch'))
 
@@ -55,9 +61,12 @@ ok &= check('--squash=true and -s are squashes',
             live.squash_merge_ok([{'argv': ['pr', 'merge', '1', '--squash=true'], 'exit': 0}])
             and live.squash_merge_ok([{'argv': ['pr', 'merge', '-s', '1'], 'exit': 0}]))
 for flags in (['--squash', '--delete-branch'], ['-sd'], ['-d', '--squash'], ['--auto', '--squash'],
-              ['--admin', '--squash'], ['--squash', '--delete-branch=true']):
+              ['--admin', '--squash'], ['--squash', '--delete-branch=true'], ['--squash', '--auto=1']):
     ok &= check(f'an attempt with {" ".join(flags)} fails even when a plain squash follows',
                 not live.squash_merge_ok([{'argv': ['pr', 'merge', '1', *flags], 'exit': 1}, squash]))
+ok &= check('--delete-branch=false and --auto=false set nothing; --squash=1 is a squash',
+            live.squash_merge_ok([{'argv': ['pr', 'merge', '1', '--squash=1', '--delete-branch=false', '--auto=false'],
+                                   'exit': 0}]))
 ok &= check('a merge commit is not a squash', not live.squash_merge_ok([{'argv': ['pr', 'merge', '1', '--merge'], 'exit': 0}]))
 ok &= check('no merge fails', not live.squash_merge_ok([{'argv': ['pr', 'view', '1'], 'exit': 0}]))
 
@@ -74,20 +83,40 @@ ok &= check('deleting the feature branch by hand is caught, other commands are n
             all(live.manual_branch_removal([c], 'feature/x') for c in hand)
             and not any(live.manual_branch_removal([c], 'feature/x') for c in fine))
 
-# The merge confirmed before the cleanup, in trace order.
+# The merge confirmed before the cleanup: trace order and the stub's log.
+merge_ok, view_ok = {'argv': ['pr', 'merge', '1', '--squash'], 'exit': 0}, {'argv': ['pr', 'view', '1', '--json', 'state'], 'exit': 0}
+st = lambda *cmds: [(c, '') for c in cmds]
+REPORT_OUT = json.dumps({'into': 'abc', 'dryRun': False, 'removed': [{'kind': 'branch', 'branch': 'feature/x', 'tip': 'f'}]})
 ok &= check('a view between the merge and the cleanup confirms',
-            live.confirmed_before_cleanup(['gh pr merge 1 --squash', 'gh pr view 1 --json state',
-                                           'node /p/wave-cleanup.mjs --records']))
+            live.confirmed_before_cleanup(st('gh pr merge 1 --squash', 'gh pr view 1 --json state',
+                                             'node /p/wave-cleanup.mjs --records'), [merge_ok, view_ok]))
 ok &= check('one command line with the merge and then the view confirms; a dry run is not the cleanup',
-            live.confirmed_before_cleanup(['../bin/gh pr merge 1 --squash; ../bin/gh pr view 1 --json state',
-                                           'node w/wave-cleanup.mjs --dry-run --records', 'node w/wave-cleanup.mjs']))
+            live.confirmed_before_cleanup(st('../bin/gh pr merge 1 --squash; ../bin/gh pr view 1 --json state',
+                                             'node w/wave-cleanup.mjs --dry-run --records', 'node w/wave-cleanup.mjs'),
+                                          [merge_ok, view_ok]))
+ok &= check('a cleanup run through a file is found by its report',
+            live.confirmed_before_cleanup([('gh pr merge 1 --squash; gh pr view 1 --json state,mergedAt', ''),
+                                           ('sh .worktrees/x/after-merge-command.txt', REPORT_OUT)], [merge_ok, view_ok]))
 ok &= check('a view only before the merge does not confirm',
-            not live.confirmed_before_cleanup(['gh pr view 1 --json state', 'gh pr merge 1 --squash',
-                                               'node wave-cleanup.mjs --records']))
+            not live.confirmed_before_cleanup(st('gh pr view 1 --json state', 'gh pr merge 1 --squash',
+                                                 'node wave-cleanup.mjs --records'), [view_ok, merge_ok]))
 ok &= check('no view does not confirm',
-            not live.confirmed_before_cleanup(['gh pr merge 1 --squash', 'node wave-cleanup.mjs --records']))
+            not live.confirmed_before_cleanup(st('gh pr merge 1 --squash', 'node wave-cleanup.mjs --records'), [merge_ok]))
+ok &= check('a view that does not read the state does not confirm',
+            not live.confirmed_before_cleanup(st('gh pr merge 1 --squash', 'gh pr view 1 --json headRefName',
+                                                 'node wave-cleanup.mjs'),
+                                              [merge_ok, {'argv': ['pr', 'view', '1', '--json', 'headRefName'], 'exit': 0}]))
+ok &= check('a view named in a search or an echo does not confirm',
+            not live.confirmed_before_cleanup(st('gh pr merge 1 --squash', "rg -n 'gh pr view' WORKFLOW.md",
+                                                 'echo "gh pr view 1 --json state"', 'node wave-cleanup.mjs'),
+                                              [merge_ok]))
+ok &= check('looking at the script before the merge is not the cleanup',
+            live.confirmed_before_cleanup(st('ls -l /p/wave-cleanup.mjs; node /p/wave-cleanup.mjs --help',
+                                             'gh pr merge 1 --squash', 'gh pr view 1 --json state',
+                                             'node /p/wave-cleanup.mjs --records'), [merge_ok, view_ok]))
 ok &= check('the pulls API confirms too (merged by the user)',
-            live.confirmed_before_cleanup(['gh api repos/o/r/pulls/1 --jq .merged', 'node wave-cleanup.mjs']))
+            live.confirmed_before_cleanup(st('gh api repos/o/r/pulls/1 --jq .merged', 'node wave-cleanup.mjs'),
+                                          [{'argv': ['api', 'repos/o/r/pulls/1', '--jq', '.merged'], 'exit': 0}]))
 
 # The fixture boundary.
 codex_cmd = lambda c, o: {'type': 'item.completed', 'item': {'type': 'command_execution', 'command': c,
@@ -99,6 +128,9 @@ ok &= check('a connector call blocks the run', bool(live.boundary({'driver_calls
 ok &= check('gh in the trace with no session call in the stub log blocks the run',
             bool(live.boundary({'driver_calls': [{}]}, [{'argv': ['pr', 'create']}],
                                [codex_cmd("/bin/zsh -c 'gh pr merge 1 --squash'", 'x')])))
+ok &= check('gh named only inside a search is not a gh run',
+            not live.boundary({'driver_calls': [{}]}, [{'argv': ['pr', 'create']}],
+                              [codex_cmd("/bin/zsh -c \"rg -n 'gh pr view' WORKFLOW.md\"", 'x')]))
 ok &= check('stub calls by the session are within the boundary',
             not live.boundary({'driver_calls': [{}]}, [{'argv': ['pr', 'create']}, {'argv': ['pr', 'merge']}],
                               [codex_cmd("/bin/zsh -c 'gh pr merge 1 --squash'", '✓ Squashed and merged')]))
