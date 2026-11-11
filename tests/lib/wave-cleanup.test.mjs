@@ -1021,9 +1021,12 @@ test('--summary outside the default directories accepts the task; an unreadable 
   assert.deepEqual(r.json.kept, [...keptUnaccepted(repo, 'a'), ...keptUnaccepted(repo, 'b')])
   assert.deepEqual(snapshot(repo), before)
 
-  // a summary whose directory is gone (an earlier cleanup removed it) is skipped
-  r = cleanup('--repo', repo, '--plan', plan, '--summary', forA, '--summary', join(root, 'gone', 'summary.json'))
+  // a summary whose directory is gone (an earlier cleanup removed it) is
+  // skipped, and named on stderr
+  const gone = join(root, 'gone', 'summary.json')
+  r = cleanup('--repo', repo, '--plan', plan, '--summary', forA, '--summary', gone)
   assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.stderr, 'wave-cleanup: skipped --summary ' + gone + ': its directory does not exist\n')
   assert.deepEqual(r.json.removed, [
     { kind: 'worktree', task: 'a', path: worktreePath(repo, 'a') },
     { kind: 'branch', task: 'a', branch: 'wave/a', tip: tipA },
@@ -1392,6 +1395,8 @@ test('--records runs the same command again after an earlier run removed the nam
   rmSync(notes)
   r = cleanup(...args)
   assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.stderr,
+    'wave-cleanup: skipped --summary ' + join(record, 'summary.json') + ': its directory does not exist\n')
   assert.deepEqual(r.json.removed, [
     { kind: 'worktree', task: 'b', path: worktreePath(repo, 'b') },
     { kind: 'branch', task: 'b', branch: 'wave/b', tip: tipB },
@@ -1498,4 +1503,30 @@ test('--records takes a --summary named through a link inside .worktrees where i
   assert.equal(existsSync(record), false)
   // the link itself is no record: it stays, and is listed
   assert.deepEqual(readdirSync(join(repo, '.worktrees')), ['latest'])
+})
+
+test('--records takes a --summary in other letter case as the directory it names, where the file system allows it', (t) => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']], [2, ['b']]])
+  addTask(repo, 'a', base)
+  addTask(repo, 'b', base)
+  merge(repo, 'a')
+  merge(repo, 'b')
+  const usual = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
+  const record = writeRecord(repo, 'runs', 'wave-2', ['b'], 'ok')
+  if (!existsSync(join(repo, '.worktrees', 'RUNS'))) return t.skip('case-sensitive file system')
+  const named = ['--summary', join(repo, '.worktrees', 'Claude-Runner', '1-abc', 'summary.json'),
+    '--summary', join(repo, '.worktrees', 'Runs', 'Wave-2', 'summary.json')]
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--dry-run', ...named)
+  assert.equal(dry.status, 0, dry.stderr)
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', ...named)
+  assert.equal(r.status, 0, r.stderr)
+  for (const run of [dry, r]) {
+    // each directory once, in the spelling the file system stores
+    assert.deepEqual(run.json.removed.filter((item) => item.kind === 'record'),
+      [{ kind: 'record', path: usual }, { kind: 'record', path: record }])
+    assert.deepEqual(run.json.kept, [])
+  }
+  assert.equal(existsSync(join(repo, '.worktrees')), false)
 })

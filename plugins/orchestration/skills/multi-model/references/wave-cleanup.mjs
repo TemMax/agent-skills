@@ -30,7 +30,7 @@ const USAGE = [
   '  --summary <file> a run\'s summary.json kept outside the two default',
   '                   directories (a runner given --out); repeatable; one',
   '                   whose directory is gone (an earlier cleanup removed',
-  '                   it) is skipped',
+  '                   it) is skipped with a line on stderr',
   '  --accepted <id>  this task was accepted although no run record says so',
   '                   (a host that leaves none); repeatable',
   '  --records        also remove the run records of the given plans, the',
@@ -101,6 +101,16 @@ function lstat(path) {
 function real(path) {
   try {
     return realpathSync(path)
+  } catch {
+    return resolve(path)
+  }
+}
+
+// The same, spelled the way the file system stores it: a case-insensitive
+// file system takes any letter case in a path, and this returns the stored one.
+function stored(path) {
+  try {
+    return realpathSync.native(path)
   } catch {
     return resolve(path)
   }
@@ -199,7 +209,12 @@ function gone(file) {
 // run directory under the two default runner directories. A symbolic link
 // on the way to a default summary is never followed.
 function readSummaries(files, worktrees) {
-  const summaries = files.filter((file) => !gone(file)).map((file) => {
+  const summaries = files.filter((file) => {
+    if (!gone(file)) return true
+    // Named, so a mistyped path does not pass unseen.
+    process.stderr.write('wave-cleanup: skipped --summary ' + file + ': its directory does not exist\n')
+    return false
+  }).map((file) => {
     try {
       return parseJson(readFileSync(file, 'utf8'))
     } catch (error) {
@@ -523,11 +538,13 @@ function summaryRecords() {
       records.set(record.path, record)
     }
   }
-  const root = real(worktreesDir)
+  // Stored spelling, so a path in other letter case still names the same
+  // directory, default ones included.
+  const root = stored(worktreesDir)
   for (const file of options.summary) {
     const named = resolve(file)
     if (gone(named)) continue
-    const dir = real(dirname(named))
+    const dir = stored(dirname(named))
     const rel = relative(root, dir)
     if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
       add({ path: dir, reason: 'outside ' + worktreesDir })
