@@ -30,9 +30,10 @@ runs, and never on Claude Code.
 
 **What changes.** All six orchestration entry points, on both hosts, say:
 in every message to the user, whether an update, a question, an approval
-request or the final report, never name, quote or link a skill's entry,
-workflow, profile or reference files. When a question needs a reason, give
-the reason itself in plain words. `merge-cleanup-live.py` gains the frozen
+request or the final report, never name, quote or link an instruction file
+of the skills being run (their entry, workflow, profile or reference files),
+unless the user's task is about that file. When a question needs a reason,
+give the reason itself in plain words. `merge-cleanup-live.py` gains the frozen
 check `no_instruction_file_named` over every message the session shows the
 user.
 

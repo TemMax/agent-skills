@@ -20,10 +20,11 @@ For a lookup, state the fact you will check and then the result. Keep instructio
 loading, skipped internal steps and profile selection silent.
 
 In every message to the user — an update, a question, an approval request or
-the final report — never name, quote or link an instruction file of a skill
-(its entry, workflow, profile or reference files). When a question needs a
-reason, give the reason itself in plain words, such as "merging changes
-`main`", not the instruction that asks for it.
+the final report — never name, quote or link an instruction file of the
+skills you are running (their entry, workflow, profile or reference files),
+unless the user's task is about that file. When a question needs a reason,
+give the reason itself in plain words, such as "merging changes `main`", not
+the instruction that asks for it.
 
 Start with the task and next useful action. Progress and completion messages
 cover changes, findings, checks, and remaining blockers. Select profiles silently;

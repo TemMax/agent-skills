@@ -30,7 +30,8 @@ for path in skills:
     # (ship's handoff and start approval, 4.23.0 and 4.23.1 live checks).
     flat = ' '.join(text.split())
     if 'orchestration' in path.parts:
-        for phrase in ['never name, quote or link an instruction file of a skill',
+        for phrase in ['never name, quote or link an instruction file of the skills you are running',
+                       "unless the user's task is about that file",
                        'give the reason itself in plain words']:
             if phrase not in flat:
                 errors.append(f'{path}: missing {phrase!r}')

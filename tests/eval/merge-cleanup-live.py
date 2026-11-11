@@ -81,7 +81,7 @@ WAVE_SCRIPTS = ('claude-wave-runner.mjs', 'codex-wave-runner.mjs', 'wave-launch.
 FEATURE = 'feature/durations'
 SEAT = cleanup.SEAT
 # Text only the candidate's after-the-merge instructions carry.
-FIX_MARK = 'never name, quote or link an instruction file of a skill'
+FIX_MARK = 'never name, quote or link an instruction file of the skills you are running'
 TASK_FILES = {'src/durations.py', 'tests/test_durations.py'}
 SHIP_REQUEST = ('Add `parse_duration(text)` in a new module `src/durations.py`: it turns strings such as '
                 '"1h30m", "45s" and "2m" into whole seconds. Each unit (h, m, s) appears at most once and in '
