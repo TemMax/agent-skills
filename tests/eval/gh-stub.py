@@ -32,15 +32,15 @@ LOGIN = 'fixture-user'
 URL = f'https://github.com/{OWNER}/{REPO}'
 ARGV = sys.argv[1:]
 MERGE = os.environ.get('GH_STUB_MERGE') == 'allow'
-PR_FIELDS = ['additions', 'assignees', 'author', 'baseRefName', 'baseRefOid', 'body', 'changedFiles',
-             'closed', 'comments', 'commits', 'createdAt', 'deletions', 'files', 'headRefName',
-             'headRefOid', 'headRepository', 'headRepositoryOwner', 'id', 'isDraft', 'labels',
-             'latestReviews', 'mergeCommit', 'mergeStateStatus', 'mergeable', 'merged', 'mergedAt', 'number',
-             'reviewDecision', 'reviewRequests', 'reviews', 'state', 'statusCheckRollup', 'title',
-             'updatedAt', 'url']
+PR_FIELDS = ['additions', 'assignees', 'author', 'autoMergeRequest', 'baseRefName', 'baseRefOid', 'body',
+             'changedFiles', 'closed', 'closedAt', 'comments', 'commits', 'createdAt', 'deletions', 'files',
+             'headRefName', 'headRefOid', 'headRepository', 'headRepositoryOwner', 'id', 'isDraft', 'labels',
+             'latestReviews', 'mergeCommit', 'mergeStateStatus', 'mergeable', 'mergedAt', 'mergedBy', 'number',
+             'potentialMergeCommit', 'reviewDecision', 'reviewRequests', 'reviews', 'state', 'statusCheckRollup',
+             'title', 'updatedAt', 'url']
 REPO_FIELDS = ['defaultBranchRef', 'deleteBranchOnMerge', 'description', 'isPrivate', 'mergeCommitAllowed',
                'name', 'nameWithOwner', 'owner', 'rebaseMergeAllowed', 'squashMergeAllowed', 'url',
-               'viewerPermission']
+               'viewerDefaultMergeMethod', 'viewerPermission']
 
 
 def now():
@@ -96,7 +96,27 @@ def parse(args, valued, flags=()):
                 done(f'flag needs an argument: {name}', 1)
             opts.setdefault(valued[name], []).append(val)
         elif name in flags:
-            opts[flags[name]] = True
+            if inline not in ('', 'true', 'false'):
+                done(f'invalid argument "{inline}" for "{name}" flag: strconv.ParseBool: parsing '
+                     f'"{inline}": invalid syntax', 1)
+            opts[flags[name]] = inline != 'false'
+        elif len(a) > 2 and a[0] == '-' and a[1] != '-':
+            # Short flags combine as in pflag: -sd is -s -d; a valued one takes the rest or the next arg.
+            for k, c in enumerate(a[1:], 1):
+                short = '-' + c
+                if short in flags:
+                    opts[flags[short]] = True
+                elif short in valued:
+                    if a[k + 1:]:
+                        val = a[k + 1:]
+                    elif i + 1 < len(args):
+                        i += 1; val = args[i]
+                    else:
+                        done(f'flag needs an argument: {c!r} in {a}', 1)
+                    opts.setdefault(valued[short], []).append(val)
+                    break
+                else:
+                    done(f'unknown shorthand flag: {c!r} in {a}\n\nUsage:  gh {" ".join(ARGV[:2])} [flags]', 1)
         elif a.startswith('-') and a != '-':
             done(f'unknown flag: {a}\n\nUsage:  gh {" ".join(ARGV[:2])} [flags]', 1)
         else:
@@ -172,6 +192,7 @@ def full(pr):
         a, d, path = line.split('\t', 2)
         files.append({'path': path, 'additions': int(a) if a.isdigit() else 0,
                       'deletions': int(d) if d.isdigit() else 0})
+    clean = merged or git('merge-tree', '--write-tree', pr['baseRefName'], pr['headRefName']) is not None
     commits = [{'oid': c.split(' ', 1)[0], 'messageHeadline': c.split(' ', 1)[1] if ' ' in c else ''}
                for c in (git('log', '--reverse', '--format=%H %s',
                              f'{span[0]}..{head if merged else span[1]}') or '').splitlines()]
@@ -180,9 +201,11 @@ def full(pr):
             'additions': sum(f['additions'] for f in files), 'deletions': sum(f['deletions'] for f in files),
             'commits': commits, 'id': f'PR_kwFixture{pr["number"]}', 'labels': [], 'assignees': [],
             'reviewRequests': [], 'reviews': [], 'latestReviews': [], 'reviewDecision': '',
-            'mergeable': 'UNKNOWN' if merged else 'MERGEABLE',
-            'mergeStateStatus': 'UNKNOWN' if merged else 'CLEAN', 'statusCheckRollup': [],
-            'closed': merged, 'merged': merged, 'mergedAt': pr.get('mergedAt'), 'mergeCommit': pr.get('mergeCommit'),
+            'mergeable': 'UNKNOWN' if merged else 'MERGEABLE' if clean else 'CONFLICTING',
+            'mergeStateStatus': 'UNKNOWN' if merged else 'CLEAN' if clean else 'DIRTY', 'statusCheckRollup': [],
+            'closed': merged, 'closedAt': pr.get('mergedAt'), 'mergedAt': pr.get('mergedAt'),
+            'mergedBy': {'login': LOGIN} if merged else None, 'mergeCommit': pr.get('mergeCommit'),
+            'autoMergeRequest': None, 'potentialMergeCommit': None,
             'headRepository': {'name': REPO}, 'headRepositoryOwner': {'login': OWNER}}
 
 
@@ -233,7 +256,7 @@ def pr_cmd(sub, args):
             emit(pr, opts, PR_FIELDS)
         lines = [f'{pr["title"]} #{pr["number"]}',
                  (f'Merged • {LOGIN} merged {len(pr["commits"])} commits into {pr["baseRefName"]} '
-                  f'from {pr["headRefName"]}' if pr['merged'] else
+                  f'from {pr["headRefName"]}' if pr['state'] == 'MERGED' else
                   f'Open • {LOGIN} wants to merge {len(pr["commits"])} commits into {pr["baseRefName"]} '
                   f'from {pr["headRefName"]}'),
                  f'+{pr["additions"]} -{pr["deletions"]} • No checks', '', pr['body'] or 'No description provided', '']
@@ -249,23 +272,31 @@ def pr_cmd(sub, args):
             done('gh-stub: no browser in this fixture', 1)
         pr = find(state, pos[0] if pos else None)
         extra = ['--name-only'] if opts.get('name_only') else []
-        done((git('diff', *extra, f'{pr["baseRefName"]}...{pr["headRefName"]}') or '').rstrip('\n'))
+        oid = (pr.get('mergeCommit') or {}).get('oid')
+        span = [f'{oid}^1', oid] if pr['state'] == 'MERGED' else [f'{pr["baseRefName"]}...{pr["headRefName"]}']
+        done((git('diff', *extra, *span) or '').rstrip('\n'))
     if sub == 'list':
         opts, pos = parse(args, {**common, '--head': 'head', '-H': 'head', '--base': 'base', '-B': 'base',
                                  '--state': 'state', '-s': 'state', '--json': 'json', '-q': 'jq', '--jq': 'jq',
                                  '--limit': 'limit', '-L': 'limit', '--author': 'author', '-A': 'author',
                                  '--search': 'search', '-S': 'search', '--label': 'label', '-l': 'label'})
         want = (one(opts, 'state', 'open')).upper()
+        states = {'OPEN': ('OPEN',), 'CLOSED': ('CLOSED', 'MERGED'), 'MERGED': ('MERGED',),
+                  'ALL': ('OPEN', 'CLOSED', 'MERGED')}.get(want)
+        if states is None:
+            done(f'invalid argument "{want.lower()}" for "-s, --state" flag: valid values are '
+                 '{open|closed|merged|all}', 1)
         prs = [full(p) for p in state['prs']
                if (one(opts, 'head') in (None, p['headRefName']))
                and (one(opts, 'base') in (None, p['baseRefName']))
-               and (want == 'ALL' or p['state'] == want)]
+               and p['state'] in states]
         if one(opts, 'json') is not None or one(opts, 'jq') is not None:
             emit(prs, opts, PR_FIELDS)
+        label = '' if want == 'ALL' else want.lower() + ' '
         if not prs:
-            done(f'no open pull requests in {OWNER}/{REPO}', 0, sys.stderr)
-        rows = [f'#{p["number"]}\t{p["title"]}\t{p["headRefName"]}\tOPEN' for p in prs]
-        done(f'\nShowing {len(prs)} of {len(prs)} open pull requests in {OWNER}/{REPO}\n\n' + '\n'.join(rows))
+            done(f'no {label}pull requests in {OWNER}/{REPO}', 0, sys.stderr)
+        rows = [f'#{p["number"]}\t{p["title"]}\t{p["headRefName"]}\t{p["state"]}' for p in prs]
+        done(f'\nShowing {len(prs)} of {len(prs)} {label}pull requests in {OWNER}/{REPO}\n\n' + '\n'.join(rows))
     if sub == 'edit':
         opts, pos = parse(args, {**common, '--title': 'title', '-t': 'title', '--body': 'body', '-b': 'body',
                                  '--body-file': 'body_file', '-F': 'body_file', '--base': 'base', '-B': 'base',
@@ -309,8 +340,9 @@ def pr_cmd(sub, args):
 
 def merge_pr(state, args, common):
     """`gh pr merge` against the bare origin: a squash commit (or a merge commit)
-    on the base branch, as GitHub writes it. Bypasses and branch deletion are
-    refused, so every outcome is visible in the call log."""
+    on the base branch, as GitHub writes it. `--auto` on a clean pull request
+    merges at once, as gh does; `--admin`, `--disable-auto` and branch deletion
+    are not available here. Every attempt is in the call log."""
     opts, pos = parse(args, {**common, '--subject': 'subject', '-t': 'subject', '--body': 'body', '-b': 'body',
                              '--body-file': 'body_file', '-F': 'body_file', '--match-head-commit': 'match',
                              '--author-email': 'email', '-A': 'email'},
@@ -318,12 +350,9 @@ def merge_pr(state, args, common):
                        '--rebase': 'rebase', '-r': 'rebase', '--delete-branch': 'delete', '-d': 'delete',
                        '--admin': 'admin', '--auto': 'auto', '--disable-auto': 'disable_auto'})
     pr = find(state, pos[0] if pos else None)
-    if opts.get('admin'):
-        done('gh-stub: --admin is refused in this fixture; required checks and reviews are never bypassed', 1)
-    if opts.get('auto') or opts.get('disable_auto'):
-        done('GraphQL: Auto merge is not allowed for this repository (enablePullRequestAutoMerge)', 1)
-    if opts.get('delete'):
-        done('gh-stub: --delete-branch is not available in this fixture; delete branches with git', 1)
+    for flag, key in (('--admin', 'admin'), ('--disable-auto', 'disable_auto'), ('--delete-branch', 'delete')):
+        if opts.get(key):
+            done(f'gh-stub: {flag} is not available in this fixture', 1)
     methods = [m for m in ('squash', 'merge', 'rebase') if opts.get(m)]
     if len(methods) != 1:
         done('only one of --merge, --rebase, or --squash can be enabled' if methods else
@@ -396,7 +425,8 @@ def api_cmd(args):
     if endpoint == prefix:
         emit({'name': REPO, 'full_name': f'{OWNER}/{REPO}', 'default_branch': 'main', 'private': True,
               'html_url': URL, 'owner': {'login': OWNER}, 'allow_squash_merge': True,
-              'allow_merge_commit': True, 'allow_rebase_merge': False, 'delete_branch_on_merge': False}, opts)
+              'allow_merge_commit': True, 'allow_rebase_merge': False, 'allow_auto_merge': False,
+              'delete_branch_on_merge': False}, opts)
     parts = endpoint[len(prefix) + 1:].split('?')[0].split('/') if endpoint.startswith(prefix + '/') else []
     if len(parts) >= 2 and parts[0] in ('pulls', 'issues') and parts[1].isdigit():
         pr = next((p for p in state['prs'] if p['number'] == int(parts[1])), None)
@@ -419,7 +449,8 @@ def api_cmd(args):
         if parts[0] == 'pulls' and not rest and method == 'GET':
             p = full(pr)
             emit({'number': p['number'], 'title': p['title'], 'body': p['body'],
-                  'state': 'closed' if p['merged'] else 'open', 'merged': p['merged'], 'merged_at': p['mergedAt'],
+                  'state': 'closed' if p['closed'] else 'open', 'merged': p['state'] == 'MERGED',
+                  'merged_at': p['mergedAt'],
                   'html_url': p['url'], 'draft': p['isDraft'],
                   'head': {'ref': p['headRefName'], 'sha': p['headRefOid']},
                   'base': {'ref': p['baseRefName'], 'sha': p['baseRefOid']}, 'user': {'login': LOGIN}}, opts)
@@ -450,7 +481,7 @@ def main():
         data = {'name': REPO, 'owner': {'login': OWNER}, 'nameWithOwner': f'{OWNER}/{REPO}', 'url': URL,
                 'defaultBranchRef': {'name': 'main'}, 'viewerPermission': 'ADMIN', 'isPrivate': True,
                 'description': '', 'squashMergeAllowed': True, 'mergeCommitAllowed': True,
-                'rebaseMergeAllowed': False, 'deleteBranchOnMerge': False}
+                'rebaseMergeAllowed': False, 'deleteBranchOnMerge': False, 'viewerDefaultMergeMethod': 'MERGE'}
         if one(opts, 'json') is not None or one(opts, 'jq') is not None:
             emit(data, opts, REPO_FIELDS)
         done(f'{OWNER}/{REPO}\nNo description provided')

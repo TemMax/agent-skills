@@ -1,12 +1,11 @@
 # Ship (Codex)
 
 One command, three shipped stages, one promise: what leaves this skill is a
-pushed feature branch with a reviewed pull request — never a touched default
-branch. **The merge stays with the user** — the PR merge into the default
-branch happens only when the user asks for it; then ship merges and cleans up
-at once ("After the merge"). Squash-integrating each `ok` task into the
-feature branch (one commit per task) is part of the pipeline and needs no
-extra approval.
+pushed feature branch with a reviewed pull request. **The merge stays with the
+user** — the default branch changes only through that pull request's merge, and
+only when the user asks for it; then ship merges and cleans up at once ("After
+the merge"). Squash-integrating each `ok` task into the feature branch (one
+commit per task) is part of the pipeline and needs no extra approval.
 
 ## Codex session rules
 
@@ -270,10 +269,10 @@ branch is the one decision this pipeline never makes on its own. Stage 2's
 approval. Report: the branch, the PR link, waves run, verdicts and reworks,
 routed fix evidence, and anything left open — with one recommended next
 action, phrased as a yes/no question in plain language. When nothing is left
-open, that action is the merge, and a yes is the user's word to merge ("After
-the merge"). Never a time or cost estimate — not for the run, not for what is
-left open. The report also
-carries the same `Runtime pass: ran with <capability>` /
+open — a missing independent review counts as open — that action is the
+merge, and a yes is the user's word to merge ("After the merge").
+Never a time or cost estimate — not for the run, not for what is left open.
+The report also carries the same `Runtime pass: ran with <capability>` /
 `Runtime pass: skipped — <reason>` line the PR body carries.
 
 The handoff report also carries a `Left behind:` line — every branch, worktree,
@@ -295,23 +294,30 @@ path no longer exists by then, the same script of the installed plugin is used.
 
 **After the merge.** The merge happens only on the user's word. When the user
 asks for it, merge the pull request — squash when the repository allows it,
-otherwise a method it allows — and never with `--admin` or another bypass of
-the repository's required checks or reviews: wait for running checks, and on a
-failed check or a refused merge report it and stop. Then clean up at once; when
-the user says they merged it themselves, clean up at once too. The cleanup asks
-no question. Fetch, switch the main checkout to the default branch and
-fast-forward it — when that branch is checked out in another worktree, detach
-the main checkout at `origin/<default branch>` instead; when the switch is
-refused, leave the checkout as it is and say why — then run the
+otherwise a method it allows — never with `--admin`, `--auto`,
+`--delete-branch` or another bypass of the repository's required checks or
+reviews, and never by a push to the default branch; with no pull request, open
+one first or report why not. Wait for running checks; on a failed check or a
+refused merge, report it and stop. Before any cleanup — after this merge, or
+when the user says they merged it themselves — confirm that
+`gh pr view <number> --json state` shows `MERGED`; a queued or auto-merge pull
+request is reported as not merged yet, and the run stops there. Then clean up
+at once. The cleanup asks no question. Run `git fetch --prune`; when the
+checkout this run works in (the `--repo` of `After the merge:`) is on the
+feature branch, switch it to the default branch and fast-forward it — when that
+branch is checked out in another worktree, detach the checkout at
+`origin/<default branch>` instead; when the switch or the fast-forward is
+refused, leave the checkout as it is, never stash, and say why — then run the
 `After the merge:` command of the report: the cleanup script with
 `--repo <repo>`, one `--plan` per plan this run executed (fix plans included),
 `--into origin/<default branch>`, `--records`, the same `--summary` options and
-`--branch <feature branch>`. Delete the remote feature branch only if the script
-reported the local feature branch removed and the remote branch tip equals the
-`tip` it printed. Remove temporary directories this run created outside the
-repository. Everything the script kept, and anything this run did not create, is
-named in the report with the reason it stayed — never deleted, and never turned
-into a question.
+`--branch <feature branch>`. Local branches go only through that script. Delete
+the remote feature branch only if the script reported the local feature branch
+removed and `git ls-remote --heads origin <feature branch>` shows the `tip` it
+printed. Remove temporary directories this run created outside the repository.
+Everything the script kept, and anything this run did not create, is named in
+the report with the reason it stayed — never deleted, and never turned into a
+question.
 
 ## Failure map
 

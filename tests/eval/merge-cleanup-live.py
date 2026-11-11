@@ -34,14 +34,18 @@ Scenarios (--scenario):
 
 The candidate is loaded disposably, as in custom-out-cleanup-live.py: Claude
 from a `--plugin-dir` snapshot with `--setting-sources project`; Codex from
-workspace skills linked to the snapshot, with `--ignore-user-config` and
-`--disable plugins`. A Codex session runs outside the sandbox
-(`danger-full-access`) because it launches the runner, which sandboxes its
-children; runner children use the normal CLI configuration. Expectations are
-frozen in expected.json before the host starts. The state before the merge
-turn goes to state-before.json and after it to state-after.json; checks.json
-is computed from those files, the traces and the stub's call log, and
-`--score DIR` recomputes it.
+workspace skills linked to the snapshot, with `--ignore-user-config`,
+`--disable plugins` and `--disable apps`. A Codex session runs outside the
+sandbox (`danger-full-access`) because it launches the runner, which sandboxes
+its children; runner children use the normal CLI configuration. Codex runs its
+commands in a login shell by default, and the login profile puts the real gh
+ahead of the stub on PATH, so Codex sessions run with
+`allow_login_shell=false`. A run whose session reached a real gh or a GitHub
+connector is reported as blocked (exit 2), not scored as the product's result.
+Expectations are frozen in expected.json before the host starts. The state
+before the merge turn goes to state-before.json and after it to
+state-after.json; checks.json is computed from those files, the traces and the
+stub's call log, and `--score DIR` recomputes it.
 """
 import argparse
 import importlib.util
@@ -81,9 +85,15 @@ PROMPT_MERGE = 'I opened pull request #1 for `feature/durations` into `main`. Me
 PROMPT_MERGED = 'I merged pull request #1 (`feature/durations` into `main`) on GitHub.\n'
 PROMPT_YES = 'Yes — merge it.\n'
 SHIP_SKILLS = {'orchestration': ['multi-model', 'super-plan', 'ship'], 'code-review': ['critical-review']}
-# A question or an offer to the user at the end of a reply.
-QUESTION_END = re.compile(r'\?[\s*_`)\]"»]*$')
-MERGE_WORDS = re.compile(r'(?i)\bmerg|\bслей|\bслить|\bвлить|\bвлей')
+# A sentence that ends with a question mark, once code and links are gone.
+QUESTION = re.compile(r'[^.!?\n]*\?(?=[\s*_)\]"»]|$)')
+MERGE_WORDS = re.compile(r'(?i)\bmerg|\bsquash|\bland\b|\bслей|\bслить|\bвлить|\bвлей')
+# What a real gh or a GitHub connector says in this fixture, where neither should be reached.
+REAL_GH = re.compile(r'not logged into any GitHub hosts|To get started with GitHub CLI|gh auth login')
+GH_CMD = re.compile(r'(?:^|[\s;&|(/\'"`])gh\s+\S')
+# An offer of more work; a report that something was not asked is not one.
+OFFER = re.compile(r"(?i)\b(?:shall i|should i|do you want me|would you like me|"
+                   r"let me know if you(?:'d| would)? (?:like|want)|if you(?:'d| would)? (?:like|want),? i)\b")
 
 
 def prompt_1(provider, scenario, repo):
@@ -106,8 +116,9 @@ def command(provider, first, sid, cwd, pkg, model, effort, budget, plugins):
                '--add-dir', str(pkg), *[a for name in plugins for a in ('--plugin-dir', str(pkg / 'plugins' / name))],
                '--max-budget-usd', str(budget)]
         return cmd + (['--session-id', sid] if first else ['--resume', sid])
-    common = ['--ignore-user-config', '--disable', 'plugins', '--json', '--skip-git-repo-check',
-              '--model', model, '-c', f'model_reasoning_effort="{effort}"',
+    # A login shell would put the real gh ahead of the stub on PATH; apps would reach GitHub itself.
+    common = ['--ignore-user-config', '--disable', 'plugins', '--disable', 'apps', '--json', '--skip-git-repo-check',
+              '--model', model, '-c', f'model_reasoning_effort="{effort}"', '-c', 'allow_login_shell=false',
               '-c', 'memories.use_memories=false', '-c', 'memories.generate_memories=false']
     if first:
         return [shutil.which('codex'), 'exec', *common, '-C', str(cwd), '--sandbox', 'danger-full-access', '-']
@@ -148,28 +159,74 @@ def last_paragraph(text):
     return parts[-1] if parts else ''
 
 
+def prose(text):
+    """The reply without fenced code, code spans and links."""
+    text = re.sub(r'(?ms)^[ \t]*(```|~~~).*?^[ \t]*\1[ \t]*$', ' ', text or '')
+    text = re.sub(r'`[^`\n]*`', ' ', text)
+    return re.sub(r'https?://\S+', ' ', text)
+
+
+def questions(text):
+    return [m.group(0).strip() for m in QUESTION.finditer(prose(text))]
+
+
 def asks(text):
-    """The reply ends by asking the user something, or offers more work."""
-    tail = last_paragraph(text)
-    return bool(QUESTION_END.search(tail) or seat.OFFER_RE.search(text or ''))
+    """The reply asks the user anything, anywhere, or offers more work."""
+    return bool(questions(text) or OFFER.search(text or ''))
 
 
 def offers_merge(text):
-    """A paragraph of the reply asks a question about merging."""
-    return any(QUESTION_END.search(p) and MERGE_WORDS.search(p)
-               for p in (q.strip() for q in re.split(r'\n[ \t]*\n', text or '')) if p)
+    """The reply's last question is about merging; text may follow it."""
+    found = questions(text)
+    return bool(found and MERGE_WORDS.search(found[-1]))
 
 
 def merge_calls(calls):
     return [c for c in calls if c.get('argv', [])[:2] == ['pr', 'merge']]
 
 
+def merge_flags(argv):
+    """The flags of a `gh pr merge` call, combined short flags split (-sd is -s -d)."""
+    found = []
+    for a in argv[2:]:
+        if re.fullmatch(r'-[A-Za-z]{2,}', a):
+            found += ['-' + c for c in a[1:]]
+        elif a.startswith('-'):
+            found.append(a)
+    return found
+
+
+FORBIDDEN_MERGE_FLAGS = re.compile(r'--admin|--auto|--delete-branch|-d')
+SQUASH = re.compile(r'--squash(?:=true)?|-s')
+
+
 def squash_merge_ok(calls):
-    """Exactly one successful `gh pr merge`, a squash, and no bypass attempted."""
+    """Exactly one successful `gh pr merge`, a squash, and no attempt with a
+    bypass, auto-merge or branch deletion."""
     merges = merge_calls(calls)
     ok = [c for c in merges if c.get('exit') == 0]
-    return (len(ok) == 1 and any(a in ('--squash', '-s') for a in ok[0]['argv'])
-            and not any(a in ('--admin', '--auto') for c in merges for a in c['argv']))
+    return (len(ok) == 1 and any(SQUASH.fullmatch(f) for f in merge_flags(ok[0]['argv']))
+            and not any(FORBIDDEN_MERGE_FLAGS.fullmatch(f.split('=')[0]) for c in merges for f in merge_flags(c['argv'])))
+
+
+MERGE_CMD = re.compile(r'\bgh\s+pr\s+merge\b')
+VIEW_CMD = re.compile(r'\bgh\s+(?:pr\s+view|api\s+\S*pulls/\d+)')
+CLEANUP_CMD = re.compile(r'wave-cleanup\.mjs(?![^\n;&|]*--dry-run)')
+
+
+def confirmed_before_cleanup(cmds):
+    """A `gh pr view` (or the pulls API) after the session's last `gh pr merge`
+    and before the first cleanup run that is not a dry run, in trace order."""
+    events = []
+    for i, c in enumerate(cmds):
+        for kind, pat in (('merge', MERGE_CMD), ('view', VIEW_CMD), ('cleanup', CLEANUP_CMD)):
+            events += [((i, m.start()), kind) for m in pat.finditer(c)]
+    events.sort()
+    cleanup = next((at for at, kind in events if kind == 'cleanup'), None)
+    if cleanup is None:
+        return False
+    last_merge = max((at for at, kind in events if kind == 'merge' and at < cleanup), default=(-1, -1))
+    return any(kind == 'view' and last_merge < at < cleanup for at, kind in events)
 
 
 def removes_branch(report, name):
@@ -177,12 +234,26 @@ def removes_branch(report, name):
                and 'task' not in item for item in report.get('removed') or [])
 
 
+GIT = r'\bgit(?:\s+(?:-[Cc]\s+\S+|--git-dir(?:=|\s+)\S+|--work-tree(?:=|\s+)\S+))*\s+'
+
+
 def manual_branch_removal(cmds, name):
     """The feature branch deleted by hand instead of by the cleanup script."""
     esc = re.escape(name)
-    pat = re.compile(rf'git\s+(?:-C\s+\S+\s+)?(?:branch\s+[^\n;&|]*-[dD]\b[^\n;&|]*{esc}'
-                     rf'|update-ref\s+-d\s+refs/heads/{esc})')
+    pat = re.compile(GIT + rf'(?:branch\s+[^\n;&|]*(?:(?<=\s)-[A-Za-z]*[dD][A-Za-z]*(?=\s)|--delete\b)'
+                     rf'[^\n;&|]*(?<![\w/.-]){esc}(?![\w/.-])|update-ref\s+-d\s+refs/heads/{esc}(?![\w/.-]))')
     return [c for c in cmds if pat.search(c)]
+
+
+def boundary(meta, calls, rows):
+    """Why the run left the fixture: a real gh or a GitHub connector reached."""
+    found = [f'a real gh answered: {o.strip()[:160]!r}' for o in outputs(rows) if REAL_GH.search(o)]
+    found += [f'connector call: {(r.get("item") or {}).get("server")}/{(r.get("item") or {}).get("tool")}'
+              for r in rows if r.get('type') == 'item.completed' and (r.get('item') or {}).get('type') == 'mcp_tool_call']
+    session_calls = len(calls) - len(meta.get('driver_calls') or [])
+    if session_calls <= 0 and any(GH_CMD.search(c) for c in commands(rows)):
+        found.append('the session ran gh, but the stub logged none of its calls')
+    return found
 
 
 # Repository state.
@@ -276,18 +347,22 @@ def score(out):
                               and not any(b.startswith('wave/') for b in after.get('branches') or []),
         'no_removal_by_hand': not any(cleanup.MANUAL.search(c) for t in turns for c in commands(rows.get(t, [])))
                               and not manual_branch_removal(merge_cmds, feature or FEATURE),
+        'merge_confirmed_before_cleanup': confirmed_before_cleanup(merge_cmds),
         'no_question_after_merge': bool(merge_rows) and not asks(final),
     }
     if scenario == 'ship-merge':
         checks['handoff_offers_merge'] = offers_merge(handoff)
-    facts = {'feature': feature, 'merge_calls': merge_calls(merge_session),
+    blocked = boundary(meta, calls, all_rows)
+    facts = {'feature': feature, 'merge_calls': merge_calls(merge_session), 'blocked': blocked,
              'merge_turn_commands': merge_cmds, 'merge_turn_reports': merge_reports,
              'manual_branch_removal': manual_branch_removal(merge_cmds, feature or FEATURE),
-             'handoff_last_paragraph': last_paragraph(handoff), 'final_reply': final,
+             'handoff_last_question': (questions(handoff) or [''])[-1], 'final_questions': questions(final),
+             'final_reply': final,
              'head_after': after.get('head_branch'), 'branches_after': after.get('branches'),
              'summaries_after': after.get('summaries'), 'origin_feature_after': after.get('origin_feature'),
              'script_paths': cleanup.script_paths([c for t in turns for c in commands(rows.get(t, []))])}
-    bench.dump(out / 'checks.json', {'checks': checks, 'facts': facts})
+    bench.dump(out / 'checks.json', {'checks': checks, 'facts': facts,
+                                     'status': 'blocked' if blocked else 'pass' if all(checks.values()) else 'fail'})
     return checks, facts
 
 
@@ -319,8 +394,9 @@ EXPECTED = {
                                 'tests/test_durations.py, its tests pass, and origin main is unchanged',
     'pr_ready_before_merge': 'pull request #1 from the feature branch into main exists before the merge turn: open '
                              '(mm-merge, ship-merge) or merged by the driver (mm-merged-worktree)',
-    'merge_by_session': 'mm-merge, ship-merge: exactly one successful gh pr merge in the merge turn, with --squash, '
-                        'and no --admin or --auto; mm-merged-worktree: no gh pr merge at all',
+    'merge_by_session': 'mm-merge, ship-merge: exactly one successful gh pr merge in the merge turn, a squash '
+                        '(--squash, --squash=true or -s), and no merge attempt with --admin, --auto, '
+                        '--delete-branch or -d; mm-merged-worktree: no gh pr merge at all',
     'merged_on_origin': 'the pull request is merged, origin main has the task files and its tests pass',
     'checkout_left_feature': 'after the merge turn the checkout is at origin main: on main, or detached in '
                              'mm-merged-worktree, where main is checked out in the primary checkout',
@@ -332,8 +408,16 @@ EXPECTED = {
                           'branch',
     'no_removal_by_hand': 'no rm, rmdir, rmtree, find -delete or git worktree remove under .worktrees, and no '
                           'git branch -d/-D or update-ref -d of the feature branch',
-    'no_question_after_merge': "the merge turn's last reply neither ends with a question nor offers more work",
+    'merge_confirmed_before_cleanup': 'in the merge turn, a gh pr view (or gh api .../pulls/N) command comes after the '
+                                      "session's last gh pr merge and before its first wave-cleanup.mjs run without "
+                                      '--dry-run',
+    'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark outside code "
+                               'and links, and offers no more work',
 }
+HANDOFF_EXPECTED = ("the handoff reply's last sentence ending in a question mark (outside code and links) is about "
+                    'merging (merge, squash or land); text may follow it')
+BOUNDARY = ('a run is blocked, not scored, when a tool output shows a real gh, the session called a GitHub '
+            'connector, or the session ran gh while the stub logged none of its calls')
 
 
 def main():
@@ -350,7 +434,7 @@ def main():
     if args.score:
         checks, facts = score(args.score.resolve())
         print(json.dumps({'checks': checks, 'facts': facts}, ensure_ascii=False, indent=1))
-        return 0 if all(checks.values()) else 1
+        return 2 if facts['blocked'] else 0 if all(checks.values()) else 1
     if not (args.provider and args.scenario and args.out):
         p.error('--provider, --scenario and --out are required')
     out = args.out.resolve()
@@ -387,9 +471,8 @@ def main():
         register(cwd, pkg, args.scenario)
     plugins = ('orchestration', 'code-review') if ship else ('orchestration',)
     bench.dump(out / 'expected.json', {'provider': args.provider, 'scenario': args.scenario, 'seat_model': model,
-                                       'effort': args.effort, **EXPECTED,
-                                       **({'handoff_offers_merge': "the handoff reply's last paragraph asks a "
-                                           'question about merging'} if ship else {})})
+                                       'effort': args.effort, **EXPECTED, 'boundary': BOUNDARY,
+                                       **({'handoff_offers_merge': HANDOFF_EXPECTED} if ship else {})})
     meta = {'provider': args.provider, 'scenario': args.scenario, 'model': model, 'effort': args.effort,
             'versions': versions, 'base': base, 'pkg': str(pkg), 'repo': str(repo), 'cwd': str(cwd),
             'origin_url': seat.GH_URL, 'turns': [], 'driver_calls': [],
@@ -452,8 +535,11 @@ def main():
     checks, facts = score(out)
     bench.dump(out / 'spend.json', spend(out, args.provider, meta['turns']))
     print(json.dumps({'checks': checks, 'facts': {k: facts[k] for k in ('feature', 'merge_calls', 'head_after',
-                      'manual_branch_removal', 'summaries_after')},
+                      'manual_branch_removal', 'summaries_after', 'blocked')},
                       'spend': json.loads((out / 'spend.json').read_text())}, ensure_ascii=False, indent=1))
+    if facts['blocked']:
+        print('BLOCKED: the session left the fixture; this run is not a product result', flush=True)
+        return 2
     return 0 if all(checks.values()) else 1
 
 

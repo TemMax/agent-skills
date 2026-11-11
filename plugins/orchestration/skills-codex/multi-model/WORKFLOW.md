@@ -113,39 +113,47 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
 
 **Clean up what the run created.** After each wave's `ok` branches are
 integrated, run the runner's printed `afterIntegration` command (the cleanup
-script, `../../skills/multi-model/references/wave-cleanup.mjs`). It removes only the worktrees and `wave/<id>`
-branches of tasks a finished run accepted, clean and already integrated, and
-lists what it kept with the reason; a running, stopped or rejected task always
-stays. Run records (`summary.json`, verdicts, state files) stay until the pull
-request is merged, because review and `--resume-from` read them. The completion
-summary carries a `Left behind:` line: every branch, worktree, run record and
-temporary directory this run created that still exists — taken from
-`wave-cleanup.mjs --dry-run --records` with `--summary <out>/summary.json`
-for each runner given an `--out` under `.worktrees/` other than
-`.worktrees/claude-runner/` and `.worktrees/codex-runner/` that wrote one,
-plus any runner `--out` outside `.worktrees/` and any scratch directory the
-orchestrator itself created outside the repository — or `Left behind: nothing`.
-Whenever something is left behind, the summary also carries one line starting
-`After the merge:` with the ready command — `wave-cleanup.mjs` with absolute
-paths, `--repo <repo>`, one `--plan` per plan this run executed (fix plans
-included), `--into origin/<default branch>`, `--records`,
-the same `--summary` options and `--branch <feature branch>` (without `--branch`
-when the wave was not integrated into a feature branch of its own). The merge
-happens only on the user's word. When the user asks for it, merge the pull
-request — squash when the repository allows it, otherwise a method it allows —
-and never with `--admin` or another bypass of the repository's required checks
-or reviews: wait for running checks, and on a failed check or a refused merge
-report it and stop. Then clean up at once; when the user says the integration
-branch is merged, clean up at once too. The cleanup asks no question. Fetch,
-switch the main checkout to the default branch and fast-forward it — when that
-branch is checked out in another worktree, detach the main checkout at
-`origin/<default branch>` instead; when the switch is refused, leave the
-checkout as it is and say why — then run that command. Delete the remote
-feature branch only if the script reported the local feature branch removed
-and the remote branch tip equals the `tip` it printed. Remove only what this
-run created, clean and already integrated; everything else — what the script
-kept and what this run did not create — is named in the report with the reason
-it stayed, never deleted, and never turned into a question.
+script, `../../skills/multi-model/references/wave-cleanup.mjs`). It removes
+only the worktrees and `wave/<id>` branches of tasks a finished run accepted,
+clean and already integrated, and lists what it kept with the reason; a
+running, stopped or rejected task always stays. Run records (`summary.json`,
+verdicts, state files) stay until the pull request is merged, because review
+and `--resume-from` read them. The completion summary carries a `Left behind:`
+line: every branch, worktree, run record and temporary directory this run
+created that still exists — taken from `wave-cleanup.mjs --dry-run --records`
+with `--summary <out>/summary.json` for each runner given an `--out` under
+`.worktrees/` other than `.worktrees/claude-runner/` and
+`.worktrees/codex-runner/` that wrote one, plus any runner `--out` outside
+`.worktrees/` and any scratch directory the orchestrator itself created outside
+the repository — or `Left behind: nothing`. Whenever something is left behind,
+the summary also carries one line starting `After the merge:` with the ready
+command — `wave-cleanup.mjs` with absolute paths, `--repo <repo>`, one `--plan`
+per plan this run executed (fix plans included),
+`--into origin/<default branch>`, `--records`, the same `--summary` options and
+`--branch <feature branch>` (without `--branch` when the wave was not
+integrated into a feature branch of its own). The merge happens only on the
+user's word. When the user asks for it, merge the pull request — squash when
+the repository allows it, otherwise a method it allows — never with `--admin`,
+`--auto`, `--delete-branch` or another bypass of the repository's required
+checks or reviews, and never by a push to the default branch; with no pull
+request, open one first or report why not. Wait for running checks; on a failed
+check or a refused merge, report it and stop. Before any cleanup — after this
+merge, or when the user says the integration branch is merged — confirm that
+`gh pr view <number> --json state` shows `MERGED`; a queued or auto-merge pull
+request is reported as not merged yet, and the run stops there. Then clean up
+at once. The cleanup asks no question. Run `git fetch --prune`; when the
+checkout this run works in (the `--repo` of `After the merge:`) is on the
+feature branch, switch it to the default branch and fast-forward it — when that
+branch is checked out in another worktree, detach the checkout at
+`origin/<default branch>` instead; when the switch or the fast-forward is
+refused, leave the checkout as it is, never stash, and say why — then run that
+command. Local branches go only through that script. Delete the remote feature
+branch only if the script reported the local feature branch removed and
+`git ls-remote --heads origin <feature branch>` shows the `tip` it printed.
+Remove only what this run created, clean and already integrated; everything
+else — what the script kept and what this run did not create — is named in the
+report with the reason it stayed, never deleted, and never turned into a
+question.
 
 **Scope of a bypass.** The user's instruction to implement directly covers
 exactly what the user named, review fixes included. Record that scope in the
