@@ -129,7 +129,7 @@ options of the `After the merge:` command below (they include `--records` and
 the repository — or `Left behind: nothing`. Whenever something is left behind,
 the summary also carries one line starting `After the merge:` with the ready
 command — `wave-cleanup.mjs` with absolute paths, `--repo <repo>`, one `--plan`
-per plan this run executed (fix plans included),
+per plan this run executed (fix plans included; none when it executed none),
 `--into origin/<default branch>`, `--records`, the same `--summary` options and
 `--branch <feature branch>` (without `--branch` when the wave was not integrated
 into a feature branch of its own). Take that command from the `command` field
@@ -155,7 +155,9 @@ and fast-forward it. When the switch is refused because that branch is checked
 out in another worktree, detach the checkout at `origin/<default branch>`
 instead; when the switch is refused for another reason, or the fast-forward is
 refused, leave the checkout as it is, never stash, and say why. Then run that
-command as written and read all of its output. Local branches go only through
+command as written and read all of its output; only its script path may change,
+to the same script of the installed plugin when the printed one no longer
+exists. Local branches go only through
 that script. Delete the remote feature
 branch only if the script reported the local feature branch removed and
 `git ls-remote --heads origin <feature branch>` shows the `tip` it printed.

@@ -828,16 +828,19 @@ test('every usage error exits 2 with one line on stderr and changes nothing', ()
   writeFileSync(noWaves, '```json wave-plan\n{ "tasks": [] }\n```\n')
   const noTasks = join(root, 'no-tasks.md')
   writeFileSync(noTasks, '```json wave-plan\n{ "waves": [] }\n```\n')
+  const emptyWaves = join(root, 'empty-waves.md')
+  writeFileSync(emptyWaves, '```json wave-plan\n{ "waves": [{ "wave": 1, "tasks": [] }] }\n```\n')
   const badId = join(root, 'bad-id.md')
   writeFileSync(badId, '```json wave-plan\n{ "waves": [{ "wave": 1, "tasks": [{ "id": "../escape" }] }] }\n```\n')
   const before = snapshot(repo)
 
   const cases = {
     'missing --repo': ['--plan', plan],
-    '--wave without --plan': ['--repo', repo, '--wave', '1'],
+    '--wave without --plan': ['--repo', repo, '--branch', 'x', '--wave', '1'],
     'neither --plan nor --branch': ['--repo', repo],
-    'a plan with no task in any wave': ['--repo', repo, '--plan', noTasks],
-    '--accepted without --plan': ['--repo', repo, '--accepted', 'a'],
+    'a plan with no waves': ['--repo', repo, '--plan', noTasks],
+    'a plan whose waves have no task': ['--repo', repo, '--plan', emptyWaves],
+    '--accepted without --plan': ['--repo', repo, '--branch', 'x', '--accepted', 'a'],
     'relative --repo': ['--repo', 'repo', '--plan', plan],
     '--repo below the top level': ['--repo', join(repo, 'sub'), '--plan', plan],
     '--repo outside any repository': ['--repo', notGit, '--plan', plan],
@@ -1742,10 +1745,51 @@ test('a --summary that is itself a link is decided the same in the dry run and b
 
   const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', join(named, 'summary.json'), '--dry-run')
   assert.equal(dry.status, 0, dry.stderr)
+  // the link's own directory is the named record; the file name is not resolved
+  assert.match(dry.json.command, /--summary \S*\/runs\/w1\/summary\.json/)
+  assert.deepEqual(entry(dry.json.kept, 'record', 'path', named),
+    { kind: 'record', path: named, reason: 'not a run record of the given plans' })
   const run = spawnSync('/bin/sh', ['-c', dry.json.command], { encoding: 'utf8', cwd: tmpdir(),
     env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH } })
   assert.equal(run.status, 0, run.stderr)
   const done = JSON.parse(run.stdout)
   assert.deepEqual(done.removed, dry.json.removed)
   assert.deepEqual(done.kept, dry.json.kept)
+  assert.equal(existsSync(join(named, 'summary.json')), true)
+  assert.equal(existsSync(join(target, 'summary.json')), true)
+})
+
+test('a --summary whose directory is gone through a link and `..` is skipped, never read as another record', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']]])
+  addTask(repo, 'a', base)
+  merge(repo, 'a')
+  const other = writeRecord(repo, 'runs', 'a', ['a'], 'ok') // .worktrees/runs/a, not the named one
+  mkdirSync(join(repo, '.worktrees', 'runs', 'b', 'c'), { recursive: true })
+  symlinkSync(join(repo, '.worktrees', 'runs', 'b', 'c'), join(repo, '.worktrees', 'runs', 'lnk'))
+  // the kernel's .worktrees/runs/b/a is gone; a string join would name .worktrees/runs/a
+  const summary = repo + '/.worktrees/runs/lnk/../a/summary.json'
+
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', summary, '--dry-run')
+  assert.equal(dry.status, 0, dry.stderr)
+  assert.equal(dry.stderr, 'wave-cleanup: skipped --summary ' + summary + ': its directory does not exist\n')
+  assert.equal(entry(dry.json.removed, 'record', 'path', other), undefined)
+  assert.match(dry.json.command, /--summary \S*\/runs\/lnk\/\.\.\/a\/summary\.json/)
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', summary)
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(existsSync(other), true)
+})
+
+test('a --plan the file system cannot find is not read as another file a string join would name', () => {
+  const { root, repo, base } = makeRepo()
+  writePlan(root, 'plan.md', [[1, ['a']]]) // root/plan.md exists
+  const real = mkdtempSync(join(tmpdir(), 'wave-cleanup-real-'))
+  roots.push(real)
+  mkdirSync(join(real, 'deep'))
+  symlinkSync(join(real, 'deep'), join(root, 'link'))
+  addTask(repo, 'a', base)
+  // to the kernel this is real/plan.md, which does not exist
+  const r = cleanup('--repo', repo, '--plan', root + '/link/../plan.md', '--dry-run')
+  assert.equal(r.status, 2, r.stdout)
+  assert.match(r.stderr, /^wave-cleanup: cannot read plan /)
 })

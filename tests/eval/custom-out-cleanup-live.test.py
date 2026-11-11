@@ -93,6 +93,8 @@ WRITTEN_OUT = {
     'a path the script quoted that holds a $': "After the merge: `node '/x/a$b/wave-cleanup.mjs' --repo /x/repo`\n",
     'no --plan, for a run that executed none': f'After the merge: `node {SCRIPT} --repo /x/repo --into origin/main --branch f`\n',
     'a trailing comment after it in the block': 'After the merge:\n```sh\n' + FULL + '  # after the merge\n```\n',
+    'a trailing comment that names $HOME': 'After the merge:\n```sh\n' + FULL + '  # uses $HOME\n```\n',
+    'a # inside a word': f'After the merge: `node {SCRIPT} --repo /x/repo --branch feat/#12`\n',
 }
 NOT_WRITTEN_OUT = {
     'a link to a script it wrote': 'After the merge: [ready cleanup command](/x/repo/.worktrees/runs/wave-1/after-merge.sh).\n',
@@ -129,6 +131,10 @@ ok &= check('as printed: a command the dry run did not print is not',
             not live.as_printed(f'After the merge: `node {SCRIPT} --repo /x/repo --plan /x/repo/docs/plan.md`', dry_rows))
 ok &= check('as printed: a trailing comment is not part of the command',
             live.as_printed(WRITTEN_OUT['a trailing comment after it in the block'], dry_rows))
+hash_rows = [{'type': 'item.completed', 'item': {'type': 'command_execution', 'command': 'x', 'aggregated_output':
+             report(True, command=f"node {SCRIPT} --repo /x/repo --branch 'feat/#12'")}}]
+ok &= check('as printed: a # inside a word is part of it, quoted or not',
+            live.as_printed(WRITTEN_OUT['a # inside a word'], hash_rows))
 ok &= check('as printed: a real run\'s report carries no command to copy',
             not live.as_printed(WRITTEN_OUT['bare on the line'], [{'type': 'item.completed', 'item': {
                 'type': 'command_execution', 'command': 'x', 'aggregated_output': report(False)}}]))

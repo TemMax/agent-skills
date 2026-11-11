@@ -284,17 +284,38 @@ def after_merge_commands(text):
     return found
 
 
+def strip_comment(cmd):
+    """The command up to a `#` that starts a word outside quotes, as a POSIX
+    shell reads a comment; a `#` inside a word is part of it."""
+    single = double = escaped = False
+    prev = ' '
+    for i, ch in enumerate(cmd):
+        if escaped:
+            escaped = False
+        elif ch == '\\' and not single:
+            escaped = True
+        elif ch == "'" and not double:
+            single = not single
+        elif ch == '"' and not single:
+            double = not double
+        elif ch == '#' and not single and not double and prev.isspace():
+            return cmd[:i].rstrip()
+        prev = ch
+    return cmd
+
+
 def command_words(cmd):
     try:
-        return shlex.split(cmd.replace('\\\n', ' '), comments=True)
+        return shlex.split(strip_comment(cmd.replace('\\\n', ' ')))
     except ValueError:
         return None
 
 
 def expands(cmd):
-    """A `$` or a backtick the shell would expand: anywhere outside single quotes."""
+    """A `$` or a backtick the shell would expand: outside single quotes and
+    not escaped, before any comment."""
     single = double = escaped = False
-    for ch in cmd:
+    for ch in strip_comment(cmd.replace('\\\n', ' ')):
         if escaped:
             escaped = False
         elif ch == '\\' and not single:

@@ -213,16 +213,28 @@ function children(dir) {
 // links and `..` resolved by the kernel, as a read resolves them, not as a
 // string join would), the file name kept as given: every later step reads,
 // classifies and prints this one path. One whose directory is gone stays as
-// given, made absolute.
+// given, made absolute without resolving `..` as text, so it cannot name
+// another directory that exists.
 function canonical(file) {
-  return lstat(dirname(file)) === null ? resolve(file) : join(stored(dirname(file)), basename(file))
+  if (lstat(dirname(file)) !== null) return join(stored(dirname(file)), basename(file))
+  return isAbsolute(file) ? file : process.cwd() + sep + file
+}
+
+// A --plan where the file system finds it; one it cannot find stays as given,
+// so reading it fails rather than reading another file.
+function canonicalPlan(plan) {
+  try {
+    return realpathSync.native(plan)
+  } catch {
+    return plan
+  }
 }
 
 // A --summary whose directory no longer exists names a record an earlier
 // cleanup removed: nothing is left to read or to remove, so the same
 // after-the-merge command can run again.
 function gone(file) {
-  return lstat(dirname(resolve(file))) === null
+  return lstat(dirname(file)) === null
 }
 
 // The summaries acceptance is read from: every --summary file, then every
@@ -300,7 +312,7 @@ try {
   const top = git(repo, 'rev-parse', '--show-toplevel')
   if (!top.ok || real(top.out) !== real(repo)) throw new UsageError('--repo is not the top level of a git work tree: ' + repo)
 
-  options.plan = options.plan.map((plan) => stored(plan))
+  options.plan = options.plan.map(canonicalPlan)
   options.summary = options.summary.map(canonical)
   const plans = options.plan.map(readWaves)
   planIds = unique(plans.flat().flatMap((wave) => wave.tasks.map((task) => task.id)))
@@ -586,7 +598,7 @@ function summaryRecords() {
   // directory, default ones included.
   const root = stored(worktreesDir)
   for (const file of options.summary) {
-    const named = resolve(file)
+    const named = file
     if (gone(named)) continue
     const dir = stored(dirname(named))
     const rel = relative(root, dir)
