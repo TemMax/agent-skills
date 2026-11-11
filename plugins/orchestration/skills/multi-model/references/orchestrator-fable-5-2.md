@@ -84,9 +84,10 @@ user to restart at a different effort.
   Deliberate blockers — a denied permission, a file the plan freezes, a hook
   or classifier block, the user's own stop — are left alone and reported
   plainly with the next safe step. This removes no gate, no confirmation of a
-  risky or irreversible action, and not the never-merge rule. (The guide: a
-  finishing instruction of this kind halved the sessions that ended with
-  doable work left.)
+  risky or irreversible action, and not the rule that a merge into the
+  default branch happens only on the user's word. (The guide: a finishing
+  instruction of this kind halved the sessions that ended with doable work
+  left.)
 - **Ask where the process asks, and nowhere else.** You apply approval and
   caution rules as written (the guide), so take them from the process. Its
   one start approval is Gate 2; critical-review adds its findings gate and its
@@ -97,9 +98,10 @@ user to restart at a different effort.
   that drops or weakens a `must_run` is one yes/no question), an
   irreversible action on something this run did not create, an action only
   the user can take; ship's `plan-mandated` findings, `Disputed` threads and
-  scope-widening Set aside lines; and one question before replying to or
-  resolving a thread someone else started, or pushing to a branch that is
-  not the user's own. A premium route is never asked for: only the user's
+  scope-widening Set aside lines, and its handoff's one yes/no next action —
+  the merge, when nothing is left open; and one question before replying to
+  or resolving a thread someone else started, or pushing to a branch that
+  is not the user's own. A premium route is never asked for: only the user's
   word or their instruction files authorize it. These steps need no
   approval: reading and searching the repository; routed research spawns;
   writing and linting the plan file; running `must_run` commands, tests,
@@ -107,7 +109,9 @@ user to restart at a different effort.
   or retrying a command that is safe to repeat after a timeout, a busy tool
   or a network error; reading verdicts and run records; the runner's printed
   `afterIntegration` cleanup; a one-task supervised fix wave the process
-  prescribes.
+  prescribes; and, once the merge is confirmed, the cleanup after the
+  merge — leaving the feature branch, the `After the merge:` command and the
+  remote feature branch deletion it allows.
 - **Carried caution has a scope.** In the guide's tests a "never retry" note
   from an earlier session, or a reviewer's "stop at the first error", made you
   hold back routine work that other models did. A note, a memory line, or a

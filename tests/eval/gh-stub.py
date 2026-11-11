@@ -7,11 +7,15 @@ GH_CONFIG_DIR), so a call that bypasses this stub fails instead of acting.
 
 It implements what ship and critical-review call: auth status, `api user`,
 repo view, pr create/view/diff/list/edit/comment/checks/ready, and the review
-threads query (the fixture's pull request has no threads). `pr merge` and
-`pr close` are refused. Anything else fails like an unknown command. Every
-call is appended to GH_STUB_LOG, a crash of the stub included; the pull
-request lives in GH_STUB_STATE; diffs and head SHAs come from the bare origin
-at GH_STUB_ORIGIN.
+threads query (the fixture's pull request has no threads). `pr close` is
+refused, and so is `pr merge` unless GH_STUB_MERGE=allow: then it squashes or
+merges the pull request into the base branch of the bare origin, as GitHub
+would; `--auto` on a clean pull request merges at once, as gh does; the
+repository does not allow rebase merges; `--admin`, `--disable-auto` and
+`--delete-branch` are not available here. Anything else fails like an unknown
+command. Every call is appended to GH_STUB_LOG, a crash of the stub included;
+the pull request lives in GH_STUB_STATE; diffs and head SHAs come from the
+bare origin at GH_STUB_ORIGIN.
 """
 import datetime
 import json
@@ -27,14 +31,16 @@ REPO = os.environ['GH_STUB_REPO']
 LOGIN = 'fixture-user'
 URL = f'https://github.com/{OWNER}/{REPO}'
 ARGV = sys.argv[1:]
-PR_FIELDS = ['additions', 'assignees', 'author', 'baseRefName', 'baseRefOid', 'body', 'changedFiles',
-             'closed', 'comments', 'commits', 'createdAt', 'deletions', 'files', 'headRefName',
-             'headRefOid', 'headRepository', 'headRepositoryOwner', 'id', 'isDraft', 'labels',
-             'latestReviews', 'mergeStateStatus', 'mergeable', 'merged', 'mergedAt', 'number',
-             'reviewDecision', 'reviewRequests', 'reviews', 'state', 'statusCheckRollup', 'title',
-             'updatedAt', 'url']
-REPO_FIELDS = ['defaultBranchRef', 'description', 'isPrivate', 'name', 'nameWithOwner', 'owner',
-               'url', 'viewerPermission']
+MERGE = os.environ.get('GH_STUB_MERGE') == 'allow'
+PR_FIELDS = ['additions', 'assignees', 'author', 'autoMergeRequest', 'baseRefName', 'baseRefOid', 'body',
+             'changedFiles', 'closed', 'closedAt', 'comments', 'commits', 'createdAt', 'deletions', 'files',
+             'headRefName', 'headRefOid', 'headRepository', 'headRepositoryOwner', 'id', 'isDraft', 'labels',
+             'latestReviews', 'mergeCommit', 'mergeStateStatus', 'mergeable', 'mergedAt', 'mergedBy', 'number',
+             'potentialMergeCommit', 'reviewDecision', 'reviewRequests', 'reviews', 'state', 'statusCheckRollup',
+             'title', 'updatedAt', 'url']
+REPO_FIELDS = ['defaultBranchRef', 'deleteBranchOnMerge', 'description', 'isPrivate', 'mergeCommitAllowed',
+               'name', 'nameWithOwner', 'owner', 'rebaseMergeAllowed', 'squashMergeAllowed', 'url',
+               'viewerDefaultMergeMethod', 'viewerPermission']
 
 
 def now():
@@ -90,7 +96,30 @@ def parse(args, valued, flags=()):
                 done(f'flag needs an argument: {name}', 1)
             opts.setdefault(valued[name], []).append(val)
         elif name in flags:
-            opts[flags[name]] = True
+            # Booleans parse as Go's strconv.ParseBool, as in gh.
+            truth = {'': True, '1': True, 't': True, 'T': True, 'TRUE': True, 'true': True, 'True': True,
+                     '0': False, 'f': False, 'F': False, 'FALSE': False, 'false': False, 'False': False}
+            if inline not in truth:
+                done(f'invalid argument "{inline}" for "{name}" flag: strconv.ParseBool: parsing '
+                     f'"{inline}": invalid syntax', 1)
+            opts[flags[name]] = truth[inline]
+        elif len(a) > 2 and a[0] == '-' and a[1] != '-':
+            # Short flags combine as in pflag: -sd is -s -d; a valued one takes the rest or the next arg.
+            for k, c in enumerate(a[1:], 1):
+                short = '-' + c
+                if short in flags:
+                    opts[flags[short]] = True
+                elif short in valued:
+                    if a[k + 1:]:
+                        val = a[k + 1:]
+                    elif i + 1 < len(args):
+                        i += 1; val = args[i]
+                    else:
+                        done(f'flag needs an argument: {c!r} in {a}', 1)
+                    opts.setdefault(valued[short], []).append(val)
+                    break
+                else:
+                    done(f'unknown shorthand flag: {c!r} in {a}\n\nUsage:  gh {" ".join(ARGV[:2])} [flags]', 1)
         elif a.startswith('-') and a != '-':
             done(f'unknown flag: {a}\n\nUsage:  gh {" ".join(ARGV[:2])} [flags]', 1)
         else:
@@ -152,25 +181,34 @@ def find(state, selector):
 
 
 def full(pr):
-    """The pull request as gh's --json would show it, computed from origin."""
-    head = (git('rev-parse', f'refs/heads/{pr["headRefName"]}') or '').strip()
+    """The pull request as gh's --json would show it, computed from origin; a
+    merged one from its merge commit, since its head branch may be gone."""
+    merged = pr['state'] == 'MERGED'
+    head = pr['mergedHeadOid'] if merged else (git('rev-parse', f'refs/heads/{pr["headRefName"]}') or '').strip()
     base = (git('rev-parse', f'refs/heads/{pr["baseRefName"]}') or '').strip()
-    numstat = git('diff', '--numstat', f'{pr["baseRefName"]}...{pr["headRefName"]}') or ''
+    oid = (pr.get('mergeCommit') or {}).get('oid')
+    span = (f'{oid}^1', oid) if merged else (pr['baseRefName'], pr['headRefName'])
+    numstat = git('diff', '--numstat', *span) if merged else git('diff', '--numstat', '...'.join(span))
+    numstat = numstat or ''
     files = []
     for line in numstat.splitlines():
         a, d, path = line.split('\t', 2)
         files.append({'path': path, 'additions': int(a) if a.isdigit() else 0,
                       'deletions': int(d) if d.isdigit() else 0})
+    clean = merged or git('merge-tree', '--write-tree', pr['baseRefName'], pr['headRefName']) is not None
     commits = [{'oid': c.split(' ', 1)[0], 'messageHeadline': c.split(' ', 1)[1] if ' ' in c else ''}
                for c in (git('log', '--reverse', '--format=%H %s',
-                             f'{pr["baseRefName"]}..{pr["headRefName"]}') or '').splitlines()]
+                             f'{span[0]}..{head if merged else span[1]}') or '').splitlines()]
     return {**pr, 'author': {'login': LOGIN}, 'headRefOid': head, 'baseRefOid': base,
             'files': files, 'changedFiles': len(files),
             'additions': sum(f['additions'] for f in files), 'deletions': sum(f['deletions'] for f in files),
             'commits': commits, 'id': f'PR_kwFixture{pr["number"]}', 'labels': [], 'assignees': [],
             'reviewRequests': [], 'reviews': [], 'latestReviews': [], 'reviewDecision': '',
-            'mergeable': 'MERGEABLE', 'mergeStateStatus': 'CLEAN', 'statusCheckRollup': [],
-            'closed': False, 'merged': False, 'mergedAt': None,
+            'mergeable': 'UNKNOWN' if merged else 'MERGEABLE' if clean else 'CONFLICTING',
+            'mergeStateStatus': 'UNKNOWN' if merged else 'CLEAN' if clean else 'DIRTY', 'statusCheckRollup': [],
+            'closed': merged, 'closedAt': pr.get('mergedAt'), 'mergedAt': pr.get('mergedAt'),
+            'mergedBy': {'login': LOGIN} if merged else None, 'mergeCommit': pr.get('mergeCommit'),
+            'autoMergeRequest': None, 'potentialMergeCommit': None,
             'headRepository': {'name': REPO}, 'headRepositoryOwner': {'login': OWNER}}
 
 
@@ -220,8 +258,10 @@ def pr_cmd(sub, args):
         if one(opts, 'json') is not None or one(opts, 'jq') is not None:
             emit(pr, opts, PR_FIELDS)
         lines = [f'{pr["title"]} #{pr["number"]}',
-                 f'Open • {LOGIN} wants to merge {len(pr["commits"])} commits into {pr["baseRefName"]} '
-                 f'from {pr["headRefName"]}',
+                 (f'Merged • {LOGIN} merged {len(pr["commits"])} commits into {pr["baseRefName"]} '
+                  f'from {pr["headRefName"]}' if pr['state'] == 'MERGED' else
+                  f'Open • {LOGIN} wants to merge {len(pr["commits"])} commits into {pr["baseRefName"]} '
+                  f'from {pr["headRefName"]}'),
                  f'+{pr["additions"]} -{pr["deletions"]} • No checks', '', pr['body'] or 'No description provided', '']
         if opts.get('comments'):
             for c in pr['comments']:
@@ -235,23 +275,31 @@ def pr_cmd(sub, args):
             done('gh-stub: no browser in this fixture', 1)
         pr = find(state, pos[0] if pos else None)
         extra = ['--name-only'] if opts.get('name_only') else []
-        done((git('diff', *extra, f'{pr["baseRefName"]}...{pr["headRefName"]}') or '').rstrip('\n'))
+        oid = (pr.get('mergeCommit') or {}).get('oid')
+        span = [f'{oid}^1', oid] if pr['state'] == 'MERGED' else [f'{pr["baseRefName"]}...{pr["headRefName"]}']
+        done((git('diff', *extra, *span) or '').rstrip('\n'))
     if sub == 'list':
         opts, pos = parse(args, {**common, '--head': 'head', '-H': 'head', '--base': 'base', '-B': 'base',
                                  '--state': 'state', '-s': 'state', '--json': 'json', '-q': 'jq', '--jq': 'jq',
                                  '--limit': 'limit', '-L': 'limit', '--author': 'author', '-A': 'author',
                                  '--search': 'search', '-S': 'search', '--label': 'label', '-l': 'label'})
         want = (one(opts, 'state', 'open')).upper()
+        states = {'OPEN': ('OPEN',), 'CLOSED': ('CLOSED', 'MERGED'), 'MERGED': ('MERGED',),
+                  'ALL': ('OPEN', 'CLOSED', 'MERGED')}.get(want)
+        if states is None:
+            done(f'invalid argument "{want.lower()}" for "-s, --state" flag: valid values are '
+                 '{open|closed|merged|all}', 1)
         prs = [full(p) for p in state['prs']
                if (one(opts, 'head') in (None, p['headRefName']))
                and (one(opts, 'base') in (None, p['baseRefName']))
-               and (want == 'ALL' or p['state'] == want)]
+               and p['state'] in states]
         if one(opts, 'json') is not None or one(opts, 'jq') is not None:
             emit(prs, opts, PR_FIELDS)
+        label = '' if want == 'ALL' else want.lower() + ' '
         if not prs:
-            done(f'no open pull requests in {OWNER}/{REPO}', 0, sys.stderr)
-        rows = [f'#{p["number"]}\t{p["title"]}\t{p["headRefName"]}\tOPEN' for p in prs]
-        done(f'\nShowing {len(prs)} of {len(prs)} open pull requests in {OWNER}/{REPO}\n\n' + '\n'.join(rows))
+            done(f'no {label}pull requests in {OWNER}/{REPO}', 0, sys.stderr)
+        rows = [f'#{p["number"]}\t{p["title"]}\t{p["headRefName"]}\t{p["state"]}' for p in prs]
+        done(f'\nShowing {len(prs)} of {len(prs)} {label}pull requests in {OWNER}/{REPO}\n\n' + '\n'.join(rows))
     if sub == 'edit':
         opts, pos = parse(args, {**common, '--title': 'title', '-t': 'title', '--body': 'body', '-b': 'body',
                                  '--body-file': 'body_file', '-F': 'body_file', '--base': 'base', '-B': 'base',
@@ -286,9 +334,66 @@ def pr_cmd(sub, args):
         pr = find(state, pos[0] if pos else None)
         pr['isDraft'] = bool(opts.get('undo')); save(state)
         done(f'✓ Pull request {OWNER}/{REPO}#{pr["number"]} is marked as "ready for review"')
+    if sub == 'merge' and MERGE:
+        merge_pr(state, args, common)
     if sub in ('merge', 'close', 'reopen', 'review'):
         done(f'gh-stub: `gh pr {sub}` is not available in this fixture', 1)
     done(f'unknown command "{sub}" for "gh pr"', 1)
+
+
+def merge_pr(state, args, common):
+    """`gh pr merge` against the bare origin: a squash commit (or a merge commit)
+    on the base branch, as GitHub writes it. `--auto` on a clean pull request
+    merges at once, as gh does; `--admin`, `--disable-auto` and branch deletion
+    are not available here. Every attempt is in the call log."""
+    opts, pos = parse(args, {**common, '--subject': 'subject', '-t': 'subject', '--body': 'body', '-b': 'body',
+                             '--body-file': 'body_file', '-F': 'body_file', '--match-head-commit': 'match',
+                             '--author-email': 'email', '-A': 'email'},
+                      {'--squash': 'squash', '-s': 'squash', '--merge': 'merge', '-m': 'merge',
+                       '--rebase': 'rebase', '-r': 'rebase', '--delete-branch': 'delete', '-d': 'delete',
+                       '--admin': 'admin', '--auto': 'auto', '--disable-auto': 'disable_auto'})
+    pr = find(state, pos[0] if pos else None)
+    for flag, key in (('--admin', 'admin'), ('--disable-auto', 'disable_auto'), ('--delete-branch', 'delete')):
+        if opts.get(key):
+            done(f'gh-stub: {flag} is not available in this fixture', 1)
+    methods = [m for m in ('squash', 'merge', 'rebase') if opts.get(m)]
+    if len(methods) != 1:
+        done('only one of --merge, --rebase, or --squash can be enabled' if methods else
+             '--merge, --rebase, or --squash required when not running interactively', 1)
+    if methods[0] == 'rebase':
+        done('GraphQL: Rebase merges are not allowed on this repository. (mergePullRequest)', 1)
+    if pr['state'] == 'MERGED':
+        done(f'! Pull request {OWNER}/{REPO}#{pr["number"]} was already merged', 1)
+    if pr['state'] != 'OPEN' or pr.get('isDraft'):
+        done(f'Pull request {OWNER}/{REPO}#{pr["number"]} is not open for merging', 1)
+    head = (git('rev-parse', f'refs/heads/{pr["headRefName"]}') or '').strip()
+    base = (git('rev-parse', f'refs/heads/{pr["baseRefName"]}') or '').strip()
+    if not head or not base:
+        done('GraphQL: Head branch or base branch is missing (mergePullRequest)', 1)
+    if one(opts, 'match') not in (None, head):
+        done('GraphQL: Head branch was modified. Review and try the merge again. (mergePullRequest)', 1)
+    tree = git('merge-tree', '--write-tree', base, head)
+    if tree is None:
+        done('GraphQL: Pull Request is not mergeable (mergePullRequest)', 1)
+    subjects = (git('log', '--reverse', '--format=%s', f'{base}..{head}') or '').splitlines()
+    squash = methods[0] == 'squash'
+    subject = one(opts, 'subject') or (f'{pr["title"]} (#{pr["number"]})' if squash else
+                                       f'Merge pull request #{pr["number"]} from {OWNER}/{pr["headRefName"]}')
+    body = body_from(opts)
+    if body is None:
+        body = '\n'.join(f'* {line}' for line in subjects) if squash else pr['title']
+    who = {'GIT_AUTHOR_NAME': 'Fixture User', 'GIT_AUTHOR_EMAIL': 'fixture-user@users.noreply.github.com',
+           'GIT_COMMITTER_NAME': 'GitHub', 'GIT_COMMITTER_EMAIL': 'noreply@github.com'}
+    made = subprocess.run(['git', '--git-dir', ORIGIN, 'commit-tree', tree.splitlines()[0].strip(), '-p', base,
+                           *(['-p', head] if not squash else []), '-m', subject + ('\n\n' + body if body else '')],
+                          capture_output=True, text=True, env={**os.environ, **who})
+    if made.returncode or git('update-ref', f'refs/heads/{pr["baseRefName"]}', made.stdout.strip(), base) is None:
+        done('GraphQL: Base branch was modified. Review and try the merge again. (mergePullRequest)', 1)
+    pr.update(state='MERGED', mergedAt=now(), updatedAt=now(), mergeCommit={'oid': made.stdout.strip()},
+              mergedHeadOid=head, mergeMethod=methods[0])
+    save(state)
+    done(f'✓ {"Squashed and merged" if squash else "Merged"} pull request {OWNER}/{REPO}#{pr["number"]} '
+         f'({pr["title"]})')
 
 
 THREADS = {'data': {'repository': {'pullRequest': {'reviewThreads': {
@@ -322,7 +427,9 @@ def api_cmd(args):
     prefix = f'repos/{OWNER}/{REPO}'
     if endpoint == prefix:
         emit({'name': REPO, 'full_name': f'{OWNER}/{REPO}', 'default_branch': 'main', 'private': True,
-              'html_url': URL, 'owner': {'login': OWNER}}, opts)
+              'html_url': URL, 'owner': {'login': OWNER}, 'allow_squash_merge': True,
+              'allow_merge_commit': True, 'allow_rebase_merge': False, 'allow_auto_merge': False,
+              'delete_branch_on_merge': False}, opts)
     parts = endpoint[len(prefix) + 1:].split('?')[0].split('/') if endpoint.startswith(prefix + '/') else []
     if len(parts) >= 2 and parts[0] in ('pulls', 'issues') and parts[1].isdigit():
         pr = next((p for p in state['prs'] if p['number'] == int(parts[1])), None)
@@ -344,7 +451,9 @@ def api_cmd(args):
                 emit({'id': cid, 'html_url': c['url'], 'body': c['body']}, opts)
         if parts[0] == 'pulls' and not rest and method == 'GET':
             p = full(pr)
-            emit({'number': p['number'], 'title': p['title'], 'body': p['body'], 'state': 'open',
+            emit({'number': p['number'], 'title': p['title'], 'body': p['body'],
+                  'state': 'closed' if p['closed'] else 'open', 'merged': p['state'] == 'MERGED',
+                  'merged_at': p['mergedAt'],
                   'html_url': p['url'], 'draft': p['isDraft'],
                   'head': {'ref': p['headRefName'], 'sha': p['headRefOid']},
                   'base': {'ref': p['baseRefName'], 'sha': p['baseRefOid']}, 'user': {'login': LOGIN}}, opts)
@@ -374,7 +483,8 @@ def main():
                                      '-b': 'branch', '--branch': 'branch'}, {'--web': 'web', '-w': 'web'})
         data = {'name': REPO, 'owner': {'login': OWNER}, 'nameWithOwner': f'{OWNER}/{REPO}', 'url': URL,
                 'defaultBranchRef': {'name': 'main'}, 'viewerPermission': 'ADMIN', 'isPrivate': True,
-                'description': ''}
+                'description': '', 'squashMergeAllowed': True, 'mergeCommitAllowed': True,
+                'rebaseMergeAllowed': False, 'deleteBranchOnMerge': False, 'viewerDefaultMergeMethod': 'MERGE'}
         if one(opts, 'json') is not None or one(opts, 'jq') is not None:
             emit(data, opts, REPO_FIELDS)
         done(f'{OWNER}/{REPO}\nNo description provided')

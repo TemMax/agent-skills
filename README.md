@@ -353,8 +353,8 @@ skill name is passed as the task description:
 file whose machine half feeds the wave-runner directly (each task: json entry
 + its prose section as the description), `multi-model` executes it in
 supervised waves on a pushed feature branch, `critical-review` closes the
-loop on the PR — and the merge stays with the user. Each link also runs
-standalone.
+loop on the PR — and the merge stays with the user: the agent merges only
+when you ask, then cleans up. Each link also runs standalone.
 
 Type `/orch` or `/code` and let autocomplete fill in the namespaced name.
 
@@ -381,9 +381,12 @@ runner runs that check outside the sandbox and the wave goes on; it stops for
 the environment only when the machine itself is broken.
 After each wave the orchestrator removes the merged tasks' worktrees and
 `wave/<id>` branches; the final report lists what is left under `Left behind:`
-together with the command to clean up after the merge. Once you confirm the
-merge, it removes the run records and deletes the feature branch, locally and
-on the remote — only what the run created, clean and already merged.
+together with the command to clean up after the merge. Ask it to merge the
+pull request, or tell it you merged it yourself: once it has confirmed the
+merge, it moves the checkout to the default branch, removes the run records
+and deletes the feature branch, locally and on the remote — only what the run
+created, clean and already merged — and asks nothing; whatever stays is listed
+with the reason.
 
 During fixes the agent decides by itself whether to fix directly or through
 agents, and your direct instruction ("fix it yourself", "use agents") wins; it
@@ -418,7 +421,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.22.1, code-review 1.21.0):
+orchestration 4.23.0, code-review 1.21.0):
 
 | Before | After |
 |---|---|

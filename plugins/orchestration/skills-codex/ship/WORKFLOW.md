@@ -1,9 +1,10 @@
 # Ship (Codex)
 
 One command, three shipped stages, one promise: what leaves this skill is a
-pushed feature branch with a reviewed pull request — never a touched default
-branch. **The merge stays with the user** — the PR merge into the default
-branch. Squash-integrating each `ok` task into the feature branch (one
+pushed feature branch with a reviewed pull request. **The merge stays with the
+user** — the default branch changes only through that pull request's merge, and
+only when the user asks for it; then ship merges and cleans up at once ("After
+the merge"). Squash-integrating each `ok` task into the feature branch (one
 commit per task) is part of the pipeline and needs no extra approval.
 
 ## Codex session rules
@@ -263,13 +264,15 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
 
 ship ends at: PR open, review clean or every finding routed, threads
 answered. The merge stays with the user — the PR merge into the default
-branch is the one decision this pipeline never makes. Stage 2's
+branch is the one decision this pipeline never makes on its own. Stage 2's
 `git merge --squash` of each `ok` task (one commit per task) needed no extra
 approval. Report: the branch, the PR link, waves run, verdicts and reworks,
 routed fix evidence, and anything left open — with one recommended next
-action, phrased as a yes/no question in plain language. Never a time or cost
-estimate — not for the run, not for what is left open. The report also
-carries the same `Runtime pass: ran with <capability>` /
+action, phrased as a yes/no question in plain language. When nothing is left
+open — a missing independent review counts as open — that action is the
+merge, and a yes is the user's word to merge ("After the merge").
+Never a time or cost estimate — not for the run, not for what is left open.
+The report also carries the same `Runtime pass: ran with <capability>` /
 `Runtime pass: skipped — <reason>` line the PR body carries.
 
 The handoff report also carries a `Left behind:` line — every branch, worktree,
@@ -289,17 +292,35 @@ the same `--summary` options and `--branch <feature branch>` — so the user, or
 any later session, can run it once the pull request is merged. If the script
 path no longer exists by then, the same script of the installed plugin is used.
 
-**After the merge.** When the user confirms the pull request is merged, clean up
-at once and report, without asking again; the command to run is exactly the
-`After the merge:` line of the report — fetch, switch the main checkout to the
-default branch and fast-forward it, then run the cleanup script with
-`--repo <repo>`, one `--plan` per plan this run executed (fix plans included),
-`--into origin/<default branch>`, `--records`, the same `--summary` options and
-`--branch <feature branch>`. Delete the remote feature branch only if the script
-reported the local feature branch removed and the remote branch tip equals the
-`tip` it printed. Remove temporary directories this run created outside the
-repository. Everything the script kept, and anything this run did not create, is
-named in the report and asked about — never deleted.
+**After the merge.** The merge happens only on the user's word. When the user
+asks for it, merge the pull request — squash when the repository allows it,
+otherwise a method it allows — never with `--admin`, `--auto`,
+`--delete-branch` or another bypass of the repository's required checks or
+reviews, and never by a push to the default branch; with no pull request, open
+one first or report why not. Wait for running checks; on a failed check or a
+refused merge, report it and stop. Before any cleanup — after this merge, or
+when the user says they merged it themselves — confirm the merge:
+`gh pr view <number> --json state` shows `MERGED`, or `origin/<default branch>`
+after a fetch contains the feature branch or its squashed change. When gh and
+git disagree, gh's state wins. Anything else — a queued or auto-merge pull
+request included — is reported as not merged yet, and the run stops there. Then
+clean up at once. The cleanup asks no question. Run `git fetch --prune`; when
+the checkout this run works in (the `--repo` of `After the merge:`) is on the
+feature branch, switch it to the default branch and fast-forward it. When the
+switch is refused because that branch is checked out in another worktree,
+detach the checkout at `origin/<default branch>` instead; when the switch is
+refused for another reason, or the fast-forward is refused, leave the checkout
+as it is, never stash, and say why. Then run the `After the merge:` command of
+the report: the cleanup script with `--repo <repo>`, one `--plan` per plan this
+run executed (fix plans included), `--into origin/<default branch>`,
+`--records`, the same `--summary` options and `--branch <feature branch>`.
+Local branches go only through that script. Delete the remote feature branch
+only if the script reported the local feature branch removed and
+`git ls-remote --heads origin <feature branch>` shows the `tip` it printed.
+Remove temporary directories this run created outside the repository.
+Everything the script kept, and anything this run did not create, is named in
+the report with the reason it stayed — never deleted, and never turned into a
+question.
 
 ## Failure map
 
@@ -326,7 +347,8 @@ and branch names — never a bare list of options with no recommendation.
 | Mistake | Consequence | Correct |
 |---|---|---|
 | Re-implementing a stage inline | Silent divergence from tested behavior | Invoke the link skill |
-| Merging the PR yourself | The one decision that is not yours | The merge stays with the user |
+| Merging the PR before the user asks | The one decision that is not yours | The merge stays with the user: merge on the user's word, then clean up at once |
+| Asking about leftovers after the merge | The user answers what the cleanup should settle | Move the checkout off the feature branch, run the cleanup, and name in the report what stayed and why |
 | Choosing a fix route by habit — always inline, or always a wave | A wide change ships unchecked, or a one-line fix waits on a wave and a question | Choose by the conditions of multi-model's step 8: direct when all hold, otherwise a supervised wave; never ask the user to approve the route |
 | Adding a ship-level gate anywhere in the flow | The pipeline stops being automatic | ship adds no gate: super-plan's one start approval, then on to the pull request |
 | Basing a wave on a hand-typed sha | A corrupted base already burned a wave once | Copy the tip verbatim from `git rev-parse` output |

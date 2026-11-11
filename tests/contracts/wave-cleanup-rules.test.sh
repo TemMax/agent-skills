@@ -16,7 +16,9 @@ for s in skills/ship skills-codex/ship; do
   SRC="$(contract_source $P/$s/SKILL.md)"
   check "$s passes --records to the cleanup script" "one_line '$SRC' | grep -qF -- '--records'"
   check "$s passes --branch to the cleanup script" "one_line '$SRC' | grep -qF -- '--branch'"
-  check "$s deletes the remote branch only on the full condition" "tr '\\n' ' ' < '$P/$s/WORKFLOW.md' | tr -s ' ' | grep -qF 'Delete the remote feature branch only if the script reported the local feature branch removed and the remote branch tip equals the'"
+done
+for s in skills/multi-model skills-codex/multi-model skills/ship skills-codex/ship; do
+  check "$s deletes the remote branch only on the full condition" "one_line '$P/$s/WORKFLOW.md' | grep -qF 'Delete the remote feature branch only if the script reported the local feature branch removed and \`git ls-remote --heads origin <feature branch>\` shows the \`tip\` it printed.'"
 done
 
 for s in skills/multi-model skills-codex/multi-model skills/ship skills-codex/ship; do

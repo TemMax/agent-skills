@@ -133,6 +133,12 @@ def isolate(out):
 
 
 # Trace reading. Claude: stream-json rows; Codex: `exec --json` items.
+def flat(text):
+    """Tool output with Read-style line-number prefixes removed and whitespace
+    collapsed, so a phrase wrapped across lines still matches."""
+    return re.sub(r'\s+', ' ', re.sub(r'(?m)^[ \t]*\d+(?:\t|→)', '', text or ''))
+
+
 def commands(rows):
     found = []
     for r in rows:
@@ -334,7 +340,7 @@ def score(out):
         loaded = os.path.realpath(link).startswith(os.path.realpath(pkg) + os.sep)
     checks = {
         'candidate_loaded': loaded,
-        'instruction_read': any(FIX_MARK in t for t in outputs(rows1)),
+        'instruction_read': any(FIX_MARK in flat(t) for t in outputs(rows1)),
         'turn_1_complete': complete(rows1, status.get(1)),
         'record_under_out': bool(s1.get('record_summary')),
         'wave_accepted': s1.get('record_status') == s1.get('accepted_status') and bool(s1.get('record_tasks')),
