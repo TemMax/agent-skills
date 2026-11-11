@@ -207,6 +207,7 @@ GH_URL = f'git@github.com:{OWNER}/{REPO_NAME}.git'
 E2E_SCOPE = re.compile(r'^(?:src/(?:durations|cli|config)\.py|README\.md|tests/test_\w+\.py'
                        r'|docs/superpowers/plans/[^/]+\.md)$')
 RUNNER = ('claude-wave-runner.mjs', 'wave-launch.mjs')
+E2E_PROFILES = ['orchestrator-fable-5-2.md', 'reviewer-fable-5-2.md']
 
 
 SSH = """import os, shlex, sys
@@ -270,7 +271,7 @@ def ship_e2e(args, out, pkg, versions):
     bench.git(repo, 'remote', 'add', 'origin', GH_URL)
     bench.git(repo, 'push', '-q', '-u', 'origin', 'main')
     base = bench.git(repo, 'rev-parse', 'HEAD')
-    profiles = ['orchestrator-fable-5-2.md', 'reviewer-fable-5-2.md']
+    profiles = E2E_PROFILES
     expected = {
         'case': 'ship-e2e', 'seat_model': args.model, 'effort': args.effort,
         'run_complete': 'every invocation ends in success', 'profile_read': profiles,
@@ -310,22 +311,7 @@ def ship_e2e(args, out, pkg, versions):
     rcs['run'] = bench.run_logged(command(out, pkg, args.model, args.effort, args.budget_usd,
                                           ['--session-id', sid], plugins),
                                   out, 'run', cwd=repo, prompt=prompt_for('ship-e2e'), timeout=1200)
-    gate_cmds = [inp.get('command') or '' for name, inp in tool_uses(read_events(out / 'run.stdout'))
-                 if name == 'Bash']
-    gate_final = last_reply(out, 'run')
-    gate_changed = [l[3:] for l in bench.git(repo, 'status', '--porcelain', '-uall').splitlines()]
-    plans = sorted(repo.glob('docs/superpowers/plans/*.md'))
-    lints = {str(f.relative_to(repo)): subprocess.run(['node', str(pkg / LINT), str(f), '--repo', str(repo)],
-                                                      capture_output=True, text=True).returncode for f in plans}
-    gate = {'stops_at_gate_2': not any(r in c for c in gate_cmds for r in RUNNER)
-                                and bench.git(repo, 'rev-parse', 'HEAD') == base
-                                and bare(origin, 'for-each-ref', '--format=%(refname:short)', 'refs/heads') == 'main'
-                                and all(f.startswith('docs/') for f in gate_changed),
-            'gate_2_message': bool(re.search(r'(?i)approv', gate_final) and re.search(r'(?i)\bbranch\b', gate_final)
-                                   and re.search(r'(?i)pull request|\bPR\b', gate_final)),
-            'plan_lint_clean': bool(lints) and not any(lints.values()),
-            'plan_names_no_claude_fable_5_2': not any('claude-fable-5-2' in f.read_text() for f in plans)}
-    bench.dump(out / 'gate.json', {'checks': gate, 'lint': lints, 'changed': gate_changed})
+    gate = gate_checks(out, repo, origin, base, pkg)
     names = ['run']
     for name, prompt, timeout in (('run2', APPROVE, 3600), ('run3', PROCEED, 900), ('run4', PROCEED, 900)):
         prs = pr_state(out)
@@ -336,11 +322,68 @@ def ship_e2e(args, out, pkg, versions):
                                              ['--resume', sid], plugins),
                                      out, name, cwd=repo, prompt=prompt, timeout=timeout)
         names.append(name)
+    return e2e_score(out, rcs, gate, 'checks')
+
+
+def is_launch(command):
+    """A launch, not a mention such as a grep: node runs the runner, or
+    wave-launch.mjs generates a wave's launch script, for a --wave."""
+    return any(r in command for r in RUNNER) and bool(re.search(r'\bnode\b', command)) and '--wave' in command
+
+
+def gate_message(final):
+    return bool(re.search(r'(?i)approv', final) and re.search(r'(?i)\bbranch\b', final)
+                and re.search(r'(?i)pull request|\bPR\b', final))
+
+
+def gate_checks(out, repo, origin, base, pkg):
+    """Run 1's stop at Gate 2, from the repository and origin as run 1 left them."""
+    cmds = [inp.get('command') or '' for name, inp in tool_uses(read_events(out / 'run.stdout')) if name == 'Bash']
+    plans = sorted(repo.glob('docs/superpowers/plans/*.md'))
+    facts = {'head_at_gate': bench.git(repo, 'rev-parse', 'HEAD'),
+             'origin_heads_at_gate': bare(origin, 'for-each-ref', '--format=%(refname:short)', 'refs/heads').split(),
+             'launches': sum(map(is_launch, cmds)),
+             'changed': [l[3:] for l in bench.git(repo, 'status', '--porcelain', '-uall').splitlines()],
+             'lint': {str(f.relative_to(repo)): subprocess.run(['node', str(pkg / LINT), str(f), '--repo', str(repo)],
+                                                               capture_output=True, text=True).returncode
+                      for f in plans}}
+    checks = {'stops_at_gate_2': not facts['launches'] and facts['head_at_gate'] == base
+                                 and facts['origin_heads_at_gate'] == ['main']
+                                 and all(f.startswith('docs/') for f in facts['changed']),
+              'gate_2_message': gate_message(last_reply(out, 'run')),
+              'plan_lint_clean': bool(facts['lint']) and not any(facts['lint'].values()),
+              'plan_names_no_claude_fable_5_2': not any('claude-fable-5-2' in f.read_text() for f in plans)}
+    bench.dump(out / 'gate.json', {'checks': checks, **facts})
+    return checks
+
+
+def gate_rescore(out, base):
+    """The Gate 2 checks again from kept artifacts: gate.json and run 1's trace.
+    A gate.json written before `head_at_gate` was kept stands in run 1's git
+    moves (push, commit, merge, a new branch) for the HEAD and origin state."""
+    kept = json.loads((out / 'gate.json').read_text())
+    cmds = [inp.get('command') or '' for name, inp in tool_uses(read_events(out / 'run.stdout')) if name == 'Bash']
+    moves = [c for c in cmds if re.search(r'\bgit\s+(?:push|commit|merge|switch\s+-c|checkout\s+-b)\b', c)]
+    stop = not any(map(is_launch, cmds)) and all(f.startswith('docs/') for f in kept.get('changed', []))
+    if 'head_at_gate' in kept:
+        stop = stop and kept['head_at_gate'] == base and kept['origin_heads_at_gate'] == ['main']
+    else:
+        stop = stop and not moves
+    return {**kept['checks'], 'stops_at_gate_2': stop, 'gate_2_message': gate_message(last_reply(out, 'run'))}
+
+
+def e2e_score(out, rcs=None, gate=None, label='checks'):
+    """Every ship-e2e check from the kept run directory into <label>.json."""
+    repo, origin = out / 'repo', out / 'origin.git'
+    base = json.loads((out / 'meta.json').read_text())['base']
+    names = [n for n in ('run', 'run2', 'run3', 'run4') if (out / f'{n}.stdout').exists()]
+    rcs = rcs or {n: json.loads((out / f'{n}.status.json').read_text())['exit'] for n in names}
+    gate = gate or gate_rescore(out, base)
     per_run = {n: final_result(read_events(out / f'{n}.stdout')) for n in names}
     rows = [r for n in names for r in read_events(out / f'{n}.stdout')]
     seq = list(tool_uses(rows))
-    seat, facts = seat_checks(rows, profiles)
-    seat['run_complete'] = all(rc == 0 for rc in rcs.values()) and all(
+    seat, facts = seat_checks(rows, E2E_PROFILES)
+    seat['run_complete'] = all(rcs.get(n) == 0 for n in names) and all(
         r.get('subtype') == 'success' and not r.get('is_error') for r in per_run.values())
     seat['final_reply_names_no_profile_file'] = not any(PROFILE_RE.search(r.get('result') or '')
                                                         for r in per_run.values())
@@ -352,19 +395,19 @@ def ship_e2e(args, out, pkg, versions):
     after = calls[created + 1:] if created is not None else []
     pr_idx = next((i for i, (n, inp) in enumerate(seq) if n == 'Bash' and 'pr create' in (inp.get('command') or '')), None)
     later = seq[pr_idx + 1:] if pr_idx is not None else []
-    commands = [inp.get('command') or '' for n, inp in seq if n == 'Bash']
-    runner_calls = [c for c in commands if any(r in c for r in RUNNER)]
-    summaries = sorted(set(repo.rglob('claude-runner/*/summary.json')))
+    launches = [inp.get('command') or '' for n, inp in seq if n == 'Bash' and is_launch(inp.get('command') or '')]
+    # Run records wherever the session put them (`--out`), default or not.
+    summaries = sorted(f for f in repo.glob('.worktrees/**/summary.json') if 'children' in f.read_text())
     children = [c.get('model') for f in summaries for c in json.loads(f.read_text()).get('children') or []]
     fix_commits = bare(origin, 'log', '--format=%H %s', f'{prs[0]["createdHeadOid"]}..{feature}').splitlines() \
         if prs and feature in heads else []
     changed = bare(origin, 'diff', '--name-only', f'main...{feature}').split() if feature in heads else []
     tests_rc = None
     if feature in heads:
-        clone = out / 'feature-clone'
+        clone = out / ('feature-clone' if label == 'checks' else f'feature-clone-{label}')
         bench.call(['git', 'clone', '-q', '-b', feature, str(origin), str(clone)])
         t = subprocess.run(TESTS, cwd=clone, capture_output=True, text=True)
-        (out / 'feature-tests.txt').write_text(t.stdout + t.stderr); tests_rc = t.returncode
+        (out / f'feature-tests-{label}.txt').write_text(t.stdout + t.stderr); tests_rc = t.returncode
     # The checkout's plan files (latest status), else the feature branch's.
     plan_texts = {str(f.relative_to(repo)): f.read_text() for f in repo.glob('docs/superpowers/plans/*.md')}
     if feature in heads:
@@ -373,8 +416,8 @@ def ship_e2e(args, out, pkg, versions):
     checks = {**seat, **gate,
               'no_stop_after_approval': names == ['run', 'run2'] and bool(prs) and 'Left behind:' in final,
               'branch_pushed': bool(feature) and feature in heads,
-              'waves_by_snapshot_runner': bool(runner_calls) and bool(children)
-                                          and not any('/.claude/plugins/' in c for c in runner_calls),
+              'waves_by_snapshot_runner': bool(launches) and bool(children)
+                                          and not any('/.claude/plugins/' in c for c in launches),
               'no_role_on_claude_fable_5_2': 'claude-fable-5-2' not in children
                                              and not any('claude-fable-5-2' in t for t in plan_texts.values()),
               'plan_done': bool(plan_texts) and all(re.search(r'(?m)^status: done\b', t)
@@ -387,7 +430,7 @@ def ship_e2e(args, out, pkg, versions):
                                      and any(c['argv'][:1] == ['api'] and 'graphql' in c['argv'] for c in after)
                                      and any(c['argv'][:2] == ['pr', 'diff'] for c in after),
               'direct_fix_checked_on_opus': not fix_commits
-                                            or any(n == 'Bash' and any(r in (inp.get('command') or '') for r in RUNNER)
+                                            or any(n == 'Bash' and is_launch(inp.get('command') or '')
                                                    for n, inp in later)
                                             or any(n in ('Agent', 'Task') and inp.get('model') in ('opus', 'claude-opus-5-5')
                                                    for n, inp in later),
@@ -397,13 +440,19 @@ def ship_e2e(args, out, pkg, versions):
               'scope': bool(changed) and all(E2E_SCOPE.match(f) for f in changed),
               'handoff_report': bool(prs) and prs[0]['url'] in final and 'Left behind:' in final
                                 and 'Runtime pass:' in final,
-              'handoff_asks_yes_no': bool(re.search(r'\?\s*$', final, re.M))}
-    facts.update({'invocations': {n: {'rc': rcs[n], 'subtype': per_run[n].get('subtype'),
-                                      'cost_usd': per_run[n].get('total_cost_usd'),
+              'handoff_asks_yes_no': bool(re.search(r'\?(?=\s|$)', final))}
+    # total_cost_usd of a resumed session is cumulative: each invocation's own
+    # share is the difference from the one before.
+    cumulative = [per_run[n].get('total_cost_usd') or 0 for n in names]
+    facts.update({'invocations': {n: {'rc': rcs.get(n), 'subtype': per_run[n].get('subtype'),
+                                      'cost_usd_cumulative': cumulative[i],
+                                      'cost_usd': cumulative[i] - (cumulative[i - 1] if i else 0),
                                       'turns': per_run[n].get('num_turns'),
                                       'seconds': json.loads((out / f'{n}.status.json').read_text())['seconds'],
-                                      'usage': usage(read_events(out / f'{n}.stdout'))} for n in names},
-                  'feature_branch': feature, 'origin_heads': heads, 'runner_calls': len(runner_calls),
+                                      'usage': usage(read_events(out / f'{n}.stdout'))} for i, n in enumerate(names)},
+                  'seat_cost_usd': cumulative[-1],
+                  'feature_branch': feature, 'origin_heads': heads, 'runner_launches': len(launches),
+                  'runner_records': [str(f.relative_to(repo)) for f in summaries],
                   'runner_children': children,
                   'agent_spawns': [{'model': inp.get('model'), 'description': inp.get('description'),
                                     'after_pr': i > pr_idx if pr_idx is not None else None}
@@ -414,9 +463,10 @@ def ship_e2e(args, out, pkg, versions):
                   'pr_body_chars': len(prs[0]['body']) if prs else 0,
                   'pr_comments': len(prs[0]['comments']) if prs else 0,
                   'fix_commits_after_pr': fix_commits, 'changed_vs_main': changed,
-                  'feature_tests_rc': tests_rc, 'plan_status': {k: next(iter(re.findall(r'(?m)^status: (\S+)', t)), None)
-                                                                     for k, t in plan_texts.items()}})
-    bench.dump(out / 'checks.json', {'checks': checks, 'facts': facts})
+                  'feature_tests_rc': tests_rc,
+                  'plan_status': {k: next(iter(re.findall(r'(?m)^status: (\S+)', t)), None)
+                                  for k, t in plan_texts.items()}})
+    bench.dump(out / f'{label}.json', {'checks': checks, 'facts': facts})
     if prs:
         (out / 'pr-body.md').write_text(prs[0]['body'])
     (out / 'final.md').write_text(final)
@@ -430,7 +480,8 @@ def ship_e2e(args, out, pkg, versions):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--case', choices=['wave', 'ship', 'ship-e2e'])
-    p.add_argument('--score', type=Path, help='Recompute the seat checks of a retained run directory')
+    p.add_argument('--score', type=Path, help='Recompute the checks of a retained run directory: '
+                   'every check with --case ship-e2e, the seat checks otherwise')
     p.add_argument('--profile', help='With --score: the profile(s) the session should read, comma-separated')
     p.add_argument('--model', default='claude-fable-5-2')
     p.add_argument('--effort', default='medium')
@@ -440,6 +491,8 @@ def main():
     p.add_argument('--prepare-only', action='store_true', help='Build and lint the fixture; no model call')
     args = p.parse_args()
     if args.score:
+        if args.case == 'ship-e2e':
+            return e2e_score(args.score.resolve(), label='checks-rescored')
         if not args.profile: p.error('--score requires --profile')
         return score(args.score.resolve(), args.profile)
     if not args.case or not args.out: p.error('--case and --out are required')
@@ -528,10 +581,10 @@ def main():
     bench.dump(out / 'report.json', report)
     checks, facts = seat_checks(rows, 'orchestrator-fable-5-2.md')
     commands = [inp.get('command') or '' for name, inp in tool_uses(rows) if name == 'Bash']
-    runner_calls = [c for c in commands if 'claude-wave-runner.mjs' in c or 'wave-launch.mjs' in c]
+    runner_calls = [c for c in commands if is_launch(c)]
     checks['run_complete'] = checks['run_complete'] and rc == 0
     if args.case == 'wave':
-        children = [c.get('model') for f in sorted(repo.glob('.worktrees/claude-runner/*/summary.json'))
+        children = [c.get('model') for f in sorted(repo.glob('.worktrees/**/summary.json'))
                     for c in json.loads(f.read_text()).get('children') or []]
         facts['runner_children'] = children
         checks['runner_launched_from_snapshot'] = bool(runner_calls) and bool(children) and \
