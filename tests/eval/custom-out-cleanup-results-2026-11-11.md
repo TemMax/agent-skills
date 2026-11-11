@@ -145,7 +145,15 @@ the wave. Both hosts passed 14 of 14 checks.
 - **Claude:** $5.45 for the Fable 5.2 seat sessions over the three rounds.
   The runner's executor and judge calls are billed separately and are not
   counted here.
-- **Codex:** the token counts in the tables above.
+- **Codex:** the token counts in the tables above. Codex reports the
+  thread's running total at the end of each turn, so each Turn 2 figure
+  includes turn 1 and is the run's total. Turn 2 alone used:
+
+  | Round | Input | Cached | Output |
+  |---|---|---|---|
+  | 1 | 216,788 | 214,912 | 423 |
+  | 2 | 199,345 | 197,248 | 366 |
+  | 3 | 234,756 | 232,064 | 411 |
 
 ## Observations
 

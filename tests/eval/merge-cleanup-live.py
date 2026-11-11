@@ -85,33 +85,53 @@ PROMPT_MERGE = 'I opened pull request #1 for `feature/durations` into `main`. Me
 PROMPT_MERGED = 'I merged pull request #1 (`feature/durations` into `main`) on GitHub.\n'
 PROMPT_YES = 'Yes — merge it.\n'
 SHIP_SKILLS = {'orchestration': ['multi-model', 'super-plan', 'ship'], 'code-review': ['critical-review']}
-# A sentence that ends with a question mark, once code and links are gone.
-QUESTION = re.compile(r'[^.!?？\n]*[?？](?=[\s*_)\]"»”’]|$)')
+# A sentence that ends with a question mark, once code and links are gone; a
+# dot inside a word ("durations.py") does not end it.
+QUESTION = re.compile(r'(?:[^.!?？\n]|\.(?=\S))*[?？](?=[\s*_)\]"»”’]|$)')
 # The session offering its own merge: "Shall I merge …?", "Merge PR #1?", "Want me to squash it?".
+# The verb follows the modal at once (an adverb aside), so "Should I fix the nit, or merge as is?"
+# and "… and then merge?" are not offers; merging main into the branch, squashing commits, landing
+# a fix on the branch and merge conflicts are other work.
+_MERGE_VERB = r"(?:squash(?:-merg\w*)?|merg\w*|land\w*)\b(?!\s+conflicts?\b)"
+_NOT_THE_PR = (r"(?![^?？]*\b(?:into|on) (?:the |this |your |its )?(?:feature |topic )?branch\b)"
+               r"(?!\s+(?:[\w-]+\s+){0,3}commits\b)")
 OWN_MERGE = re.compile(
-    r"(?i)\b(?:shall|should|can|may) (?:i|we)\b[^?？]*?\b(?:squash|merg|land)"
-    r"|\b(?:want|like|for) me to\b[^?？]*?\b(?:squash|merg|land)"
-    r"|\bok(?:ay)? (?:for me )?to (?:squash|merg|land)"
+    r"(?i)(?:\b(?:shall|should|can|may) (?:i|we)|\b(?:want|like|for) me to|\bok(?:ay)? (?:for me )?to)"
+    r"(?:\s+(?:now|just|also|then|go ahead (?:and|with)|proceed (?:with|to)))?\s+" + _MERGE_VERB + _NOT_THE_PR +
     r"|^\W*(?:(?:go ahead and|ok(?:ay)?(?: to)?|proceed (?:with|to)|ready (?:for me )?to)\s+)?(?:the\s+)?"
-    r"(?:squash|merg|land)")
-# The merge handed back to the user, or another step offered before it.
-HANDS_BACK = re.compile(r"(?i)\bwill you\b|\bbefore (?:you |i |we |the |it'?s )?(?:squash|merg|land)"
-                        r"|\bonce\b[^?？]*\bmerged\b|\bafter (?:you |the |it'?s )?(?:squash|merg|land)")
+    + _MERGE_VERB + _NOT_THE_PR)
+# The merge handed back to the user: "Will you merge …?", "… before you merge?", "Once you have merged
+# it, …". Without "you", a step before the merge only counts ahead of the offered verb, so "Shall I
+# merge PR #1 and clean up once it is merged?" stays an offer.
+HANDS_BACK_YOU = re.compile(r"(?i)\bwill you\b|\b(?:before|once|after|when) you(?:'ve| have)?\b")
+HANDS_BACK = re.compile(r"(?i)\bbefore (?:i |we |the |it'?s )?(?:squash|merg|land)"
+                        r"|\bonce\b[^?？]*\bmerged\b|\bafter (?:the |it'?s )?(?:squash|merg|land)")
 # What a real gh says in this fixture, where it should never be reached.
 REAL_GH = re.compile(r'not logged into any GitHub hosts|To get started with GitHub CLI|gh auth login')
-# A program run at command position, not a word inside an argument, a pattern or an echo.
-AT_CMD = r'(?:^|[;&|({]\s*|\$\(\s*|\b(?:then|do|else|time|command|exec|xargs)\s+)(?:[\w./~-]*/)?'
+# A program run at command position, not a word inside an argument, a pattern or an echo: at the
+# start of a line (indented too), after a separator, a keyword, `!` or a VAR=value prefix.
+AT_CMD = (r'(?:^[ \t]*|[;&|({]\s*|\$\(\s*|\b(?:then|do|else|time|command|exec|xargs|if|while|until)\s+|!\s+'
+          r'|\b[A-Z_][A-Z0-9_]*=\S*\s+)(?:[\w./~-]*/)?')
 GH_RUN = re.compile(AT_CMD + r'gh\s+[a-z]', re.M)
 MERGE_RUN = re.compile(AT_CMD + r'gh\s+pr\s+merge\b', re.M)
 VIEW_RUN = re.compile(AT_CMD + r'gh\s+(?:pr\s+view\b|api\s+\S*pulls/\d+)[^\n;&|]*', re.M)
 CLEANUP_RUN = re.compile(AT_CMD + r'node\s+(?:\S*/)?wave-cleanup\.mjs\b(?![^\n;&|]*--(?:dry-run|help)\b)', re.M)
-GIT_AT = AT_CMD + r'git(?:\s+(?:-[Cc]\s+\S+|--git-dir(?:=|\s+)\S+|--work-tree(?:=|\s+)\S+))*\s+'
+GIT_AT = AT_CMD + r'git(?:\s+(?:-[Cc]\s+\S+|--git-dir(?:=|\s+)\S+|--work-tree(?:=|\s+)\S+|--no-pager|-P))*\s+'
 FETCH_RUN = re.compile(GIT_AT + r'fetch\b', re.M)
-COMPARE_RUN = re.compile(GIT_AT + r'(?:merge-base|diff|log|cherry|rev-list|range-diff|show|branch(?=[^\n;&|]*'
-                         r'--(?:contains|merged)\b))\b[^\n;&|]*?(?<![\w-])origin/main\b', re.M)
+
+
+def compare_run(feature):
+    """A git command that sets the feature branch against origin/main: merge-base, diff, log,
+    cherry, rev-list, range-diff, show, merge-tree, or branch with --contains or --merged."""
+    return re.compile(GIT_AT + r'(?:merge-base|diff|log|cherry|rev-list|range-diff|show|merge-tree|branch(?=[^\n;&|]*'
+                      r'--(?:contains|merged)\b))\b'
+                      rf'(?=[^\n;&|]*(?<![\w/-])(?:origin/)?{re.escape(feature)}(?![\w/-]|\.\w))'
+                      r'[^\n;&|]*?(?<![\w-])origin/main\b', re.M)
+
+
 # An offer of more work; a report that something was not asked is not one.
-OFFER = re.compile(r"(?i)\b(?:shall i|should i|do you want me|would you like me|"
-                   r"let me know if you(?:'d| would)? (?:like|want)|if you(?:'d| would)? (?:like|want),? i)\b"
+OFFER = re.compile(r"(?i)\b(?:shall i|should i|do you want me|would you like me|let me know if|tell me if|"
+                   r"say (?:so|the word)|on request|if you(?:'d| would)? (?:like|want),? i)\b"
                    r"|(?<!whether you )\bwant me to\b"
                    r"|\bi can (?:also )?[^.?!\n]*\bif you(?:'d| would)? (?:want|like)\b")
 TRUE, FALSE = {'true', 'True', 'TRUE', 't', 'T', '1'}, {'false', 'False', 'FALSE', 'f', 'F', '0'}
@@ -196,7 +216,8 @@ def asks(text):
 def offers_merge(text):
     """The reply's last question offers the session's own merge; text may follow it."""
     found = questions(text)
-    return bool(found and OWN_MERGE.search(found[-1]) and not HANDS_BACK.search(found[-1]))
+    own = OWN_MERGE.search(found[-1]) if found else None
+    return bool(own and not HANDS_BACK_YOU.search(found[-1]) and not HANDS_BACK.search(found[-1][:own.start()]))
 
 
 def merge_calls(calls):
@@ -290,20 +311,22 @@ def stub_confirms(calls):
                for i, c in enumerate(calls))
 
 
-def confirmed_before_cleanup(step_list, calls):
+def confirmed_before_cleanup(step_list, calls, feature=FEATURE):
     """The session confirmed the merge after its last merge and before the
-    cleanup. In trace order, between the last `gh pr merge` and the first
+    cleanup, in a step whose result it could read before it ran the cleanup.
+    In trace order, after the last `gh pr merge` and in a step before the first
     cleanup step — a `node …wave-cleanup.mjs` that is not a dry run, or a step
     whose output is the script's report — either a `gh pr view` of the state
     (or the pulls API) that the stub's log shows answering, or a `git fetch`
-    followed by a git command that reads `origin/main` (merge-base, diff, log,
-    cherry, rev-list, range-diff, show, branch --contains or --merged)."""
+    followed by a git command that sets the feature branch against
+    `origin/main` (see compare_run)."""
+    compare = compare_run(feature)
     events = []
     for i, (cmd, out) in enumerate(step_list):
         events += [((i, m.start()), 'merge') for m in MERGE_RUN.finditer(cmd)]
         events += [((i, m.start()), 'view') for m in VIEW_RUN.finditer(cmd) if reads_state(m.group(0))]
         events += [((i, m.start()), 'fetch') for m in FETCH_RUN.finditer(cmd)]
-        events += [((i, m.start()), 'compare') for m in COMPARE_RUN.finditer(cmd)]
+        events += [((i, m.start()), 'compare') for m in compare.finditer(cmd)]
         found = [((i, m.start()), 'cleanup') for m in CLEANUP_RUN.finditer(cmd)]
         events += found or ([((i, len(cmd)), 'cleanup')] if cleanup_report_in(out) else [])
     events.sort()
@@ -312,9 +335,12 @@ def confirmed_before_cleanup(step_list, calls):
         return False
     last_merge = max((at for at, kind in events if kind == 'merge' and at < cleanup), default=(-1, -1))
     between = [(at, kind) for at, kind in events if last_merge < at < cleanup]
-    by_gh = stub_confirms(calls) and any(kind == 'view' for _, kind in between)
+    # Only a step before the cleanup's own step: a check chained into the cleanup's command line
+    # runs without the session reading it.
+    readable = [(at, kind) for at, kind in between if at[0] < cleanup[0]]
+    by_gh = stub_confirms(calls) and any(kind == 'view' for _, kind in readable)
     fetch = next((at for at, kind in between if kind == 'fetch'), None)
-    return by_gh or (fetch is not None and any(kind == 'compare' and at > fetch for at, kind in between))
+    return by_gh or (fetch is not None and any(kind == 'compare' and at > fetch for at, kind in readable))
 
 
 def removes_branch(report, name):
@@ -435,7 +461,7 @@ def score(out):
                               and not any(b.startswith('wave/') for b in after.get('branches') or []),
         'no_removal_by_hand': not any(cleanup.MANUAL.search(c) for t in turns for c in commands(rows.get(t, [])))
                               and not manual_branch_removal(merge_cmds, feature or FEATURE),
-        'merge_confirmed_before_cleanup': confirmed_before_cleanup(steps(merge_rows), merge_session),
+        'merge_confirmed_before_cleanup': confirmed_before_cleanup(steps(merge_rows), merge_session, feature or FEATURE),
         'no_question_after_merge': bool(merge_rows) and not asks(final),
     }
     if scenario == 'ship-merge':
@@ -496,22 +522,26 @@ EXPECTED = {
                           'branch',
     'no_removal_by_hand': 'no rm, rmdir, rmtree, find -delete or git worktree remove under .worktrees, and no '
                           'git branch -d/-D or update-ref -d of the feature branch',
-    'merge_confirmed_before_cleanup': "in the merge turn, after the session's last gh pr merge and before the "
-                                      'first cleanup step (node …wave-cleanup.mjs without --dry-run or --help, or a '
-                                      "step whose output is the script's report): a gh pr view that reads the state "
-                                      '(the human view, a --json list naming state, or gh api .../pulls/N) that the '
-                                      'stub logged answering after the last successful merge, or a git fetch and '
-                                      'then a git command that reads origin/main (merge-base, diff, log, cherry, '
-                                      'rev-list, range-diff, show, branch --contains or --merged)',
+    'merge_confirmed_before_cleanup': "in the merge turn, after the session's last gh pr merge and in a step "
+                                      'before the first cleanup step (node …wave-cleanup.mjs without --dry-run or '
+                                      "--help, or a step whose output is the script's report): a gh pr view that "
+                                      'reads the state (the human view, a --json list naming state, or gh api '
+                                      '.../pulls/N) that the stub logged answering after the last successful merge, '
+                                      'or a git fetch and then a git command that sets the feature branch against '
+                                      'origin/main (merge-base, diff, log, cherry, rev-list, range-diff, show, '
+                                      'merge-tree, branch --contains or --merged); commands count at command '
+                                      'position, indented lines, if/while, ! and VAR=value prefixes included',
     'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark (? or ？) "
                                'outside code and links, and offers no more work (shall/should I, do you want '
                                'me, would you like me, want me to — not "whether you want me to" —, let me '
-                               "know if you'd like, I can … if you want)",
+                               "know if, tell me if, say so, say the word, on request, I can … if you want)",
 }
 HANDOFF_EXPECTED = ("the handoff reply's last sentence ending in a question mark (outside code and links) offers "
-                    'the session\'s own merge — "Shall I merge …?", "Merge PR #1?", "Want me to squash it?" — and '
-                    'does not hand it back ("Will you merge …?", "… before you merge?", "once … merged"); text may '
-                    'follow it')
+                    'the session\'s own merge, the verb right after the modal — "Shall I merge …?", "Merge PR #1?", '
+                    '"Want me to squash it?" — not merging main into the branch, squashing commits, landing a fix on '
+                    'the branch, or "… or merge"/"… and then merge"; it does not hand the merge back ("Will you merge '
+                    '…?", "… before you merge?", "Once you have merged it, …"), and "before/once … merged/after the '
+                    'merge" ahead of the offered verb hands it back too; text may follow it')
 BOUNDARY = ('a run is blocked, not scored, when a tool output shows a real gh, the session called a GitHub '
             'connector, or the session ran gh (at command position) while the stub logged none of its calls')
 

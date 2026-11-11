@@ -20,6 +20,7 @@ for s in skills/multi-model skills-codex/multi-model skills/ship skills-codex/sh
   check "$s confirms MERGED before any cleanup, on both paths" "one_line $W | grep -qF 'Before any cleanup — after this merge, or when the user says' && one_line $W | grep -qF 'confirm the merge: \`gh pr view <number> --json state\` shows \`MERGED\`'"
   check "$s confirms through gh or through git, either one" "one_line $W | grep -qF 'shows \`MERGED\`, or \`origin/<default branch>\` after a fetch contains the feature branch or its squashed change.'"
   check "$s puts no condition on the git confirmation" "! one_line $W | grep -qF 'this session can view'"
+  check "$s lets gh's state win when gh and git disagree" "one_line $W | grep -qF \"its squashed change. When gh and git disagree, gh's state wins. Anything else\""
   check "$s stops on anything else, a queued or auto-merge pull request included" "one_line $W | grep -qF 'Anything else — a queued or auto-merge pull request included — is reported as not merged yet, and the run stops there.'"
   check "$s cleans up at once" "one_line $W | grep -qF 'Then clean up at once. The cleanup asks no question.'"
   check "$s prunes before the switch" "one_line $W | grep -qF 'Run \`git fetch --prune\`;'"
@@ -56,7 +57,7 @@ done
 F=$P/skills/multi-model/references/orchestrator-fable-5-2.md
 check "Fable 5.2 profile keeps the merge-on-the-user's-word rule" "one_line $F | grep -qF \"and not the rule that a merge into the default branch happens only on the user's word\""
 check "Fable 5.2 profile asks the handoff's one yes/no next action, the merge" "one_line $F | grep -qF \"and its handoff's one yes/no next action — the merge, when nothing is left open\""
-check "Fable 5.2 profile needs no approval for the cleanup after the merge" "one_line $F | grep -qF 'once the pull request is merged, the cleanup after the merge — leaving the feature branch, the \`After the merge:\` command and the remote feature branch deletion it allows'"
+check "Fable 5.2 profile needs no approval for the cleanup after the merge" "one_line $F | grep -qF 'once the merge is confirmed, the cleanup after the merge — leaving the feature branch, the \`After the merge:\` command and the remote feature branch deletion it allows'"
 check "no profile or skill keeps the never-merge rule" "! grep -rqiF 'never-merge' plugins/"
 
 check "codex-routing: ship merges only when the user asks" \

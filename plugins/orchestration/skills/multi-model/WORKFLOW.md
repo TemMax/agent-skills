@@ -211,21 +211,22 @@ check or a refused merge, report it and stop. Before any cleanup — after this
 merge, or when the user says the integration branch is merged — confirm the
 merge: `gh pr view <number> --json state` shows `MERGED`, or
 `origin/<default branch>` after a fetch contains the feature branch or its
-squashed change. Anything else — a queued or auto-merge pull request included —
-is reported as not merged yet, and the run stops there. Then clean up at once.
-The cleanup asks no question. Run `git fetch --prune`; when the checkout this
-run works in (the `--repo` of `After the merge:`) is on the feature branch,
-switch it to the default branch and fast-forward it. When the switch is refused
-because that branch is checked out in another worktree, detach the checkout at
-`origin/<default branch>` instead; when the switch is refused for another
-reason, or the fast-forward is refused, leave the checkout as it is, never
-stash, and say why. Then run that command. Local branches go only through that
-script. Delete the remote feature branch only if the script reported the local
-feature branch removed and `git ls-remote --heads origin <feature branch>`
-shows the `tip` it printed. Remove only what this run created, clean and
-already integrated; everything else — what the script kept and what this run
-did not create — is named in the report with the reason it stayed, never
-deleted, and never turned into a question.
+squashed change. When gh and git disagree, gh's state wins. Anything else — a
+queued or auto-merge pull request included — is reported as not merged yet, and
+the run stops there. Then clean up at once. The cleanup asks no question. Run
+`git fetch --prune`; when the checkout this run works in (the `--repo` of
+`After the merge:`) is on the feature branch, switch it to the default branch
+and fast-forward it. When the switch is refused because that branch is checked
+out in another worktree, detach the checkout at `origin/<default branch>`
+instead; when the switch is refused for another reason, or the fast-forward is
+refused, leave the checkout as it is, never stash, and say why. Then run that
+command. Local branches go only through that script. Delete the remote feature
+branch only if the script reported the local feature branch removed and
+`git ls-remote --heads origin <feature branch>` shows the `tip` it printed.
+Remove only what this run created, clean and already integrated; everything
+else — what the script kept and what this run did not create — is named in the
+report with the reason it stayed, never deleted, and never turned into a
+question.
 
 **Scope of a bypass.** The user's instruction to implement directly covers
 exactly what the user named, review fixes included. Record that scope in the

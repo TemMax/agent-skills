@@ -109,7 +109,7 @@ user to restart at a different effort.
   or retrying a command that is safe to repeat after a timeout, a busy tool
   or a network error; reading verdicts and run records; the runner's printed
   `afterIntegration` cleanup; a one-task supervised fix wave the process
-  prescribes; and, once the pull request is merged, the cleanup after the
+  prescribes; and, once the merge is confirmed, the cleanup after the
   merge — leaving the feature branch, the `After the merge:` command and the
   remote feature branch deletion it allows.
 - **Carried caution has a scope.** In the guide's tests a "never retry" note
