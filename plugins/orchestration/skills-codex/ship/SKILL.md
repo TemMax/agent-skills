@@ -1,9 +1,9 @@
 ---
 name: ship
-description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage, and never merge. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
+description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage; merge only when the user asks. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.22.1
+  version: 4.23.0
 ---
 
 # Shipping a Feature (ship)
@@ -77,7 +77,9 @@ review, recovery, integration or publication, load [WORKFLOW.md](WORKFLOW.md)
 once before acting. Its preflight, profile selection, branch authorization,
 canonical skill invocations, review routing and failure handling are mandatory.
 ship adds no machinery: invoke the named stage skill rather than reproducing it.
-The merge stays with the user. Never merge a pull request into the default branch.
+The merge stays with the user: merge a pull request into the default branch only
+when the user asks for it, then clean up at once without a question (WORKFLOW.md,
+"After the merge").
 
 ## Phase handoff
 

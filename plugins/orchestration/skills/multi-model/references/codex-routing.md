@@ -127,7 +127,7 @@ credentials, destructive actions, publication, merge or deploy. Keep
 super-plan's one start approval (its Gate 2; ship asks no branch approval of
 its own), ship's feature-branch discipline,
 and critical-review's fix/publication gates. A failed integration suite stops
-publication. Ship never merges the PR or deploys. Ship's final critical-review
+publication. Ship merges the PR only when the user asks and never deploys. Ship's final critical-review
 runs in a fresh child of the model the plan's `review` key names — chosen by
 the coordinator at Gate 1, never by a question to the user: `gpt-6-astra`
 (premium, only with authorization, recorded

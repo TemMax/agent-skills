@@ -200,13 +200,22 @@ Whenever something is left behind, the summary also carries one line starting
 paths, `--repo <repo>`, one `--plan` per plan this run executed (fix plans
 included), `--into origin/<default branch>`, `--records`,
 the same `--summary` options and `--branch <feature branch>` (without `--branch`
-when the wave was not integrated into a feature branch of its own). When the
-user confirms the integration branch is merged, run that command at once and
-report: delete the remote feature branch only if the script reported the local
-feature branch removed and the remote branch tip equals the `tip` it printed;
-everything the script kept is named and asked about. Remove only what this run
-created, clean and already integrated; anything else is named and asked about,
-never deleted.
+when the wave was not integrated into a feature branch of its own). The merge
+happens only on the user's word. When the user asks for it, merge the pull
+request — squash when the repository allows it, otherwise a method it allows —
+and never with `--admin` or another bypass of the repository's required checks
+or reviews: wait for running checks, and on a failed check or a refused merge
+report it and stop. Then clean up at once; when the user says the integration
+branch is merged, clean up at once too. The cleanup asks no question. Fetch,
+switch the main checkout to the default branch and fast-forward it — when that
+branch is checked out in another worktree, detach the main checkout at
+`origin/<default branch>` instead; when the switch is refused, leave the
+checkout as it is and say why — then run that command. Delete the remote
+feature branch only if the script reported the local feature branch removed
+and the remote branch tip equals the `tip` it printed. Remove only what this
+run created, clean and already integrated; everything else — what the script
+kept and what this run did not create — is named in the report with the reason
+it stayed, never deleted, and never turned into a question.
 
 **Scope of a bypass.** The user's instruction to implement directly covers
 exactly what the user named, review fixes included. Record that scope in the
@@ -272,7 +281,8 @@ verification is green, push to the feature branch of the user's own pull
 request and report what was pushed. Ask once before replies or resolves in
 threads started by someone else, and before pushing to a branch or pull
 request that is not the user's own. The merge into the default branch stays
-with the user unless the user says otherwise.
+with the user: merge only when the user asks, then clean up at once ("Clean up
+what the run created").
 
 The orchestrator reads targeted ranges itself when a focused lookup answers its
 question; use `git diff --stat` to locate the scope. Delegate substantial,

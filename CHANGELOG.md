@@ -4,6 +4,45 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.23.0
+
+### Highlights
+
+**ship**
+- Merges the pull request when you ask, then cleans up at once
+- When nothing is open, the handoff offers the merge as its next step
+
+**multi-model**
+- Merges when you ask and leaves the feature branch before cleanup
+- Cleanup after the merge asks nothing; what stays is listed
+
+Orchestration 4.23.0 and code-review 1.21.0 apply to Claude Code and Codex.
+
+**What was wrong.** ship never merged, even when the user asked: its
+instructions said "Never merge a pull request into the default branch."
+multi-model merged when asked, but after a merge it ran the cleanup on
+whatever was checked out. With the feature branch checked out, the script
+kept that branch, the remote branch stayed too, and the session asked the
+user what to do with it. The live checks of 4.22.1 showed exactly that on
+Claude Code. The usual flow is to ask the agent to merge, so the question
+came at the end of every run.
+
+**What changes.** The merge stays the user's decision, and a session now
+merges when the user asks: squash when the repository allows it, otherwise
+a method it allows, never with `--admin` or another bypass of the
+repository's required checks or reviews. It waits for running checks and
+stops on a failed check or a refused merge. Right after its own merge, or
+when the user says the pull request is merged, it cleans up at once and asks
+nothing. It fetches, switches the main checkout to the default branch and
+fast-forwards it; when that branch is checked out in another worktree, it
+detaches the checkout at `origin/<default branch>` instead, and when the
+switch is refused it leaves the checkout and says why. Then it runs the
+`After the merge:` command and deletes the remote feature branch on the
+same condition as before. Whatever stays is named in the report with the
+reason, never deleted and never turned into a question. When nothing is
+left open, ship's handoff recommends the merge as its one yes/no next
+action. The ship description says "merge only when the user asks".
+
 ## 4.22.1
 
 ### Highlights
