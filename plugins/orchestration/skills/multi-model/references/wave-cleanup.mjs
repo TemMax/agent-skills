@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Removes what a wave left behind — task worktrees, `wave/<id>` branches and,
-// on request, run records (a task's verification logs among them) — and
-// only what is provably safe to remove: a
+// on request, run records (a task's verification logs among them, and the
+// directory of a --summary kept under .worktrees by a runner given --out) —
+// and only what is provably safe to remove: a
 // task must be accepted (a finished run's summary.json marks it `ok` at the
 // branch's current tip, or --accepted names it), its branch proven integrated
 // into the target and its worktree clean. Anything not proven is kept and
@@ -9,7 +10,7 @@
 // outside <repo>/.worktrees.
 import { spawnSync } from 'node:child_process'
 import { lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync } from 'node:fs'
-import { isAbsolute, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { readPlanJson } from './worktree-env.mjs'
 
 const USAGE = [
@@ -27,13 +28,15 @@ const USAGE = [
   '                   never the integration target itself and never the',
   '                   default branch of a remote',
   '  --summary <file> a run\'s summary.json kept outside the two default',
-  '                   directories; repeatable',
+  '                   directories (a runner given --out); repeatable',
   '  --accepted <id>  this task was accepted although no run record says so',
   '                   (a host that leaves none); repeatable',
   '  --records        also remove the run records of the given plans, the',
   '                   verification-logs/<id> directories of their tasks among',
-  '                   them; when a record directory was removed, worktree',
-  '                   registrations whose directories are gone are pruned',
+  '                   them, and the directory of each --summary file that',
+  '                   lies inside <repo>/.worktrees; when a record directory',
+  '                   was removed, worktree registrations whose directories',
+  '                   are gone are pruned',
   '  --dry-run        run every check, change nothing',
   '',
   'A task is removed only when it is accepted: a summary.json — one named',
@@ -449,6 +452,55 @@ function stateIds(file) {
 
 const UNRECOGNIZED = 'not recognized as a run record of the given plans'
 
+// The records of runs given an --out of their own: the directory of each
+// --summary file inside .worktrees. The default runner directories are left
+// to the scan in step C; the state and log directories and a task's
+// worktree are never a record; a directory in another git work tree is
+// kept. Each entry is { path } to decide, or { path, reason } to keep;
+// deepest first, so a record inside another one is decided before it.
+function summaryRecords() {
+  const records = new Map()
+  const root = real(worktreesDir)
+  for (const file of options.summary) {
+    const named = resolve(file)
+    const rel = relative(root, real(dirname(named)))
+    if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
+      const path = dirname(named)
+      if (!records.has(path)) records.set(path, { path, reason: 'outside ' + worktreesDir })
+      continue
+    }
+    const parts = rel === '' ? [] : rel.split(sep)
+    if (RUNNER_DIRS.includes(parts[0])) continue
+    const path = join(worktreesDir, ...parts)
+    if (records.has(path)) continue
+    const keep = (reason) => records.set(path, { path, reason })
+    if (parts.length === 0 || parts[0] === STATE_DIR || parts[0] === LOGS_DIR
+      || planIds.some((id) => parts[0] === 'wave-' + id)) {
+      keep('not a run record directory')
+      continue
+    }
+    if (basename(named) !== 'summary.json') {
+      keep('the --summary file is not named summary.json')
+      continue
+    }
+    const steps = parts.map((_, i) => join(worktreesDir, ...parts.slice(0, i + 1)))
+    if (steps.some((step) => {
+      const stat = lstat(step)
+      return stat === null || stat.isSymbolicLink() || !stat.isDirectory()
+    })) {
+      keep('symbolic link')
+      continue
+    }
+    const top = git(path, 'rev-parse', '--show-toplevel')
+    if (!top.ok || real(top.out) !== real(repo)) {
+      keep('inside another git work tree')
+      continue
+    }
+    records.set(path, { path })
+  }
+  return [...records.values()].sort((a, b) => b.path.split(sep).length - a.path.split(sep).length)
+}
+
 // Step C.
 function cleanRecords() {
   const root = lstat(worktreesDir)
@@ -501,10 +553,44 @@ function cleanRecords() {
       }
     }
   }
+  // Decided before anything was removed; an entry whose directory an earlier
+  // step removed (a task worktree with only ignored files) is no longer there.
+  const fromSummaries = summaryRecordsAtStart.filter((record) => lstat(record.path) !== null)
+  const named = new Set(fromSummaries.map((record) => record.path))
+  // The directories between .worktrees and a named record: what else they
+  // hold is reported, and they go once the records were their only content.
+  const between = new Set()
+  for (const { path } of fromSummaries) {
+    for (let dir = dirname(path); dir.startsWith(worktreesDir + sep); dir = dirname(dir)) between.add(dir)
+  }
+  for (const record of fromSummaries) {
+    if (record.reason !== undefined) kept.push({ kind: 'record', path: record.path, reason: record.reason })
+    else cleanRecord('record', record.path, summaryIds(record.path), (target) => rmSync(target, { recursive: true }))
+  }
+  const unrecognized = (dir) => {
+    for (const child of children(dir)) {
+      const path = join(dir, child)
+      if (named.has(path)) continue
+      if (between.has(path)) unrecognized(path)
+      else kept.push({ kind: 'other', path, reason: UNRECOGNIZED })
+    }
+  }
   for (const child of children(worktreesDir)) {
-    if (!known.has(child)) kept.push({ kind: 'other', path: join(worktreesDir, child), reason: UNRECOGNIZED })
+    const path = join(worktreesDir, child)
+    if (known.has(child) || named.has(path)) continue
+    if (between.has(path)) unrecognized(path)
+    else kept.push({ kind: 'other', path, reason: UNRECOGNIZED })
   }
   if (dryRun) return
+  for (const dir of [...between].sort((a, b) => b.length - a.length)) {
+    const stat = lstat(dir)
+    if (stat === null || !stat.isDirectory() || children(dir).length > 0) continue
+    try {
+      rmdirSync(dir)
+    } catch {
+      // Not empty after all (a concurrent writer): leaving it is the safe outcome.
+    }
+  }
   for (const dir of [...RUNNER_DIRS, STATE_DIR, LOGS_DIR].map((name) => join(worktreesDir, name)).concat(worktreesDir)) {
     const stat = lstat(dir)
     if (stat === null || !stat.isDirectory() || children(dir).length > 0) continue
@@ -523,6 +609,9 @@ function cleanRecords() {
   }
 }
 
+// A removal changes what a path resolves to, so the --summary directories are
+// classified before step A removes anything.
+const summaryRecordsAtStart = options.records ? summaryRecords() : []
 for (const id of taskIds) cleanTask(id)
 if (options.branch !== undefined) cleanBranch(options.branch)
 if (options.records) cleanRecords()

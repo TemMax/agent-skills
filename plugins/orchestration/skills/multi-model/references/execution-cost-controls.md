@@ -8,6 +8,9 @@ supervision and the six-attempt maximum. Never relax a contract to save calls.
 Run `node references/claude-wave-runner.mjs --plan <file> --wave <n> --repo <abs>
 --base <pushed sha> --default-branch <branch>`. Options: `--claude <executable>`,
 `--jobs 3`, `--timeout-min 45`, `--out <new directory>`, `--preflight on|off`.
+`wave-cleanup.mjs` finds a record kept outside `.worktrees/claude-runner/` (or
+`.worktrees/codex-runner/`) only through `--summary <summary.json>`; name it in
+every cleanup of that run, the one after the merge included.
 The launcher still lints and checks the pushed base and dependencies. The runner
 uses the shipped Workflow escalation policy.
 

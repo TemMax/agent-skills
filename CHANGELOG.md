@@ -4,6 +4,37 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.22.1
+
+### Highlights
+
+**multi-model**
+- Cleanup after the merge removes records kept under a custom --out
+
+**ship**
+- The after-the-merge command names those records with --summary
+
+Orchestration 4.22.1 and code-review 1.21.0 apply to Claude Code and Codex.
+
+**What was wrong.** A wave runner given `--out` keeps its run record outside
+`.worktrees/claude-runner/` and `.worktrees/codex-runner/`, and
+`wave-cleanup.mjs --records` removed records only from those two
+directories. After the merge such a record stayed, reported as "not
+recognized". A recovery run, which takes a new `--out`, could leave one the
+same way. Seen in the end-to-end ship run on the Fable 5.2 seat recorded
+in #47, whose waves ran with `--out <repo>/.worktrees/runs/wave-<n>`.
+
+**What changes.** With `--records`, `wave-cleanup.mjs` also removes the
+directory of each `--summary` file inside `<repo>/.worktrees`, by the rules
+of a default record: it is a record of the given plans and none of its tasks
+still has a branch or worktree. It keeps, and lists with the reason, a
+directory outside `.worktrees`, a task's worktree, a directory in another
+git work tree and a `--summary` not named `summary.json`; directories the
+records leave empty are removed, and anything else next to a record is
+reported. The `Left behind:` dry run and the `After the merge:` command in
+multi-model and ship, on both hosts, carry one `--summary` per record kept
+outside the default directories.
+
 ## 4.22.0
 
 ### Highlights

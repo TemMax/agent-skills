@@ -1102,3 +1102,108 @@ test('a summary reached through a symbolic link under a runner directory is igno
   assert.deepEqual(r.json.removed.map((item) => item.kind), ['worktree', 'branch'])
   assert.equal(existsSync(join(outside, 'summary.json')), true)
 })
+
+// A runner given --out <repo>/.worktrees/runs/wave-<n> keeps its record
+// outside the two default directories; --summary names it.
+test('--records removes the directory of each --summary under .worktrees, then the emptied parents', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']], [2, ['b']]])
+  addTask(repo, 'a', base)
+  addTask(repo, 'b', base)
+  merge(repo, 'a')
+  merge(repo, 'b')
+  const one = writeRecord(repo, 'runs', 'wave-1', ['a'], 'ok')
+  const two = writeRecord(repo, 'runs', 'wave-2', ['b'], 'ok')
+  const named = ['--summary', join(one, 'summary.json'), '--summary', join(two, 'summary.json')]
+  const runs = join(repo, '.worktrees', 'runs')
+
+  // without --summary the run directory is not recognized and stays
+  const plain = cleanup('--repo', repo, '--plan', plan, '--records', '--dry-run')
+  assert.equal(plain.status, 0, plain.stderr)
+  assert.deepEqual(entry(plain.json.kept, 'other', 'path', runs),
+    { kind: 'other', path: runs, reason: 'not recognized as a run record of the given plans' })
+
+  const before = snapshot(repo)
+  const dry = cleanup('--repo', repo, '--plan', plan, '--records', '--dry-run', ...named)
+  assert.equal(dry.status, 0, dry.stderr)
+  assert.deepEqual(dry.json.removed.filter((item) => item.kind === 'record'),
+    [{ kind: 'record', path: one }, { kind: 'record', path: two }])
+  assert.deepEqual(dry.json.kept, [])
+  assert.deepEqual(snapshot(repo), before)
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', ...named)
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed.filter((item) => item.kind === 'record'),
+    [{ kind: 'record', path: one }, { kind: 'record', path: two }])
+  assert.deepEqual(r.json.kept, [])
+  assert.equal(existsSync(join(repo, '.worktrees')), false)
+  assert.equal(git(repo, 'status', '--porcelain', '--untracked-files=all'), '')
+})
+
+test('--records keeps a --summary directory that is outside .worktrees, not a record, linked, foreign or busy', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a', 'b']]])
+  addTask(repo, 'a', base)
+  addTask(repo, 'b', base)
+  merge(repo, 'a') // b stays unintegrated, so it keeps its branch and worktree
+  const worktrees = join(repo, '.worktrees')
+  const outside = writeSummary(join(root, 'out', 'summary.json'), { tasks: [{ id: 'a', status: 'ok' }] })
+  const foreign = writeRecord(repo, 'runs', 'foreign', ['a', 'zzz'])
+  const busy = writeRecord(repo, 'runs', 'busy', ['b'])
+  const odd = join(worktrees, 'runs', 'odd')
+  const oddFile = writeSummary(join(odd, 'copy.json'), { tasks: [{ id: 'a' }] })
+  const notes = join(worktrees, 'runs', 'notes.txt')
+  writeFileSync(notes, 'mine\n')
+  const inTask = join(worktreePath(repo, 'b'), 'out')
+  writeSummary(join(inTask, 'summary.json'), { tasks: [{ id: 'b' }] })
+  const target = join(root, 'linked-target')
+  writeSummary(join(target, 'summary.json'), { tasks: [{ id: 'a' }] })
+  const linked = join(worktrees, 'linked')
+  symlinkSync(target, linked)
+  const checkout = join(worktrees, 'checkout')
+  mkdirSync(checkout)
+  git(checkout, 'init', '-q')
+  writeSummary(join(checkout, 'summary.json'), { tasks: [{ id: 'a' }] })
+
+  const files = [outside, join(foreign, 'summary.json'), join(busy, 'summary.json'), oddFile,
+    join(inTask, 'summary.json'), join(linked, 'summary.json'), join(checkout, 'summary.json')]
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', ...files.flatMap((file) => ['--summary', file]))
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed.filter((item) => item.kind === 'record'), [])
+  for (const [kind, path, reason] of [
+    ['record', join(root, 'out'), 'outside ' + worktrees],
+    ['record', foreign, 'not a run record of the given plans'],
+    ['record', busy, 'task b still has a branch or worktree'],
+    ['record', odd, 'the --summary file is not named summary.json'],
+    ['record', inTask, 'not a run record directory'],
+    ['record', linked, 'outside ' + worktrees],
+    ['record', checkout, 'inside another git work tree'],
+    ['other', notes, 'not recognized as a run record of the given plans'],
+  ]) {
+    assert.deepEqual(entry(r.json.kept, kind, 'path', path), { kind, path, reason })
+    assert.equal(existsSync(path), true, path)
+  }
+  assert.equal(existsSync(join(target, 'summary.json')), true)
+  assert.equal(entry(r.json.kept, 'other', 'path', join(worktrees, 'runs')), undefined)
+})
+
+test('--records decides a --summary in a default runner directory once, and an inner record before its parent', () => {
+  const { root, repo, base } = makeRepo()
+  const plan = writePlan(root, 'plan.md', [[1, ['a']], [2, ['b']]])
+  addTask(repo, 'a', base)
+  addTask(repo, 'b', base)
+  merge(repo, 'a')
+  merge(repo, 'b')
+  const usual = writeRecord(repo, 'claude-runner', '1-abc', ['a'], 'ok')
+  const outer = writeRecord(repo, 'runs', 'wave-2', ['b'], 'ok')
+  const inner = join(outer, 'resumed')
+  writeSummary(join(inner, 'summary.json'), { tasks: [{ id: 'b', status: 'ok' }] })
+
+  const r = cleanup('--repo', repo, '--plan', plan, '--records', '--summary', join(usual, 'summary.json'),
+    '--summary', join(outer, 'summary.json'), '--summary', join(inner, 'summary.json'))
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(r.json.removed.filter((item) => item.kind === 'record'),
+    [{ kind: 'record', path: usual }, { kind: 'record', path: inner }, { kind: 'record', path: outer }])
+  assert.deepEqual(r.json.kept, [])
+  assert.equal(existsSync(join(repo, '.worktrees')), false)
+})
