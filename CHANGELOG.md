@@ -14,9 +14,6 @@ orchestration version; a code-review bump is stated inside it.
 **multi-model**
 - Messages never name or link the instruction files being run
 
-**super-plan**
-- The start approval never cites or links an instruction file
-
 **critical-review**
 - Messages never name or link the review's instruction files
 
@@ -25,42 +22,49 @@ Orchestration 4.23.2 and code-review 1.21.1 apply to Claude Code and Codex.
 **What was wrong.** The skills kept instruction filenames out of "updates"
 and "routine messages", but said nothing about questions to the user or the
 final report. Codex then justified its questions with the instruction that
-asks for them, linking the file. In ship's handoff it wrote "Shall I merge
+asks for them, linking the file. In ship's handoff it wrote `Shall I merge
 PR #1? The [ship instructions](…/SKILL.md) require merging “only when the
-user asks for it.”" At ship's start approval it linked the planning workflow file.
-The live checks of 4.23.0 and 4.23.1 saw this in 3 of 7 Codex ship runs, and
-never on Claude Code.
+user asks for it.”` At ship's start approval it linked the planning
+workflow file. The live checks of 4.23.0 and 4.23.1 saw this in 3 of 7
+Codex ship runs, and never on Claude Code.
 
 **What changes.** Every orchestration entry point, on both hosts, adds a rule
 for every message to the user, whether an update, a question, an approval
 request or the final report. Such a message never names, quotes or links an
 instruction file of the skills being run (their entry, workflow, profile or
 reference documents), unless the user asks about that file or the task is
-about it. A question that needs a reason gives the reason itself. A printed
-command is not an instruction file. critical-review says the same for its
-own files. ship's handoff ends with the merge question, such as "Merge pull
-request #1 into `main` and clean up?", and nothing follows it: no reason, no
-rule and no reference to the instructions. `merge-cleanup-live.py` gains the
-frozen check `no_instruction_file_named` over every message the session
-shows the user, and it now also finds its marker in a skill that Claude Code
-loads.
+about it. A question that needs a reason gives the reason itself, not the
+skill instruction that asks for it. A printed command is not an instruction
+file. critical-review gets the rule for its own files in one sentence: never
+name, quote or link them unless the user's request is about them. ship's
+handoff asks the merge question last, such as "Merge pull request #<n> into
+`<default branch>` and clean up?", and writes nothing after it: no reason,
+no rule and no reference to the instructions.
+
+**Not fixed: the start approval on Codex.** Codex's own system prompt tells
+the model, after any question for confirmation, to explain in a separate
+paragraph where the requirement came from, with "a SKILL.md" as its
+example, and it ranks above a skill. So when a planned run stops for its
+start approval, Codex still cites the planning instructions: all 12 live
+runs did, under the rule and under three more wordings of that step, which
+were reverted. Claude Code follows the rule there.
 
 **Checked.** Offline, the communication contract pins the rule in all eight
 entry points, the merge contract pins the handoff's last line (111 checks),
-the merge driver's offline tests cover the new check (140 cases), and the
-full suite passes. Live checks ran on Claude Code 2.1.322 and Codex CLI
-0.167.0, with the candidate loaded from a disposable copy, through the
-`ship-merge` and `mm-merge` scenarios. Before the change, 1 of 5 Codex ship
-handoffs linked ship's `SKILL.md` right after the merge question. The rule
-alone left 1 of 4 and then 1 of 6, each time on the line after that
-question, and under its first wording 2 of 4 handoffs did not offer the
-merge. With the question as the handoff's last line, all 6 Codex
-`ship-merge` runs and the Claude `ship-merge` and `mm-merge` runs passed
-every frozen check, and no message named an instruction file. Six clean
-runs do not prove the rate is zero: at the earlier 3 in 15, six in a row
-happen by chance about one time in four. Over all rounds the Fable 5.2
-seat sessions cost $18.38, and Codex used 30.1M input (28.9M cached) and
-104k output tokens; `tests/eval/instruction-files-results-2026-11-12.md`.
+the merge driver's offline tests cover the new checks and the new
+`ship-wave-merge` scenario (162 cases), and the full suite passes. Live
+checks ran on Claude Code 2.1.322 and Codex CLI 0.167.0, with the candidate
+loaded from a disposable copy, over eight rounds and a second independent
+review. Before the change, 1 of 5 Codex ship handoffs linked ship's
+`SKILL.md` right after the merge question. The rule left 1 of 4; with the
+merge question asked alone, 1 of 6. Since the question is the handoff's
+last line with nothing after it, none of 24 Codex handoffs named a file and
+each ended with the question; at the earlier rate, 24 clean runs in a row
+would happen by chance about once in 200. multi-model, and critical-review
+on its own, passed every check on both hosts, and no Claude Code message
+named an instruction file. Over all rounds the Fable 5.2 seat sessions cost
+$38.75, and Codex used 74.5M input (71.9M cached) and 220k output tokens;
+`tests/eval/instruction-files-results-2026-11-12.md`.
 
 ## 4.23.1
 
