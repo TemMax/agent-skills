@@ -34,7 +34,7 @@
       "bb18c726416761b42cef607176cfbfce04a49ccbbf9094edfc1ab06a642e7f2e",
       "1e6ca273644d1c3b914de50d384d5affe588ccaafd21875a007c9b16d7e4a0e7",
       "d207e08fe5741bd2f5061a7fea9ac11a75fe0d17a908bba846d2bfe8b9b2265a",
-      "4b1c58e2c6e2ef984d778f1b182bca07f1d950769e88effab78b330878ca009d",
+      "5d5a31a8db0b54a8320f392df47a738c08c5a87c3f551f78fbb3279a51464a7e",
       "b00975a873ea97dc9410364a30ed1cd00c2604286037f328574ceef82d0e9af8",
       "be6d095d459a7f9cb3beb58159c91551c1e72ddda3f01d69890a8d018baf07a6",
       "6839679b2d2cfaf1e2c929967bb04742a1d64ad48604895655a9df73d44e0f55",
@@ -150,7 +150,7 @@
       "bb18c726416761b42cef607176cfbfce04a49ccbbf9094edfc1ab06a642e7f2e",
       "1e6ca273644d1c3b914de50d384d5affe588ccaafd21875a007c9b16d7e4a0e7",
       "aee515d18eab47fb1be55b3219e1c9006742b8f19deb7e9dc165360b5fcffed7",
-      "4307858493910647bcac71e85b61fd5269a95f73b372ea8085232cf3c79ac432",
+      "17276b0b76a4b8b977c5bf43713bb6deebd9ccb7aad970408bce0c7adad78413",
       "b00975a873ea97dc9410364a30ed1cd00c2604286037f328574ceef82d0e9af8",
       "be6d095d459a7f9cb3beb58159c91551c1e72ddda3f01d69890a8d018baf07a6",
       "6839679b2d2cfaf1e2c929967bb04742a1d64ad48604895655a9df73d44e0f55",
@@ -1175,42 +1175,6 @@
       "old": "28012e1fb111db6a89350ad8833f0c5662e4e6f50cc61307a45b0a13dd4990bc",
       "new": "72028d1bb50f07937882b89d8312b17e68230253c6b90b3d320d4fded9a8470e",
       "reason": "Stage 4: the merge question is asked last, such as \"Merge pull request #<n> into `<default branch>` and clean up?\", with nothing after it — no reason, no rule and no reference to these instructions; the example takes placeholders, and \"the merge question\" names what comes last (review of the earlier wording)."
-    },
-    {
-      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
-      "old": "5d5a31a8db0b54a8320f392df47a738c08c5a87c3f551f78fbb3279a51464a7e",
-      "new": "756dec538e9bff4f7988b5e88a994d66c4f4e130559c343b0d4d68a2749a6e21",
-      "reason": "Gate 2: the start question is asked last, such as \"Approve the plan and start?\", with nothing after it — no reason, no rule and no reference to these instructions (in the live checks every Codex start approval cited the planning workflow after its question)."
-    },
-    {
-      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
-      "old": "17276b0b76a4b8b977c5bf43713bb6deebd9ccb7aad970408bce0c7adad78413",
-      "new": "c7944ddc9f04975485e7ffd04b4acd512e40412ca48ad4eceb2341fcde577cb5",
-      "reason": "Gate 2: the start question is asked last, such as \"Approve the plan and start?\", with nothing after it — no reason, no rule and no reference to these instructions (in the live checks every Codex start approval cited the planning workflow after its question)."
-    },
-    {
-      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
-      "old": "756dec538e9bff4f7988b5e88a994d66c4f4e130559c343b0d4d68a2749a6e21",
-      "new": "5a19ffc9197dd9e8b6682ff282085c0e00e4843632dca96b4869d77016d46e2f",
-      "reason": "Gate 2, again: the start question stays last, and nowhere in the message are these instructions cited, quoted or linked as the reason for the approval; a reason is said plainly, such as \"Nothing is created until you approve\" (with the question last alone, two of three Codex start approvals moved the citation above the question)."
-    },
-    {
-      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
-      "old": "c7944ddc9f04975485e7ffd04b4acd512e40412ca48ad4eceb2341fcde577cb5",
-      "new": "9754d57d3c2eb716677670c8e10dbcb198ff95266d2a27bb33825db2fc719eb1",
-      "reason": "Gate 2, again: the start question stays last, and nowhere in the message are these instructions cited, quoted or linked as the reason for the approval; a reason is said plainly, such as \"Nothing is created until you approve\" (with the question last alone, two of three Codex start approvals moved the citation above the question)."
-    },
-    {
-      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
-      "old": "5a19ffc9197dd9e8b6682ff282085c0e00e4843632dca96b4869d77016d46e2f",
-      "new": "4b1c58e2c6e2ef984d778f1b182bca07f1d950769e88effab78b330878ca009d",
-      "reason": "Gate 2, final: the start question is asked, and the explanation a host may ask for after it — why the run stops and where that comes from — is one plain sentence, such as \"The run you asked for stops once here, before it creates anything\", never a citation, quote or link of these instructions (Codex's own system prompt asks for a paragraph after any permission question naming where the requirement came from, SKILL.md for example, so \"nothing after the question\" could not hold there)."
-    },
-    {
-      "path": "plugins/orchestration/skills-codex/super-plan/SKILL.md",
-      "old": "9754d57d3c2eb716677670c8e10dbcb198ff95266d2a27bb33825db2fc719eb1",
-      "new": "4307858493910647bcac71e85b61fd5269a95f73b372ea8085232cf3c79ac432",
-      "reason": "Gate 2, final: the start question is asked, and the explanation a host may ask for after it — why the run stops and where that comes from — is one plain sentence, such as \"The run you asked for stops once here, before it creates anything\", never a citation, quote or link of these instructions (Codex's own system prompt asks for a paragraph after any permission question naming where the requirement came from, SKILL.md for example, so \"nothing after the question\" could not hold there)."
     }
   ]
 }
