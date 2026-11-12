@@ -80,7 +80,7 @@ SCENARIOS = ('mm-merge', 'mm-merged-worktree', 'ship-merge')
 WAVE_SCRIPTS = ('claude-wave-runner.mjs', 'codex-wave-runner.mjs', 'wave-launch.mjs')
 FEATURE = 'feature/durations'
 SEAT = cleanup.SEAT
-# Text only the candidate's after-the-merge instructions carry.
+# Text only the candidate's instructions carry.
 FIX_MARK = 'never name, quote or link an instruction file of the skills you are running'
 TASK_FILES = {'src/durations.py', 'tests/test_durations.py'}
 SHIP_REQUEST = ('Add `parse_duration(text)` in a new module `src/durations.py`: it turns strings such as '
@@ -219,7 +219,13 @@ def questions(text):
 # entry or workflow file, a profile, a reference document, or a path into the
 # workspace skills. Code that names the cleanup script is the command after
 # the merge, which names its own path, so it is left out.
-INSTRUCTION_FILE = re.compile(r'\b(?:SKILL|WORKFLOW)\.md\b|orchestrator-[\w.-]+\.md|references/[\w.-]+\.md|\.agents/skills/')
+INSTRUCTION_NAMES = sorted({p.name for p in ROOT.glob('plugins/*/skills*/**/*.md')}, key=len, reverse=True)
+SKILL_NAMES = sorted({p.parent.name for p in ROOT.glob('plugins/*/skills*/*/SKILL.md')})
+INSTRUCTION_FILE = re.compile(
+    r'(?<![\w.-])(?:' + '|'.join(re.escape(n) for n in INSTRUCTION_NAMES) + r')(?![\w-])'
+    r'|\b(?:orchestrator|reviewer)-(?:generic|dossier|drift-\w+|(?:fable|opus|gpt)-[\w.-]*\d)\b'
+    r'|references/[\w.-]+\.md|\.agents/skills/'
+    r'|\]\([^)]*/skills(?:-codex)?/(?:' + '|'.join(map(re.escape, SKILL_NAMES)) + r')/?\)')
 
 
 def messages(rows):
@@ -235,6 +241,19 @@ def messages(rows):
                       if isinstance(b, dict) and b.get('type') == 'text']
         if r.get('type') == 'result' and r.get('result'):
             found.append(r['result'])
+    return found
+
+
+def skill_bodies(rows):
+    """The skill text Claude Code injects as a user text block after a Skill call."""
+    found = []
+    for r in rows:
+        if r.get('type') != 'user' or r.get('parent_tool_use_id'):
+            continue
+        content = (r.get('message') or {}).get('content') or []
+        for b in [{'type': 'text', 'text': content}] if isinstance(content, str) else content:
+            if isinstance(b, dict) and b.get('type') == 'text' and (b.get('text') or '').startswith('Base directory for this skill: '):
+                found.append(b['text'])
     return found
 
 
@@ -512,7 +531,7 @@ def score(out):
     pr = prs[0] if prs else {}
     checks = {
         'candidate_loaded': loaded,
-        'instruction_read': any(FIX_MARK in flat(t) for t in outputs(all_rows)),
+        'instruction_read': any(FIX_MARK in flat(t) for t in outputs(all_rows) + skill_bodies(all_rows)),
         'turns_complete': bool(turns) and all(complete(rows.get(t, []), status.get(t)) for t in turns),
         'feature_pushed_and_green': bool(before) and TASK_FILES <= set(before.get('feature_files') or [])
                                     and before.get('feature_tests_rc') == 0 and before.get('origin_main') == meta['base'],
@@ -606,7 +625,7 @@ def spend(out, provider, turns):
 EXPECTED = {
     'candidate_loaded': 'claude: the init event lists the snapshot plugin and version; codex: the workspace '
                         'skill resolves into the snapshot',
-    'instruction_read': f'a tool output carries the new after-the-merge text ({FIX_MARK!r})',
+    'instruction_read': f'a tool output or a Claude skill load carries the candidate\'s new text ({FIX_MARK!r})',
     'turns_complete': 'every invocation ends in success',
     'feature_pushed_and_green': 'before the merge turn the feature branch on origin has src/durations.py and '
                                 'tests/test_durations.py, its tests pass, and origin main is unchanged',
@@ -647,8 +666,10 @@ EXPECTED = {
                                   'a call gives --plan through a shell variable)',
     'no_instruction_file_named': 'no message the main session showed the user, in any turn (Codex agent messages; '
                                  'Claude text and results), names or links an instruction file outside code that '
-                                 'names wave-cleanup.mjs: SKILL.md, WORKFLOW.md, an orchestrator-*.md profile, a '
-                                 'references/*.md document or a path under .agents/skills/',
+                                 'names wave-cleanup.mjs: the name of any .md file under the plugins\' skills '
+                                 '(SKILL.md, WORKFLOW.md, FIXES.md, a profile, a reference document…), an '
+                                 'orchestrator- or reviewer- profile name without .md, a references/*.md path, a '
+                                 'path under .agents/skills/ or a link to a skill directory',
     'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark (? or ？) "
                                'outside code and links, and offers no more work (shall/should I, do you want '
                                'me, would you like me, want me to — not "whether you want me to" —, let me '

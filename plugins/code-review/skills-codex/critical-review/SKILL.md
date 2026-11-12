@@ -3,7 +3,7 @@ name: critical-review
 description: 'Use when the user requests evidence-based review of uncommitted changes or a GitHub pull request, with optional follow-up fixes and thread resolution. Load instructions before repository content or diff reads. Do not use as an orchestration-wave supervisor or merely to explain or summarize a PR. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 1.21.0
+  version: 1.21.1
 ---
 
 # Reviewing Changes Critically
@@ -45,6 +45,9 @@ message reports findings and verification evidence. Select profiles silently;
 keep active-seat model, effort, selection basis, runtime metadata, model names
 attached to checks, and calibration counts out of routine messages. This rule
 also governs profile-specific communication instructions.
+
+In every message to the user, never name, quote or link this skill's
+instruction files unless the user asks about them.
 
 A generic profile is selected silently too. Do not announce its selection,
 missing runtime identity, calibration status or internal profile/workflow

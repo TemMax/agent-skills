@@ -9,33 +9,40 @@ orchestration version; a code-review bump is stated inside it.
 ### Highlights
 
 **ship**
-- Questions and the handoff give reasons, never instruction files
-
-**super-plan**
-- The start approval gives its reason, never an instruction file
+- The handoff asks the merge alone, with no rule or file behind it
 
 **multi-model**
-- Messages never name or link a skill's instruction files
+- Messages never name or link the instruction files being run
 
-Orchestration 4.23.2 and code-review 1.21.0 apply to Claude Code and Codex.
+**super-plan**
+- The start approval never cites or links an instruction file
+
+**critical-review**
+- Messages never name or link the review's instruction files
+
+Orchestration 4.23.2 and code-review 1.21.1 apply to Claude Code and Codex.
 
 **What was wrong.** The skills kept instruction filenames out of "updates"
 and "routine messages", but said nothing about questions to the user or the
 final report. Codex then justified its questions with the instruction that
 asks for them, linking the file. In ship's handoff it wrote "Shall I merge
-PR #1? The [delivery instructions](…/SKILL.md) require merging only when the
-user asks for it." At ship's start approval it linked the planning workflow
-file. The live checks of 4.23.0 and 4.23.1 saw this in 3 of 7 Codex ship
-runs, and never on Claude Code.
+PR #1? The [ship instructions](…/SKILL.md) require merging only when the user
+asks for it." At ship's start approval it linked the planning workflow file.
+The live checks of 4.23.0 and 4.23.1 saw this in 3 of 7 Codex ship runs, and
+never on Claude Code.
 
-**What changes.** All six orchestration entry points, on both hosts, say:
-in every message to the user, whether an update, a question, an approval
-request or the final report, never name, quote or link an instruction file
-of the skills being run (their entry, workflow, profile or reference files),
-unless the user's task is about that file. When a question needs a reason,
-give the reason itself in plain words. `merge-cleanup-live.py` gains the frozen
-check `no_instruction_file_named` over every message the session shows the
-user.
+**What changes.** Every orchestration entry point, on both hosts, adds a rule
+for every message to the user, whether an update, a question, an approval
+request or the final report. Such a message never names, quotes or links an
+instruction file of the skills being run (their entry, workflow, profile or
+reference documents), unless the user asks about that file or the task is
+about it. A question that needs a reason gives the reason itself. A printed
+command is not an instruction file. critical-review says the same for its
+own files. ship's handoff asks the merge as that question alone, such as
+"Merge pull request #1 into `main` and clean up?", with no reason or rule
+added. `merge-cleanup-live.py` gains the frozen check
+`no_instruction_file_named` over every message the session shows the user,
+and it now also finds its marker in a skill that Claude Code loads.
 
 ## 4.23.1
 

@@ -481,6 +481,13 @@ NAMED = {
     'a profile named in an update': 'Loaded orchestrator-fable-5-2.md; starting the wave.',
     'a reference document': 'Following references/codex-wave-protocol.md, the wave is merged.',
     'a workspace skill path': 'Read .agents/skills/multi-model before the run.',
+    'critical-review\'s fix rules linked': 'Approve the fixes? [fix rules](/x/plugins/code-review/skills-codex/critical-review/FIXES.md)',
+    'a bare reference document': 'The wave follows codex-wave-protocol.md.',
+    'a reviewer profile': 'Routed to reviewer-gpt-6-1-sol.md for the review.',
+    'a profile stem without .md': 'Selected orchestrator-fable-5-2 for this run.',
+    'a link to a skill directory': 'Handled by [the delivery skill](/x/plugins/orchestration/skills-codex/ship).',
+    'a file in inline code': 'Per `SKILL.md`, the merge waits for you.',
+    'a file in a code block that is not the cleanup': 'See:\n```text\nWORKFLOW.md, Stage 4\n```',
 }
 for name, text in NAMED.items():
     ok &= check(f'named: {name}', bool(live.instruction_files_named([codex_msg(text)])))
@@ -490,6 +497,7 @@ CLEAN = {
     'the command inline': 'After the merge: `node /x/.agents/skills/multi-model/../../skills/multi-model/references/wave-cleanup.mjs --repo /x`',
     'the plan, README and AGENTS.md': 'The plan docs/superpowers/plans/plan.md is done; README.md and AGENTS.md are unchanged.',
     'a plain merge question': 'Nothing is left open. Merge PR #1 into main and clean up?',
+    'model and plan names': 'The gpt-6.1-sol review passed; docs/superpowers/plans/2026-11-11-parse-duration.md is done.',
 }
 for name, text in CLEAN.items():
     ok &= check(f'not named: {name}', not live.instruction_files_named([codex_msg(text)]))
@@ -502,5 +510,15 @@ with tempfile.TemporaryDirectory() as tmp:
     ok &= check('ship-merge: a handoff that links the skill file fails exactly no_instruction_file_named',
                 failed_of(checks) == ['no_instruction_file_named'] and 'SKILL.md' in facts['instruction_files_named'])
     if failed_of(checks) != ['no_instruction_file_named']: print(failed_of(checks), facts['instruction_files_named'])
+
+# A Claude skill load is a user text block, not a tool result.
+with tempfile.TemporaryDirectory() as tmp:
+    out = run_dir(tmp, 'mm-merge', REPORT)
+    rows = [json.loads(l) for l in (out / 'turn-1.stdout').read_text().splitlines()]
+    rows[1] = {'type': 'user', 'message': {'content': [{'type': 'text', 'text':
+        'Base directory for this skill: /x/skills/multi-model\n\n# Multi-model\n... ' + live.FIX_MARK + ' ...'}]}}
+    (out / 'turn-1.stdout').write_text(''.join(json.dumps(r) + '\n' for r in rows))
+    checks, _ = live.score(out)
+    ok &= check('instruction_read: the new text arriving as a Claude skill load counts', checks['instruction_read'])
 
 sys.exit(0 if ok else 1)

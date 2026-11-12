@@ -269,8 +269,10 @@ branch is the one decision this pipeline never makes on its own. Stage 2's
 approval. Report: the branch, the PR link, waves run, verdicts and reworks,
 routed fix evidence, and anything left open — with one recommended next
 action, phrased as a yes/no question in plain language. When nothing is left
-open — a missing independent review counts as open — that action is the
-merge, and a yes is the user's word to merge ("After the merge").
+open — a missing independent review counts as open — that action is the merge,
+and a yes is the user's word to merge ("After the merge"). Ask it as that
+question alone, such as "Merge pull request #1 into `main` and clean up?", and
+add no reason or rule to it.
 Never a time or cost estimate — not for the run, not for what is left open.
 The report also carries the same `Runtime pass: ran with <capability>` /
 `Runtime pass: skipped — <reason>` line the PR body carries.

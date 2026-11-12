@@ -65,4 +65,7 @@ check "codex-routing: ship merges only when the user asks" \
 check "README: the agent merges only when asked" "one_line README.md | grep -qF 'the agent merges only when you ask, then cleans up'"
 check "README: the cleanup asks nothing" "one_line README.md | grep -qF 'and asks nothing; whatever stays is listed with the reason'"
 
+for s in skills/ship skills-codex/ship; do
+  check "$s asks the merge as the question alone, with no reason or rule" "one_line $P/$s/WORKFLOW.md | grep -qF 'Ask it as that question alone, such as \"Merge pull request #1 into \`main\` and clean up?\", and add no reason or rule to it.'"
+done
 summary
