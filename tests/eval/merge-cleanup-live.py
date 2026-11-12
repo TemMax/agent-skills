@@ -46,8 +46,9 @@ In every scenario the last reply before the merge turn with an `After the
 merge:` line (in ship-merge, the handoff's own) must hold the cleanup command
 itself, written out, word for word as a `--dry-run` report printed it (the two
 checks of custom-out-cleanup-live.py), and each `--plan` in it must be a plan a
-wave ran with. No message to the user may name or link an
-instruction file (SKILL.md, WORKFLOW.md, a profile, a reference document). Expectations are frozen in expected.json before the host starts.
+wave ran with. No message to the user may name or link an instruction file
+(SKILL.md, WORKFLOW.md, a profile, a reference document). Expectations are
+frozen in expected.json before the host starts.
 The state before the merge turn goes to state-before.json and after it to
 state-after.json; checks.json is computed from those files, the traces and the
 stub's call log, and `--score DIR` recomputes it.

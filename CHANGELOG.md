@@ -26,8 +26,8 @@ Orchestration 4.23.2 and code-review 1.21.1 apply to Claude Code and Codex.
 and "routine messages", but said nothing about questions to the user or the
 final report. Codex then justified its questions with the instruction that
 asks for them, linking the file. In ship's handoff it wrote "Shall I merge
-PR #1? The [ship instructions](…/SKILL.md) require merging only when the user
-asks for it." At ship's start approval it linked the planning workflow file.
+PR #1? The [ship instructions](…/SKILL.md) require merging “only when the
+user asks for it.”" At ship's start approval it linked the planning workflow file.
 The live checks of 4.23.0 and 4.23.1 saw this in 3 of 7 Codex ship runs, and
 never on Claude Code.
 
@@ -40,9 +40,27 @@ about it. A question that needs a reason gives the reason itself. A printed
 command is not an instruction file. critical-review says the same for its
 own files. ship's handoff ends with the merge question, such as "Merge pull
 request #1 into `main` and clean up?", and nothing follows it: no reason, no
-rule and no reference to the instructions. `merge-cleanup-live.py` gains the frozen check
-`no_instruction_file_named` over every message the session shows the user,
-and it now also finds its marker in a skill that Claude Code loads.
+rule and no reference to the instructions. `merge-cleanup-live.py` gains the
+frozen check `no_instruction_file_named` over every message the session
+shows the user, and it now also finds its marker in a skill that Claude Code
+loads.
+
+**Checked.** Offline, the communication contract pins the rule in all eight
+entry points, the merge contract pins the handoff's last line (111 checks),
+the merge driver's offline tests cover the new check (140 cases), and the
+full suite passes. Live checks ran on Claude Code 2.1.322 and Codex CLI
+0.167.0, with the candidate loaded from a disposable copy, through the
+`ship-merge` and `mm-merge` scenarios. Before the change, 1 of 5 Codex ship
+handoffs linked ship's `SKILL.md` right after the merge question. The rule
+alone left 1 of 4 and then 1 of 6, each time on the line after that
+question, and under its first wording 2 of 4 handoffs did not offer the
+merge. With the question as the handoff's last line, all 6 Codex
+`ship-merge` runs and the Claude `ship-merge` and `mm-merge` runs passed
+every frozen check, and no message named an instruction file. Six clean
+runs do not prove the rate is zero: at the earlier 3 in 15, six in a row
+happen by chance about one time in four. Over all rounds the Fable 5.2
+seat sessions cost $18.38, and Codex used 30.1M input (28.9M cached) and
+104k output tokens; `tests/eval/instruction-files-results-2026-11-12.md`.
 
 ## 4.23.1
 
