@@ -66,6 +66,6 @@ check "README: the agent merges only when asked" "one_line README.md | grep -qF 
 check "README: the cleanup asks nothing" "one_line README.md | grep -qF 'and asks nothing; whatever stays is listed with the reason'"
 
 for s in skills/ship skills-codex/ship; do
-  check "$s asks the merge as the question alone, with no reason or rule" "one_line $P/$s/WORKFLOW.md | grep -qF 'Ask it as that question alone, such as \"Merge pull request #1 into \`main\` and clean up?\", and add no reason or rule to it.'"
+  check "$s ends the handoff with the merge question, nothing after it" "one_line $P/$s/WORKFLOW.md | grep -qF 'nothing follows it — no reason, no rule and no reference to these instructions.'"
 done
 summary

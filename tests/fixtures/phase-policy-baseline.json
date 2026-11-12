@@ -102,7 +102,7 @@
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
       "ae16fcd47f0031f9d062b8fb34912b63f836cf5a28ddf88c388005585558f7af",
       "166a972b26b78d526948781d2ceda0751c90548a240f3076f73c61ebb3198932",
-      "0a270018a27def4df721f79897430163bd084af2938c08908291b757bba4f829",
+      "28842008c44fab5a10727832c37657722ac2fb7317f2c1cb99eb38d675424cb3",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
       "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
       "2356cbb31d3710eab684996adc6ec6dca16191fc77f82ba695a460faa64b1036",
@@ -219,7 +219,7 @@
       "fb427d5fc758121eec348790132cbf0c0da5e0737c1a28f03fd44d3830d8805e",
       "175f465d9f99bb62a71a18848f12b28e7e77f940111596b643829b9264ad48e4",
       "166a972b26b78d526948781d2ceda0751c90548a240f3076f73c61ebb3198932",
-      "aa4d52f55ac0213944de5e1d6a382db3d9de83ec5ae764defd73bb644cf9075e",
+      "28012e1fb111db6a89350ad8833f0c5662e4e6f50cc61307a45b0a13dd4990bc",
       "639853de25222b6cd444869b661d39ccc7d6959b7f5c6b084aae093aa6696a2d",
       "f760d2b44d587de36b7f38214e45179ed5e3e5372567b05aa4f4125945052f9a",
       "f19a52912a3149ebc47fe0f67a2c3d8e62ccefe5b097d1a23e75f998fc498a92",
@@ -1155,14 +1155,14 @@
     {
       "path": "plugins/orchestration/skills/ship/SKILL.md",
       "old": "95110dc91255fbd42176d746af15b971f0d20d3b11ddc7208e90a9b4cbcc005d",
-      "new": "0a270018a27def4df721f79897430163bd084af2938c08908291b757bba4f829",
-      "reason": "Stage 4: the merge, when it is the recommended action, is asked as that question alone, such as \"Merge pull request #1 into `main` and clean up?\", with no reason or rule added (Codex justified it by linking the instruction file)."
+      "new": "28842008c44fab5a10727832c37657722ac2fb7317f2c1cb99eb38d675424cb3",
+      "reason": "Stage 4: when the recommended action is the merge, that question is the report's last line, such as \"Merge pull request #1 into `main` and clean up?\", and nothing follows it — no reason, no rule and no reference to the instructions (Codex justified it by linking the instruction file)."
     },
     {
       "path": "plugins/orchestration/skills-codex/ship/SKILL.md",
       "old": "565eb810b6ed463ac53ee72e4c6d1af9aca393295f2c205808a5b09b2a258b3d",
-      "new": "aa4d52f55ac0213944de5e1d6a382db3d9de83ec5ae764defd73bb644cf9075e",
-      "reason": "Stage 4: the merge, when it is the recommended action, is asked as that question alone, such as \"Merge pull request #1 into `main` and clean up?\", with no reason or rule added (Codex justified it by linking the instruction file)."
+      "new": "28012e1fb111db6a89350ad8833f0c5662e4e6f50cc61307a45b0a13dd4990bc",
+      "reason": "Stage 4: when the recommended action is the merge, that question is the report's last line, such as \"Merge pull request #1 into `main` and clean up?\", and nothing follows it — no reason, no rule and no reference to the instructions (Codex justified it by linking the instruction file)."
     }
   ]
 }

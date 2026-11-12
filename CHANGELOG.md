@@ -9,7 +9,7 @@ orchestration version; a code-review bump is stated inside it.
 ### Highlights
 
 **ship**
-- The handoff asks the merge alone, with no rule or file behind it
+- The handoff ends with the merge question; nothing follows it
 
 **multi-model**
 - Messages never name or link the instruction files being run
@@ -38,9 +38,9 @@ instruction file of the skills being run (their entry, workflow, profile or
 reference documents), unless the user asks about that file or the task is
 about it. A question that needs a reason gives the reason itself. A printed
 command is not an instruction file. critical-review says the same for its
-own files. ship's handoff asks the merge as that question alone, such as
-"Merge pull request #1 into `main` and clean up?", with no reason or rule
-added. `merge-cleanup-live.py` gains the frozen check
+own files. ship's handoff ends with the merge question, such as "Merge pull
+request #1 into `main` and clean up?", and nothing follows it: no reason, no
+rule and no reference to the instructions. `merge-cleanup-live.py` gains the frozen check
 `no_instruction_file_named` over every message the session shows the user,
 and it now also finds its marker in a skill that Claude Code loads.
 
