@@ -532,6 +532,10 @@ with tempfile.TemporaryDirectory() as tmp:
               'codex-wave-runner.mjs" --plan docs/plan.md --wave 1 --repo "$PWD"\'')
     ok &= check('a runner path with "$(dirname "$(realpath …)")" inside zsh -c is a runner call, with its --plan',
                 live.runner_calls([nested]) == (1, ['docs/plan.md']))
+    inside = ('/bin/zsh -c \'node "$(realpath .agents/skills/ship/../../skills/multi-model/references/codex-wave-runner.mjs)" '
+              '--plan "$PWD/docs/plan.md" --wave 1 --repo "$PWD"\'')
+    ok &= check('a runner path that ends inside "$(realpath …)" is a runner call, with its --plan',
+                live.runner_calls([inside]) == (1, ['$PWD/docs/plan.md']))
 
 # Instruction files named or linked in a message to the user.
 codex_msg = lambda t: {'type': 'item.completed', 'item': {'type': 'agent_message', 'text': t}}

@@ -315,9 +315,10 @@ def shell_script(cmd):
 
 
 _NAMES = '(?:' + '|'.join(re.escape(n) for n in WAVE_SCRIPTS) + ')'
-# node, then the script path: double-quoted (it may hold "$(realpath …)", or a substitution
-# with quotes of its own: "$(dirname "$(realpath …)")/…"), single-quoted, or bare.
-RUNNER_CALL = re.compile(r'\bnode\s+(?:"[^"\n]*' + _NAMES + r'"|"\$\([^\n]*?' + _NAMES + r'"|\'[^\'\n]*' + _NAMES
+# node, then the script path: double-quoted (it may hold "$(realpath …)", a substitution with
+# quotes of its own, "$(dirname "$(realpath …)")/…", or end inside one, "$(realpath …/x.mjs)"),
+# single-quoted, or bare.
+RUNNER_CALL = re.compile(r'\bnode\s+(?:"[^"\n]*' + _NAMES + r'"|"\$\([^\n]*?' + _NAMES + r'\)*"|\'[^\'\n]*' + _NAMES
                          + r'\'|[^\s;&|<>]*' + _NAMES + r')([^\n;&|]*)')
 
 
