@@ -322,12 +322,21 @@ RUNNER_CALL = re.compile(r'\bnode\s+(?:"[^"\n]*' + _NAMES + r'"|"\$\([^\n]*?' + 
                          + r'\'|[^\s;&|<>]*' + _NAMES + r')([^\n;&|]*)')
 
 
+# A shell variable set to a runner's path, as in `r=$(realpath …/codex-wave-runner.mjs)`.
+RUNNER_VAR = re.compile(r'\b([A-Za-z_]\w*)=[^\n;&|]*?(' + '|'.join(map(re.escape, WAVE_SCRIPTS)) + r')')
+
+
 def runner_calls(cmds):
     """How many times the session started a wave runner or the launcher with
-    node, and the --plan values of those calls."""
+    node, directly or through a variable set to its path, and the --plan
+    values of those calls."""
     calls, plans = 0, []
     for c in cmds:
-        for m in RUNNER_CALL.finditer(shell_script(c).replace('\\\n', ' ')):
+        script = shell_script(c).replace('\\\n', ' ')
+        for var, name in set(RUNNER_VAR.findall(script)):
+            script = re.sub(r'\bnode\s+"?\$(?:\{' + re.escape(var) + r'\}|' + re.escape(var) + r'\b)"?',
+                            lambda m: 'node ' + name, script)
+        for m in RUNNER_CALL.finditer(script):
             calls += 1
             plans += [v.strip('\'"') for v in re.findall(r'--plan(?:=|\s+)(\S+)', m.group(1))]
     return calls, plans
