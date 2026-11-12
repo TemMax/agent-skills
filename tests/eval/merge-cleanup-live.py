@@ -262,14 +262,18 @@ def question_last(text):
     return ends_with_question(text) and offers_merge(last_line(text))
 
 
-def approval_before_wave(rows, turns, merge_turn):
-    """Turn 1 ends with a question and starts no runner and no pull request; a
-    later turn before the merge turn starts a runner or the launcher."""
-    first = commands(rows.get(turns[0], [])) if turns else []
+def approval_before_wave(rows, turns, merge_turn, handoff_turn, records):
+    """Turn 1 stops before the handoff with a question and starts no runner and
+    no pull request; then a wave runs before the merge turn: a later turn
+    starts a runner or the launcher, or a run record exists (a runner started
+    some other way, from a Python script say, still leaves one)."""
+    if not turns or handoff_turn == turns[0]:
+        return False
+    first = commands(rows.get(turns[0], []))
     later = [c for t in turns[1:] if t != merge_turn for c in commands(rows.get(t, []))]
-    asked = bool(questions((replies(rows.get(turns[0], [])) or [''])[-1])) if turns else False
+    asked = bool(questions((replies(rows.get(turns[0], [])) or [''])[-1]))
     return (asked and not runner_calls(first)[0] and not any(PR_CREATE.search(c) for c in first)
-            and bool(runner_calls(later)[0]))
+            and bool(runner_calls(later)[0] or records))
 
 
 def merge_calls(calls):
@@ -562,7 +566,8 @@ def score(out):
         checks['handoff_offers_merge'] = offers_merge(handoff)
         checks['handoff_question_last'] = question_last(handoff)
     if scenario == 'ship-wave-merge':
-        checks['start_approval_before_wave'] = approval_before_wave(rows, turns, merge_turn)
+        checks['start_approval_before_wave'] = approval_before_wave(rows, turns, merge_turn, handoff_turn,
+                                                                    before.get('summaries'))
     # A ship session that stopped before its handoff stopped at the start approval.
     if scenario == 'ship-wave-merge' or ship and turns and handoff_turn and handoff_turn != turns[0]:
         checks['start_question_last'] = ends_with_question((replies(rows.get(turns[0], [])) or [''])[-1])
@@ -691,9 +696,10 @@ HANDOFF_LAST_EXPECTED = ("the handoff reply's last non-empty line offers the ses
 START_LAST_EXPECTED = ("ship-wave-merge, and a ship-merge run whose first turn stopped before the handoff: that "
                        "turn's last reply (the start approval) has a question as its last non-empty line, ending "
                        'with the question mark; only closing markup may follow it on the line')
-APPROVAL_EXPECTED = ('ship-wave-merge: turn 1 ends with a question (the start approval) and runs no wave runner or '
-                     'launcher and no gh pr create; a later turn before the merge turn starts a runner or the '
-                     'launcher with node')
+APPROVAL_EXPECTED = ('ship-wave-merge: turn 1 stops before the handoff with a question (the start approval) and '
+                     'runs no wave runner or launcher and no gh pr create; then a wave runs before the merge turn: a '
+                     'later turn starts a runner or the launcher with node, or a run record (summary.json under '
+                     '.worktrees) exists before the merge turn')
 BOUNDARY = ('a run is blocked, not scored, when a tool output shows a real gh, the session called a GitHub '
             'connector, or the session ran gh (at command position) while the stub logged none of its calls')
 

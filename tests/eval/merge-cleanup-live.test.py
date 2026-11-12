@@ -418,6 +418,11 @@ with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, waved=False))
     ok &= check('ship-wave-merge: no wave after the approval fails start_approval_before_wave',
                 checks['start_approval_before_wave'] is False)
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, waved=False,
+                                   records=('.worktrees/runs/wave-1/summary.json',)))
+    ok &= check('ship-wave-merge: a run record stands for a wave started some other way (from Python, say)',
+                checks['start_approval_before_wave'] is True)
 
 # The After the merge: command, scored in every scenario.
 RECORDS = ('.worktrees/runs/wave-1/summary.json',)
