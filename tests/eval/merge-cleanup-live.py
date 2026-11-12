@@ -36,7 +36,8 @@ Scenarios (--scenario):
              As ship-merge, but the user adds "Use agents for the
              implementation.", so the session plans a supervised wave: turn 1
              must end at super-plan's start approval, before any wave or pull
-             request, and a later turn runs the wave.
+             request, and a later turn runs the wave. In any ship run that
+             stops there, the approval's question is its last line.
 
 The candidate is loaded disposably, as in custom-out-cleanup-live.py: Claude
 from a `--plugin-dir` snapshot with `--setting-sources project`; Codex from
@@ -244,12 +245,21 @@ def offers_merge(text):
 QUESTION_END = re.compile(r'[?？][\s*_)\]"»”’`]*$')
 
 
+def last_line(text):
+    lines = [line for line in (text or '').splitlines() if line.strip()]
+    return lines[-1] if lines else ''
+
+
+def ends_with_question(text):
+    """The reply's last non-empty line is a question that ends it."""
+    last = last_line(text)
+    return bool(questions(last)) and bool(QUESTION_END.search(last))
+
+
 def question_last(text):
     """The reply ends with its merge offer: its last non-empty line offers the
     session's own merge and ends with that question's mark."""
-    lines = [line for line in (text or '').splitlines() if line.strip()]
-    last = lines[-1] if lines else ''
-    return offers_merge(last) and bool(QUESTION_END.search(last))
+    return ends_with_question(text) and offers_merge(last_line(text))
 
 
 def approval_before_wave(rows, turns, merge_turn):
@@ -542,6 +552,9 @@ def score(out):
         checks['handoff_question_last'] = question_last(handoff)
     if scenario == 'ship-wave-merge':
         checks['start_approval_before_wave'] = approval_before_wave(rows, turns, merge_turn)
+    # A ship session that stopped before its handoff stopped at the start approval.
+    if scenario == 'ship-wave-merge' or ship and turns and handoff_turn and handoff_turn != turns[0]:
+        checks['start_question_last'] = ends_with_question((replies(rows.get(turns[0], [])) or [''])[-1])
     # Every scenario leaves at least the feature branch before the merge, so the
     # last reply before the merge turn must carry the command after the merge,
     # with or without a plan.
@@ -664,6 +677,9 @@ HANDOFF_EXPECTED = ("the handoff reply's last sentence ending in a question mark
 HANDOFF_LAST_EXPECTED = ("the handoff reply's last non-empty line offers the session's own merge, by "
                          'handoff_offers_merge\'s rule applied to that line alone, and ends with the question mark; '
                          'only closing markup (*, _, ), ], `, quotes) may follow it on the line')
+START_LAST_EXPECTED = ("ship-wave-merge, and a ship-merge run whose first turn stopped before the handoff: that "
+                       "turn's last reply (the start approval) has a question as its last non-empty line, ending "
+                       'with the question mark; only closing markup may follow it on the line')
 APPROVAL_EXPECTED = ('ship-wave-merge: turn 1 ends with a question (the start approval) and runs no wave runner or '
                      'launcher and no gh pr create; a later turn before the merge turn starts a runner or the '
                      'launcher with node')
@@ -726,7 +742,8 @@ def main():
                                        **({'handoff_offers_merge': HANDOFF_EXPECTED,
                                            'handoff_question_last': HANDOFF_LAST_EXPECTED} if ship else {}),
                                        **({'start_approval_before_wave': APPROVAL_EXPECTED}
-                                          if args.scenario == 'ship-wave-merge' else {})})
+                                          if args.scenario == 'ship-wave-merge' else {}),
+                                       **({'start_question_last': START_LAST_EXPECTED} if ship else {})})
     meta = {'provider': args.provider, 'scenario': args.scenario, 'model': model, 'effort': args.effort,
             'versions': versions, 'base': base, 'pkg': str(pkg), 'repo': str(repo), 'cwd': str(cwd),
             'origin_url': seat.GH_URL, 'turns': [], 'driver_calls': [],

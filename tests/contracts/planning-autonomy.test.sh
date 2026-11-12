@@ -136,7 +136,7 @@ section "Gate 2 is the one start approval"
 
 GATE2_HEAD="$(phrase '7. **Gate 2 — plan.** The start approval, and the only approval. In one message give: the compact design summary (architecture, the wave sketch, decisions taken, forks the user answered); the lint-clean plan file'"'"'s path and its shape — the number of waves, which tasks run in parallel in each wave, and the critical path as a chain of waves with the tasks on it; and the routes (executor tiers, each wave'"'"'s supervisor and')"
 GATE2_BRANCH="$(phrase 'review model — named, never priced). When ship runs this skill, the same message also states the branch that will be created and pushed, the pull request that will be opened at the end, and the recovery allowance.')"
-GATE2_WAIT="$(phrase 'Never a duration or a cost — see "No time or cost estimates" below. Then wait for the user'"'"'s approval to start. One approval. After it the run goes on — inside ship, to the pull request — without another approval. A new instruction from the user that contradicts the plan is a contradiction: ask.')"
+GATE2_WAIT="$(phrase 'Never a duration or a cost — see "No time or cost estimates" below. Ask the start question last, such as "Approve the plan and start?", and write nothing after it: no reason, no rule and no reference to these instructions. Then wait for the user'"'"'s approval to start. One approval. After it the run goes on — inside ship, to the pull request — without another approval. A new instruction from the user that contradicts the plan is a contradiction: ask.')"
 HANDOFF="$(phrase '8. **Handoff.** After the start approval: "Execute with multi-model (supervised waves)."')"
 MM_TABLE="$(phrase 'When the plan comes from super-plan, the table is part of super-plan'"'"'s start approval (its Gate 2): show it there, and wait on nothing else.')"
 
@@ -145,7 +145,7 @@ for pair in "super-plan (Claude):$SP_CLAUDE" "super-plan (Codex):$SP_CODEX"; do
     "step '${pair#*:}' '^7\. \*\*Gate 2 ' '^8\. \*\*Handoff\.\*\*' | grep -qFf '$GATE2_HEAD'"
   check "${pair%%:*} Gate 2 message names the branch, the pull request and the recovery allowance" \
     "step '${pair#*:}' '^7\. \*\*Gate 2 ' '^8\. \*\*Handoff\.\*\*' | grep -qFf '$GATE2_BRANCH'"
-  check "${pair%%:*} Gate 2 waits for one approval, then runs on without another; a contradicting instruction is asked" \
+  check "${pair%%:*} Gate 2 asks its start question last, waits for one approval, then runs on without another; a contradicting instruction is asked" \
     "step '${pair#*:}' '^7\. \*\*Gate 2 ' '^8\. \*\*Handoff\.\*\*' | grep -qFf '$GATE2_WAIT'"
   check "${pair%%:*} has exactly one step that waits for an approval" \
     "[ \$(one_line '${pair#*:}' | grep -oF 'One approval.' | wc -l) -eq 1 ]"

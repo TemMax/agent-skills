@@ -277,7 +277,8 @@ def run_dir(tmp, scenario, final, merge_argv=('pr', 'merge', '1', '--squash'), r
             runner_plan='/x/repo/docs/plan.md', extra=(), handoff_after=None,
             approval='Plan ready: one task, one wave.\n\nApprove the plan and start?', approval_runner=False):
     handoff = f'Left behind: x\nAfter the merge: `{CMD}`\n\nMerge PR #1 into `main` now?' if handoff is None else handoff
-    summary = f'Left behind: x\nAfter the merge: `{CMD}`' if summary is None else summary
+    if summary is None:   # turn 1 of ship-merge, when it stops before the handoff, is the start approval
+        summary = approval if scenario == 'ship-merge' else f'Left behind: x\nAfter the merge: `{CMD}`'
     dry = {'into': 'origin/main', 'dryRun': True, 'removed': [], 'kept': [], 'command': CMD if printed is None else printed}
     out = Path(tmp) / scenario; pkg = out / 'package'; repo = out / 'repo'; cwd = repo
     (pkg / 'plugins/orchestration').mkdir(parents=True); repo.mkdir(parents=True)
@@ -400,8 +401,19 @@ with tempfile.TemporaryDirectory() as tmp:
                 sorted(k for k, v in checks.items() if not v) == ['start_approval_before_wave'])
 with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, approval='Plan ready: one task, one wave.'))
-    ok &= check('ship-wave-merge: a first turn that asks nothing fails exactly start_approval_before_wave',
-                sorted(k for k, v in checks.items() if not v) == ['start_approval_before_wave'])
+    ok &= check('ship-wave-merge: a first turn that asks nothing fails exactly its two start checks',
+                sorted(k for k, v in checks.items() if not v) == ['start_approval_before_wave', 'start_question_last'])
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, approval=(
+        'Plan ready.\n\nStart execution?\n\nThe [planning workflow](.agents/skills/super-plan/WORKFLOW.md) '
+        'requires: “wait for the user\'s approval to start.”')))
+    ok &= check('ship-wave-merge: a start approval citing the workflow after its question fails exactly '
+                'start_question_last and no_instruction_file_named',
+                sorted(k for k, v in checks.items() if not v) == ['no_instruction_file_named', 'start_question_last'])
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, summary='Plan ready.\n\nApprove the plan and start? (yes/no)'))
+    ok &= check('ship-merge: a start approval with text after its question fails exactly start_question_last',
+                sorted(k for k, v in checks.items() if not v) == ['start_question_last'])
 with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, waved=False))
     ok &= check('ship-wave-merge: no wave after the approval fails start_approval_before_wave',
@@ -448,7 +460,7 @@ with tempfile.TemporaryDirectory() as tmp:
 with tempfile.TemporaryDirectory() as tmp:
     # turn 1 of ship is the start approval, with no After the merge: line
     checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, handoff='Left behind: x\n\nMerge PR #1?',
-                                   summary='Plan approved? (yes/no)'))
+                                   summary='Plan ready.\n\nApprove the plan and start?'))
     failed = sorted(k for k, v in checks.items() if not v)
     ok &= check('ship-merge: a handoff with no After the merge: line fails exactly the two command checks',
                 failed == ['after_merge_as_printed', 'after_merge_written_out'])
@@ -469,7 +481,7 @@ with tempfile.TemporaryDirectory() as tmp:
                 failed == ['after_merge_plans_from_run'])
     if failed != ['after_merge_plans_from_run']: print(failed)
 with tempfile.TemporaryDirectory() as tmp:
-    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, summary=f'Left behind: x\nAfter the merge: `{CMD}`',
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, summary=f'Left behind: x\nAfter the merge: `{CMD}`\n\nStart?',
                                    handoff='Left behind: x\n\nMerge PR #1?'))
     failed = sorted(k for k, v in checks.items() if not v)
     ok &= check('ship-merge: an earlier turn\'s line does not stand in for a handoff without one',
@@ -500,7 +512,7 @@ with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'mm-merge', REPORT, waved=False, records=RECORDS))
     ok &= check('mm-merge: a run record before the merge turn counts as a wave run', all(checks.values()))
 with tempfile.TemporaryDirectory() as tmp:
-    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, summary='Plan approved? (yes/no)',
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, summary='Plan ready.\n\nApprove the plan and start?',
                                    handoff_after='The CI link is in the pull request.'))
     # (handoff_offers_merge reads the turn's last reply, by its own rule)
     ok &= check('ship-merge: a handoff turn with a second, shorter reply still scores the line of the handoff',
@@ -559,7 +571,7 @@ claude_rows = [{'type': 'assistant', 'message': {'content': [{'type': 'text', 't
                {'type': 'assistant', 'parent_tool_use_id': 'child', 'message': {'content': [{'type': 'text', 'text': 'SKILL.md says so'}]}}]
 ok &= check('a Claude text block counts, a child agent\'s does not', live.instruction_files_named(claude_rows) == ['WORKFLOW.md'])
 with tempfile.TemporaryDirectory() as tmp:
-    checks, facts = live.score(run_dir(tmp, 'ship-merge', REPORT, summary='Plan approved? (yes/no)',
+    checks, facts = live.score(run_dir(tmp, 'ship-merge', REPORT, summary='Plan ready.\n\nApprove the plan and start?',
                                        handoff=f'Left behind: x\nAfter the merge: `{CMD}`\n\n' + NAMED['the merge question justified by a link (Codex, 4.23.1)']))
     ok &= check('ship-merge: a handoff that links the skill file after its question fails exactly '
                 'no_instruction_file_named and handoff_question_last',

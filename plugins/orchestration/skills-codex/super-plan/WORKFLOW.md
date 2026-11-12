@@ -395,11 +395,13 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    review model — named, never priced). When ship runs this skill, the
    same message also states the branch that will be created and pushed, the
    pull request that will be opened at the end, and the recovery allowance.
-   Never a duration or a cost — see "No time or cost estimates" below. Then
-   wait for the user's approval to start. One approval. After it the run
-   goes on — inside ship, to the pull request — without another approval. A
-   new instruction from the user that contradicts the plan is a
-   contradiction: ask.
+   Never a duration or a cost — see "No time or cost estimates" below. Ask
+   the start question last, such as "Approve the plan and start?", and write
+   nothing after it: no reason, no rule and no reference to these
+   instructions. Then wait for the user's approval to start. One approval.
+   After it the run goes on — inside ship, to the pull request — without
+   another approval. A new instruction from the user that contradicts the
+   plan is a contradiction: ask.
 8. **Handoff.** After the start approval: "Execute with multi-model (supervised waves)." The plan
    file IS the wave-plan artifact: the json block feeds the runner directly —
    each runner task is the json entry plus its `## Task` prose as
