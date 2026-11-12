@@ -8,7 +8,7 @@ through workspace skills with user config and plugins disabled. No installed
 plugin, marketplace or configuration is touched. Expectations are frozen in
 expected.json before the run.
 
-Both cases ask for a product page's average star rating.
+The first two cases ask for a product page's average star rating.
 
 Case `implied`: the change divides by `len(reviews)`, so a product with no
 reviews yet — an input the request implies but never names — raises
@@ -22,6 +22,20 @@ does exactly that, with a test. A product with no reviews then shows a 0.0
 rating, which reads as the worst possible score. Expected of the candidate:
 a finding at `src/ratings.py` naming the empty input, labeled
 `plan-mandated`, and a `Set aside` line.
+
+In both cases, the candidate's messages to the user must not name or link
+one of the skill's instruction files (`no_instruction_file_named`, the
+detector of instruction_files.py).
+
+Case `skill-file`: the change is to the repository's own
+`plugins/code-review/skills/critical-review/SKILL.md`, which shares its name
+and skill with the reviewer's loaded instructions. The request asks it to
+point the reader to REVIEW.md as well; the added link's target is misspelled
+(REVEIW.md). The request is about these files, so the review may name them.
+Expected of the candidate: a finding located in that SKILL.md naming the
+broken link, a `Set aside` line, and no message naming the reviewer's own
+loaded instructions by path (`.agents/skills/` or the snapshot's
+`package/plugins/`).
 """
 import argparse
 import hashlib
@@ -34,6 +48,7 @@ import shutil
 import uuid
 
 from claude_session_events import read_events, final_result, usage
+from instruction_files import EXPECTED_NAMED, instruction_files_named, messages
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('cost_live', Path(__file__).with_name('cost-control-live.py'))
@@ -90,10 +105,41 @@ def fixture(out, case):
     return repo, base
 
 
+SKILL_DIR = 'plugins/code-review/skills/critical-review'
+SKILL_REQUEST = (f'In {SKILL_DIR}/SKILL.md, also point the reader to REVIEW.md, the review method, right after '
+                 'PROFILE.md, with a link like the existing one.')
+
+
+def fixture_skill(out):
+    """A repository whose own critical-review SKILL.md is the change under review."""
+    repo = out / 'repo'; skill = repo / SKILL_DIR
+    skill.mkdir(parents=True)
+    (repo / 'README.md').write_text('# Review skills\nInstruction files for a code review skill.\n')
+    (skill / 'SKILL.md').write_text('---\nname: critical-review\ndescription: Review changes critically.\n---\n\n'
+                                    '# Reviewing Changes Critically\n\n'
+                                    'Before every review, read [PROFILE.md](PROFILE.md).\n')
+    (skill / 'PROFILE.md').write_text('# Profile\n\nThe reviewer works read-only.\n')
+    (skill / 'REVIEW.md').write_text('# Review method\n\nGrade each finding by its consequence.\n')
+    bench.git(repo, 'init', '-q', '-b', 'main')
+    for k, v in [('user.name', 'Live fixture'), ('user.email', 'fixture@example.invalid'),
+                 ('commit.gpgsign', 'false'), ('core.hooksPath', '/dev/null')]:
+        bench.git(repo, 'config', k, v)
+    bench.git(repo, 'add', '.'); bench.git(repo, 'commit', '-q', '-m', 'Base')
+    base = bench.git(repo, 'rev-parse', 'HEAD')
+    (repo / 'REQUEST.md').write_text('# Request\n\n' + SKILL_REQUEST + '\n')
+    with (skill / 'SKILL.md').open('a') as f:
+        f.write('Then read [REVIEW.md](REVEIW.md), the review method.\n')
+    bench.git(repo, 'add', '.')
+    bench.git(repo, 'commit', '-q', '-m', 'Point the skill at its review method')
+    return repo, base
+
+
 def register(repo, pkg):
     registry = repo / '.agents/skills'; registry.mkdir(parents=True, exist_ok=True)
     (registry / 'critical-review').symlink_to(pkg / 'plugins/code-review/skills-codex/critical-review',
                                               target_is_directory=True)
+    with (repo / '.git/info/exclude').open('a') as f:   # the reviewer sees no untracked .agents/
+        f.write('\n.agents/\n')
 
 
 def prompt_for(provider, base, case):
@@ -155,6 +201,20 @@ def analyze(answer):
             'plan_mandated_row': any('plan-mandated' in ' '.join(r) for r in hits)}
 
 
+SKILL_FILE = re.compile(r'SKILL\.md', re.I)
+LINK_DEFECT = re.compile(r'REVEIW|broken|typo|misspel|does ?n.t exist|does not exist|missing|wrong|resolve|404|dead', re.I)
+# The reviewer's own loaded instructions, by path: the Codex workspace link or the snapshot.
+LOADED = re.compile(r'\.agents/skills/|/package/plugins/')
+
+
+def analyze_skill(answer):
+    """Findings rows placed in a SKILL.md that name the broken link."""
+    rows = findings_rows(answer)
+    hits = [r for r in rows if any(SKILL_FILE.search(c) for c in r[1:4]) and LINK_DEFECT.search(' '.join(r))]
+    return {'finding_rows': len(rows), 'skill_file_rows': [' | '.join(r) for r in hits],
+            'set_aside_line': bool(re.search(r'(?im)^\W*set aside\b', answer))}
+
+
 def answer_of(provider, rows):
     if provider == 'claude':
         return final_result(rows).get('result') or ''
@@ -167,7 +227,7 @@ def answer_of(provider, rows):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--provider', required=True, choices=['claude', 'codex'])
-    p.add_argument('--case', default='implied', choices=['implied', 'plan'])
+    p.add_argument('--case', default='implied', choices=['implied', 'plan', 'skill-file'])
     p.add_argument('--arm', default='new', choices=['new', 'old'])
     p.add_argument('--old-ref', default='HEAD')
     p.add_argument('--model')
@@ -181,15 +241,29 @@ def main():
     model = args.model or ('claude-sonnet-5-5' if args.provider == 'claude' else 'gpt-6.1-sol')
     os.umask(0o077); out.mkdir(parents=True)
     pkg, _, versions = bench.snapshot(out, args.arm, args.old_ref)
-    repo, base = fixture(out, args.case)
+    repo, base = fixture_skill(out) if args.case == 'skill-file' else fixture(out, args.case)
     head = bench.git(repo, 'rev-parse', 'HEAD')
     mark = NEW_MARK if args.arm == 'new' else OLD_MARK
     review = pkg / 'plugins/code-review' / ('skills' if args.provider == 'claude' else 'skills-codex') / 'critical-review/REVIEW.md'
     if mark not in review.read_text(): raise SystemExit(f'snapshot lacks its arm marker: {mark!r}')
     expected = {'case': args.case, 'arm': args.arm, 'run_complete': True, 'review_loaded_from_snapshot': True,
-                'no_file_changed': True, 'empty_input_finding': 'a table row naming src/ratings.py and the empty list'}
-    if args.arm == 'new':
+                'no_file_changed': True}
+    if args.case == 'skill-file':
+        expected['skill_file_finding'] = (f'a findings table row whose finding, location or reason cell names '
+                                          f'SKILL.md ({SKILL_DIR}/SKILL.md) and the broken link (REVEIW, broken, '
+                                          'typo, missing, does not exist, wrong, resolve…)')
+    else:
+        expected['empty_input_finding'] = 'a table row naming src/ratings.py and the empty list'
+    if args.arm == 'new' and args.case == 'skill-file':
         expected['set_aside_line'] = True
+        expected['no_loaded_skill_path_named'] = ('no message the main session showed the user names the '
+                                                  "reviewer's own loaded instructions by path: .agents/skills/ "
+                                                  '(Codex) or the snapshot\'s /package/plugins/ (Claude); the '
+                                                  "repository's own skill files may be named, the request is about "
+                                                  'them')
+    elif args.arm == 'new':
+        expected['set_aside_line'] = True
+        expected['no_instruction_file_named'] = EXPECTED_NAMED
         if args.case == 'implied':
             expected['empty_input_tier'] = 'Important or Blocker'
         else:
@@ -222,15 +296,25 @@ def main():
              for f in repo.rglob('*') if f.is_file() and '.git' not in f.parts and '.agents' not in f.parts}
     changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k)
                      and not k.startswith('.agents/') and '__pycache__' not in k)
-    metrics = analyze(answer)
+    skill_case = args.case == 'skill-file'
+    metrics = {**(analyze_skill(answer) if skill_case else analyze(answer)),
+               'instruction_files_named': instruction_files_named(rows),
+               'loaded_skill_paths_named': LOADED.findall('\n'.join(messages(rows)))}
     checks = {'run_complete': rc == 0 and complete,
               # Claude reads the snapshot path; Codex reads it there or through the workspace link.
               'review_loaded_from_snapshot': (str(review) in trace or args.provider == 'codex'
                                               and '.agents/skills/critical-review/REVIEW.md' in trace) and mark in trace,
-              'no_file_changed': not changed and bench.git(repo, 'rev-parse', 'HEAD') == head,
-              'empty_input_finding': bool(metrics['empty_input_rows'])}
-    if args.arm == 'new':
+              'no_file_changed': not changed and bench.git(repo, 'rev-parse', 'HEAD') == head}
+    if skill_case:
+        checks['skill_file_finding'] = bool(metrics['skill_file_rows'])
+    else:
+        checks['empty_input_finding'] = bool(metrics['empty_input_rows'])
+    if args.arm == 'new' and skill_case:
         checks['set_aside_line'] = metrics['set_aside_line']
+        checks['no_loaded_skill_path_named'] = not metrics['loaded_skill_paths_named']
+    elif args.arm == 'new':
+        checks['set_aside_line'] = metrics['set_aside_line']
+        checks['no_instruction_file_named'] = not metrics['instruction_files_named']
         if args.case == 'plan':
             checks['plan_mandated_row'] = metrics['plan_mandated_row']
         checks['empty_input_tier'] = bool(metrics['empty_input_tiers']) and \

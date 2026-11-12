@@ -4,6 +4,76 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.23.2
+
+### Highlights
+
+**ship**
+- The handoff ends with the merge question; nothing follows it
+
+**multi-model**
+- Messages never name or link the instruction files being run
+
+**super-plan**
+- On Codex the start approval still links an instruction file
+
+**critical-review**
+- Messages never name or link the review's instruction files
+
+Orchestration 4.23.2 and code-review 1.21.1 apply to Claude Code and Codex.
+
+**What was wrong.** The skills kept instruction filenames out of "updates"
+and "routine messages", but said nothing about questions to the user or the
+final report. Codex then justified its questions with the instruction that
+asks for them, linking the file. In ship's handoff it wrote `Shall I merge
+PR #1? The [ship instructions](…/SKILL.md) require merging “only when the
+user asks for it.”` At ship's start approval it linked the planning
+workflow file. The live checks of 4.23.0 and 4.23.1 saw this in 3 of 7
+Codex ship runs, and never on Claude Code.
+
+**What changes.** Every orchestration entry point, on both hosts, adds a rule
+for every message to the user, whether an update, a question, an approval
+request or the final report. Such a message never names, quotes or links an
+instruction file of the skills being run (their entry, workflow, profile or
+reference documents), unless the user asks about that file or the task is
+about it. A question that needs a reason gives the reason itself, not the
+skill instruction that asks for it. A printed command is not an instruction
+file. critical-review gets the rule for its own files in one sentence: never
+name, quote or link them unless the user's request is about them. ship's
+handoff asks the merge question last, such as `Merge pull request #<n> into
+<default branch> and clean up?`, and writes nothing after it: no reason, no
+rule and no reference to the instructions.
+
+**Not fixed: the start approval on Codex.** When a planned run stops for its
+start approval, Codex still cites an instruction file, the planning skill's
+in 11 of 12 live runs and ship's in the other, under the rule and under
+three more wordings of that step, which were reverted. Most likely this is
+Codex's own system prompt, which ranks above a skill: after any question
+for confirmation, it asks the model to explain in a separate paragraph where
+the requirement came from, with "a SKILL.md" as its example. Claude Code
+follows the rule there.
+
+**Checked.** Offline, the communication contract pins the rule in all eight
+entry points, the merge contract pins the handoff's last line (111 checks),
+the merge driver's offline tests cover the new checks and the new
+`ship-wave-merge` scenario (170 cases), and the full suite passes. Live
+checks ran on Claude Code 2.1.322 and Codex CLI 0.167.0, with the candidate
+loaded from a disposable copy, over eight rounds and three independent
+reviews. Before the change, 1 of 5 Codex ship handoffs linked ship's
+`SKILL.md` right after the merge question. The rule left 1 of 4; with the
+merge question asked alone, 1 of 6. Since the question is the handoff's
+last line with nothing after it, none of 24 Codex handoffs named a file and
+each ended with the question: 3 of 15 before against 0 of 24 (one-sided
+Fisher's exact test, p ≈ 0.05). multi-model, and critical-review on its own,
+passed every check on both hosts, and no Claude Code message named an
+instruction file. Reviewing a change to its own `SKILL.md`, critical-review
+cited that file on both hosts, as the exception allows; the orchestration
+exception did not run live. Over all rounds the Claude Code sessions cost
+$38.88, all on Fable 5.2 but two critical-review runs on Sonnet 5.5
+($0.26), and the Codex seat sessions used 74.8M input (72.2M cached) and
+221k output tokens, the wave runners' children not counted;
+`tests/eval/instruction-files-results-2026-11-12.md`.
+
 ## 4.23.1
 
 ### Highlights

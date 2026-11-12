@@ -3,7 +3,7 @@ name: ship
 description: 'Use when the user wants the complete delivery pipeline from planning through a reviewed pull request. Do not use for a single planning, implementation, or review stage; merge only when the user asks. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.23.1
+  version: 4.23.2
 ---
 
 # Shipping a Feature (ship)
@@ -20,6 +20,13 @@ Resolve relative resource paths from this SKILL.md's physical directory. Resolve
 
 Do not narrate loading or selecting internal instructions. Say which task or
 check you will perform.
+
+In every message to the user — an update, a question, an approval request or
+the final report — never name, quote or link an instruction file of the
+skills you are running (their entry, workflow, profile or reference
+documents), unless the user asks about that file or the task is about it.
+When a question needs a reason, give the reason itself, not the skill
+instruction that asks for it. A command you print is not an instruction file.
 
 Start with the task and next useful action. Progress and completion messages
 cover changes, findings, checks, and remaining blockers. Select profiles silently;

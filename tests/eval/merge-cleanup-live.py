@@ -29,8 +29,14 @@ Scenarios (--scenario):
              start approval; "Approved — start the run." follows, then at most
              two "Proceed with your recommendation." until the handoff (a pull
              request exists and the reply carries `Left behind:`), which should
-             offer the merge. Last turn: "Yes — merge it." Expected: as mm-merge,
-             for the branch the pull request names.
+             offer the merge as its last line, with nothing after it. Last turn:
+             "Yes — merge it." Expected: as mm-merge, for the branch the pull
+             request names.
+  ship-wave-merge
+             As ship-merge, but the user adds "Use agents for the
+             implementation.", so the session plans a supervised wave: turn 1
+             must end at super-plan's start approval, before any wave or pull
+             request, and a later turn runs the wave.
 
 The candidate is loaded disposably, as in custom-out-cleanup-live.py: Claude
 from a `--plugin-dir` snapshot with `--setting-sources project`; Codex from
@@ -43,10 +49,12 @@ ahead of the stub on PATH, so Codex sessions run with
 `allow_login_shell=false`. A run whose session reached a real gh or a GitHub
 connector is reported as blocked (exit 2), not scored as the product's result.
 In every scenario the last reply before the merge turn with an `After the
-merge:` line (in ship-merge, the handoff's own) must hold the cleanup command
+merge:` line (in ship, the handoff's own) must hold the cleanup command
 itself, written out, word for word as a `--dry-run` report printed it (the two
 checks of custom-out-cleanup-live.py), and each `--plan` in it must be a plan a
-wave ran with. Expectations are frozen in expected.json before the host starts.
+wave ran with. No message to the user may name or link an instruction file
+(SKILL.md, WORKFLOW.md, a profile, a reference document; instruction_files.py).
+Expectations are frozen in expected.json before the host starts.
 The state before the merge turn goes to state-before.json and after it to
 state-after.json; checks.json is computed from those files, the traces and the
 stub's call log, and `--score DIR` recomputes it.
@@ -63,6 +71,9 @@ import subprocess
 import uuid
 
 from claude_session_events import read_events
+# Instruction files named or linked in a message to the user (shared with
+# review-content-live.py).
+from instruction_files import EXPECTED_NAMED, instruction_files_named, skill_bodies
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -75,12 +86,13 @@ def load(name, file):
 
 cleanup = load('out_live', 'custom-out-cleanup-live.py')
 bench, plan_live, seat = cleanup.bench, cleanup.plan_live, cleanup.seat
-SCENARIOS = ('mm-merge', 'mm-merged-worktree', 'ship-merge')
+SCENARIOS = ('mm-merge', 'mm-merged-worktree', 'ship-merge', 'ship-wave-merge')
+SHIP_SCENARIOS = ('ship-merge', 'ship-wave-merge')
 WAVE_SCRIPTS = ('claude-wave-runner.mjs', 'codex-wave-runner.mjs', 'wave-launch.mjs')
 FEATURE = 'feature/durations'
 SEAT = cleanup.SEAT
-# Text only the candidate's after-the-merge instructions carry.
-FIX_MARK = 'Take that command from the `command` field that'
+# Text only the candidate's instructions carry.
+FIX_MARK = 'never name, quote or link an instruction file of the skills you are running'
 TASK_FILES = {'src/durations.py', 'tests/test_durations.py'}
 SHIP_REQUEST = ('Add `parse_duration(text)` in a new module `src/durations.py`: it turns strings such as '
                 '"1h30m", "45s" and "2m" into whole seconds. Each unit (h, m, s) appears at most once and in '
@@ -120,6 +132,7 @@ AT_CMD = (r'(?:^[ \t]*|[;&|({]\s*|\$\(\s*|\b(?:then|do|else|time|command|exec|xa
           r'|\b[A-Z_][A-Z0-9_]*=\S*\s+)(?:[\w./~-]*/)?')
 GH_RUN = re.compile(AT_CMD + r'gh\s+[a-z]', re.M)
 MERGE_RUN = re.compile(AT_CMD + r'gh\s+pr\s+merge\b', re.M)
+PR_CREATE = re.compile(AT_CMD + r'gh\s+pr\s+create\b', re.M)
 VIEW_RUN = re.compile(AT_CMD + r'gh\s+(?:pr\s+view\b|api\s+\S*pulls/\d+)[^\n;&|]*', re.M)
 CLEANUP_RUN = re.compile(AT_CMD + r'node\s+(?:\S*/)?wave-cleanup\.mjs\b(?![^\n;&|]*--(?:dry-run|help)\b)', re.M)
 GIT_AT = AT_CMD + r'git(?:\s+(?:-[Cc]\s+\S+|--git-dir(?:=|\s+)\S+|--work-tree(?:=|\s+)\S+|--no-pager|-P))*\s+'
@@ -144,10 +157,11 @@ TRUE, FALSE = {'true', 'True', 'TRUE', 't', 'T', '1'}, {'false', 'False', 'FALSE
 
 
 def prompt_1(provider, scenario, repo):
-    if scenario != 'ship-merge':
+    if scenario not in SHIP_SCENARIOS:
         return cleanup.prompt_1(provider, repo, 'session')
     skill = 'orchestration:ship' if provider == 'claude' else '$ship'
-    text = f'Use {skill} for the change below.\n\nChange: {SHIP_REQUEST}\n'
+    agents = ' Use agents for the implementation.' if scenario == 'ship-wave-merge' else ''
+    text = f'Use {skill} for the change below.{agents}\n\nChange: {SHIP_REQUEST}\n'
     if provider == 'codex':
         text += 'This session runs outside a sandbox; the runner sandboxes each child it starts.\n'
     return text
@@ -174,7 +188,7 @@ def command(provider, first, sid, cwd, pkg, model, effort, budget, plugins):
 
 def register(cwd, pkg, scenario):
     """Codex workspace skills linked to the snapshot, kept out of git status."""
-    skills = SHIP_SKILLS if scenario == 'ship-merge' else {'orchestration': ['multi-model', 'super-plan']}
+    skills = SHIP_SKILLS if scenario in SHIP_SCENARIOS else {'orchestration': ['multi-model', 'super-plan']}
     registry = cwd / '.agents/skills'; registry.mkdir(parents=True, exist_ok=True)
     for plugin, names in skills.items():
         for name in names:
@@ -226,6 +240,58 @@ def offers_merge(text):
     return bool(own and not HANDS_BACK_YOU.search(found[-1]) and not HANDS_BACK.search(found[-1][:own.start()]))
 
 
+# The question mark ends the line; only closing markup may follow it.
+QUESTION_END = re.compile(r'[?？][\s*_)\]"»”’`]*$')
+
+
+def last_line(text):
+    lines = [line for line in (text or '').splitlines() if line.strip()]
+    return lines[-1] if lines else ''
+
+
+def ends_with_question(text):
+    """The reply's last non-empty line is a question that ends it."""
+    last = last_line(text)
+    return bool(questions(last)) and bool(QUESTION_END.search(last))
+
+
+def after_last_question(text):
+    """What a reply says after its last question mark, on that line and below."""
+    lines = (text or '').splitlines()
+    marks = [i for i, line in enumerate(lines) if questions(line)]
+    if not marks:
+        return (text or '').strip()
+    line = lines[marks[-1]]
+    rest = line[max(line.rfind('?'), line.rfind('？')) + 1:]
+    return re.sub(r'^[\s*_)\]"»”’`]+', '', '\n'.join([rest] + lines[marks[-1] + 1:])).strip()
+
+
+def question_last(text):
+    """The reply ends with its merge offer: its last non-empty line offers the
+    session's own merge and ends with that question's mark."""
+    return ends_with_question(text) and offers_merge(last_line(text))
+
+
+def approval_before_wave(rows, turns, merge_turn, handoff_turn, records, after_first=None, calls=()):
+    """Turn 1 stops before the handoff with a question and starts no runner and
+    no pull request; then a wave runs before the merge turn: a later turn
+    starts a runner or the launcher, or a run record exists (a runner started
+    some other way, from a Python script say, still leaves one). When the run
+    kept the state after turn 1, that turn left no run record and the stub
+    logged no pull request created in it."""
+    if not turns or handoff_turn == turns[0]:
+        return False
+    if after_first is not None:
+        early = calls[:after_first.get('gh_calls', 0)]
+        if after_first.get('summaries') or any(c.get('argv', [])[:2] == ['pr', 'create'] for c in early):
+            return False
+    first = commands(rows.get(turns[0], []))
+    later = [c for t in turns[1:] if t != merge_turn for c in commands(rows.get(t, []))]
+    asked = bool(questions((replies(rows.get(turns[0], [])) or [''])[-1]))
+    return (asked and not runner_calls(first)[0] and not any(PR_CREATE.search(c) for c in first)
+            and bool(runner_calls(later)[0] or records))
+
+
 def merge_calls(calls):
     return [c for c in calls if c.get('argv', [])[:2] == ['pr', 'merge']]
 
@@ -269,17 +335,28 @@ def shell_script(cmd):
 
 
 _NAMES = '(?:' + '|'.join(re.escape(n) for n in WAVE_SCRIPTS) + ')'
-# node, then the script path: double- or single-quoted (it may hold "$(realpath …)"), or bare.
-RUNNER_CALL = re.compile(r'\bnode\s+(?:"[^"\n]*' + _NAMES + r'"|\'[^\'\n]*' + _NAMES + r'\'|[^\s;&|<>]*' + _NAMES
-                         + r')([^\n;&|]*)')
+# node, then the script path: double-quoted (it may hold "$(realpath …)", a substitution with
+# quotes of its own, "$(dirname "$(realpath …)")/…", or end inside one, "$(realpath …/x.mjs)"),
+# single-quoted, or bare.
+RUNNER_CALL = re.compile(r'\bnode\s+(?:"[^"\n]*' + _NAMES + r'"|"\$\([^\n]*?' + _NAMES + r'\)*"|\'[^\'\n]*' + _NAMES
+                         + r'\'|[^\s;&|<>]*' + _NAMES + r')([^\n;&|]*)')
+
+
+# A shell variable set to a runner's path, as in `r=$(realpath …/codex-wave-runner.mjs)`.
+RUNNER_VAR = re.compile(r'\b([A-Za-z_]\w*)=[^\n;&|]*?(' + '|'.join(map(re.escape, WAVE_SCRIPTS)) + r')')
 
 
 def runner_calls(cmds):
     """How many times the session started a wave runner or the launcher with
-    node, and the --plan values of those calls."""
+    node, directly or through a variable set to its path, and the --plan
+    values of those calls."""
     calls, plans = 0, []
     for c in cmds:
-        for m in RUNNER_CALL.finditer(shell_script(c).replace('\\\n', ' ')):
+        script = shell_script(c).replace('\\\n', ' ')
+        for var, name in set(RUNNER_VAR.findall(script)):
+            script = re.sub(r'\bnode\s+"?\$(?:\{' + re.escape(var) + r'\}|' + re.escape(var) + r'\b)"?',
+                            lambda m: 'node ' + name, script)
+        for m in RUNNER_CALL.finditer(script):
             calls += 1
             plans += [v.strip('\'"') for v in re.findall(r'--plan(?:=|\s+)(\S+)', m.group(1))]
     return calls, plans
@@ -455,7 +532,8 @@ def score(out):
     after = json.loads((out / 'state-after.json').read_text()) if (out / 'state-after.json').exists() else {}
     merge_turn, handoff_turn = meta.get('merge_turn'), meta.get('handoff_turn')
     prs = pr_list(out)
-    feature = (prs[0]['headRefName'] if prs else None) if scenario == 'ship-merge' else FEATURE
+    ship = scenario in SHIP_SCENARIOS
+    feature = (prs[0]['headRefName'] if prs else None) if ship else FEATURE
     # The driver's own calls all come before the merge turn starts.
     calls = gh_log(out)
     merge_session = calls[meta['merge_turn_calls_from']:] if 'merge_turn_calls_from' in meta else []
@@ -470,13 +548,13 @@ def score(out):
         plugin = next((p for p in cleanup.init_plugins(first) if p.get('name') == 'orchestration'), {})
         loaded = plugin.get('path') == str(pkg / 'plugins/orchestration') and plugin.get('version') == meta['versions']['orchestration']
     else:
-        name = 'ship' if scenario == 'ship-merge' else 'multi-model'
+        name = 'ship' if ship else 'multi-model'
         loaded = os.path.realpath(cwd / '.agents/skills' / name).startswith(os.path.realpath(pkg) + os.sep)
     detached = scenario == 'mm-merged-worktree'
     pr = prs[0] if prs else {}
     checks = {
         'candidate_loaded': loaded,
-        'instruction_read': any(FIX_MARK in flat(t) for t in outputs(all_rows)),
+        'instruction_read': any(FIX_MARK in flat(t) for t in outputs(all_rows) + skill_bodies(all_rows)),
         'turns_complete': bool(turns) and all(complete(rows.get(t, []), status.get(t)) for t in turns),
         'feature_pushed_and_green': bool(before) and TASK_FILES <= set(before.get('feature_files') or [])
                                     and before.get('feature_tests_rc') == 0 and before.get('origin_main') == meta['base'],
@@ -498,15 +576,21 @@ def score(out):
                               and not manual_branch_removal(merge_cmds, feature or FEATURE),
         'merge_confirmed_before_cleanup': confirmed_before_cleanup(steps(merge_rows), merge_session, feature or FEATURE),
         'no_question_after_merge': bool(merge_rows) and not asks(final),
+        'no_instruction_file_named': not instruction_files_named(all_rows),
     }
-    if scenario == 'ship-merge':
+    if ship:
         checks['handoff_offers_merge'] = offers_merge(handoff)
+        checks['handoff_question_last'] = question_last(handoff)
+    if scenario == 'ship-wave-merge':
+        checks['start_approval_before_wave'] = approval_before_wave(rows, turns, merge_turn, handoff_turn,
+                                                                    before.get('summaries'), meta.get('after_turn_1'),
+                                                                    calls)
     # Every scenario leaves at least the feature branch before the merge, so the
     # last reply before the merge turn must carry the command after the merge,
     # with or without a plan.
     pre_rows = [r for t in turns if t != merge_turn for r in rows.get(t, [])]
     # ship: the handoff itself, never an earlier turn's line.
-    source = rows.get(handoff_turn, []) if scenario == 'ship-merge' and handoff_turn else pre_rows
+    source = rows.get(handoff_turn, []) if ship and handoff_turn else pre_rows
     carrying = [t for t in replies(source) if re.search(cleanup.MARK.format('after the merge'), t)]
     pre_reply = carrying[-1] if carrying else ''
     written = cleanup.after_merge_written(pre_reply)
@@ -532,10 +616,13 @@ def score(out):
              'merge_turn_commands': merge_cmds, 'merge_turn_reports': merge_reports,
              'manual_branch_removal': manual_branch_removal(merge_cmds, feature or FEATURE),
              'handoff_last_question': (questions(handoff) or [''])[-1], 'final_questions': questions(final),
+             'start_approval_tail': after_last_question((replies(rows.get(turns[0], [])) or [''])[-1])
+                                    if ship and turns and handoff_turn != turns[0] else None,
              'after_merge_command': cleanup.after_merge_written(pre_reply),
              'after_merge_commands': cleanup.after_merge_commands(pre_reply),
              'printed_commands': [' '.join(w) for w in cleanup.printed_commands(pre_rows) if w],
              'run_records_before': before.get('summaries'), 'after_merge_plans': plans, 'wave_ran': waved,
+             'instruction_files_named': instruction_files_named(all_rows),
              'runner_calls': started, 'runner_plans': run_plans,
              'final_reply': final,
              'head_after': after.get('head_branch'), 'branches_after': after.get('branches'),
@@ -568,14 +655,14 @@ def spend(out, provider, turns):
 EXPECTED = {
     'candidate_loaded': 'claude: the init event lists the snapshot plugin and version; codex: the workspace '
                         'skill resolves into the snapshot',
-    'instruction_read': f'a tool output carries the new after-the-merge text ({FIX_MARK!r})',
+    'instruction_read': f'a tool output or a Claude skill load carries the candidate\'s new text ({FIX_MARK!r})',
     'turns_complete': 'every invocation ends in success',
     'feature_pushed_and_green': 'before the merge turn the feature branch on origin has src/durations.py and '
                                 'tests/test_durations.py, its tests pass, and origin main is unchanged',
     'pr_ready_before_merge': 'pull request #1 from the feature branch into main exists before the merge turn: open '
-                             '(mm-merge, ship-merge) or merged by the driver (mm-merged-worktree)',
-    'merge_by_session': 'mm-merge, ship-merge: exactly one successful gh pr merge in the merge turn, a squash '
-                        '(--squash, --squash=true or -s), and no merge attempt with --admin, --auto, '
+                             '(mm-merge and the ship scenarios) or merged by the driver (mm-merged-worktree)',
+    'merge_by_session': 'mm-merge and the ship scenarios: exactly one successful gh pr merge in the merge turn, '
+                        'a squash (--squash, --squash=true or -s), and no merge attempt with --admin, --auto, '
                         '--delete-branch or -d; mm-merged-worktree: no gh pr merge at all',
     'merged_on_origin': 'the pull request is merged, origin main has the task files and its tests pass',
     'checkout_left_feature': 'after the merge turn the checkout is at origin main: on main, or detached in '
@@ -598,8 +685,8 @@ EXPECTED = {
                                       'merge-tree, branch --contains or --merged); commands count at command '
                                       'position, indented lines, if/while, ! and VAR=value prefixes included',
     'after_merge_written_out': cleanup.AFTER_MERGE_WRITTEN_OUT.format(
-        reply='the last reply before the merge turn with an After the merge: line, in ship-merge the last such reply '
-              'of the handoff turn (no such reply fails)'),
+        reply='the last reply before the merge turn with an After the merge: line, in the ship scenarios the last '
+              'such reply of the handoff turn (no such reply fails)'),
     'after_merge_as_printed': cleanup.AFTER_MERGE_AS_PRINTED.format(turn='a turn before the merge turn'),
     'after_merge_plans_from_run': 'every --plan of the command written out is a plan the run executed: none under '
                                   '.git; none at all when no wave ran before the merge turn (no summary.json under '
@@ -607,6 +694,7 @@ EXPECTED = {
                                   'codex-wave-runner.mjs or wave-launch.mjs); and, when those calls name --plan '
                                   'values, each one of them (the same path, or the same file name; any plan when '
                                   'a call gives --plan through a shell variable)',
+    'no_instruction_file_named': EXPECTED_NAMED,
     'no_question_after_merge': "the merge turn's last reply has no sentence ending in a question mark (? or ？) "
                                'outside code and links, and offers no more work (shall/should I, do you want '
                                'me, would you like me, want me to — not "whether you want me to" —, let me '
@@ -618,6 +706,14 @@ HANDOFF_EXPECTED = ("the handoff reply's last sentence ending in a question mark
                     'the branch, or "… or merge"/"… and then merge"; it does not hand the merge back ("Will you merge '
                     '…?", "… before you merge?", "Once you have merged it, …"), and "before/once … merged/after the '
                     'merge" ahead of the offered verb hands it back too; text may follow it')
+HANDOFF_LAST_EXPECTED = ("the handoff reply's last non-empty line offers the session's own merge, by "
+                         'handoff_offers_merge\'s rule applied to that line alone, and ends with the question mark; '
+                         'only closing markup (*, _, ), ], `, quotes) may follow it on the line')
+APPROVAL_EXPECTED = ('ship-wave-merge: turn 1 stops before the handoff with a question (the start approval), runs '
+                     'no wave runner or launcher and no gh pr create, and leaves no summary.json under .worktrees '
+                     'and no pull request created in the stub\'s log (meta.json after_turn_1); then a wave runs '
+                     'before the merge turn: a later turn starts a runner or the launcher with node, or a run record '
+                     '(summary.json under .worktrees) exists before the merge turn')
 BOUNDARY = ('a run is blocked, not scored, when a tool output shows a real gh, the session called a GitHub '
             'connector, or the session ran gh (at command position) while the stub logged none of its calls')
 
@@ -643,7 +739,7 @@ def main():
     if out.exists(): p.error('Fresh result directory required; do not overwrite failures')
     if out.is_relative_to(ROOT): p.error('Results must be outside the repository')
     model = args.model or SEAT[args.provider]
-    ship = args.scenario == 'ship-merge'
+    ship = args.scenario in SHIP_SCENARIOS
     os.umask(0o077); out.mkdir(parents=True)
     pkg, _, versions = bench.snapshot(out, 'new', 'HEAD')
     repo, _ = plan_live.fixture(out, 'interfaces')
@@ -674,7 +770,10 @@ def main():
     plugins = ('orchestration', 'code-review') if ship else ('orchestration',)
     bench.dump(out / 'expected.json', {'provider': args.provider, 'scenario': args.scenario, 'seat_model': model,
                                        'effort': args.effort, **EXPECTED, 'boundary': BOUNDARY,
-                                       **({'handoff_offers_merge': HANDOFF_EXPECTED} if ship else {})})
+                                       **({'handoff_offers_merge': HANDOFF_EXPECTED,
+                                           'handoff_question_last': HANDOFF_LAST_EXPECTED} if ship else {}),
+                                       **({'start_approval_before_wave': APPROVAL_EXPECTED}
+                                          if args.scenario == 'ship-wave-merge' else {})})
     meta = {'provider': args.provider, 'scenario': args.scenario, 'model': model, 'effort': args.effort,
             'versions': versions, 'base': base, 'pkg': str(pkg), 'repo': str(repo), 'cwd': str(cwd),
             'origin_url': seat.GH_URL, 'turns': [], 'driver_calls': [],
@@ -706,6 +805,11 @@ def main():
 
     name, ok, rows = turn(prompt_1(args.provider, args.scenario, cwd), 1200 if ship else 2400, args.budget_usd)
     if ship:
+        # What turn 1 left, so a wave or pull request started before the start approval shows.
+        wt = cwd / '.worktrees'
+        meta['after_turn_1'] = {'summaries': sorted(str(p.relative_to(cwd)) for p in wt.rglob('summary.json'))
+                                if wt.is_dir() else [], 'gh_calls': len(gh_log(out))}
+        bench.dump(out / 'meta.json', meta)
         for prompt, timeout in ((seat.APPROVE, 3600), (seat.PROCEED, 900), (seat.PROCEED, 900)):
             text = (replies(rows) or [''])[-1]
             if not ok or (pr_list(out) and re.search(cleanup.MARK.format('left behind'), text)):

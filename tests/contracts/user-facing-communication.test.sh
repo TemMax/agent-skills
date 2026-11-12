@@ -26,6 +26,21 @@ for path in skills:
                    'model-selection question', 'approval artifacts']:
         if phrase not in text:
             errors.append(f'{path}: missing {phrase!r}')
+    # Codex linked the instruction file that asks a question as its reason
+    # (ship's handoff and start approval, 4.23.0 and 4.23.1 live checks).
+    flat = ' '.join(text.split())
+    if 'orchestration' in path.parts:
+        phrases = ['In every message to the user — an update, a question, an approval request or the final report',
+                   'never name, quote or link an instruction file of the skills you are running',
+                   'unless the user asks about that file or the task is about it',
+                   'give the reason itself, not the skill instruction that asks for it',
+                   'A command you print is not an instruction file.']
+    else:
+        phrases = ["In every message to the user, never name, quote or link this skill's instruction files",
+                   "unless the user's request is about them"]
+    for phrase in phrases:
+        if phrase not in flat:
+            errors.append(f'{path}: missing {phrase!r}')
 
 for path in Path('plugins/code-review/skills/critical-review/references').glob('reviewer-*.md'):
     text = path.read_text()
