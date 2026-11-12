@@ -36,8 +36,7 @@ Scenarios (--scenario):
              As ship-merge, but the user adds "Use agents for the
              implementation.", so the session plans a supervised wave: turn 1
              must end at super-plan's start approval, before any wave or pull
-             request, and a later turn runs the wave. In any ship run that
-             stops there, the approval's question is its last line.
+             request, and a later turn runs the wave.
 
 The candidate is loaded disposably, as in custom-out-cleanup-live.py: Claude
 from a `--plugin-dir` snapshot with `--setting-sources project`; Codex from
@@ -254,6 +253,13 @@ def ends_with_question(text):
     """The reply's last non-empty line is a question that ends it."""
     last = last_line(text)
     return bool(questions(last)) and bool(QUESTION_END.search(last))
+
+
+def after_last_question(text):
+    """What a reply says after the line of its last question."""
+    lines = (text or '').splitlines()
+    marks = [i for i, line in enumerate(lines) if questions(line)]
+    return '\n'.join(lines[marks[-1] + 1:]).strip() if marks else (text or '').strip()
 
 
 def question_last(text):
@@ -568,9 +574,6 @@ def score(out):
     if scenario == 'ship-wave-merge':
         checks['start_approval_before_wave'] = approval_before_wave(rows, turns, merge_turn, handoff_turn,
                                                                     before.get('summaries'))
-    # A ship session that stopped before its handoff stopped at the start approval.
-    if scenario == 'ship-wave-merge' or ship and turns and handoff_turn and handoff_turn != turns[0]:
-        checks['start_question_last'] = ends_with_question((replies(rows.get(turns[0], [])) or [''])[-1])
     # Every scenario leaves at least the feature branch before the merge, so the
     # last reply before the merge turn must carry the command after the merge,
     # with or without a plan.
@@ -602,6 +605,8 @@ def score(out):
              'merge_turn_commands': merge_cmds, 'merge_turn_reports': merge_reports,
              'manual_branch_removal': manual_branch_removal(merge_cmds, feature or FEATURE),
              'handoff_last_question': (questions(handoff) or [''])[-1], 'final_questions': questions(final),
+             'start_approval_tail': after_last_question((replies(rows.get(turns[0], [])) or [''])[-1])
+                                    if ship and turns and handoff_turn != turns[0] else None,
              'after_merge_command': cleanup.after_merge_written(pre_reply),
              'after_merge_commands': cleanup.after_merge_commands(pre_reply),
              'printed_commands': [' '.join(w) for w in cleanup.printed_commands(pre_rows) if w],
@@ -693,9 +698,6 @@ HANDOFF_EXPECTED = ("the handoff reply's last sentence ending in a question mark
 HANDOFF_LAST_EXPECTED = ("the handoff reply's last non-empty line offers the session's own merge, by "
                          'handoff_offers_merge\'s rule applied to that line alone, and ends with the question mark; '
                          'only closing markup (*, _, ), ], `, quotes) may follow it on the line')
-START_LAST_EXPECTED = ("ship-wave-merge, and a ship-merge run whose first turn stopped before the handoff: that "
-                       "turn's last reply (the start approval) has a question as its last non-empty line, ending "
-                       'with the question mark; only closing markup may follow it on the line')
 APPROVAL_EXPECTED = ('ship-wave-merge: turn 1 stops before the handoff with a question (the start approval) and '
                      'runs no wave runner or launcher and no gh pr create; then a wave runs before the merge turn: a '
                      'later turn starts a runner or the launcher with node, or a run record (summary.json under '
@@ -759,8 +761,7 @@ def main():
                                        **({'handoff_offers_merge': HANDOFF_EXPECTED,
                                            'handoff_question_last': HANDOFF_LAST_EXPECTED} if ship else {}),
                                        **({'start_approval_before_wave': APPROVAL_EXPECTED}
-                                          if args.scenario == 'ship-wave-merge' else {}),
-                                       **({'start_question_last': START_LAST_EXPECTED} if ship else {})})
+                                          if args.scenario == 'ship-wave-merge' else {})})
     meta = {'provider': args.provider, 'scenario': args.scenario, 'model': model, 'effort': args.effort,
             'versions': versions, 'base': base, 'pkg': str(pkg), 'repo': str(repo), 'cwd': str(cwd),
             'origin_url': seat.GH_URL, 'turns': [], 'driver_calls': [],

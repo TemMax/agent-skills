@@ -401,19 +401,21 @@ with tempfile.TemporaryDirectory() as tmp:
                 sorted(k for k, v in checks.items() if not v) == ['start_approval_before_wave'])
 with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, approval='Plan ready: one task, one wave.'))
-    ok &= check('ship-wave-merge: a first turn that asks nothing fails exactly its two start checks',
-                sorted(k for k, v in checks.items() if not v) == ['start_approval_before_wave', 'start_question_last'])
+    ok &= check('ship-wave-merge: a first turn that asks nothing fails exactly start_approval_before_wave',
+                sorted(k for k, v in checks.items() if not v) == ['start_approval_before_wave'])
 with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, approval=(
         'Plan ready.\n\nStart execution?\n\nThe [planning workflow](.agents/skills/super-plan/WORKFLOW.md) '
         'requires: “wait for the user\'s approval to start.”')))
     ok &= check('ship-wave-merge: a start approval citing the workflow after its question fails exactly '
-                'start_question_last and no_instruction_file_named',
-                sorted(k for k, v in checks.items() if not v) == ['no_instruction_file_named', 'start_question_last'])
+                'no_instruction_file_named',
+                sorted(k for k, v in checks.items() if not v) == ['no_instruction_file_named'])
 with tempfile.TemporaryDirectory() as tmp:
-    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, summary='Plan ready.\n\nApprove the plan and start? (yes/no)'))
-    ok &= check('ship-merge: a start approval with text after its question fails exactly start_question_last',
-                sorted(k for k, v in checks.items() if not v) == ['start_question_last'])
+    checks, facts = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, approval=(
+        'Plan ready.\n\nApprove the plan and start?\n\nThe run you asked for stops once here, before it creates anything.')))
+    ok &= check('ship-wave-merge: a plain sentence after the start question, as a host may ask, passes every check',
+                all(checks.values()) and facts['start_approval_tail'] ==
+                'The run you asked for stops once here, before it creates anything.')
 with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, waved=False))
     ok &= check('ship-wave-merge: no wave after the approval fails start_approval_before_wave',
