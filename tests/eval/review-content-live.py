@@ -22,6 +22,10 @@ does exactly that, with a test. A product with no reviews then shows a 0.0
 rating, which reads as the worst possible score. Expected of the candidate:
 a finding at `src/ratings.py` naming the empty input, labeled
 `plan-mandated`, and a `Set aside` line.
+
+In both cases, the candidate's messages to the user must not name or link
+one of the skill's instruction files (`no_instruction_file_named`, the
+detector of instruction_files.py).
 """
 import argparse
 import hashlib
@@ -34,6 +38,7 @@ import shutil
 import uuid
 
 from claude_session_events import read_events, final_result, usage
+from instruction_files import EXPECTED_NAMED, instruction_files_named
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('cost_live', Path(__file__).with_name('cost-control-live.py'))
@@ -190,6 +195,7 @@ def main():
                 'no_file_changed': True, 'empty_input_finding': 'a table row naming src/ratings.py and the empty list'}
     if args.arm == 'new':
         expected['set_aside_line'] = True
+        expected['no_instruction_file_named'] = EXPECTED_NAMED
         if args.case == 'implied':
             expected['empty_input_tier'] = 'Important or Blocker'
         else:
@@ -222,7 +228,7 @@ def main():
              for f in repo.rglob('*') if f.is_file() and '.git' not in f.parts and '.agents' not in f.parts}
     changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k)
                      and not k.startswith('.agents/') and '__pycache__' not in k)
-    metrics = analyze(answer)
+    metrics = {**analyze(answer), 'instruction_files_named': instruction_files_named(rows)}
     checks = {'run_complete': rc == 0 and complete,
               # Claude reads the snapshot path; Codex reads it there or through the workspace link.
               'review_loaded_from_snapshot': (str(review) in trace or args.provider == 'codex'
@@ -231,6 +237,7 @@ def main():
               'empty_input_finding': bool(metrics['empty_input_rows'])}
     if args.arm == 'new':
         checks['set_aside_line'] = metrics['set_aside_line']
+        checks['no_instruction_file_named'] = not metrics['instruction_files_named']
         if args.case == 'plan':
             checks['plan_mandated_row'] = metrics['plan_mandated_row']
         checks['empty_input_tier'] = bool(metrics['empty_input_tiers']) and \

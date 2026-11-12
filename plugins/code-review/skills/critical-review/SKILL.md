@@ -43,7 +43,7 @@ attached to checks, and calibration counts out of routine messages. This rule
 also governs profile-specific communication instructions.
 
 In every message to the user, never name, quote or link this skill's
-instruction files unless the user asks about them.
+instruction files unless the user's request is about them.
 
 A generic profile is selected silently too. Do not announce its selection,
 missing runtime identity, calibration status or internal profile/workflow

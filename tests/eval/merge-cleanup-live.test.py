@@ -274,13 +274,15 @@ CMD = ('node /x/package/plugins/orchestration/skills/multi-model/references/wave
        '--branch feature/durations')
 def run_dir(tmp, scenario, final, merge_argv=('pr', 'merge', '1', '--squash'), removed_feature=True, head_branch='main',
             handoff=None, view=True, summary=None, records=(), printed=None, waved=True,
-            runner_plan='/x/repo/docs/plan.md', extra=(), handoff_after=None):
-    handoff = f'Left behind: x\nAfter the merge: `{CMD}`\n\nMerge PR #1 into `main` now? (yes/no)' if handoff is None else handoff
+            runner_plan='/x/repo/docs/plan.md', extra=(), handoff_after=None,
+            approval='Plan ready: one task, one wave.\n\nApprove the plan and start?', approval_runner=False):
+    handoff = f'Left behind: x\nAfter the merge: `{CMD}`\n\nMerge PR #1 into `main` now?' if handoff is None else handoff
     summary = f'Left behind: x\nAfter the merge: `{CMD}`' if summary is None else summary
     dry = {'into': 'origin/main', 'dryRun': True, 'removed': [], 'kept': [], 'command': CMD if printed is None else printed}
     out = Path(tmp) / scenario; pkg = out / 'package'; repo = out / 'repo'; cwd = repo
     (pkg / 'plugins/orchestration').mkdir(parents=True); repo.mkdir(parents=True)
-    feature = 'add-parse-duration' if scenario == 'ship-merge' else live.FEATURE
+    ship = scenario in live.SHIP_SCENARIOS
+    feature = 'add-parse-duration' if ship else live.FEATURE
     init = {'type': 'system', 'subtype': 'init',
             'plugins': [{'name': 'orchestration', 'path': str(pkg / 'plugins/orchestration'), 'version': '4.23.0'}]}
     bash = lambda c: {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Bash', 'input': {'command': c}}]}}
@@ -294,10 +296,17 @@ def run_dir(tmp, scenario, final, merge_argv=('pr', 'merge', '1', '--squash'), r
     merge_turn += [bash('node /p/wave-cleanup.mjs --records --branch ' + feature), result(json.dumps(rep)), done(final)]
     runner = [bash('node /p/claude-wave-runner.mjs --plan ' + runner_plan), result('{}')] if waved else []
     runner += [bash(c) for c in extra]
-    turns = {'turn-1': [init, result('   1\tnever name, quote or link an instruction file of the\n   2\tskills you are running'), *runner,
-                        bash('node /p/wave-cleanup.mjs --dry-run'), result(json.dumps(dry)), done(summary)]}
-    if scenario == 'ship-merge':
-        turns['turn-2'] = [done(handoff)] + ([done(handoff_after)] if handoff_after else [])
+    read = result('   1\tnever name, quote or link an instruction file of the\n   2\tskills you are running')
+    dry_run = [bash('node /p/wave-cleanup.mjs --dry-run'), result(json.dumps(dry))]
+    after = [done(handoff_after)] if handoff_after else []
+    if scenario == 'ship-wave-merge':
+        # Turn 1 stops at the start approval; turn 2 runs the wave and hands off.
+        turns = {'turn-1': [init, read, *(runner if approval_runner else []), done(approval)],
+                 'turn-2': [*([] if approval_runner else runner), *dry_run, done(handoff), *after]}
+    else:
+        turns = {'turn-1': [init, read, *runner, *dry_run, done(summary)]}
+        if scenario == 'ship-merge':
+            turns['turn-2'] = [done(handoff), *after]
     turns[f'turn-{len(turns) + 1}'] = merge_turn
     for name, rows in turns.items():
         (out / f'{name}.stdout').write_text(''.join(json.dumps(r) + '\n' for r in rows))
@@ -319,8 +328,8 @@ def run_dir(tmp, scenario, final, merge_argv=('pr', 'merge', '1', '--squash'), r
                                                'repo': str(repo), 'cwd': str(cwd), 'base': 'b',
                                                'versions': {'orchestration': '4.23.0'}, 'turns': names,
                                                'merge_turn': names[-1], 'merge_turn_calls_from': 1,
-                                               'driver_calls': [{'argv': ['pr', 'create']}] if scenario != 'ship-merge' else [],
-                                               **({'handoff_turn': 'turn-2'} if scenario == 'ship-merge' else {})}))
+                                               'driver_calls': [{'argv': ['pr', 'create']}] if not ship else [],
+                                               **({'handoff_turn': 'turn-2'} if ship else {})}))
     return out
 
 
@@ -358,8 +367,45 @@ with tempfile.TemporaryDirectory() as tmp:
     if not all(checks.values()): print(sorted(k for k, v in checks.items() if not v))
 with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT, handoff=f'Left behind: x\nAfter the merge: `{CMD}`\n\nShould I fix the nit first?'))
-    ok &= check('a ship handoff whose last question is not about merging fails handoff_offers_merge',
-                sorted(k for k, v in checks.items() if not v) == ['handoff_offers_merge'])
+    ok &= check('a ship handoff whose last question is not about merging fails handoff_offers_merge and its last line',
+                sorted(k for k, v in checks.items() if not v) == ['handoff_offers_merge', 'handoff_question_last'])
+
+# The merge question is the handoff's last line, with nothing after it.
+LAST_LINE = {
+    'the question in bold': ('**Merge pull request #1 into `main` and clean up?**', True),
+    'the question in its own paragraph after the command block':
+        (f'Left behind: x\n\nAfter the merge:\n```sh\n{CMD}\n```\n\nMerge PR #1 into `main` and clean up?', True),
+    'a choice after the question on its line': ('Merge PR #1 into `main` now? (yes/no)', False),
+    'a reason on the next line': ('Merge PR #1?\nMerging needs your word.', False),
+    'the command block after the question': (f'Merge PR #1?\n\nAfter the merge:\n```sh\n{CMD}\n```', False),
+    'another question last': ('Merge PR #1?\n\nShould I also delete the plan file?', False),
+}
+for name, (text, want) in LAST_LINE.items():
+    ok &= check(f'question_last {want}: {name}', live.question_last(text) is want)
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT,
+                                   handoff=f'Left behind: x\nAfter the merge: `{CMD}`\n\nMerge PR #1? (yes/no)\n\nIt needs your word.'))
+    ok &= check('a ship handoff with text after its merge question fails exactly handoff_question_last',
+                sorted(k for k, v in checks.items() if not v) == ['handoff_question_last'])
+
+# ship-wave-merge: the start approval comes before the wave.
+with tempfile.TemporaryDirectory() as tmp:
+    checks, facts = live.score(run_dir(tmp, 'ship-wave-merge', REPORT))
+    ok &= check('a complete ship-wave-merge run passes every check, the start approval included',
+                all(checks.values()) and 'start_approval_before_wave' in checks and 'handoff_question_last' in checks)
+    if not all(checks.values()): print(sorted(k for k, v in checks.items() if not v))
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, approval_runner=True))
+    ok &= check('ship-wave-merge: a wave run in the first turn fails exactly start_approval_before_wave',
+                sorted(k for k, v in checks.items() if not v) == ['start_approval_before_wave'])
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, approval='Plan ready: one task, one wave.'))
+    ok &= check('ship-wave-merge: a first turn that asks nothing fails exactly start_approval_before_wave',
+                sorted(k for k, v in checks.items() if not v) == ['start_approval_before_wave'])
+with tempfile.TemporaryDirectory() as tmp:
+    checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, waved=False))
+    ok &= check('ship-wave-merge: no wave after the approval fails start_approval_before_wave',
+                checks['start_approval_before_wave'] is False)
 
 # The After the merge: command, scored in every scenario.
 RECORDS = ('.worktrees/runs/wave-1/summary.json',)
@@ -488,6 +534,11 @@ NAMED = {
     'a link to a skill directory': 'Handled by [the delivery skill](/x/plugins/orchestration/skills-codex/ship).',
     'a file in inline code': 'Per `SKILL.md`, the merge waits for you.',
     'a file in a code block that is not the cleanup': 'See:\n```text\nWORKFLOW.md, Stage 4\n```',
+    'a file name in lower case': 'As skill.md says, the merge waits for you.',
+    'a link to a skill directory with an anchor': 'See [Stage 4](/x/plugins/orchestration/skills/ship/#stage-4).',
+    'a file in the block that holds the command':
+        'After the merge:\n```sh\n# WORKFLOW.md, Stage 4\n'
+        'node /x/package/plugins/orchestration/skills/multi-model/references/wave-cleanup.mjs --repo /x\n```',
 }
 for name, text in NAMED.items():
     ok &= check(f'named: {name}', bool(live.instruction_files_named([codex_msg(text)])))
@@ -495,6 +546,9 @@ CLEAN = {
     'the command after the merge in a block':
         'After the merge:\n```sh\nnode /x/package/plugins/orchestration/skills/multi-model/references/wave-cleanup.mjs --repo /x\n```',
     'the command inline': 'After the merge: `node /x/.agents/skills/multi-model/../../skills/multi-model/references/wave-cleanup.mjs --repo /x`',
+    'the command wrapped over lines in a block':
+        'After the merge:\n```sh\nnode /x/.agents/skills/multi-model/references/wave-cleanup.mjs \\\n'
+        '  --plan /x/.agents/skills/plan.md --repo /x\n```',
     'the plan, README and AGENTS.md': 'The plan docs/superpowers/plans/plan.md is done; README.md and AGENTS.md are unchanged.',
     'a plain merge question': 'Nothing is left open. Merge PR #1 into main and clean up?',
     'model and plan names': 'The gpt-6.1-sol review passed; docs/superpowers/plans/2026-11-11-parse-duration.md is done.',
@@ -507,9 +561,12 @@ ok &= check('a Claude text block counts, a child agent\'s does not', live.instru
 with tempfile.TemporaryDirectory() as tmp:
     checks, facts = live.score(run_dir(tmp, 'ship-merge', REPORT, summary='Plan approved? (yes/no)',
                                        handoff=f'Left behind: x\nAfter the merge: `{CMD}`\n\n' + NAMED['the merge question justified by a link (Codex, 4.23.1)']))
-    ok &= check('ship-merge: a handoff that links the skill file fails exactly no_instruction_file_named',
-                failed_of(checks) == ['no_instruction_file_named'] and 'SKILL.md' in facts['instruction_files_named'])
-    if failed_of(checks) != ['no_instruction_file_named']: print(failed_of(checks), facts['instruction_files_named'])
+    ok &= check('ship-merge: a handoff that links the skill file after its question fails exactly '
+                'no_instruction_file_named and handoff_question_last',
+                failed_of(checks) == ['handoff_question_last', 'no_instruction_file_named']
+                and 'SKILL.md' in facts['instruction_files_named'])
+    if failed_of(checks) != ['handoff_question_last', 'no_instruction_file_named']:
+        print(failed_of(checks), facts['instruction_files_named'])
 
 # A Claude skill load is a user text block, not a tool result.
 with tempfile.TemporaryDirectory() as tmp:

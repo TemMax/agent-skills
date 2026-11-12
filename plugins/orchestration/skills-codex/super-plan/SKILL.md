@@ -25,8 +25,8 @@ In every message to the user — an update, a question, an approval request or
 the final report — never name, quote or link an instruction file of the
 skills you are running (their entry, workflow, profile or reference
 documents), unless the user asks about that file or the task is about it.
-When a question needs a reason, give the reason itself, not the instruction
-that asks for it. A command you print is not an instruction file.
+When a question needs a reason, give the reason itself, not the skill
+instruction that asks for it. A command you print is not an instruction file.
 
 Start with the task and next useful action. Progress and completion messages
 cover changes, findings, checks, and remaining blockers. Select profiles silently;

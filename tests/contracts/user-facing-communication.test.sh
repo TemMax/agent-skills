@@ -33,9 +33,11 @@ for path in skills:
         phrases = ['In every message to the user — an update, a question, an approval request or the final report',
                    'never name, quote or link an instruction file of the skills you are running',
                    'unless the user asks about that file or the task is about it',
-                   'give the reason itself, not the instruction that asks for it']
+                   'give the reason itself, not the skill instruction that asks for it',
+                   'A command you print is not an instruction file.']
     else:
-        phrases = ["In every message to the user, never name, quote or link this skill's instruction files"]
+        phrases = ["In every message to the user, never name, quote or link this skill's instruction files",
+                   "unless the user's request is about them"]
     for phrase in phrases:
         if phrase not in flat:
             errors.append(f'{path}: missing {phrase!r}')

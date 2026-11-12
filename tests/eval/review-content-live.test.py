@@ -29,4 +29,11 @@ a = live.analyze(HEADER + '| **Important** (`plan-mandated`) | 0.0 for no review
 ok &= check('bold tier and plan-mandated label are read', a['empty_input_tiers'] == ['Important'] and a['plan_mandated_row'])
 a = live.analyze('Verdict: clean.\n')
 ok &= check('no table means no finding and no Set aside line', a['finding_rows'] == 0 and not a['set_aside_line'])
+codex_msg = lambda text: {'type': 'item.completed', 'item': {'type': 'agent_message', 'text': text}}
+ok &= check('a review that links its fix rules names an instruction file',
+            'FIXES.md' in live.instruction_files_named(
+                [codex_msg('Approve the fixes? See [fix rules](.agents/skills/critical-review/FIXES.md).')]))
+ok &= check('a findings table on the repository files names none',
+            not live.instruction_files_named([codex_msg(HEADER + '| Important | Crash | `src/ratings.py:3` | x | y |\n'
+                                                                 'Checked against REQUEST.md and PLAN.md.')]))
 raise SystemExit(0 if ok else 1)
