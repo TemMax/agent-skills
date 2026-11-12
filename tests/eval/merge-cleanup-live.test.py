@@ -383,6 +383,11 @@ LAST_LINE = {
 }
 for name, (text, want) in LAST_LINE.items():
     ok &= check(f'question_last {want}: {name}', live.question_last(text) is want)
+ok &= check('the start approval tail keeps text after the question on its own line',
+            live.after_last_question('Plan ready.\n\nApprove the plan and start? The run stops once here.')
+            == 'The run stops once here.')
+ok &= check('the start approval tail of a reply that ends with its question is empty',
+            live.after_last_question('Plan ready.\n\n**Approve the plan and start?**') == '')
 with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-merge', REPORT,
                                    handoff=f'Left behind: x\nAfter the merge: `{CMD}`\n\nMerge PR #1? (yes/no)\n\nIt needs your word.'))
@@ -420,6 +425,17 @@ with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, waved=False))
     ok &= check('ship-wave-merge: no wave after the approval fails start_approval_before_wave',
                 checks['start_approval_before_wave'] is False)
+for name, after_first, want in (
+        ('turn 1 left nothing', {'summaries': [], 'gh_calls': 0}, True),
+        ('turn 1 left a run record', {'summaries': ['.worktrees/runs/wave-1/summary.json'], 'gh_calls': 0}, False),
+        ('the stub logged a pull request created in turn 1', {'summaries': [], 'gh_calls': 1}, False)):
+    with tempfile.TemporaryDirectory() as tmp:
+        out = run_dir(tmp, 'ship-wave-merge', REPORT)
+        meta = json.loads((out / 'meta.json').read_text()); meta['after_turn_1'] = after_first
+        (out / 'meta.json').write_text(json.dumps(meta))
+        checks, _ = live.score(out)
+        ok &= check(f'ship-wave-merge, state after turn 1 kept: {name} -> start_approval_before_wave {want}',
+                    checks['start_approval_before_wave'] is want)
 with tempfile.TemporaryDirectory() as tmp:
     checks, _ = live.score(run_dir(tmp, 'ship-wave-merge', REPORT, waved=False,
                                    records=('.worktrees/runs/wave-1/summary.json',)))
@@ -573,6 +589,8 @@ NAMED = {
     'a file in the block that holds the command':
         'After the merge:\n```sh\n# WORKFLOW.md, Stage 4\n'
         'node /x/package/plugins/orchestration/skills/multi-model/references/wave-cleanup.mjs --repo /x\n```',
+    'a file in a span before a span that names the script':
+        '`SKILL.md` asks this; wave-cleanup.mjs runs with `--dry-run`.',
 }
 for name, text in NAMED.items():
     ok &= check(f'named: {name}', bool(live.instruction_files_named([codex_msg(text)])))
@@ -580,6 +598,10 @@ CLEAN = {
     'the command after the merge in a block':
         'After the merge:\n```sh\nnode /x/package/plugins/orchestration/skills/multi-model/references/wave-cleanup.mjs --repo /x\n```',
     'the command inline': 'After the merge: `node /x/.agents/skills/multi-model/../../skills/multi-model/references/wave-cleanup.mjs --repo /x`',
+    'a printed command that is not the cleanup, in a span':
+        'The plan lints clean: `node .agents/skills/super-plan/references/plan-lint.mjs docs/plan.md --repo .`.',
+    'a printed command that is not the cleanup, in a block':
+        'Lint it with:\n```sh\npython3 -m unittest\nnode .agents/skills/super-plan/references/plan-lint.mjs docs/plan.md\n```',
     'the command wrapped over lines in a block':
         'After the merge:\n```sh\nnode /x/.agents/skills/multi-model/references/wave-cleanup.mjs \\\n'
         '  --plan /x/.agents/skills/plan.md --repo /x\n```',

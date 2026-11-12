@@ -5,8 +5,10 @@ names, in any letter case, any .md file under the plugins' skills (SKILL.md,
 WORKFLOW.md, FIXES.md, a profile, a reference document…), names an
 orchestrator- or reviewer- profile without .md, a references/*.md path or a
 path under .agents/skills/, or links a skill directory. The command after the
-merge names the cleanup script's own path, so code lines that name
-wave-cleanup.mjs, with their backslash continuations, are not read.
+merge names the cleanup script's own path, and a printed command is not an
+instruction file: code lines and code spans that name wave-cleanup.mjs or
+start with a command (node, python3, git, gh…), with their backslash
+continuations, are not read.
 """
 from pathlib import Path
 import re
@@ -24,10 +26,12 @@ EXPECTED_NAMED = ('no message the main session showed the user, in any turn (Cod
                   "file under the plugins' skills (SKILL.md, WORKFLOW.md, FIXES.md, a profile, a reference "
                   'document…), an orchestrator- or reviewer- profile name without .md, a references/*.md path, '
                   'a path under .agents/skills/ or a link to a skill directory, an anchor included; code lines '
-                  'that name wave-cleanup.mjs (the command after the merge), with their backslash '
-                  'continuations, are not read')
+                  'and spans that name wave-cleanup.mjs (the command after the merge) or start with a command '
+                  '(node, python3, bash, git, gh…), with their backslash continuations, are not read')
 FENCE = re.compile(r'(`{3,}|~{3,})[^\n]*\n.*?\n[ \t]*\1', re.S)
-CLEANUP_SPAN = re.compile(r'`[^`\n]*wave-cleanup\.mjs[^`\n]*`')
+SPAN = re.compile(r'`[^`\n]*`')
+# A printed command: the cleanup script anywhere in it, or a command word first.
+COMMAND = re.compile(r'wave-cleanup\.mjs|^[\s`$>]*(?:node|python3?|bash|sh|zsh|git|gh|npx|npm|pnpm|uv)\b')
 
 
 def messages(rows):
@@ -59,11 +63,11 @@ def skill_bodies(rows):
     return found
 
 
-def without_cleanup_lines(block):
-    """A fenced block without the lines that name wave-cleanup.mjs and their continuations."""
+def without_commands(block):
+    """A fenced block without its command lines and their continuations."""
     kept, continued = [], False
     for line in block.split('\n'):
-        if continued or 'wave-cleanup.mjs' in line:
+        if continued or COMMAND.search(line):
             continued = line.rstrip().endswith('\\')
             continue
         kept.append(line)
@@ -74,7 +78,8 @@ def instruction_files_named(rows):
     """Each instruction file a message names or links, outside the cleanup command."""
     named = []
     for text in messages(rows):
-        text = FENCE.sub(lambda m: without_cleanup_lines(m.group(0)), text)
-        text = CLEANUP_SPAN.sub('', text)
+        text = FENCE.sub(lambda m: without_commands(m.group(0)), text)
+        # Real spans, paired left to right, so one never reaches into the next.
+        text = SPAN.sub(lambda m: '' if COMMAND.search(m.group(0)) else m.group(0), text)
         named += [m.group(0) for m in INSTRUCTION_FILE.finditer(text)]
     return named

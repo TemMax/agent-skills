@@ -256,10 +256,14 @@ def ends_with_question(text):
 
 
 def after_last_question(text):
-    """What a reply says after the line of its last question."""
+    """What a reply says after its last question mark, on that line and below."""
     lines = (text or '').splitlines()
     marks = [i for i, line in enumerate(lines) if questions(line)]
-    return '\n'.join(lines[marks[-1] + 1:]).strip() if marks else (text or '').strip()
+    if not marks:
+        return (text or '').strip()
+    line = lines[marks[-1]]
+    rest = line[max(line.rfind('?'), line.rfind('？')) + 1:]
+    return re.sub(r'^[\s*_)\]"»”’`]+', '', '\n'.join([rest] + lines[marks[-1] + 1:])).strip()
 
 
 def question_last(text):
@@ -268,13 +272,19 @@ def question_last(text):
     return ends_with_question(text) and offers_merge(last_line(text))
 
 
-def approval_before_wave(rows, turns, merge_turn, handoff_turn, records):
+def approval_before_wave(rows, turns, merge_turn, handoff_turn, records, after_first=None, calls=()):
     """Turn 1 stops before the handoff with a question and starts no runner and
     no pull request; then a wave runs before the merge turn: a later turn
     starts a runner or the launcher, or a run record exists (a runner started
-    some other way, from a Python script say, still leaves one)."""
+    some other way, from a Python script say, still leaves one). When the run
+    kept the state after turn 1, that turn left no run record and the stub
+    logged no pull request created in it."""
     if not turns or handoff_turn == turns[0]:
         return False
+    if after_first is not None:
+        early = calls[:after_first.get('gh_calls', 0)]
+        if after_first.get('summaries') or any(c.get('argv', [])[:2] == ['pr', 'create'] for c in early):
+            return False
     first = commands(rows.get(turns[0], []))
     later = [c for t in turns[1:] if t != merge_turn for c in commands(rows.get(t, []))]
     asked = bool(questions((replies(rows.get(turns[0], [])) or [''])[-1]))
@@ -573,7 +583,8 @@ def score(out):
         checks['handoff_question_last'] = question_last(handoff)
     if scenario == 'ship-wave-merge':
         checks['start_approval_before_wave'] = approval_before_wave(rows, turns, merge_turn, handoff_turn,
-                                                                    before.get('summaries'))
+                                                                    before.get('summaries'), meta.get('after_turn_1'),
+                                                                    calls)
     # Every scenario leaves at least the feature branch before the merge, so the
     # last reply before the merge turn must carry the command after the merge,
     # with or without a plan.
@@ -698,10 +709,11 @@ HANDOFF_EXPECTED = ("the handoff reply's last sentence ending in a question mark
 HANDOFF_LAST_EXPECTED = ("the handoff reply's last non-empty line offers the session's own merge, by "
                          'handoff_offers_merge\'s rule applied to that line alone, and ends with the question mark; '
                          'only closing markup (*, _, ), ], `, quotes) may follow it on the line')
-APPROVAL_EXPECTED = ('ship-wave-merge: turn 1 stops before the handoff with a question (the start approval) and '
-                     'runs no wave runner or launcher and no gh pr create; then a wave runs before the merge turn: a '
-                     'later turn starts a runner or the launcher with node, or a run record (summary.json under '
-                     '.worktrees) exists before the merge turn')
+APPROVAL_EXPECTED = ('ship-wave-merge: turn 1 stops before the handoff with a question (the start approval), runs '
+                     'no wave runner or launcher and no gh pr create, and leaves no summary.json under .worktrees '
+                     'and no pull request created in the stub\'s log (meta.json after_turn_1); then a wave runs '
+                     'before the merge turn: a later turn starts a runner or the launcher with node, or a run record '
+                     '(summary.json under .worktrees) exists before the merge turn')
 BOUNDARY = ('a run is blocked, not scored, when a tool output shows a real gh, the session called a GitHub '
             'connector, or the session ran gh (at command position) while the stub logged none of its calls')
 
@@ -793,6 +805,11 @@ def main():
 
     name, ok, rows = turn(prompt_1(args.provider, args.scenario, cwd), 1200 if ship else 2400, args.budget_usd)
     if ship:
+        # What turn 1 left, so a wave or pull request started before the start approval shows.
+        wt = cwd / '.worktrees'
+        meta['after_turn_1'] = {'summaries': sorted(str(p.relative_to(cwd)) for p in wt.rglob('summary.json'))
+                                if wt.is_dir() else [], 'gh_calls': len(gh_log(out))}
+        bench.dump(out / 'meta.json', meta)
         for prompt, timeout in ((seat.APPROVE, 3600), (seat.PROCEED, 900), (seat.PROCEED, 900)):
             text = (replies(rows) or [''])[-1]
             if not ok or (pr_list(out) and re.search(cleanup.MARK.format('left behind'), text)):
