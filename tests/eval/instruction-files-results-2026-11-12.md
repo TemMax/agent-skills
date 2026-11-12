@@ -12,14 +12,18 @@ ship's handoff should end with its merge question, with nothing after it.
   the question became the handoff's last line with nothing after it, none
   of 24 Codex handoffs named a file, and each ended with the merge
   question.
-- **The start approval of a planned run is not fixed on Codex.** Codex's
-  own system prompt tells the model, after any question for confirmation,
-  to explain in a separate paragraph where the requirement came from, with
-  "a SKILL.md" as its example. That outranks a skill. All 12 Codex start
-  approvals cited the planning instructions, under the rule and three more
-  wordings of that step; the three were reverted.
+- **The start approval of a planned run is not fixed on Codex.** All 12
+  Codex start approvals cited an instruction file: the planning skill's in
+  11, ship's `SKILL.md` in 1. That held under the rule and under three
+  more wordings of that step, which were reverted. Most likely the cause is
+  Codex's own system prompt, which ranks above a skill. After any question
+  for confirmation, it tells the model to explain in a separate paragraph
+  where the requirement came from, with "a SKILL.md" as its example.
 - **Claude Code named no instruction file in any run.** multi-model and
   critical-review on their own passed every check on both hosts.
+- **The exception holds for critical-review.** Reviewing a change to the
+  repository's own critical-review `SKILL.md`, both hosts cited that file
+  in their finding and named none of their own loaded instructions.
 
 Candidate: branch `instruction-files-out-of-replies`. Each round ran from a
 clean, detached checkout of its commit outside the repository, so the
@@ -33,7 +37,9 @@ Hosts, loading and seats are those of
 - Codex CLI 0.167.0 with workspace skills linked to the copy,
   `--ignore-user-config`, `--disable plugins`, `--disable apps` and
   `allow_login_shell=false`;
-- `claude-fable-5-2` and `gpt-6.1-sol` at `medium`.
+- `claude-fable-5-2` and `gpt-6.1-sol` at `medium`; the critical-review
+  runs of `review-content-live.py` use that driver's defaults,
+  `claude-sonnet-5-5` and `gpt-6.1-sol`.
 
 No installed plugin, marketplace or configuration was touched.
 
@@ -101,6 +107,16 @@ How they changed:
   one that ends inside a substitution, a variable set to the runner's path,
   and, for `start_approval_before_wave`, a run record when the runner ran
   from a Python script.
+- **662e09f**, from the third review:
+  - `review-content-live.py` gains the case `skill-file`;
+  - `start_approval_before_wave` also reads what turn 1 left, kept in
+    `meta.json` as `after_turn_1`: no run record and no pull request
+    created in the stub's log;
+  - `start_approval_tail` keeps text after the question on its own line;
+  - the detector pairs code spans left to right and skips any printed
+    command (`node`, `python3`, `git`, `gh`…), not only the cleanup.
+
+  No retained run's score changes.
 
 ## Before the change — e599253
 
@@ -225,8 +241,8 @@ runs. It found:
 
 - critical-review may name its files when the user's request is about
   them.
-- ship asks "the merge question last, such as "Merge pull request #<n> into
-  `<default branch>` and clean up?"".
+- ship asks the merge question last, such as
+  `Merge pull request #<n> into <default branch> and clean up?`.
 - A reason is never "the skill instruction that asks for it".
 
 | Scenario | Claude | Codex |
@@ -271,10 +287,10 @@ passed every check, and every Codex handoff was clean. Rescored, each Codex
 `ship-wave-merge` run fails only `no_instruction_file_named`, from its
 start approval. Scored at the time, some also failed
 `start_approval_before_wave`, where the driver missed how the runner was
-started, or round 6's `start_question_last`.
+started, or `start_question_last`, which rounds 6 and 7 carried.
 
-After round 7, the Codex session logs showed the cause. Codex's base
-instructions in these sessions say:
+After round 7, the Codex session logs showed the most likely cause.
+Codex's base instructions in these sessions say:
 
 > The user gets very frustrated when you stop and ask for confirmation or
 > permission, so make sure to explicitly explain why you need the
@@ -284,16 +300,57 @@ instructions in these sessions say:
 > any permission question.
 
 These are the host's own developer instructions, and a skill's text ranks
-below them, so the skill cannot turn that paragraph off. Codex fills
-"where it came from" with the file, as in round 6:
+below them, so the skill cannot reliably turn that paragraph off. Codex
+fills "where it came from" with the file, as in round 6:
 `The requested [workflow](…/WORKFLOW.md) requires: “Then wait for the user's approval to start.”`
 
-The handoff's merge question is a permission question too, yet none of
-the 24 Codex handoffs since 1ccd805 added such a paragraph, where 3 of 15
-had before.
+It does not explain everything. The handoff's merge question is a
+permission question too, yet none of the 24 Codex handoffs since 1ccd805
+added such a paragraph, where 3 of 15 had before. And 4 of the 9 start
+approvals of rounds 6–8 put the citation above the question, not after it
+as the prompt says.
 
 5075302 returns Gate 2, its contract and the phase-policy baseline to
 their text on `main`, so the final plugin files are 361482b's.
+
+## The third review
+
+A fresh agent reviewed c8e1b3a, the branch with rounds 5–8 recorded. Every
+number reproduced again, from all 61 retained runs. It found:
+
+- **Important:** the highlights, the only part announced on merge, did not
+  say that the start approval on Codex still cites a file.
+- **Important:** neither exception, a task about a skill's own files, had
+  run live, though reviewing changes to skill files is this repository's
+  daily use.
+- **Minor:**
+  - `start_approval_before_wave` could pass a run that started its wave
+    before the approval in a way the driver does not see;
+  - `start_approval_tail` dropped text after the question on its line;
+  - the detector failed printed commands other than the cleanup, and a code
+    span could reach into the next one;
+  - "about once in 200" took 3 of 15 as the true rate;
+  - wording: the models behind the cost, the uncounted runner children,
+    the cause stated as settled, `#<n>` rendered as a tag.
+
+662e09f and the changelog answer all of them. The case-insensitive match
+of short generic names (`pr.md`, `REVIEW.md`) stays; see the limits.
+
+## The exception — 662e09f, `skill-file`
+
+`review-content-live.py`'s new case: the change under review adds a link to
+the repository's own `plugins/code-review/skills/critical-review/SKILL.md`,
+whose target is misspelled (`REVEIW.md`). The file shares its name and
+skill with the reviewer's loaded instructions, and the request is about it.
+The plugin files are 361482b's.
+
+| Host | Model | Checks | Finding |
+|---|---|---|---|
+| Claude Code | `claude-sonnet-5-5` | 6/6 | Blocker at `plugins/code-review/skills/critical-review/SKILL.md:9`: "`REVEIW.md` does not exist" |
+| Codex | `gpt-6.1-sol` | 6/6 | Important at `[SKILL.md:9](plugins/code-review/skills/critical-review/SKILL.md#L9)`: "The destination is `REVEIW.md`, which does not exist" |
+
+Both named `SKILL.md`, `REVIEW.md` and `PROFILE.md` of the repository as
+the request needed, and neither named its own loaded instructions by path.
 
 ## Rescored with the final driver
 
@@ -342,15 +399,17 @@ No Claude message named one, in 11 runs here or in the earlier records.
 Every Codex citation linked a `SKILL.md` or `WORKFLOW.md` under
 `.agents/skills/`, as the reason for the question next to it. A scan of
 every message for words such as "instructions", "skill" or "requires"
-found no instruction cited in words alone; one update said "I'll read the
-delivery instructions", which names no file.
+found no instruction cited in words alone. One update said "I'll read the
+delivery instructions": it names no file, but it narrates reading
+instructions, which an older rule asks the session not to do.
 
 ## Usage
 
 Seat sessions only; the runners' children, which the `ship-wave-merge`
 waves start, are not counted. Claude: the cost the session reports, per
 turn. Codex: a resumed thread reports a running total, so a run's figure is
-its last turn's. Rounds 5 and 8 include the critical-review runs.
+its last turn's. Rounds 5 and 8 include the critical-review runs; the
+Claude ones, there and in the exception's row, ran on `claude-sonnet-5-5`.
 
 | Round | Commit | Claude | Codex input (cached) | Codex output |
 |---|---|---|---|---|
@@ -362,7 +421,8 @@ its last turn's. Rounds 5 and 8 include the critical-review runs.
 | 6 | 19f2ddf | $4.97 | 9,309,278 (9,017,984) | 22,728 |
 | 7 | 669ed2b | $5.14 | 11,179,424 (10,880,512) | 28,073 |
 | 8 | cb0686f | $4.17 | 12,040,201 (11,645,952) | 31,308 |
-| **Total** | | **$38.75** | **74,452,821 (71,916,800)** | **220,214** |
+| exception | 662e09f | $0.13 | 303,531 (259,328) | 1,179 |
+| **Total** | | **$38.88** | **74,756,352 (72,176,128)** | **221,393** |
 
 Round 1's runs and round 3's Claude `mm-merge` were stopped before the host
 reported usage, so they are not counted. A Claude `ship-merge` run cost
@@ -375,13 +435,13 @@ $3.9–5.1 and a `mm-merge` run $1.9–2.0. A Codex `ship-merge` run used
   4.23.1 records, followed the merge question. The rule alone left 1 of 4;
   with the question asked alone, 1 of 6. Since the question is the last
   line with nothing after it, 24 of 24 Codex handoffs named no file and
-  ended with the question. At the earlier rate of 3 in 15, 24 clean runs
-  in a row would happen by chance about once in 200 (0.8²⁴ ≈ 0.005).
+  ended with the question: 3 of 15 before against 0 of 24 after
+  (one-sided Fisher's exact test, p ≈ 0.05).
 - **The start approval.** Codex's host asks for a paragraph that says where
-  a confirmation requirement came from, and Codex answers it with the
-  instruction file whatever the skill says: wherever the question stood,
-  the citation moved above or below it. Claude Code follows the rule, and
-  in round 8 used the plain sentence it was given.
+  a confirmation requirement came from. Whatever the skill said, Codex
+  answered with the instruction file and moved the citation above or below
+  the question. Claude Code follows the rule, and in round 8 used the plain
+  sentence it was given.
 - **The merge offer came back.** Round 2's two handoffs without it did not
   recur: from round 3 every Codex handoff offered the merge.
 - **The driver missed waves.** Codex started the runner four ways the
@@ -390,13 +450,17 @@ $3.9–5.1 and a `mm-merge` run $1.9–2.0. A Codex `ship-merge` run used
 
 ## Limits
 
-- **The start approval on Codex is not fixed.** The cause is the host's own
-  instructions, seen here in `codex exec`; other Codex surfaces did not run.
-- **The exceptions did not run live:** a task about a skill's own files,
-  for the orchestration rule and for critical-review's.
+- **The start approval on Codex is not fixed.** The most likely cause is
+  the host's own instructions, seen here in `codex exec`; other Codex
+  surfaces did not run.
+- **The orchestration exception did not run live:** a ship or multi-model
+  task about a skill's own files. critical-review's did (`skill-file`).
 - **`mm-merged-worktree` and `custom-out` did not run.** They use the same
   multi-model entry text as `mm-merge`.
 - **Codex `mm-merge` and the Codex review ran on cb0686f**, whose files
   they read are the final ones.
 - **The detector reads names and links.** A file described only in words
-  passes; the scan above found none.
+  passes; the scan above found none. Short generic names match in any
+  letter case, so a user's own `pr.md` or `REVIEW.md` would count.
+- **critical-review's Codex entry point** is 7491 bytes against the 7500
+  limit.
