@@ -20,7 +20,7 @@
       "765d70c13440bc63bca46d7fa522337c28082fef5465d27ab8ecf9dde6644b7d",
       "8b15e409324c586c6fac7132c489d3295ad8fbbede921d6d4b03c9032c653a6a",
       "0a6ae6aec66002dac2461e16bbe03aff6aa482a29e897a6071c62d254ae3d204",
-      "1acd084d7453289e88d07d3a82b912d0d0ccb25a41d284ecfbf6973fca7026e9",
+      "bb7c6f2dd7e87d25dde94bb42ef3984cadd766da095bcf0e8afa3348b572a020",
       "0e39a3d6f193d1258137576dc8d9030969e1cbda29c458cb9d11d08ec63c8bde",
       "9249d8f8af3a15794286012870b50dcf762613e0152b7ca24ff1685bc433b38f",
       "b634df9671707efa5524d900c86e57ad6e441048d9928b225ca37681675e65d2",
@@ -44,14 +44,14 @@
       "a1746003c2604796177504ea14d2266202277fe91209bc910b82984a682c0311",
       "f99b4d191f7fdcea94d2360363f118a92c345c58a47a9de579eec8e870609ac2",
       "509c326343efd671a68e28561495fc453a5b0c79edd6e1b4555c8840ef06c78f",
-      "e42ef5e772b92c4a7f3e176f9ab3ab5b5581ce34ef7c3fdb071fbb6c82b8ebed",
+      "fe368bb8137fdaf9cd10dcf1c9ffd9916e3e31f9a65c1184bffd264295afc08c",
       "cbf0a86f9120338822d7acf5050fd2cd1cd70dde3a85251d00d3c56b03b1278e",
-      "fe52b5f4a1d07a7c59887d090219e43e8fd1bfddba31a02903924f1d076575a3",
+      "fae749e773339aef1cfe17fc89ca0008ba2e6f45e912e6ca03bac0af9373c019",
       "7ae5dda02e2ce3545e9a7e18603fa58e4183108159de98575cff723dc4643057",
       "e40559dc13ca40fe134205558b9ef67943c823032b33659e05d9faed5fe9c0d2",
       "21ffe2b7b3f6afceffd0eef45702711d6b57f879dead936c29a2ff276a677fa3",
       "6812dba16aeca96bc0f84ae6fe1abdcd72930b197a5654a7902e1dde1e3ffc46",
-      "cc7fa6545d46c4c90f6557c6e039550e90abd0bd71de518704509e360c60097e",
+      "3424d69df96982fa84a0429854a2415af55acc97fc1f61cd8278e9730dfcfb54",
       "e4bfa6837a8ca22110c2638a9ae18a2c4fdc7274052ceb5c17d072ffecbdab29",
       "6231fda04b0aa6e65aa85123719e2912b065c338d64f867b5153069fde63d7ef",
       "06286c7616bc7aee1b4be2a44b67eaeccf1e9ebafb2ac06ffbb0511f86c07cd6",
@@ -66,7 +66,7 @@
       "c1882dffedbd32ec63dce3a83dc2f53cff673e8819afcff30dda168b83bc78a1",
       "ac24958cffb91127de79d8e23e78e64deb97a0c11dcf433c6af8b64bafb4b009",
       "a025fb810b6b7a61afac92114e5ec2f155ade25ae84353b68e1613df40c848db",
-      "448f270b5bccf644a0173e59a569c9f496032cb293c542f0d6cd998af97aa017",
+      "fb8a0868f7d8773b667a142c304783a1388e1d2d25dd15f1e4481e78d0e3f5b1",
       "4e22ff0650f89ac59711e7d297d6068e6b0e8cd8e48fdd7a716f26d37acb2d34",
       "a29b2a681c8ba0d2741ddd7bc35173b3db59b8fcd86e8d2466aa091714fc0135",
       "5eb090d879b2827310c5bebbd7b4892ec552c6dd1edefca863536dbed074b710"
@@ -286,7 +286,7 @@
       "9f4092e429ae160c845204df87f5ec68a2b22269602bc91ae454482c0ff0e4c8",
       "22bf2afb098167f14cd08889e5c4dfba1a77816219b605978cc7980c1ab81c4c",
       "1bc9a1dccbc3c3170f928a5318013176bfec5c82c29e3a50201f75d3c4ad9a27",
-      "efe8ab8022fe190c933e01356d5ad9e6eaa241f8939daf19704ad5bcf12b12f5",
+      "68edd7feb277e8343f39b533dfd87e33348d68b8a759fd9392d07437194d31a0",
       "445f0dba1af1d18cf58c1765f2caf73eeae6fd54e7c0d2aa25c1e808b4612016",
       "e6289f63403e3adeb1cf6a9966df0b5a2626fba801292cfeb502b8fbc1d0a8f8",
       "f9b7b24e4e9561acee901ccac58cdf25da281eaf92a6111cf7d8fb2d92a4cfc2",
@@ -1175,6 +1175,44 @@
       "old": "28012e1fb111db6a89350ad8833f0c5662e4e6f50cc61307a45b0a13dd4990bc",
       "new": "72028d1bb50f07937882b89d8312b17e68230253c6b90b3d320d4fded9a8470e",
       "reason": "Stage 4: the merge question is asked last, such as \"Merge pull request #<n> into `<default branch>` and clean up?\", with nothing after it — no reason, no rule and no reference to these instructions; the example takes placeholders, and \"the merge question\" names what comes last (review of the earlier wording)."
+    }
+  ],
+  "fable_5_2_premium_amendment": [
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "1acd084d7453289e88d07d3a82b912d0d0ccb25a41d284ecfbf6973fca7026e9",
+      "new": "bb7c6f2dd7e87d25dde94bb42ef3984cadd766da095bcf0e8afa3348b572a020",
+      "reason": "Step 2 Decisions: a premium model is 'Fable 5.2 / GPT-6 Astra' instead of 'Fable 5.1 / GPT-6 Astra' (ADR 020); still used only on the user's word."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "e42ef5e772b92c4a7f3e176f9ab3ab5b5581ce34ef7c3fdb071fbb6c82b8ebed",
+      "new": "fe368bb8137fdaf9cd10dcf1c9ffd9916e3e31f9a65c1184bffd264295afc08c",
+      "reason": "Example wave-plan: the premium supervisor and its approvals.premium name claude-fable-5-2 instead of the deprecated claude-fable-5-1 (ADR 020)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "fe52b5f4a1d07a7c59887d090219e43e8fd1bfddba31a02903924f1d076575a3",
+      "new": "fae749e773339aef1cfe17fc89ca0008ba2e6f45e912e6ca03bac0af9373c019",
+      "reason": "approvals.premium is required whenever claude-fable-5-2, gpt-6-astra or the deprecated claude-fable-5-1 appears in any role (ADR 020)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "cc7fa6545d46c4c90f6557c6e039550e90abd0bd71de518704509e360c60097e",
+      "new": "3424d69df96982fa84a0429854a2415af55acc97fc1f61cd8278e9730dfcfb54",
+      "reason": "Allowed Claude model fields add claude-fable-5-2 (premium) beside the deprecated claude-fable-5-1 (ADR 020)."
+    },
+    {
+      "path": "plugins/orchestration/skills/super-plan/SKILL.md",
+      "old": "448f270b5bccf644a0173e59a569c9f496032cb293c542f0d6cd998af97aa017",
+      "new": "fb8a0868f7d8773b667a142c304783a1388e1d2d25dd15f1e4481e78d0e3f5b1",
+      "reason": "Headless mode: a premium model the request itself names for a role is the user's word, used and recorded in approvals.premium; standard supervisors otherwise, and a premium choice that would need a question still goes under Assumptions (would ask)."
+    },
+    {
+      "path": "plugins/code-review/skills/critical-review/SKILL.md",
+      "old": "efe8ab8022fe190c933e01356d5ad9e6eaa241f8939daf19704ad5bcf12b12f5",
+      "new": "68edd7feb277e8343f39b533dfd87e33348d68b8a759fd9392d07437194d31a0",
+      "reason": "Fix protocol premium rule: names Fable 5.2 instead of Fable 5.1, and an authorization recorded for the deprecated Fable 5.1 covers Fable 5.2 in the same roles (ADR 020)."
     }
   ]
 }

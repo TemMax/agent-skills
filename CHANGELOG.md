@@ -27,9 +27,8 @@ a Fable 5.2 session refused correctly: the plan linter rejected the ID and
 the wave runner did not know it. It offered the older Fable 5.1 instead.
 
 **What changes.** Fable 5.2 is now the premium Claude model for every child
-role: supervisor, executor, ladder rung and research agent. The linter, the
-wave runner and the Codex wave state accept `claude-fable-5-2` at the Opus
-tier. As before, a premium model is used only on the user's word, in the
+role: supervisor, executor, ladder rung and research agent. The linter and
+the wave runner accept `claude-fable-5-2` at the Opus tier. As before, a premium model is used only on the user's word, in the
 session or in their instruction files, and recorded in `approvals.premium`;
 the linter rejects a plan that names it without that record. No default
 route, default ladder or standard supervisor names it. Every supervisor row

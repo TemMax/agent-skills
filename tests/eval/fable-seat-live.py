@@ -368,6 +368,27 @@ def ship_e2e(args, out, pkg, versions):
     return e2e_score(out, rcs, gate, 'checks')
 
 
+PROGRESS_RE = re.compile(r'claude-wave-runner: (?:\[[^\]]*\] )?([a-z0-9-]+): '
+                         r'(executor call|review) \d+ started \((claude-[a-z0-9-]+) ')
+
+
+def progress_children(rows):
+    """(role, model) of every runner child named in the runner's progress lines
+    that reached the session through tool results. The runner removes its
+    summary.json in the cleanup after integration, so the trace is the record
+    that survives."""
+    out = []
+    for r in rows:
+        for b in (r.get('message') or {}).get('content') or []:
+            if isinstance(b, dict) and b.get('type') == 'tool_result':
+                c = b.get('content')
+                text = c if isinstance(c, str) else json.dumps(c)
+                text = text.replace('\\n', '\n')
+                out += [('exec' if kind == 'executor call' else 'judge', model)
+                        for _, kind, model in PROGRESS_RE.findall(text)]
+    return out
+
+
 def expand(text, env):
     return re.sub(r'\$(?:\{(\w+)\}|(\w+))', lambda m: env.get(m.group(1) or m.group(2), m.group(0)), text)
 
@@ -739,6 +760,8 @@ def main():
     if args.case == 'wave':
         entries = [c for f in sorted(repo.glob('.worktrees/**/summary.json'))
                    for c in json.loads(f.read_text()).get('children') or []]
+        if not entries:  # cleaned up after integration: read the progress lines
+            entries = [{'role': role, 'model': model} for role, model in progress_children(rows)]
         children = [c.get('model') for c in entries]
         facts['runner_children'] = children
         facts['runner_child_roles'] = [(c.get('role'), c.get('model')) for c in entries]
@@ -746,7 +769,7 @@ def main():
             all(in_package(s_, pkg) for s_ in scripts)
         if args.supervisor:
             checks['supervisor_on_claude_fable_5_2'] = \
-                any(c.get('model') == args.supervisor and c.get('role') != 'exec' for c in entries) and \
+                any(c.get('model') == args.supervisor and c.get('role') == 'judge' for c in entries) and \
                 not any(c.get('model') == args.supervisor and c.get('role') == 'exec' for c in entries)
         else:
             checks['no_role_on_claude_fable_5_2'] = 'claude-fable-5-2' not in children and \

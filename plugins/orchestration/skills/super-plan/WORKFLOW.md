@@ -676,8 +676,10 @@ When there is no user to answer gates (an eval harness runs you), skip both
 gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
 silently is the failure this mode exists to measure. A headless run uses
-standard supervisors only — Opus 5.5 for Claude waves, `gpt-6.1-sol` for
-Luna and Sol Codex waves; a premium choice it
+standard supervisors — Opus 5.5 for Claude waves, `gpt-6.1-sol` for
+Luna and Sol Codex waves — unless the request itself names a premium model
+for a role: that is the user's word, so the plan uses it in that role and
+records `approvals.premium` with the request as its source. A premium choice it
 would have asked the user for goes under `Assumptions (would ask)` instead, and the plan carries no `approvals.premium` invented by the model. A headless run also leaves the `review` key unset and records the review choice under `## Assumptions (would ask)`.
 
 ## Common Mistakes

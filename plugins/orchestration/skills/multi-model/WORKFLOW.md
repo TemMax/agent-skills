@@ -689,7 +689,9 @@ four fields — `models`, `reason`, `approved_by`, `date`: the source of the
 authorization goes into `reason` (for example "standing authorization in
 AGENTS.md" or "user's instruction in this session"), and `approved_by` stays
 `"user"`. An authorization given for a pull request or task covers its later
-fix and recovery waves while the models and roles stay the same. Without an
+fix and recovery waves while the models and roles stay the same; one
+recorded for the deprecated Fable 5.1 covers Fable 5.2 in the same roles
+(ADR 020). Without an
 authorization use the standard route; when no standard delegated route fits,
 fix directly per step 8. The report notes in one line where a premium route
 would have applied. Standard supervisors: Opus 5.5 for Claude waves, its own

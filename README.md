@@ -187,7 +187,8 @@ is deliberately narrower than a claim that every profile is a production route:
 
 | Host | Exact model IDs with a profile | Role / effort conclusion |
 |---|---|---|
-| Claude Code | `claude-opus-5-5`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
+| Claude Code | `claude-opus-5-5`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
+| Claude Code | `claude-fable-5-1` | Orchestrator and reviewer profiles for a session on it; deprecated as a routed model since 2026-11-13 — approved plans still run it, new plans never choose it ([decision 020](docs/decisions/020-fable-5-2-premium-fable-5-1-deprecated.md)). |
 | Claude Code | `claude-fable-5-2` | Orchestrator and reviewer profiles for the user's own session; as an executor, research agent, ladder rung or supervisor a premium route used only on the user's word, recorded in `approvals.premium` ([decision 020](docs/decisions/020-fable-5-2-premium-fable-5-1-deprecated.md)). |
 | Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |

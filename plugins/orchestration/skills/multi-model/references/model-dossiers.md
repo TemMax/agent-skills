@@ -361,8 +361,9 @@ figure measures Opus 5 at +0.05 / −0.03 (intervals cross zero), Sonnet 5
 −0.04 / +0.15, Opus 4.8 −0.04 / −0.05, Mythos 5.1 +0.17 / +0.10. A rare reviewer
 failure: its reasoning concluded a chat met the flagging criterion but its final
 answer did not flag it — recurring in 2 of 1,000 resamples (pp. 135–136).
-Takeaway: it never judges its own output; judges for Opus 5.5 work are Opus 5
-(standard) or Fable 5.1 (premium, `approvals.premium`), and a verdict is read
+Takeaway: it judges its own tier's work only from a fresh session that is
+not told who wrote it (ADR 015); judges for Opus 5.5 work are Opus 5.5
+(standard) or Fable 5.2 (premium, `approvals.premium`), and a verdict is read
 from its final answer checked against the contract, not from its reasoning.
 
 **Documented orchestrator / agentic failure modes:**
@@ -429,8 +430,8 @@ tokens; keep waves well under 10 agents; forbid executors from spawning.
   (p. 125); raise to xhigh only for a single deep question. State the
   question's ambition explicitly — it prefers incremental hypotheses
   (p. 36) and dislikes highly open-ended tasks (p. 167).
-- Supervised by Opus 5 (standard) or Fable 5.1 (premium, `approvals.premium`)
-  — never by Opus 5.5 itself.
+- Supervised by Opus 5.5 in a fresh session (standard, ADR 015) or Fable 5.2
+  (premium, `approvals.premium`).
 - As a judge it supervises Fable 5.1, Sonnet 5.5 and Haiku 4.5 executors
   (and may supervise Opus 5 and Opus 4.8), with a measured +0.07/10
   self-preference (p. 128) — never its own output.

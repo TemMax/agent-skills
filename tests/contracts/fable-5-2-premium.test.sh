@@ -94,6 +94,12 @@ check "critical-review's premium rule names Fable 5.2" \
   "one_line plugins/code-review/skills/critical-review/FIXES.md | grep -qF 'premium model (Fable 5.2 / GPT-6 Astra) is used only when the user said so'"
 check "no shipped text still offers Fable 5.1 as a premium route" \
   "! grep -rqF 'Fable 5.1 / GPT-6 Astra' plugins && ! grep -rqF 'Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative' plugins"
+check "headless planning uses a premium model the request itself names" \
+  "one_line '$SP' | grep -qF 'unless the request itself names a premium model for a role: that is the user'\''s word, so the plan uses it in that role and records \`approvals.premium\` with the request as its source.'"
+check "a Fable 5.1 authorization covers Fable 5.2 in the same roles" \
+  "one_line '$MM' | grep -qF 'one recorded for the deprecated Fable 5.1 covers Fable 5.2 in the same roles (ADR 020).'"
+check "no dossier line keeps Fable 5.1 as a premium judge" \
+  "! one_line '$DOSSIER' | grep -qF 'Fable 5.1 (premium, \`approvals.premium\`)'"
 check "research on a Fable seat never inherits the seat (multi-model)" \
   "one_line '$MM' | grep -qF 'on a Fable seat (5, 5.1 or 5.2) that silently bills file listings'"
 check "research on a Fable seat never inherits the seat (super-plan)" \

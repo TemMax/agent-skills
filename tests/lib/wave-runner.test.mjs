@@ -362,8 +362,9 @@ test('S10c2 claude-fable-5-2 runs as an explicit rung and as the supervisor', as
   assert.equal(result.tasks[0].status, 'ok')
   assert.deepEqual(execCalls(calls, 't-one').map((c) => c.opts.model),
     ['claude-sonnet-5-5', 'claude-sonnet-5-5', 'claude-fable-5-2'])
-  assert.ok(calls.some((c) => c.opts && c.opts.model === 'claude-fable-5-2' && c.opts.label && /judge|supervis/i.test(c.opts.label)),
-    'the supervisor call runs on claude-fable-5-2')
+  const judges = calls.filter((c) => c.opts && c.opts.label && /judge/i.test(c.opts.label))
+  assert.ok(judges.length > 0 && judges.every((c) => c.opts.model === 'claude-fable-5-2'),
+    'every judge call runs on claude-fable-5-2: ' + JSON.stringify(calls.map((c) => [c.opts && c.opts.label, c.opts && c.opts.model])))
 })
 
 test('S10c3 a Sonnet 5.5 supervisor cannot judge a claude-fable-5-2 rung', async () => {
@@ -375,6 +376,8 @@ test('S10c3 a Sonnet 5.5 supervisor cannot judge a claude-fable-5-2 rung', async
     agentStub: stub({}),
   })
   assert.equal(result.status, 'invalid-args')
+  assert.ok(result.errors.some((e) => e.includes('supervisor claude-sonnet-5-5 is a weaker tier than executor or ladder rung claude-fable-5-2')),
+    JSON.stringify(result.errors))
 })
 
 test('S10d the default verifier call uses claude-sonnet-5-5', async () => {

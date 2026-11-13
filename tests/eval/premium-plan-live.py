@@ -116,6 +116,8 @@ def main():
     p.add_argument('--timeout', type=int, default=1500)
     p.add_argument('--out', required=True, type=Path)
     args = p.parse_args(); out = args.out.resolve()
+    if args.case == 'asked' and args.provider != 'claude':
+        p.error('the asked case names a Claude model; Codex plans name GPT models only')
     if out.exists(): p.error('Fresh result directory required; do not overwrite failures')
     if out.is_relative_to(ROOT): p.error('Results must be outside the repository')
     model = args.model or ('claude-fable-5-2' if args.provider == 'claude' else 'gpt-6.1-sol')

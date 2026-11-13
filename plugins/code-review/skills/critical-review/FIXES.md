@@ -62,7 +62,8 @@ never authors code.
      with its source. The request to fix findings is not a premium
      authorization, and premium use is never inferred from it. An
      authorization given for a pull request or task covers its later fix and
-     recovery waves while the models and roles stay the same. Without an
+     recovery waves while the models and roles stay the same; one recorded
+     for the deprecated Fable 5.1 covers Fable 5.2 in the same roles. Without an
      authorization use the standard route; when no standard delegated route
      fits, fix directly with the checks of a direct fix. The report notes in
      one line where a premium route would have applied.

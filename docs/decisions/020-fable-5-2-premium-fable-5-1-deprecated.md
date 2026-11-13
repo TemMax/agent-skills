@@ -25,8 +25,10 @@ Status: accepted; replaces decision 019's points 1 and 4
 
 1. **Fable 5.2 is the premium Claude model.** It may be an executor, ladder
    rung, supervisor or research agent, always premium: only on the user's
-   word, recorded in `approvals.premium`. The plan linter, the wave runner
-   and the Codex wave state accept `claude-fable-5-2` at tier 3, beside Opus.
+   word, recorded in `approvals.premium`. The plan linter and the wave
+   runner accept `claude-fable-5-2` at tier 3, beside Opus; the Codex wave
+   state knows the ID as a Claude model, so a Codex wave that names it is
+   rejected as a host mismatch rather than an unknown model.
    No default route, default ladder or standard supervisor names it, so
    without the user's word nothing changes.
 2. **Fable 5.1 is deprecated.** `claude-fable-5-1` stays a valid premium ID
@@ -55,19 +57,25 @@ Status: accepted; replaces decision 019's points 1 and 4
   the user asked for it; a plan that names it without `approvals.premium`
   fails lint, as Fable 5.1 did.
 - Fable 5.2 executor and supervisor guidance comes from its card: `high` by
-  default (early stops at `low` and `medium`, p. 34; FrontierCode 37.6 at
+  default (early stops more likely at `low` and `medium`, the guide; requested
+  work left undone in 6–13% of sessions at `medium` to `xhigh`, p. 34; FrontierCode 37.6 at
   `medium` against 45.3 at `high`, p. 209), a finishing line in every
   prompt, bounded tasks (out of context on 68% of ProgramBench tasks without
   a remaining-context count, p. 216), never telling it the code is its own.
-- Price: $8 / $40 per million tokens, against Fable 5.1's and Opus 5.5's
-  lower rates; the user pays it only where they asked.
+- Price: $8 / $40 per million tokens — below Fable 5.1's $10 / $50, above
+  Opus 5.5's $4 / $20 (`tests/eval/telemetry/prices.json`); the user pays it
+  only where they asked.
+- An authorization recorded for the deprecated Fable 5.1 covers Fable 5.2 in
+  the same roles, so a pull request's later fix waves need no new word.
 
 ## Evidence and limits
 
 - The card measures Fable 5.2 as a single agent and in teams of itself; it
   does not measure it judging another model's work as a wave supervisor or
   executing a contract under one. The live checks of this change are in
-  `tests/eval/fable-5-2-premium-results-2026-11-13.md`.
+  [`tests/eval/fable-5-2-premium-results-2026-11-13.md`](../../tests/eval/fable-5-2-premium-results-2026-11-13.md).
+- A headless planning run now uses a premium model the request itself names
+  (super-plan's headless mode); on Codex that mode's text is unchanged.
 - The tier rule (Opus and Fable are one tier) is unchanged.
 
 ## Rejected alternatives

@@ -568,8 +568,11 @@ fable52() { # $1: python that edits s; the approval names claude-fable-5-2 only
 import sys
 p, edit = sys.argv[1:]
 s = open(p).read()
+assert '"models": ["claude-fable-5-1"],' in s, 'fixture approval missing'
 s = s.replace('"models": ["claude-fable-5-1"],', '"models": ["claude-fable-5-2"],', 1)
+before = s
 exec(edit)
+assert s != before, 'fable52 edit changed nothing'
 open(p, 'w').write(s)
 PY
 }
@@ -598,7 +601,20 @@ expect "claude-fable-5-2 rung under an Opus 5.5 supervisor exits 0 (one tier)" "
 fable52 "s = s.replace('\"model\": \"claude-fable-5-1\"', '\"model\": \"claude-sonnet-5-5\"', 1); s = s.replace('\"ladder\": [\"claude-opus-5-5\"]', '\"ladder\": [\"claude-fable-5-2\"]', 1)"
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "claude-fable-5-2 rung under a Sonnet 5.5 supervisor exits 1" "1" "$rc"
-contains "a weaker-tier supervisor than the claude-fable-5-2 rung is named" "claude-fable-5-2" "$out"
+contains "a weaker-tier supervisor than the claude-fable-5-2 rung is named" \
+  'supervisor claude-sonnet-5-5 is a weaker tier than executor or ladder rung claude-fable-5-2' "$out"
+
+mutate '"model": "claude-sonnet-5"' '"model": "claude-fable-5-2"'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "unapproved claude-fable-5-2 executor exits 1" "1" "$rc"
+contains "unapproved claude-fable-5-2 executor is named premium" \
+  'executor.model: premium model claude-fable-5-2 requires approvals.premium' "$out"
+
+mutate '"ladder": ["claude-opus-5-5"]' '"ladder": ["claude-fable-5-2"]'
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "unapproved claude-fable-5-2 rung exits 1" "1" "$rc"
+contains "unapproved claude-fable-5-2 rung is named premium" \
+  'ladder[0]: premium model claude-fable-5-2 requires approvals.premium' "$out"
 
 section "Haiku executor routes"
 
