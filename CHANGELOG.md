@@ -43,6 +43,22 @@ that could reach secrets goes to Opus 5.5, not to Fable 5.2, whose
 injection results are worse than Opus 5.5's (IPI 4.09% against 0.96% at
 k=15, most attacks served by its Opus 4.8 fallback). Decision 020.
 
+**Checked.** On Claude Code 2.1.323 with the candidate loaded from a
+disposable snapshot, a Fable 5.2 session at `medium` planned the same change
+twice with the user's sentence "Надзор за каждой волной давай fable 5.2
+medium." and twice without it. With it, every wave's supervisor was
+`claude-fable-5-2` at the named `medium`, `approvals.premium` quoted the
+sentence, and no executor or rung was a Fable; without it, no premium model
+and no approval appeared. A Fable 5.2 session ran an approved wave through
+the shipped runner: the Haiku 5.5 executor's work was accepted by a
+`claude-fable-5-2` supervisor, merged and green on `origin`. On codex-cli
+0.167.0 a `gpt-6.1-sol` plan named no premium model. The live driver's wave
+scoring read a record the runner deletes after integration; it now reads the
+runner's progress lines. Limits: one run per case; Fable 5.2 not run as an
+executor or rung; one unasked plan set its Opus 5.5 supervisors to `medium`
+instead of `high`; the Codex runner's offline test hangs in the agent sandbox
+on `main` too and was not run. `tests/eval/fable-5-2-premium-results-2026-11-13.md`.
+
 ## 4.23.2
 
 ### Highlights

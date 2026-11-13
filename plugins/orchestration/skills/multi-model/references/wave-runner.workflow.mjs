@@ -13,7 +13,7 @@ export const meta = {
 // Opus 5.5 — so the runner rejects them by name. Workflow agent() accepts
 // every ID below (probe wf_e635018e-8f3, 2026-09-22); claude-sonnet-5-5 accepted in wf_8ce2a0d8-bb0 and later runs, 2026-09-28.
 // claude-fable-5-2 has not been probed through Workflow agent(); the native
-// runner (claude-wave-runner.mjs, `claude -p --model`) ran it as a supervisor
+// CLI runner (`claude -p --model`) ran it as a supervisor
 // on 2026-11-13 (tests/eval/fable-5-2-premium-results-2026-11-13.md).
 // Aliases were probed again on 2026-10-08 (Claude Code 2.1.293): `haiku` resolves to
 // `claude-haiku-5-5` and `sonnet` to `claude-sonnet-5-5`. Workflow agent() accepted
