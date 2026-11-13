@@ -126,7 +126,7 @@ they do not block writing a concrete plan for the one start approval.
    — supervisor fixture 9/9 on 2026-09-29; its predecessor
    `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24
    and three real small waves merge-ready first try — toy waves, correct
-   work only). A premium model (Fable 5.1 / GPT-6 Astra, any role) is used
+   work only). A premium model (Fable 5.2 / GPT-6 Astra, any role) is used
    only when the user said so in this session, or through a standing
    authorization written in the user's or the repository's instruction files
    (`AGENTS.md`, `CLAUDE.md`); record it in `approvals.premium` with the
@@ -452,7 +452,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    ```json wave-plan
    { "waves": [
      { "wave": 1,
-       "supervisor": { "model": "claude-fable-5-1", "effort": "high" },
+       "supervisor": { "model": "claude-fable-5-2", "effort": "high" },
        "tasks": [
          { "id": "http-retry",
            "branch": "wave/http-retry",
@@ -469,7 +469,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    "e2e": "not-applicable: http-retry touches one call path, not a data-transforming pipeline",
    "approvals": {
      "premium": {
-       "models": ["claude-fable-5-1"],
+       "models": ["claude-fable-5-2"],
        "reason": "user's instruction in this session: premium supervisor for this wave's cross-file retry change",
        "approved_by": "user",
        "date": "2026-09-24" } } }
@@ -492,9 +492,10 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      `"not-applicable: <reason>"` when the feature is not a data-transforming
      pipeline.
    - `approvals.premium`: `{"models": [...], "reason": "...", "approved_by":
-     "...", "date": "..."}`, required whenever `claude-fable-5-1` or
-     `gpt-6-astra` appears in any role — supervisor, executor, or ladder
-     rung. The example above shows it for the `claude-fable-5-1` supervisor.
+     "...", "date": "..."}`, required whenever `claude-fable-5-2`,
+     `gpt-6-astra` or the deprecated `claude-fable-5-1` appears in any role —
+     supervisor, executor, or ladder rung. The example above shows it for the
+     `claude-fable-5-2` supervisor.
    - `review`: optional (without it ship uses the standard measured review route without asking) — Claude plans never carry it, since Claude's Stage 3 review runs in the
      session. Names the model and effort for ship's Stage 3
      critical-review child, as an object, e.g.:
@@ -541,12 +542,13 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 
    | Plan host | Allowed model fields |
    |---|---|
-   | Claude | `claude-haiku-5-5`, `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1` |
+   | Claude | `claude-haiku-5-5`, `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-2`, `claude-fable-5-1` |
    | Codex | `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 
-   `claude-fable-5-2` is not a plan model: Fable 5.2 runs only as the
-   coordinator's own seat, never in a plan role (ADR 019), and the linter
-   rejects it like any unlisted ID.
+   `claude-fable-5-2` is premium: any plan role needs the user's word,
+   recorded in `approvals.premium`. `claude-fable-5-1` is deprecated (ADR 020):
+   it stays valid so that already approved plans still execute, the linter
+   warns on it, and new plans name `claude-fable-5-2` instead.
 
    New Claude plans route Sonnet work to `claude-sonnet-5-5`; `claude-sonnet-5`
    remains valid only so that already approved plans still execute. New Claude
@@ -674,8 +676,10 @@ When there is no user to answer gates (an eval harness runs you), skip both
 gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
 silently is the failure this mode exists to measure. A headless run uses
-standard supervisors only — Opus 5.5 for Claude waves, `gpt-6.1-sol` for
-Luna and Sol Codex waves; a premium choice it
+standard supervisors — Opus 5.5 for Claude waves, `gpt-6.1-sol` for
+Luna and Sol Codex waves — unless the request itself names a premium model
+for a role: that is the user's word, so the plan uses it in that role and
+records `approvals.premium` with the request as its source. A premium choice it
 would have asked the user for goes under `Assumptions (would ask)` instead, and the plan carries no `approvals.premium` invented by the model. A headless run also leaves the `review` key unset and records the review choice under `## Assumptions (would ask)`.
 
 ## Common Mistakes

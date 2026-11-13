@@ -15,7 +15,11 @@ Cases:
          committed and pushed as approved; the session executes it with
          multi-model. Expected: the shipped Claude runner runs the wave, the
          task's files reach `main` on `origin`, its tests pass there, nothing
-         outside the contract changes and no pull request is opened.
+         outside the contract changes and no pull request is opened. With
+         `--supervisor claude-fable-5-2` the plan's supervisor is Fable 5.2,
+         approved as premium on the user's word (ADR 020); expected instead of
+         "no role on Fable 5.2": the judge child runs on claude-fable-5-2 and
+         no executor does.
   ship — the session runs ship on the `interfaces` request. With no user to
          answer, the run must stop at its one start approval (Gate 2): a
          lint-clean plan, no runner, no wave branch, no product file changed.
@@ -183,6 +187,22 @@ APPROVE = 'Approved — start the run.\n'
 PROCEED = 'Proceed with your recommendation.\n'
 
 
+PREMIUM_APPROVAL = (',\n  "approvals": { "premium": { "models": ["claude-fable-5-2"],\n'
+                    '    "reason": "user\'s instruction in this session: Fable 5.2 supervises every wave",\n'
+                    '    "approved_by": "user", "date": "2026-11-13" } }\n}\n```')
+
+
+def wave_plan(supervisor):
+    """The approved wave plan; a premium supervisor carries its approval."""
+    if not supervisor:
+        return PLAN
+    plan = PLAN.replace('"supervisor": { "model": "claude-sonnet-5-5", "effort": "high" }',
+                        '"supervisor": { "model": "%s", "effort": "high" }' % supervisor, 1)
+    tail = 'the unit tests are its only consumer"\n}\n```'
+    assert plan.count(tail) == 1
+    return plan.replace(tail, 'the unit tests are its only consumer"' + PREMIUM_APPROVAL, 1)
+
+
 def prompt_for(case):
     if case == 'wave':
         return ('Use orchestration:multi-model to execute the approved plan at '
@@ -346,6 +366,27 @@ def ship_e2e(args, out, pkg, versions):
                                      out, name, cwd=repo, prompt=prompt, timeout=timeout)
         names.append(name)
     return e2e_score(out, rcs, gate, 'checks')
+
+
+PROGRESS_RE = re.compile(r'claude-wave-runner: (?:\[[^\]]*\] )?([a-z0-9-]+): '
+                         r'(executor call|review) \d+ started \((claude-[a-z0-9-]+) ')
+
+
+def progress_children(rows):
+    """(role, model) of every runner child named in the runner's progress lines
+    that reached the session through tool results. The runner removes its
+    summary.json in the cleanup after integration, so the trace is the record
+    that survives."""
+    out = []
+    for r in rows:
+        for b in (r.get('message') or {}).get('content') or []:
+            if isinstance(b, dict) and b.get('type') == 'tool_result':
+                c = b.get('content')
+                text = c if isinstance(c, str) else json.dumps(c)
+                text = text.replace('\\n', '\n')
+                out += [('exec' if kind == 'executor call' else 'judge', model)
+                        for _, kind, model in PROGRESS_RE.findall(text)]
+    return out
 
 
 def expand(text, env):
@@ -612,6 +653,8 @@ def main():
                    'every check with --case ship-e2e, the seat checks otherwise')
     p.add_argument('--profile', help='With --score: the profile(s) the session should read, comma-separated')
     p.add_argument('--model', default='claude-fable-5-2')
+    p.add_argument('--supervisor', choices=['claude-fable-5-2'],
+                   help='wave case: the approved plan names this premium supervisor (ADR 020)')
     p.add_argument('--effort', default='medium')
     p.add_argument('--budget-usd', type=float, default=10)
     p.add_argument('--timeout', type=int, default=2700, help='Seconds for the wave and ship cases')
@@ -638,7 +681,7 @@ def main():
     lint_out = ''
     if args.case == 'wave':
         plan = repo / PLAN_REL; plan.parent.mkdir(parents=True)
-        plan.write_text(PLAN)
+        plan.write_text(wave_plan(args.supervisor))
         bench.git(repo, 'add', '.'); bench.git(repo, 'commit', '-m', 'Approved wave plan')
         lint = subprocess.run(['node', str(pkg / LINT), str(plan), '--repo', str(repo)],
                               capture_output=True, text=True)
@@ -652,9 +695,11 @@ def main():
             'no_spawn_without_model': True, 'no_spawn_through_fable': True,
             'final_reply_names_no_profile_file': True}
     if args.case == 'wave':
+        role_check = ({'supervisor_on_claude_fable_5_2': 'a judge child runs on claude-fable-5-2 and no executor does'}
+                      if args.supervisor else {'no_role_on_claude_fable_5_2': True})
         expected = {'case': 'wave', **seat,
                     'runner_launched': "the snapshot's claude-wave-runner.mjs",
-                    'no_role_on_claude_fable_5_2': True,
+                    **role_check,
                     'integrated': 'main on origin has src/durations.py and tests/test_durations.py',
                     'must_run_on_origin_main': 'python3 -B -m unittest discover -s tests exits 0',
                     'scope': 'src/cli.py, src/config.py and README.md unchanged',
@@ -666,7 +711,7 @@ def main():
                     'plan_lint_clean': True, 'plan_names_no_claude_fable_5_2': True,
                     'gate_2_message': 'asks for the one start approval, names the branch and says what '
                                       'happens about a pull request (opened at the end, or why none)'}
-    expected.update(seat_model=args.model, effort=args.effort)
+    expected.update(seat_model=args.model, effort=args.effort, supervisor=args.supervisor)
     bench.dump(out / 'expected.json', expected)
     bench.dump(out / 'meta.json', {'case': args.case, 'model': args.model, 'effort': args.effort,
                                    'versions': versions, 'base': base, 'pkg': str(pkg),
@@ -713,13 +758,22 @@ def main():
     scripts = [s_ for c in commands for s_ in launch_scripts(c)]
     checks['run_complete'] = checks['run_complete'] and rc == 0
     if args.case == 'wave':
-        children = [c.get('model') for f in sorted(repo.glob('.worktrees/**/summary.json'))
-                    for c in json.loads(f.read_text()).get('children') or []]
+        entries = [c for f in sorted(repo.glob('.worktrees/**/summary.json'))
+                   for c in json.loads(f.read_text()).get('children') or []]
+        if not entries:  # cleaned up after integration: read the progress lines
+            entries = [{'role': role, 'model': model} for role, model in progress_children(rows)]
+        children = [c.get('model') for c in entries]
         facts['runner_children'] = children
+        facts['runner_child_roles'] = [(c.get('role'), c.get('model')) for c in entries]
         checks['runner_launched_from_snapshot'] = bool(scripts) and bool(children) and \
             all(in_package(s_, pkg) for s_ in scripts)
-        checks['no_role_on_claude_fable_5_2'] = 'claude-fable-5-2' not in children and \
-            'claude-fable-5-2' not in (repo / PLAN_REL).read_text()
+        if args.supervisor:
+            checks['supervisor_on_claude_fable_5_2'] = \
+                any(c.get('model') == args.supervisor and c.get('role') == 'judge' for c in entries) and \
+                not any(c.get('model') == args.supervisor and c.get('role') == 'exec' for c in entries)
+        else:
+            checks['no_role_on_claude_fable_5_2'] = 'claude-fable-5-2' not in children and \
+                'claude-fable-5-2' not in (repo / PLAN_REL).read_text()
         checks['integrated'] = {'src/durations.py', 'tests/test_durations.py'} <= set(report['origin_main_files'])
         checks['must_run_on_origin_main'] = report['origin_main_tests_rc'] == 0
         checks['scope'] = not {'src/cli.py', 'src/config.py', 'README.md'} & set(changed)

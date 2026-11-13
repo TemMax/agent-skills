@@ -4,6 +4,61 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.24.0
+
+### Highlights
+
+**multi-model**
+- Fable 5.2 can supervise, execute and be a rung, only on your word
+- Fable 5.1 is deprecated; approved plans that name it still run
+- High-risk untrusted content goes to Opus 5.5, not to a Fable
+
+**super-plan**
+- Plans may name claude-fable-5-2 when you asked for it
+
+**critical-review**
+- A premium fix route names Fable 5.2 instead of Fable 5.1
+
+Orchestration 4.24.0 and code-review 1.22.0 apply to Claude Code and Codex.
+
+**What was wrong.** Decision 019 kept Fable 5.2 (`claude-fable-5-2`) to the
+user's own session. Asked for "надзор за каждой волной — Fable 5.2 medium",
+a Fable 5.2 session refused correctly: the plan linter rejected the ID and
+the wave runner did not know it. It offered the older Fable 5.1 instead.
+
+**What changes.** Fable 5.2 is now the premium Claude model for every child
+role: supervisor, executor, ladder rung and research agent. The linter and
+the wave runner accept `claude-fable-5-2` at the Opus tier. As before, a premium model is used only on the user's word, in the
+session or in their instruction files, and recorded in `approvals.premium`;
+the linter rejects a plan that names it without that record. No default
+route, default ladder or standard supervisor names it. Every supervisor row
+that offered Fable 5.1 as the premium alternative now offers Fable 5.2, and
+the executor effort table has a Fable 5.2 row: `high` by default, a
+finishing line and a bounded task in every prompt (its card: requested work
+left undone in 6–13% of replayed sessions, out of context on 68% of
+ProgramBench tasks without a remaining count). Fable 5.1 (`claude-fable-5-1`)
+is deprecated: approved plans that name it still lint and run, the linter
+warns on each use, and no table offers it. Its route for untrusted content
+that could reach secrets goes to Opus 5.5, not to Fable 5.2, whose
+injection results are worse than Opus 5.5's (IPI 4.09% against 0.96% at
+k=15, most attacks served by its Opus 4.8 fallback). Decision 020.
+
+**Checked.** On Claude Code 2.1.323 with the candidate loaded from a
+disposable snapshot, a Fable 5.2 session at `medium` planned the same change
+twice with the user's sentence "Надзор за каждой волной давай fable 5.2
+medium." and twice without it. With it, every wave's supervisor was
+`claude-fable-5-2` at the named `medium`, `approvals.premium` quoted the
+sentence, and no executor or rung was a Fable; without it, no premium model
+and no approval appeared. A Fable 5.2 session ran an approved wave through
+the shipped runner: the Haiku 5.5 executor's work was accepted by a
+`claude-fable-5-2` supervisor, merged and green on `origin`. On codex-cli
+0.167.0 a `gpt-6.1-sol` plan named no premium model. The live driver's wave
+scoring read a record the runner deletes after integration; it now reads the
+runner's progress lines. Limits: one run per case; Fable 5.2 not run as an
+executor or rung; one unasked plan set its Opus 5.5 supervisors to `medium`
+instead of `high`; the Codex runner's offline test hangs in the agent sandbox
+on `main` too and was not run. `tests/eval/fable-5-2-premium-results-2026-11-13.md`.
+
 ## 4.23.2
 
 ### Highlights

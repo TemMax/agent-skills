@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Fable 5.2 (`claude-fable-5-2`) runs only as the user's session — the
-# orchestrator seat and the reviewer seat — and never as a child of a plan
-# (ADR 019). These checks pin the profile routing, the seat-only rule and the
-# places that keep the model out of plans.
+# Fable 5.2 (`claude-fable-5-2`) has its own orchestrator and reviewer
+# profiles and is the premium Claude model for every child role, used only on
+# the user's word; Fable 5.1 is deprecated (ADR 020, which replaced the
+# seat-only rule of ADR 019). These checks pin the profile routing, the
+# premium rule and the deprecation.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 . tests/lib.sh
@@ -20,6 +21,7 @@ WR=plugins/orchestration/skills/multi-model/references/wave-runner.workflow.mjs
 DOSSIER=plugins/orchestration/skills/multi-model/references/model-dossiers.md
 RDOSSIER=plugins/code-review/skills/critical-review/references/reviewer-dossier.md
 ADR=docs/decisions/019-fable-5-2.md
+ADR20=docs/decisions/020-fable-5-2-premium-fable-5-1-deprecated.md
 
 one_line() { tr '\n' ' ' < "$1" | tr -s ' '; }
 
@@ -47,33 +49,57 @@ for f in "$OF" "$RF"; do
   check "$(basename "$f") has an effort self-check" "grep -qF '**Effort self-check.**' '$f'"
 done
 
-section "Fable 5.2 runs only as the seat"
-check "the orchestrator profile states the seat-only rule" \
-  "grep -q '^## Your Seat Only$' '$OF' && one_line '$OF' | grep -qF 'never a child of a plan'"
+section "Fable 5.2 is premium; Fable 5.1 is deprecated (ADR 020)"
+check "the orchestrator profile states the premium rule" \
+  "grep -q '^## Your Seat and Your Children$' '$OF' && one_line '$OF' | grep -qF 'Being the seat yourself authorizes nothing: without the user'\''s word every child runs on the standard route.'"
+check "the orchestrator profile no longer says it is never a child" \
+  "! one_line '$OF' | grep -qF 'never a child of a plan'"
 check "the orchestrator profile never asks for a restart at another effort" \
   "one_line '$OF' | grep -qF 'Never ask the user to restart at a different effort.'"
 check "the orchestrator profile routes research off-seat" \
   "one_line '$OF' | grep -qF 'routed research agents (Research Routing table, a named model on every spawn)'"
-check "the multi-model overview states the seat-only rule" \
-  "one_line '$MM' | grep -qF 'Fable 5.2 (\`claude-fable-5-2\`) runs only as the coordinator'\\''s own seat — never a child of any kind: executor, research agent, ladder rung or supervisor (ADR 019).'"
-check "the alias table maps fable to Fable 5.2 and forbids spawning through it" \
-  "grep -qF '| Fable 5.2 (the coordinator'\\''s own seat only — never a plan model) | \`claude-fable-5-2\` | \`fable\` (probed 2026-11-10, Claude Code 2.1.322) — never spawn through it |' '$MM'"
-check "the alias table no longer maps fable to Fable 5.1" \
-  "grep -qF '| Fable 5.1 | \`claude-fable-5-1\` | none (\`fable\` moved to Fable 5.2 by 2026-11-10) |' '$MM'"
+check "the multi-model overview states the premium rule and the deprecation" \
+  "one_line '$MM' | grep -qF 'Fable 5.2 (\`claude-fable-5-2\`) is the premium Claude model: an executor, ladder rung, supervisor or research agent only on the user'\''s word' && one_line '$MM' | grep -qF 'Fable 5.1 (\`claude-fable-5-1\`) is deprecated: approved plans still run it, new plans never choose it (ADR 020).'"
+check "the alias table maps fable to Fable 5.2, premium" \
+  "grep -qF '| Fable 5.2 (premium — only on the user'\''s word) | \`claude-fable-5-2\` | \`fable\` (probed 2026-11-10, Claude Code 2.1.322) |' '$MM'"
+check "the alias table marks Fable 5.1 deprecated" \
+  "grep -qF '| Fable 5.1 (deprecated route; ID valid for approved plans) | \`claude-fable-5-1\` | none (\`fable\` moved to Fable 5.2 by 2026-11-10) |' '$MM'"
 check "Fable 5.1 is spawned only through Workflow agent()" \
   "one_line '$MM' | grep -qF 'A model without an alias (Opus 5, Opus 4.8, Fable 5.1, and the retired Sonnet 5 and Haiku 4.5) is spawned only through Workflow \`agent()\`.'"
-check "no spawn goes through the fable alias" \
-  "one_line '$MM' | grep -qF 'Never spawn through \`fable\`: it resolves to Fable 5.2'"
-check "the supervisor rule keeps Fable 5.2 out" \
-  "one_line '$MM' | grep -qF 'Fable 5.2 (\`claude-fable-5-2\`) is never a supervisor, executor or rung'"
-check "super-plan says claude-fable-5-2 is not a plan model" \
-  "one_line '$SP' | grep -qF '\`claude-fable-5-2\` is not a plan model'"
-check "super-plan's allowed Claude models leave out claude-fable-5-2" \
-  "grep -F '| Claude | \`claude-haiku-5-5\`' '$SP' | grep -qvF 'claude-fable-5-2'"
-check "the linter's Claude models leave out claude-fable-5-2" \
-  "! grep -qF \"'claude-fable-5-2'\" '$PL'"
-check "the runner never names claude-fable-5-2" \
-  "! grep -qF 'claude-fable-5-2' '$WR'"
+check "a spawn through fable is a premium spawn" \
+  "one_line '$MM' | grep -qF '\`fable\` resolves to Fable 5.2, a premium model: spawn through it only for a role the user authorized for Fable 5.2 (ADR 020)'"
+check "the premium paragraph names Fable 5.2 and GPT-6 Astra" \
+  "one_line '$MM' | grep -qF '**Premium models.** Fable 5.2 and GPT-6 Astra are premium'"
+check "every supervisor row offers Fable 5.2, not Fable 5.1, as the premium alternative" \
+  "[ \"\$(grep -cF 'Fable 5.2 (\`claude-fable-5-2\`) is the premium alternative' '$MM')\" -ge 4 ] && ! grep -qF 'Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative' '$MM'"
+check "the high-risk untrusted-content route goes to Opus 5.5, not Fable" \
+  "grep -F '| Untrusted content whose compromise would reach secrets' '$MM' | grep -qF 'Opus 5.5 executor (\`claude-opus-5-5\`)' && ! grep -F '| Untrusted content whose compromise would reach secrets' '$MM' | grep -qF 'Fable 5.1 executor'"
+check "a Fable 5.2 executor prompt carries a finishing line" \
+  "one_line '$MM' | grep -qF 'A Fable 5.2 executor prompt carries a finishing line'"
+check "super-plan lists claude-fable-5-2 as premium and claude-fable-5-1 as deprecated" \
+  "one_line '$SP' | grep -qF '\`claude-fable-5-2\` is premium: any plan role needs the user'\''s word' && one_line '$SP' | grep -qF '\`claude-fable-5-1\` is deprecated (ADR 020)'"
+check "super-plan's allowed Claude models include claude-fable-5-2" \
+  "grep -F '| Claude | \`claude-haiku-5-5\`' '$SP' | grep -qF 'claude-fable-5-2'"
+check "super-plan's premium example uses claude-fable-5-2" \
+  "grep -qF '\"supervisor\": { \"model\": \"claude-fable-5-2\", \"effort\": \"high\" },' '$SP' && grep -qF '\"models\": [\"claude-fable-5-2\"],' '$SP'"
+check "the linter accepts claude-fable-5-2 as a premium tier-3 model" \
+  "grep -qF \"'claude-fable-5-2',\" '$PL' && grep -qF \"'claude-fable-5-2': 3\" '$PL' && grep -qF \"const PREMIUM_MODELS = ['claude-fable-5-2', 'claude-fable-5-1', 'gpt-6-astra']\" '$PL'"
+check "the linter warns that claude-fable-5-1 is deprecated" \
+  "grep -qF 'deprecated: claude-fable-5-1 is not chosen for new plans (use claude-fable-5-2, premium); approved plans still run' '$PL'"
+check "the runner accepts claude-fable-5-2 at tier 3 and keeps it off the default ladder" \
+  "grep -qF \"'claude-fable-5-2',\" '$WR' && grep -qF \"'claude-fable-5-2': 3\" '$WR' && grep -qF \"const LADDER_ORDER = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']\" '$WR'"
+check "the Codex wave state knows claude-fable-5-2" \
+  "grep -qF \"'claude-fable-5-2'\" plugins/orchestration/skills/multi-model/references/codex-wave-state.mjs"
+check "critical-review's premium rule names Fable 5.2" \
+  "one_line plugins/code-review/skills/critical-review/FIXES.md | grep -qF 'premium model (Fable 5.2 / GPT-6 Astra) is used only when the user said so'"
+check "no shipped text still offers Fable 5.1 as a premium route" \
+  "! grep -rqF 'Fable 5.1 / GPT-6 Astra' plugins && ! grep -rqF 'Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative' plugins"
+check "headless planning uses a premium model the request itself names" \
+  "one_line '$SP' | grep -qF 'unless the request itself names a premium model for a role: that is the user'\''s word, so the plan uses it in that role and records \`approvals.premium\` with the request as its source.'"
+check "a Fable 5.1 authorization covers Fable 5.2 in the same roles" \
+  "one_line '$MM' | grep -qF 'one recorded for the deprecated Fable 5.1 covers Fable 5.2 in the same roles (ADR 020).'"
+check "no dossier line keeps Fable 5.1 as a premium judge" \
+  "! one_line '$DOSSIER' | grep -qF 'Fable 5.1 (premium, \`approvals.premium\`)'"
 check "research on a Fable seat never inherits the seat (multi-model)" \
   "one_line '$MM' | grep -qF 'on a Fable seat (5, 5.1 or 5.2) that silently bills file listings'"
 check "research on a Fable seat never inherits the seat (super-plan)" \
@@ -107,8 +133,10 @@ check "no claim that the linter checks every model field" \
   "! one_line '$OF' | grep -qF 'in every model field' && ! one_line '$ADR' | grep -qF 'in every model field'"
 
 section "dossiers, README, prices and the decision record"
-check "the multi-model dossier has a Fable 5.2 section" \
-  "grep -q '^## Fable 5.2 (orchestrator seat only' '$DOSSIER'"
+check "the multi-model dossier has a Fable 5.2 section with its premium role" \
+  "grep -q '^## Fable 5.2 (orchestrator; premium executor, rung and judge' '$DOSSIER'"
+check "the multi-model dossier marks Fable 5.1 deprecated" \
+  "grep -q '^## Fable 5.1 (deprecated route' '$DOSSIER'"
 check "the reviewer dossier has a Fable 5.2 section" \
   "grep -q '^## Fable 5.2 as a reviewer of its own code' '$RDOSSIER'"
 check "the multi-model references list the Fable 5.2 profile" \
@@ -119,7 +147,9 @@ check "README routes claude-fable-5-2 to both profiles" \
   "grep -qF '| \`claude-fable-5-2\` | \`references/orchestrator-fable-5-2.md\` | \`references/reviewer-fable-5-2.md\` |' README.md"
 check "telemetry prices claude-fable-5-2 at the launch-page rates" \
   "python3 -c \"import json,sys; sys.exit(0 if json.load(open('tests/eval/telemetry/prices.json'))['claude-fable-5-2'] == [8, 0.2, 40] else 1)\""
-check "ADR 019 records the seat-only decision" \
-  "[ -f '$ADR' ] && grep -q '^# 019 — ' '$ADR'"
+check "ADR 019 records the seat-only decision and points to ADR 020" \
+  "[ -f '$ADR' ] && grep -q '^# 019 — ' '$ADR' && grep -qF '020-fable-5-2-premium-fable-5-1-deprecated.md' '$ADR'"
+check "ADR 020 records the premium and deprecation decision" \
+  "[ -f '$ADR20' ] && grep -q '^# 020 — ' '$ADR20'"
 
 summary

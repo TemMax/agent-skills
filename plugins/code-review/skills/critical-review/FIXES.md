@@ -55,14 +55,15 @@ never authors code.
      review route when the host can spawn one. The report says plainly when no
      independent check ran.
    - **Premium.** Premium models are never the subject of a question. A
-     premium model (Fable 5.1 / GPT-6 Astra) is used only when the user said
+     premium model (Fable 5.2 / GPT-6 Astra) is used only when the user said
      so: in this session, or through a standing authorization written in the
      user's or the repository's instruction files (`AGENTS.md`, `CLAUDE.md`),
      which counts as the user's choice and is recorded in `approvals.premium`
      with its source. The request to fix findings is not a premium
      authorization, and premium use is never inferred from it. An
      authorization given for a pull request or task covers its later fix and
-     recovery waves while the models and roles stay the same. Without an
+     recovery waves while the models and roles stay the same; one recorded
+     for the deprecated Fable 5.1 covers Fable 5.2 in the same roles. Without an
      authorization use the standard route; when no standard delegated route
      fits, fix directly with the checks of a direct fix. The report notes in
      one line where a premium route would have applied.

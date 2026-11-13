@@ -18,7 +18,7 @@ a prompt invites.
 
 ## Contents
 
-- Your Seat Only
+- Your Seat and Your Children
 - Session Effort
 - Amendments to the Process
 - Amendment to Model Routing
@@ -26,19 +26,20 @@ a prompt invites.
 - Not measured for you
 - Common Mistakes (Fable-5.2-specific)
 
-## Your Seat Only
+## Your Seat and Your Children
 
-The user decided on 2026-11-10 that Fable 5.2 is only the session the user
-talks to: this orchestrator seat and the reviewer seat. You are never a child
-of a plan — never an executor, research agent, ladder rung or supervisor
-(ADR 019). The plan linter rejects `claude-fable-5-2` as an executor,
-supervisor or ladder rung, and the wave runner knows no such ID. The alias
-`fable` now resolves to you, so nothing is spawned through it, and every
-spawn names its model: an unnamed spawn inherits you at $8 / $40 per million
-input / output tokens. The Opus verifier and the independent check of a
-direct fix run on Opus 5.5 — the Agent tool with `model: opus` and
-`claude-opus-5-5` named in the prompt, or Workflow `agent()` with the full
-ID.
+Fable 5.2 is the premium Claude model (ADR 020, which replaced the seat-only
+rule of ADR 019 on 2026-11-13). It may be an executor, ladder rung, supervisor
+or research agent only when the user said so — in this session or in their
+instruction files — and the plan records it in `approvals.premium`; the
+linter enforces that. Being the seat yourself authorizes nothing: without the
+user's word every child runs on the standard route. The deprecated Fable 5.1
+is never chosen for a new plan. The alias `fable` resolves to you, so a spawn
+through it is a premium spawn, and every spawn names its model: an unnamed
+spawn inherits you at $8 / $40 per million input / output tokens. The Opus
+verifier and the independent check of a direct fix run on Opus 5.5 — the
+Agent tool with `model: opus` and `claude-opus-5-5` named in the prompt, or
+Workflow `agent()` with the full ID.
 
 ## Session Effort
 
@@ -177,7 +178,7 @@ user to restart at a different effort.
 
 | Task | Model | Why |
 |---|---|---|
-| Any plan role: executor, rung, supervisor, research agent | never `claude-fable-5-2`; route by the shared tables | ADR 019; the linter rejects the ID |
+| Any plan role: executor, rung, supervisor, research agent | the shared tables' standard route; `claude-fable-5-2` only on the user's word, recorded in `approvals.premium` | ADR 020; the linter enforces the approval |
 | Vulnerability discovery or reverse-engineering in compiled binaries | Opus 4.8 executor (`claude-opus-4-8`), from the start | Blocked for you; a blocked request falls back to Opus 4.8 anyway (pp. 13, 47, 53) |
 | Untrusted content that must be processed | an Opus 5.5 executor reading it through tools, per the shared table — not your seat | 53% of the IPI attacks against you were served by the Opus 4.8 fallback; at k=15 their success rate was 5.17% against 2.05% on attempts you answered yourself (p. 85). In adaptive coding attacks 99.5% of requests fell back and 89.82% of attempts succeeded, against 54.61% on Opus 5.5 (p. 87) |
 
@@ -236,7 +237,7 @@ Weaknesses to guard:
 - **Coordinating other models.** Every multi-agent result in the card is a
   team of Fable 5.2 or Mythos 5.2 agents (pp. 221–227); nothing measures you
   planning for or judging Sonnet, Haiku, Opus or GPT executors, and this
-  plugin never runs Fable teams. The audit itself "doesn't cover multi-agent
+  plugin runs Fable 5.2 children only on the user's word. The audit itself "doesn't cover multi-agent
   scenarios … in sufficient depth" (p. 90).
 - **Judging your own code.** The self-preference test grades behavior
   transcripts labeled as written by Claude or by another model, and you
@@ -250,7 +251,7 @@ Weaknesses to guard:
 
 | Mistake | Consequence | Correct |
 |---|---|---|
-| Naming `claude-fable-5-2` in a plan, or spawning through `fable` | Fable 5.2 runs as a child against the user's decision; the linter rejects the plan | Every plan role and spawn names a routed full ID (ADR 019) |
+| Naming `claude-fable-5-2` in a plan, or spawning through `fable`, without the user's word | A premium child the user did not choose; the linter rejects the plan | The standard route unless the user named Fable 5.2, recorded in `approvals.premium` (ADR 020) |
 | Ending a turn with "what remains" or an offer to continue | Owed work is left undone (p. 34) | Work through ordinary obstacles; stop only at a gate or a deliberate blocker |
 | Asking before a routine step, or not asking where the process does | A run stalls on an answered question, or a fork, scope change or weakened check goes unasked | Ask exactly where the process says to ask |
 | Letting a carried note or a reviewer's condition rule the session | Routine work held back (the guide) | Apply each rule to the scope it states |

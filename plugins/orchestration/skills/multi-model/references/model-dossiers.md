@@ -21,21 +21,22 @@ spawn.
 The models with an orchestrator profile — Opus 5.5, Opus 5, Fable 5.1, Fable 5
 and Opus 4.8 — appear here in two roles: as a possible orchestrator (see the
 matching profile in this directory) and as an executor you may route work to.
-Fable 5.2 has an orchestrator profile and one role only: the orchestrator
-seat; it is never routed work (ADR 019).
+Fable 5.2 has an orchestrator profile too and is the premium Claude route:
+routed work only on the user's word (ADR 020).
 The operational rules live in SKILL.md and the profiles; this file is the
-evidence behind them. Plans address Fable 5.1 as `claude-fable-5-1`; it has
-had no Agent-tool alias since `fable` moved to Fable 5.2. Fable 5
+evidence behind them. Fable 5.1 (`claude-fable-5-1`) is deprecated since
+2026-11-13: approved plans still run it, new plans never choose it, and it
+has had no Agent-tool alias since `fable` moved to Fable 5.2. Fable 5
 stays here for history and is no longer addressable as an executor or judge.
 
 ---
 
 ## Contents
 
-- Fable 5.2 (orchestrator seat only — `claude-fable-5-2`; never a plan model)
+- Fable 5.2 (orchestrator; premium executor, rung and judge — `claude-fable-5-2`)
 - Fable 5 (orchestrator or heavy executor)
 - Opus 5.5 (default heavy executor / verifier / orchestrator)
-- Fable 5.1 (orchestrator, heavy executor, judge — `claude-fable-5-1`)
+- Fable 5.1 (deprecated route — `claude-fable-5-1`)
 - Opus 4.8 (orchestrator, heavy executor, verifier)
 - Opus 5 (heavy executor / verifier / orchestrator — addressed as claude-opus-5)
 - Sonnet 5.5 (the default executor — `claude-sonnet-5-5`)
@@ -44,13 +45,15 @@ stays here for history and is no longer addressable as an executor or judge.
 - Haiku 4.5 (retired route — history; `claude-haiku-4-5-20251001`)
 - Choosing the Orchestrator Seat
 
-## Fable 5.2 (orchestrator seat only — `claude-fable-5-2`; never a plan model)
+## Fable 5.2 (orchestrator; premium executor, rung and judge — `claude-fable-5-2`)
 
-**Role here.** The user's own session only: the orchestrator seat
-(`orchestrator-fable-5-2.md`) and the reviewer seat. Never an executor,
-research agent, ladder rung or supervisor (ADR 019, the user's decision of
-2026-11-10); the plan linter rejects the ID and the runner does not know it.
-Nothing below argues for a child seat. Card: Claude Fable 5.2 & Mythos 5.2
+**Role here.** The orchestrator seat (`orchestrator-fable-5-2.md`), the
+reviewer seat, and the premium Claude route: executor, ladder rung,
+supervisor or research agent only on the user's word, recorded in
+`approvals.premium` (ADR 020, the user's decision of 2026-11-13, which
+replaced the seat-only rule of ADR 019). It took over every route the
+deprecated Fable 5.1 held except high-risk untrusted content, which goes to
+Opus 5.5 (see the prompt-injection item below). Card: Claude Fable 5.2 & Mythos 5.2
 (264 pp., November 9, 2026). Fable 5.2 and Mythos 5.2 "share the same
 underlying model and differ only in the safeguards applied to them" (p. 78);
 the alignment and honesty results are Mythos 5.2 measurements. Price: $8 /
@@ -181,7 +184,16 @@ blocks to Opus 5 (pp. 12–13), automatically in Anthropic's own applications
 (p. 47). Defensive vulnerability work was flagged in 5.3% of cases, Opus 5.5
 4.5% (p. 55).
 
-**Orchestration takeaways.** Seat only. Finish the owed stage and stop only at
+**As an executor or supervisor (premium only).** Run it at `high`: most of
+the gain is there (the guide), early stops are more likely at `low` and
+`medium`, and FrontierCode rose from 37.6 at medium to 45.3 at high (p. 209).
+Every prompt carries a finishing line and a bounded task — it left requested
+work undone in 6–13% of replayed sessions (p. 34) and ran out of context on
+68% of ProgramBench tasks without a remaining count (p. 216) — and never says
+the code is its own (the guide). Not for high-risk untrusted content (the
+fallback numbers above) or compiled binaries (blocked, pp. 47, 53).
+
+**Orchestration takeaways.** Finish the owed stage and stop only at
 a gate or a deliberate blocker; name the steps that need no approval; scope
 carried rules; spawn only what the process names; keep the seat's context
 lean; quote the user verbatim and pass untrusted text by path; route
@@ -349,8 +361,9 @@ figure measures Opus 5 at +0.05 / −0.03 (intervals cross zero), Sonnet 5
 −0.04 / +0.15, Opus 4.8 −0.04 / −0.05, Mythos 5.1 +0.17 / +0.10. A rare reviewer
 failure: its reasoning concluded a chat met the flagging criterion but its final
 answer did not flag it — recurring in 2 of 1,000 resamples (pp. 135–136).
-Takeaway: it never judges its own output; judges for Opus 5.5 work are Opus 5
-(standard) or Fable 5.1 (premium, `approvals.premium`), and a verdict is read
+Takeaway: it judges its own tier's work only from a fresh session that is
+not told who wrote it (ADR 015); judges for Opus 5.5 work are Opus 5.5
+(standard) or Fable 5.2 (premium, `approvals.premium`), and a verdict is read
 from its final answer checked against the contract, not from its reasoning.
 
 **Documented orchestrator / agentic failure modes:**
@@ -417,8 +430,8 @@ tokens; keep waves well under 10 agents; forbid executors from spawning.
   (p. 125); raise to xhigh only for a single deep question. State the
   question's ambition explicitly — it prefers incremental hypotheses
   (p. 36) and dislikes highly open-ended tasks (p. 167).
-- Supervised by Opus 5 (standard) or Fable 5.1 (premium, `approvals.premium`)
-  — never by Opus 5.5 itself.
+- Supervised by Opus 5.5 in a fresh session (standard, ADR 015) or Fable 5.2
+  (premium, `approvals.premium`).
 - As a judge it supervises Fable 5.1, Sonnet 5.5 and Haiku 4.5 executors
   (and may supervise Opus 5 and Opus 4.8), with a measured +0.07/10
   self-preference (p. 128) — never its own output.
@@ -427,7 +440,11 @@ tokens; keep waves well under 10 agents; forbid executors from spawning.
 
 ---
 
-## Fable 5.1 (orchestrator, heavy executor, judge — `claude-fable-5-1`)
+## Fable 5.1 (deprecated route — `claude-fable-5-1`)
+
+Deprecated on 2026-11-13 (ADR 020): approved plans still run it, new plans
+route its premium roles to Fable 5.2 and its high-risk untrusted-content
+route to Opus 5.5. The evidence below stays for the seat profile and history.
 
 **Positioning.** Same weights as Mythos 5.1; Fable 5.1 is the general-access
 configuration with safeguards (p. 11). "More capable than Fable 5", state of the
@@ -1151,7 +1168,7 @@ you are choosing deliberately:
 - Fable 5.2 scored highest on 14 of 16 results in its card's summary table
   (SWE-bench Pro 93.0, FrontierSWE v2 69.9; pp. 4, 207), is among the
   least destructive in Claude Code (pp. 134–135) and the strongest on most
-  honesty metrics (p. 112), at $8 / $40 and only as the seat. Against it: it stops early more than Fable 5.1
+  honesty metrics (p. 112), at $8 / $40; as a child it is premium. Against it: it stops early more than Fable 5.1
   (requested work left undone in 6–13% of sessions against 4%, p. 34), runs
   out of context without a remaining count (p. 216), follows carried caution
   and approval rules as written (the guide), and its multi-agent data covers

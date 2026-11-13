@@ -25,8 +25,9 @@ orchestration skills carry the full per-model dossiers.
 Source: Claude Fable 5.2 & Mythos 5.2 system card (264 pp., November 9,
 2026), and Anthropic's guide "Prompting Claude Fable 5.2". Fable 5.2 and
 Mythos 5.2 share the same underlying model (p. 78); the judging and honesty
-results below are Mythos 5.2 measurements. Fable 5.2 reviews only as the
-user's own session, never as a wave supervisor (ADR 019).
+results below are Mythos 5.2 measurements. Fable 5.2 reviews as the user's
+own session; as a wave supervisor it is a premium route used only on the
+user's word (ADR 020).
 
 **Self-preference, negative (p. 136).** Told a transcript was Claude's, it
 graded it 0.17 points (0–9 scale) more harshly with a Claude-identity system
@@ -84,7 +85,7 @@ try in six to ten, and its summary named the larger changes but often left
 out small ones. Takeaway: the user owns the code — fix the approved findings
 only, report the rest, state where a fix came from when it already existed,
 and run the fix's independent check on Opus 5.5, never on a spawn that
-inherits the session (ADR 019).
+inherits the session (ADR 020).
 
 ---
 

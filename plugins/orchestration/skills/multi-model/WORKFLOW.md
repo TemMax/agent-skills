@@ -16,8 +16,8 @@ Relative paths are based on this skill directory.
 | Opus 5.5 | `claude-opus-5-5` | `opus` |
 | Opus 5 | `claude-opus-5` | none |
 | Opus 4.8 | `claude-opus-4-8` | none |
-| Fable 5.1 | `claude-fable-5-1` | none (`fable` moved to Fable 5.2 by 2026-11-10) |
-| Fable 5.2 (the coordinator's own seat only — never a plan model) | `claude-fable-5-2` | `fable` (probed 2026-11-10, Claude Code 2.1.322) — never spawn through it |
+| Fable 5.1 (deprecated route; ID valid for approved plans) | `claude-fable-5-1` | none (`fable` moved to Fable 5.2 by 2026-11-10) |
+| Fable 5.2 (premium — only on the user's word) | `claude-fable-5-2` | `fable` (probed 2026-11-10, Claude Code 2.1.322) |
 
 Plans, runner args, Workflow `agent()` and CLI `--model` name the full ID; the
 linter and the runner reject aliases by name. Why: aliases re-point silently —
@@ -31,8 +31,8 @@ aliases, so a spawn through it names the alias AND the full ID from this table.
 It also passes the routed effort through the tool's effort parameter where the
 tool has one. A model without an alias (Opus 5, Opus 4.8, Fable 5.1, and the
 retired Sonnet 5 and Haiku 4.5) is spawned only through Workflow `agent()`.
-Never spawn through `fable`: it resolves to Fable 5.2, which runs only as the
-coordinator's own seat and is never a child of a plan (ADR 019). An alias
+`fable` resolves to Fable 5.2, a premium model: spawn through it only for a
+role the user authorized for Fable 5.2 (ADR 020), never for Fable 5.1. An alias
 can move again, or still point at the previous model on an older Claude Code,
 so every agent spawned through an alias states its exact model ID in the first
 line of its report (`model: <id>`); a report from another model than the routed
@@ -83,11 +83,10 @@ execution belongs to separately routed agents**. Every child has an explicit
 model and supported effort selected from the shared routing rules; never inherit
 either from the coordinator or infer identity from labels. Model equality is
 allowed when task routing justifies it, not because of coordinator identity.
-Fable 5.1 (`claude-fable-5-1`) is a separate executor only for an explicit
-reasoned specialized choice or approved rung, never a blanket scoped-coding route.
-Fable 5.2 (`claude-fable-5-2`) runs only as the coordinator's own seat — never
-a child of any kind: executor, research agent, ladder rung or supervisor
-(ADR 019). Effort advice is
+Fable 5.2 (`claude-fable-5-2`) is the premium Claude model: an executor,
+ladder rung, supervisor or research agent only on the user's word (see Premium
+models), never a default route. Fable 5.1 (`claude-fable-5-1`) is deprecated:
+approved plans still run it, new plans never choose it (ADR 020). Effort advice is
 conditional on an already justified selection. Every rule below is derived from
 the models' official system cards; facts and numbers live in the dossiers.
 
@@ -121,7 +120,7 @@ English does not mean English replies.
    start approval (its Gate 2): show it there, and wait on nothing else.
    Never a time or cost estimate — not in the table, a progress update or the
    completion summary (super-plan: "No time or cost estimates"). Premium
-   models are never the subject of a question. A premium model (Fable 5.1 /
+   models are never the subject of a question. A premium model (Fable 5.2 /
    GPT-6 Astra, any role) is used only when the user said so: in this
    session, or through a standing authorization written in the user's or the
    repository's
@@ -330,8 +329,8 @@ orchestrator's own round trips instead of on the work it is waiting for.
 | A long unsliceable session | Opus 5.5 executor (`claude-opus-5-5`) | ProgramBench 91.2 with episodes up to the full 1M window (pp. 183–184), at $4 / $20 vs Opus 5's $5 / $25 (p. 180) |
 | Sonnet hit its ceiling after a fix iteration | Opus 5.5 executor (`claude-opus-5-5`) | The heavy-executor upgrade over Sonnet: higher than Opus 5 on every summary-table evaluation (p. 4) at a lower price |
 | Reading untrusted external content (web, fetched pages, hostile files) | Opus 5.5 executor (`claude-opus-5-5`) | Matches Fable 5.1 on tool-result injection — IPI 0.1% at k=1 / 1.0% at k=15 (p. 85) — and handles the content through tools, never pasted into its prompt (pp. 123–126); still pair with platform safeguards |
-| Untrusted content whose compromise would reach secrets or irreversible actions (content known hostile, an agent that can act) | Fable 5.1 executor (`claude-fable-5-1`) | Most injection-robust model to date: IPI 0.1% at k=1 / 1.0% at k=15 vs Opus 5's 0.4 / 4.8; none of 2,826 directly-answered coding requests broke (pp. 83, 86). Opus 5.5 stays the cost default; only with `approvals.premium` recorded at Gate 1 |
-| Reverse-engineering / vulnerability discovery in compiled binaries | Opus 4.8 executor (`claude-opus-4-8`) | Opus 5.5's, Opus 5's and Fable 5.1's cyber classifiers block binaries (Opus 5.5 card pp. 48, 55; Fable 5.1 card p. 52); Opus 4.8 is where the fallback lands anyway (Opus 5.5 card pp. 12–13) — choose it, don't fall into it |
+| Untrusted content whose compromise would reach secrets or irreversible actions (content known hostile, an agent that can act) | Opus 5.5 executor (`claude-opus-5-5`), content by path, with platform safeguards — not Fable 5.2 | Fable 5.2 is weaker here than Opus 5.5: Gray Swan IPI 0.30% at k=1 / 4.09% at k=15 against 0.07 / 0.96, because 53% of the attacks against it were served by the Opus 4.8 fallback; in adaptive coding attacks 89.82% succeeded against 54.61% (Fable 5.2 card pp. 85, 87). The deprecated Fable 5.1 route is not carried over |
+| Reverse-engineering / vulnerability discovery in compiled binaries | Opus 4.8 executor (`claude-opus-4-8`) | Opus 5.5's, Opus 5's, Fable 5.2's and Fable 5.1's cyber classifiers block binaries (Opus 5.5 card pp. 48, 55; Fable 5.2 card pp. 47, 53; Fable 5.1 card p. 52); Opus 4.8 is where the fallback lands anyway (Opus 5.5 card pp. 12–13) — choose it, don't fall into it |
 
 Torn between Haiku and Sonnet → Sonnet 5.5. Torn between Sonnet and Opus → improve the
 task spec first, then upgrade the model. Sonnet 5.5 (`claude-sonnet-5-5`) is the
@@ -344,18 +343,20 @@ terms. Opus 5 remains addressable as
 executor and, since Opus 5.5 supervises its own tier (2026-10-13), no longer
 chosen as a supervisor. Opus 4.8
 (`claude-opus-4-8`) is retained only for compiled-binary work and as the
-cyber-refusal fallback.
+cyber-refusal fallback. Fable 5.1 (`claude-fable-5-1`) is deprecated as a
+route (2026-11-13, ADR 020) on the same terms as the retired IDs; the premium
+Claude route is Fable 5.2 (`claude-fable-5-2`), used only on the user's word.
 
 **Routing anti-patterns:** no sub-orchestrators — executors never spawn their own
 subagents (documented failures in deep delegation chains: status honesty, not
 capability); don't give any executor untrusted external content without platform
-safeguards (Opus 5.5 and Fable 5.1 are the most robust through tool results, but
+safeguards (Opus 5.5 is the most robust routed model through tool results, but
 safeguards still matter); don't give Sonnet multi-hour sessions; don't give
 Haiku 5.5 a task whose acceptance needs judgment, a session that grows past
 100,000 prompt tokens, or a secret to handle (it kept a secret out of its
 reasoning and replies in 3% of pressed conversations, Haiku 5.5 card p. 92);
-don't route compiled-binary reverse-engineering to Opus 5.5, Opus 5 or Fable
-5.1 (their classifiers block it) — use Opus 4.8.
+don't route compiled-binary reverse-engineering to Opus 5.5, Opus 5, Fable 5.2
+or Fable 5.1 (their classifiers block it) — use Opus 4.8.
 
 ## Research Routing — Quick Reference
 
@@ -419,7 +420,8 @@ is your profile's business, not this table's.
 | Opus 5.5 executor (`claude-opus-5-5`) | simple, fully specified edits | **peak on scoped coding** (FrontierCode, p. 176) | default for non-trivial work (CursorBench high = xhigh, p. 179) | long-horizon knowledge work (≈ max at 41–51% fewer tokens, pp. 209–210); avoid max — pasted-text compliance 7.4% (p. 125) |
 | Opus 5 executor (`claude-opus-5`; retired route, kept for approved older plans) | unusually strong on simple/scoped tasks | well-specified work | default for non-trivial work | avoid — overthinking/self-verification risk |
 | Opus 4.8 executor (`claude-opus-4-8`) | — | compiled-binary work only: most well-specified tasks (min effort ≈ Opus 4.7 max) | compiled-binary work only: debugging, verification, long horizon | compiled-binary work only: research-grade only |
-| Fable 5.1 executor (`claude-fable-5-1`; explicit specialized choice or approved rung) | scoped, closed tasks | **peak on scoped coding** (FrontierCode, p. 169) — always with a scope/brevity line | long-horizon work | xhigh ≈ max at 19–25% fewer tokens (pp. 193–194); out-of-scope edits rise with effort — the scope line is mandatory |
+| Fable 5.2 executor (`claude-fable-5-2`; premium, on the user's word) | avoid — early stops are more likely at low and medium (the guide) | small closed tasks only, with the finishing line (FrontierCode 37.6, p. 209) | **default** — most of the gain is already present at high (the guide); FrontierCode 45.3 (p. 209) | the coding peak (FrontierCode 49.1 vs 45.7 at max, p. 209) at about twice high's cost per task; never max |
+| Fable 5.1 executor (`claude-fable-5-1`; deprecated, approved plans only) | scoped, closed tasks | **peak on scoped coding** (FrontierCode, p. 169) — always with a scope/brevity line | long-horizon work | xhigh ≈ max at 19–25% fewer tokens (pp. 193–194); out-of-scope edits rise with effort — the scope line is mandatory |
 
 Signal rule: wanting to give Sonnet xhigh because the task is open-ended → that
 means switching the model to Opus 5.5 (`claude-opus-5-5`) or returning to the
@@ -428,7 +430,13 @@ Opus 5's effort curve is the exception — higher is not better; it peaks mid-ra
 on coding and overthinks at `max`, so cap Opus 5 executors at `high`. Fable
 5.1's curve has its own shape: task correctness keeps rising with effort but so
 do unrequested out-of-scope edits (p. 169), so a Fable 5.1 executor prompt
-always carries an explicit scope and brevity line.
+always carries an explicit scope and brevity line. A Fable 5.2 executor prompt
+carries a finishing line — it left doable, requested work undone in 6–13% of
+replayed coding sessions at medium to xhigh (Fable 5.2 card p. 34), and a
+finishing instruction halved that (the guide) — never calls the code its own
+(that brought unrequested changes, the guide), and keeps the task bounded: it
+ran out of context on 68% of ProgramBench tasks when no remaining-context
+count was shown (p. 216).
 
 ## Wave Isolation
 
@@ -634,14 +642,14 @@ session, never an executor's handle or conversation, and never told which model
 wrote the work. Never a weaker tier than the executor's: the judge
 re-runs and re-derives everything the executor did. Tier means product class —
 Haiku, then Sonnet, then Opus and Fable together — not a benchmark score, so
-Fable 5.1 is not a weaker tier than Opus 5.5 even where Opus 5.5 benchmarks
-higher.
+Fable 5.2, Fable 5.1 and Opus 5.5 are one tier whichever benchmarks higher.
 
 The same model may supervise its own tier's work (ADR 015,
 `docs/decisions/015-same-model-supervision.md`). Measured self-preference is
 small even when the judge is told the author is Claude: ≈0 for Opus 4.8;
 measured zero for Fable 5; 0.1 points out of 10 for Fable 5.1 (Fable 5.1 card
-p. 124); Opus 5 ≈0, +0.05 / −0.03 with intervals crossing zero, and Opus 5.5
+p. 124); Fable 5.2 graded Claude-labeled transcripts 0.17 of 9 points more
+harshly, not significant (Fable 5.2 card p. 136); Opus 5 ≈0, +0.05 / −0.03 with intervals crossing zero, and Opus 5.5
 +0.07 of 10 (Opus 5.5 card p. 128). The runner's judge prompt
 never names the executor's model, and the contract's mechanical half — verifier facts and
 grep-decidable checks — is not the judge's to soften. Not measured: whether a
@@ -650,14 +658,15 @@ whole branch is the second look at that.
 
 | Executor | Supervisor | Effort |
 |---|---|---|
-| Haiku 5.5 (`claude-haiku-5-5`) | Sonnet 5.5 (`claude-sonnet-5-5`) when every task of the wave is Haiku 5.5 with `"ladder": []` (measured 2026-10-08: supervisor fixture 9/9 in three runs, F3 guard 15/15); otherwise Opus 5.5 (`claude-opus-5-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
+| Haiku 5.5 (`claude-haiku-5-5`) | Sonnet 5.5 (`claude-sonnet-5-5`) when every task of the wave is Haiku 5.5 with `"ladder": []` (measured 2026-10-08: supervisor fixture 9/9 in three runs, F3 guard 15/15); otherwise Opus 5.5 (`claude-opus-5-5`); Fable 5.2 (`claude-fable-5-2`) is the premium alternative | high |
 | Haiku 4.5 (`claude-haiku-4-5-20251001`) | retired route — same supervisor as the Haiku 5.5 row | high |
-| Sonnet 5.5 (`claude-sonnet-5-5`) | Opus 5.5 (`claude-opus-5-5`); Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
+| Sonnet 5.5 (`claude-sonnet-5-5`) | Opus 5.5 (`claude-opus-5-5`); Fable 5.2 (`claude-fable-5-2`) is the premium alternative | high |
 | Sonnet 5 (`claude-sonnet-5`) | retired route — same supervisor as the Sonnet 5.5 row | high |
-| Opus 5.5 (`claude-opus-5-5`) | Opus 5.5 (`claude-opus-5-5`) in a fresh session; Fable 5.1 (`claude-fable-5-1`) is the premium alternative | high |
-| Opus 5 (`claude-opus-5`) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) | high |
-| Opus 4.8 (`claude-opus-4-8`) | Opus 5.5 (`claude-opus-5-5`, standard) or Fable 5.1 (`claude-fable-5-1`, premium — `approvals.premium`) | high |
-| Fable 5.1 (`claude-fable-5-1`, explicit specialized choice or approved rung) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.1 (`claude-fable-5-1`) in a fresh session | high |
+| Opus 5.5 (`claude-opus-5-5`) | Opus 5.5 (`claude-opus-5-5`) in a fresh session; Fable 5.2 (`claude-fable-5-2`) is the premium alternative | high |
+| Opus 5 (`claude-opus-5`) | Opus 5.5 (`claude-opus-5-5`); Fable 5.2 (`claude-fable-5-2`) is the premium alternative | high |
+| Opus 4.8 (`claude-opus-4-8`) | Opus 5.5 (`claude-opus-5-5`, standard) or Fable 5.2 (`claude-fable-5-2`, premium — `approvals.premium`) | high |
+| Fable 5.2 (`claude-fable-5-2`, premium) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.2 (`claude-fable-5-2`) in a fresh session | high |
+| Fable 5.1 (`claude-fable-5-1`, deprecated — approved plans only) | Opus 5.5 (`claude-opus-5-5`) or Fable 5.2 (`claude-fable-5-2`, premium) | high |
 
 A wave has one supervisor, so pick its row by the strongest model any task
 in the wave can run, ladder rungs included — a `claude-sonnet-5-5` task whose
@@ -668,7 +677,8 @@ The rung rule counts the default ladder: an omitted `ladder` field is not an
 empty one — it inherits the runner's default ladder, which reaches
 `claude-opus-5-5`, so only an explicit `"ladder": []` opts a task out of it.
 
-**Premium models.** Fable 5.1 and GPT-6 Astra are premium. Premium models are
+**Premium models.** Fable 5.2 and GPT-6 Astra are premium; so is the
+deprecated Fable 5.1 in the approved plans that still name it. Premium models are
 never the subject of a question. They are used — as supervisor, executor or
 ladder rung — only when the user said so: in this session, or through a
 standing authorization written in the user's or the repository's
@@ -679,17 +689,17 @@ four fields — `models`, `reason`, `approved_by`, `date`: the source of the
 authorization goes into `reason` (for example "standing authorization in
 AGENTS.md" or "user's instruction in this session"), and `approved_by` stays
 `"user"`. An authorization given for a pull request or task covers its later
-fix and recovery waves while the models and roles stay the same. Without an
+fix and recovery waves while the models and roles stay the same; one
+recorded for the deprecated Fable 5.1 covers Fable 5.2 in the same roles
+(ADR 020). Without an
 authorization use the standard route; when no standard delegated route fits,
 fix directly per step 8. The report notes in one line where a premium route
 would have applied. Standard supervisors: Opus 5.5 for Claude waves, its own
 executors included; Codex `gpt-6.1-sol` for Luna and Sol waves.
 
 Plans name every supervisor by its full ID (see Model identifiers above): Fable
-5.1 is `claude-fable-5-1`. Fable 5 is no longer addressable and keeps its
-profile and dossier for history. Fable 5.2 (`claude-fable-5-2`) is never a
-supervisor, executor or rung: it runs only as the coordinator's own seat
-(ADR 019).
+5.2 is `claude-fable-5-2`. Fable 5 is no longer addressable and keeps its
+profile and dossier for history; Fable 5.1 is deprecated (ADR 020).
 
 Effort is `high` across the board — the shipped runner's default — and the row
 is measured, not stylistic: on 2026-08-12 a Haiku supervisor at `medium` passed

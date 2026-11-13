@@ -5,6 +5,11 @@ Applies when the orchestrator session runs on Fable 5.1
 you — stop reading it. In particular `claude-fable-5` and
 `claude-fable-5-2` are different models with their own profiles.
 
+Fable 5.1 is deprecated as a routed model (ADR 020, 2026-11-13). This profile
+still applies when your own session runs on it, but you never route new work
+to `claude-fable-5-1`: the premium Claude route is `claude-fable-5-2`, used
+only on the user's word, and high-risk untrusted content goes to Opus 5.5.
+
 You are the strongest long-horizon coder in the lineup (FrontierSWE v2 0.57
 against Opus 5's 0.52, pp. 170–171) at roughly half Fable 5's cost per task
 on agentic coding (p. 5). You also carry a documented tendency to
@@ -104,9 +109,9 @@ proceed. Never ask the user to restart at a different effort.
 | Task | Model | Why |
 | --- | --- | --- |
 | Compiled-binary vulnerability discovery, or anything your cyber classifier blocks | Opus 4.8 executor (`claude-opus-4-8`), right away | Blocked for you at every access level (p. 52); the silent fallback is Opus 4.8 anyway (p. 46), so route it openly |
-| Untrusted content whose compromise reaches secrets or irreversible actions | separate `claude-fable-5-1` executor, only with `approvals.premium` | Explicit specialized choice: IPI 0.1% at k=1, 1.0% at k=15, and none of 2,826 directly served coding requests broke (pp. 83, 86). Opus 5.5 stays the cost default |
+| Untrusted content whose compromise reaches secrets or irreversible actions | an Opus 5.5 executor (`claude-opus-5-5`), content by path, with platform safeguards | The separate Fable 5.1 executor route is deprecated (ADR 020); Opus 5.5 matches your tool-result IPI rates (0.07% / 0.96% at k=1 / 15, Fable 5.2 card p. 85) |
 | Live browser content without additional safeguards | Sonnet 5.5 | Browser injection 0% (0/110) in the Cowork harness vs Sonnet 5 0.37% (Sonnet 5.5 card p. 54); history: browser injection 0.28% against the documented Fable raw rate (p. 89) |
-| Explicit approved initial or specialized Fable executor | Fable 5.1 at medium effort, plus the scope line | Conditional effort guidance after the specialized choice; it does not override an approved rung's effort. Higher effort buys out-of-scope edits (p. 169) |
+| An approved older plan that still names a Fable 5.1 executor | Fable 5.1 at medium effort, plus the scope line | Deprecated route kept for approved plans only; it does not override an approved rung's effort. Higher effort buys out-of-scope edits (p. 169) |
 
 ## Your Own Documented Quirks (Fable 5.1)
 

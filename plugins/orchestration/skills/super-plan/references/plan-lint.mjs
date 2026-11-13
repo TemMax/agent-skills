@@ -23,6 +23,7 @@ const CLAUDE_MODELS = [
   'claude-opus-5-5',
   'claude-opus-5',
   'claude-opus-4-8',
+  'claude-fable-5-2',
   'claude-fable-5-1',
 ]
 // The runner's default escalation ladder for a Claude task with no explicit
@@ -45,7 +46,7 @@ const ASTRA = 'gpt-6-astra'
 const MODEL_TIER = {
   'claude-haiku-5-5': 1, 'claude-haiku-4-5-20251001': 1,
   'claude-sonnet-5-5': 2, 'claude-sonnet-5': 2,
-  'claude-opus-5-5': 3, 'claude-opus-5': 3, 'claude-opus-4-8': 3, 'claude-fable-5-1': 3,
+  'claude-opus-5-5': 3, 'claude-opus-5': 3, 'claude-opus-4-8': 3, 'claude-fable-5-2': 3, 'claude-fable-5-1': 3,
   'gpt-6-luna': 1, 'gpt-5.6-luna': 1,
   'gpt-6.1-sol': 2, 'gpt-6-sol': 2, 'gpt-5.6-sol': 2, 'gpt-5.6-terra': 2,
   'gpt-6-astra': 3,
@@ -66,7 +67,9 @@ const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
 
 // Premium models need a recorded, dated Gate 1 approval before a plan may
 // route to them. Retired routes are a softer nudge — warnings, never errors.
-const PREMIUM_MODELS = ['claude-fable-5-1', 'gpt-6-astra']
+// claude-fable-5-1 is deprecated (ADR 020): premium still, accepted for
+// approved plans, never chosen for new ones.
+const PREMIUM_MODELS = ['claude-fable-5-2', 'claude-fable-5-1', 'gpt-6-astra']
 const RETIRED_GPT56 = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -178,6 +181,8 @@ if (plan) {
   const retiredWarn = (model) => {
     if (RETIRED_GPT56.includes(model)) {
       warn('retired route: ' + model + ' is not chosen for new plans (GPT-6 Sol/Luna replace it)')
+    } else if (model === 'claude-fable-5-1') {
+      warn('deprecated: claude-fable-5-1 is not chosen for new plans (use claude-fable-5-2, premium); approved plans still run')
     }
   }
   const retiredExecLadderWarn = (model) => {

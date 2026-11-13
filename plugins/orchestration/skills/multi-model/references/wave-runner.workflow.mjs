@@ -12,6 +12,9 @@ export const meta = {
 // silently when a model ships — on 2026-09-22 `opus` moved from Opus 5 to
 // Opus 5.5 — so the runner rejects them by name. Workflow agent() accepts
 // every ID below (probe wf_e635018e-8f3, 2026-09-22); claude-sonnet-5-5 accepted in wf_8ce2a0d8-bb0 and later runs, 2026-09-28.
+// claude-fable-5-2 has not been probed through Workflow agent(); the native
+// CLI runner (`claude -p --model`) ran it as a supervisor
+// on 2026-11-13 (tests/eval/fable-5-2-premium-results-2026-11-13.md).
 // Aliases were probed again on 2026-10-08 (Claude Code 2.1.293): `haiku` resolves to
 // `claude-haiku-5-5` and `sonnet` to `claude-sonnet-5-5`. Workflow agent() accepted
 // `claude-haiku-5-5` in wf_7fd419c4-f40.
@@ -23,6 +26,7 @@ const MODELS = [
   'claude-opus-5-5',
   'claude-opus-5',
   'claude-opus-4-8',
+  'claude-fable-5-2',
   'claude-fable-5-1',
 ]
 const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
@@ -32,12 +36,12 @@ const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const MODEL_TIER = {
   'claude-haiku-5-5': 1, 'claude-haiku-4-5-20251001': 1,
   'claude-sonnet-5-5': 2, 'claude-sonnet-5': 2,
-  'claude-opus-5-5': 3, 'claude-opus-5': 3, 'claude-opus-4-8': 3, 'claude-fable-5-1': 3,
+  'claude-opus-5-5': 3, 'claude-opus-5': 3, 'claude-opus-4-8': 3, 'claude-fable-5-2': 3, 'claude-fable-5-1': 3,
 }
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
-// The default ladder. claude-opus-5, claude-opus-4-8 and claude-fable-5-1 are
-// explicit rungs only: a task reaches them by naming them in executor.model or
-// ladder, never by default escalation. claude-sonnet-5 is retired from this
+// The default ladder. claude-opus-5, claude-opus-4-8, claude-fable-5-2 and the
+// deprecated claude-fable-5-1 are explicit rungs only: a task reaches them by
+// naming them in executor.model or ladder, never by default escalation. claude-sonnet-5 is retired from this
 // order — defaultLadder() below special-cases it to its old legacy ladder
 // instead of climbing through claude-sonnet-5-5 first.
 const LADDER_ORDER = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']
