@@ -55,7 +55,7 @@ never authors code.
      review route when the host can spawn one. The report says plainly when no
      independent check ran.
    - **Premium.** Premium models are never the subject of a question. A
-     premium model (Fable 5.1 / GPT-6 Astra) is used only when the user said
+     premium model (Fable 5.2 / GPT-6 Astra) is used only when the user said
      so: in this session, or through a standing authorization written in the
      user's or the repository's instruction files (`AGENTS.md`, `CLAUDE.md`),
      which counts as the user's choice and is recorded in `approvals.premium`

@@ -23,6 +23,7 @@ const MODELS = [
   'claude-opus-5-5',
   'claude-opus-5',
   'claude-opus-4-8',
+  'claude-fable-5-2',
   'claude-fable-5-1',
 ]
 const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
@@ -32,12 +33,12 @@ const ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
 const MODEL_TIER = {
   'claude-haiku-5-5': 1, 'claude-haiku-4-5-20251001': 1,
   'claude-sonnet-5-5': 2, 'claude-sonnet-5': 2,
-  'claude-opus-5-5': 3, 'claude-opus-5': 3, 'claude-opus-4-8': 3, 'claude-fable-5-1': 3,
+  'claude-opus-5-5': 3, 'claude-opus-5': 3, 'claude-opus-4-8': 3, 'claude-fable-5-2': 3, 'claude-fable-5-1': 3,
 }
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
-// The default ladder. claude-opus-5, claude-opus-4-8 and claude-fable-5-1 are
-// explicit rungs only: a task reaches them by naming them in executor.model or
-// ladder, never by default escalation. claude-sonnet-5 is retired from this
+// The default ladder. claude-opus-5, claude-opus-4-8, claude-fable-5-2 and the
+// deprecated claude-fable-5-1 are explicit rungs only: a task reaches them by
+// naming them in executor.model or ladder, never by default escalation. claude-sonnet-5 is retired from this
 // order — defaultLadder() below special-cases it to its old legacy ladder
 // instead of climbing through claude-sonnet-5-5 first.
 const LADDER_ORDER = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']

@@ -48,7 +48,7 @@ check "fix wave routing follows the plan format ci/e2e keys" \
   "one_line '$SKILL' | grep -qF 'A fix wave follows the plan format (\`ci\`, \`e2e\`)'"
 
 check "a premium model is used only on the user's word, recorded in approvals.premium with its source" \
-  "one_line '$SKILL' | grep -qF 'A premium model (Fable 5.1 / GPT-6 Astra) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source'"
+  "one_line '$SKILL' | grep -qF 'A premium model (Fable 5.2 / GPT-6 Astra) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source'"
 
 check "premium use is never inferred from the request to fix" \
   "one_line '$SKILL' | grep -qF 'The request to fix findings is not a premium authorization, and premium use is never inferred from it'"

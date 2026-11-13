@@ -549,22 +549,56 @@ PY
   contains "$full as explicit executor is clean" "OK: 0 error(s)" "$out"
 done
 
-section "Fable 5.2 is the coordinator's seat, never a plan model (ADR 019)"
+section "Fable 5.2 is premium, Fable 5.1 is deprecated (ADR 020)"
 
-mutate '"model": "claude-sonnet-5"' '"model": "claude-fable-5-2"'
-out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "claude-fable-5-2 as executor exits 1" "1" "$rc"
-contains "claude-fable-5-2 as executor is named" "executor.model: one of" "$out"
+out="$(node "$LINT" "$CLEAN" 2>&1)"; rc=$?
+expect "an approved claude-fable-5-1 supervisor still exits 0" "0" "$rc"
+contains "claude-fable-5-1 is warned as deprecated" \
+  'deprecated: claude-fable-5-1 is not chosen for new plans (use claude-fable-5-2, premium); approved plans still run' "$out"
 
 mutate '"model": "claude-fable-5-1"' '"model": "claude-fable-5-2"'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "claude-fable-5-2 as supervisor exits 1" "1" "$rc"
-contains "claude-fable-5-2 as supervisor is named" "supervisor.model: one of" "$out"
+expect "claude-fable-5-2 supervisor without its own approval exits 1" "1" "$rc"
+contains "claude-fable-5-2 supervisor without approval is named premium" \
+  'premium model claude-fable-5-2 requires approvals.premium (models, reason, approved_by, date) recorded at Gate 1' "$out"
 
-mutate '"ladder": ["claude-opus-5-5"]' '"ladder": ["claude-fable-5-2"]'
+fable52() { # $1: python that edits s; the approval names claude-fable-5-2 only
+  cp "$CLEAN" "$W/m.md"
+  python3 - "$W/m.md" "$1" <<'PY'
+import sys
+p, edit = sys.argv[1:]
+s = open(p).read()
+s = s.replace('"models": ["claude-fable-5-1"],', '"models": ["claude-fable-5-2"],', 1)
+exec(edit)
+open(p, 'w').write(s)
+PY
+}
+
+fable52 "s = s.replace('\"model\": \"claude-fable-5-1\"', '\"model\": \"claude-fable-5-2\"', 1)"
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
-expect "claude-fable-5-2 as a ladder rung exits 1" "1" "$rc"
-contains "claude-fable-5-2 as a ladder rung is named" "ladder: array of" "$out"
+expect "approved claude-fable-5-2 supervisor exits 0" "0" "$rc"
+contains "approved claude-fable-5-2 supervisor is clean" "OK: 0 error(s)" "$out"
+check "approved claude-fable-5-2 supervisor prints no deprecation warning" \
+  '! grep -qF "deprecated: claude-fable-5-1" <<<"$out"'
+
+fable52 "s = s.replace('\"model\": \"claude-fable-5-1\"', '\"model\": \"claude-fable-5-2\"', 1); s = s.replace('\"model\": \"claude-sonnet-5\"', '\"model\": \"claude-fable-5-2\"', 1)"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "approved claude-fable-5-2 executor exits 0" "0" "$rc"
+contains "approved claude-fable-5-2 executor is clean" "OK: 0 error(s)" "$out"
+
+fable52 "s = s.replace('\"model\": \"claude-fable-5-1\"', '\"model\": \"claude-fable-5-2\"', 1); s = s.replace('\"ladder\": [\"claude-opus-5-5\"]', '\"ladder\": [\"claude-fable-5-2\"]', 1)"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "approved claude-fable-5-2 ladder rung exits 0" "0" "$rc"
+contains "approved claude-fable-5-2 ladder rung is clean" "OK: 0 error(s)" "$out"
+
+fable52 "s = s.replace('\"model\": \"claude-fable-5-1\"', '\"model\": \"claude-opus-5-5\"', 1); s = s.replace('\"ladder\": [\"claude-opus-5-5\"]', '\"ladder\": [\"claude-fable-5-2\"]', 1)"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "claude-fable-5-2 rung under an Opus 5.5 supervisor exits 0 (one tier)" "0" "$rc"
+
+fable52 "s = s.replace('\"model\": \"claude-fable-5-1\"', '\"model\": \"claude-sonnet-5-5\"', 1); s = s.replace('\"ladder\": [\"claude-opus-5-5\"]', '\"ladder\": [\"claude-fable-5-2\"]', 1)"
+out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
+expect "claude-fable-5-2 rung under a Sonnet 5.5 supervisor exits 1" "1" "$rc"
+contains "a weaker-tier supervisor than the claude-fable-5-2 rung is named" "claude-fable-5-2" "$out"
 
 section "Haiku executor routes"
 

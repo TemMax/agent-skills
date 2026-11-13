@@ -94,7 +94,7 @@ task. Historical [calibration evidence](gpt-calibration-evidence.md) motivates
 these checks; it does not certify this pairing or disqualify a whole model family.
 
 `gpt-6-astra` remains the premium supervisor and needs `approvals.premium`
-recorded at Gate 1, the same gate multi-model applies to Fable 5.1, enforced by
+recorded at Gate 1, the same gate multi-model applies to Fable 5.2, enforced by
 the linter. The **standard supervisor** is a fresh `gpt-6.1-sol` at `high`
 for waves of `gpt-6-luna` and `gpt-6.1-sol` executors and rungs. The
 supervisor fixture recorded GPT-6.1 Sol 9/9 on

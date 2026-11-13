@@ -4,6 +4,46 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.24.0
+
+### Highlights
+
+**multi-model**
+- Fable 5.2 can supervise, execute and be a rung, only on your word
+- Fable 5.1 is deprecated; approved plans that name it still run
+- High-risk untrusted content goes to Opus 5.5, not to a Fable
+
+**super-plan**
+- Plans may name claude-fable-5-2 when you asked for it
+
+**critical-review**
+- A premium fix route names Fable 5.2 instead of Fable 5.1
+
+Orchestration 4.24.0 and code-review 1.22.0 apply to Claude Code and Codex.
+
+**What was wrong.** Decision 019 kept Fable 5.2 (`claude-fable-5-2`) to the
+user's own session. Asked for "надзор за каждой волной — Fable 5.2 medium",
+a Fable 5.2 session refused correctly: the plan linter rejected the ID and
+the wave runner did not know it. It offered the older Fable 5.1 instead.
+
+**What changes.** Fable 5.2 is now the premium Claude model for every child
+role: supervisor, executor, ladder rung and research agent. The linter, the
+wave runner and the Codex wave state accept `claude-fable-5-2` at the Opus
+tier. As before, a premium model is used only on the user's word, in the
+session or in their instruction files, and recorded in `approvals.premium`;
+the linter rejects a plan that names it without that record. No default
+route, default ladder or standard supervisor names it. Every supervisor row
+that offered Fable 5.1 as the premium alternative now offers Fable 5.2, and
+the executor effort table has a Fable 5.2 row: `high` by default, a
+finishing line and a bounded task in every prompt (its card: requested work
+left undone in 6–13% of replayed sessions, out of context on 68% of
+ProgramBench tasks without a remaining count). Fable 5.1 (`claude-fable-5-1`)
+is deprecated: approved plans that name it still lint and run, the linter
+warns on each use, and no table offers it. Its route for untrusted content
+that could reach secrets goes to Opus 5.5, not to Fable 5.2, whose
+injection results are worse than Opus 5.5's (IPI 4.09% against 0.96% at
+k=15, most attacks served by its Opus 4.8 fallback). Decision 020.
+
 ## 4.23.2
 
 ### Highlights

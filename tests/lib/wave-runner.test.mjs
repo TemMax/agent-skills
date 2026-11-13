@@ -350,6 +350,33 @@ test('S10c claude-opus-5 and claude-fable-5-1 run as explicit executor and rung'
     ['claude-opus-5', 'claude-opus-5', 'claude-fable-5-1'])
 })
 
+test('S10c2 claude-fable-5-2 runs as an explicit rung and as the supervisor', async () => {
+  const explicit = waveArgs({
+    supervisor: { model: 'claude-fable-5-2', effort: 'high' },
+    tasks: [task({ executor: { model: 'claude-sonnet-5-5', effort: 'medium' }, ladder: ['claude-fable-5-2'] })],
+  })
+  const { result, calls } = await runWorkflow(SCRIPT, {
+    args: explicit,
+    agentStub: stub({ 't-one': [V.files(), V.files(), V.ok()] }),
+  })
+  assert.equal(result.tasks[0].status, 'ok')
+  assert.deepEqual(execCalls(calls, 't-one').map((c) => c.opts.model),
+    ['claude-sonnet-5-5', 'claude-sonnet-5-5', 'claude-fable-5-2'])
+  assert.ok(calls.some((c) => c.opts && c.opts.model === 'claude-fable-5-2' && c.opts.label && /judge|supervis/i.test(c.opts.label)),
+    'the supervisor call runs on claude-fable-5-2')
+})
+
+test('S10c3 a Sonnet 5.5 supervisor cannot judge a claude-fable-5-2 rung', async () => {
+  const { result } = await runWorkflow(SCRIPT, {
+    args: waveArgs({
+      supervisor: { model: 'claude-sonnet-5-5', effort: 'high' },
+      tasks: [task({ executor: { model: 'claude-sonnet-5-5', effort: 'medium' }, ladder: ['claude-fable-5-2'] })],
+    }),
+    agentStub: stub({}),
+  })
+  assert.equal(result.status, 'invalid-args')
+})
+
 test('S10d the default verifier call uses claude-sonnet-5-5', async () => {
   const { result, calls } = await runWorkflow(SCRIPT, {
     args: waveArgs(),

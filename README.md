@@ -66,12 +66,13 @@ system card (193 pp., July 2026).
 
 Fable 5.2 (`claude-fable-5-2`) has its own profiles, grounded in the Claude
 Fable 5.2 & Mythos 5.2 system card (264 pp., November 2026) and Anthropic's
-guide "Prompting Claude Fable 5.2". It runs only as the session the user
-talks to — the orchestrator seat and the reviewer seat — never as an
-executor, research agent, ladder rung or supervisor; the plan linter rejects
-the ID as an executor, supervisor or ladder rung
-([decision 019](docs/decisions/019-fable-5-2.md)). The profiles carry
-what matters in those seats, from results the card measures on Mythos 5.2,
+guide "Prompting Claude Fable 5.2". It is the premium Claude model: an
+executor, ladder rung, supervisor or research agent only on the user's word,
+recorded in `approvals.premium` and enforced by the plan linter; no default
+route names it ([decision 020](docs/decisions/020-fable-5-2-premium-fable-5-1-deprecated.md),
+which replaced the seat-only rule of
+[decision 019](docs/decisions/019-fable-5-2.md)). The profiles carry
+what matters in the orchestrator and reviewer seats, from results the card measures on Mythos 5.2,
 the same underlying model (p. 78): it leaves requested work undone more
 often at lower effort (6–13% of replayed coding sessions at `medium` to
 `xhigh`, p. 34), applies approval and caution rules as written and delegates
@@ -81,8 +82,12 @@ experiments misjudged the severity of flaws in its own work (p. 31); it is
 also among the least destructive Claudes in Claude Code (pp. 134–135) and
 the strongest model tested on most honesty metrics (pp. 112–113).
 
-Fable 5.1 (`claude-fable-5-1`) has its own profiles, grounded in the Claude
-Fable 5.1 & Mythos 5.1 system card (212 pp., September 2026). It beat Opus 5
+Fable 5.1 (`claude-fable-5-1`) is deprecated since 2026-11-13: approved
+plans that name it still run, the linter warns on it, and new plans route its
+premium roles to Fable 5.2 and its high-risk untrusted-content route to Opus
+5.5 (decision 020). The rest of this paragraph is its history. It has its own
+profiles, grounded in the Claude Fable 5.1 & Mythos 5.1 system card (212 pp.,
+September 2026). It beat Opus 5
 on long-horizon coding (FrontierSWE v2 0.57 vs Opus 5's 0.52, pp. 170–171) at
 roughly half Fable 5's cost per task (p. 5), but Opus 5.5 now leads the
 lineup on that same metric (FrontierSWE v2 62.3 vs Fable 5.1's 56.3, p. 179),
@@ -159,7 +164,8 @@ calls.
 **Full model IDs.** Plans and runner args name full Claude IDs, never
 aliases: `claude-haiku-5-5`, `claude-haiku-4-5-20251001` and `claude-sonnet-5`
 (retired routes that stay valid for approved plans), `claude-sonnet-5-5`,
-`claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-1`.
+`claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-2`
+(premium) and `claude-fable-5-1` (deprecated, valid for approved plans).
 Aliases are rejected by name because they re-point silently — on 2026-09-22
 `opus` moved from Opus 5 to Opus 5.5, so every route still written as `opus`
 would have changed model without an edit. By 2026-10-08 `sonnet` and `haiku`
@@ -182,7 +188,7 @@ is deliberately narrower than a claim that every profile is a production route:
 | Host | Exact model IDs with a profile | Role / effort conclusion |
 |---|---|---|
 | Claude Code | `claude-opus-5-5`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5`, `claude-opus-4-8` | Existing Claude routes retain each profile's documented role and effort guidance. |
-| Claude Code | `claude-fable-5-2` | Orchestrator and reviewer profiles for the user's own session only; never an executor, research agent, ladder rung or supervisor, and the plan linter rejects the ID in those plan roles ([decision 019](docs/decisions/019-fable-5-2.md)). |
+| Claude Code | `claude-fable-5-2` | Orchestrator and reviewer profiles for the user's own session; as an executor, research agent, ladder rung or supervisor a premium route used only on the user's word, recorded in `approvals.premium` ([decision 020](docs/decisions/020-fable-5-2-premium-fable-5-1-deprecated.md)). |
 | Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
@@ -422,7 +428,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.23.2, code-review 1.21.1):
+orchestration 4.24.0, code-review 1.22.0):
 
 | Before | After |
 |---|---|

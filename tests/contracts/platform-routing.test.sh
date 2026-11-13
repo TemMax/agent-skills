@@ -120,9 +120,9 @@ done
 section "super-plan emits provider-pure wave plans from the active profile"
 
 check "plan-format table names every full Claude plan identifier" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Claude | \`claude-haiku-5-5\`, \`claude-haiku-4-5-20251001\`, \`claude-sonnet-5-5\`, \`claude-sonnet-5\`, \`claude-opus-5-5\`, \`claude-opus-5\`, \`claude-opus-4-8\`, \`claude-fable-5-1\` |'"
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Claude | \`claude-haiku-5-5\`, \`claude-haiku-4-5-20251001\`, \`claude-sonnet-5-5\`, \`claude-sonnet-5\`, \`claude-opus-5-5\`, \`claude-opus-5\`, \`claude-opus-4-8\`, \`claude-fable-5-2\`, \`claude-fable-5-1\` |'"
 check "example wave-plan block uses a full Claude supervisor id" \
-  "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' '$SP' | grep -qF '\"model\": \"claude-fable-5-1\"'"
+  "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' '$SP' | grep -qF '\"model\": \"claude-fable-5-2\"'"
 check "plan-format table names every exact Codex plan identifier" \
   "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Codex | \`gpt-6.1-sol\`, \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
 check "the bare GPT alias is never a plan identifier" \
@@ -238,15 +238,15 @@ check "drift hook remains executable" "[ -x '$DH' ]"
 section "premium models gate Fable 5.1 and GPT-6 Astra behind approvals.premium"
 
 check "multi-model states the premium-approval paragraph" \
-  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna and Sol waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.1 and GPT-6 Astra are premium. Premium models are never the subject of a question. They are used — as supervisor, executor or ladder rung — only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice. The plan records it in \`approvals.premium\`; the linter enforces it.' && sed -n '/^\*\*Premium models\.\*\*/,/for Luna and Sol waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Without an authorization use the standard route; when no standard delegated route fits, fix directly per step 8. The report notes in one line where a premium route would have applied. Standard supervisors: Opus 5.5 for Claude waves, its own executors included; Codex \`gpt-6.1-sol\` for Luna and Sol waves.'"
+  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna and Sol waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.2 and GPT-6 Astra are premium; so is the deprecated Fable 5.1 in the approved plans that still name it. Premium models are never the subject of a question. They are used — as supervisor, executor or ladder rung — only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice. The plan records it in \`approvals.premium\`; the linter enforces it.' && sed -n '/^\*\*Premium models\.\*\*/,/for Luna and Sol waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Without an authorization use the standard route; when no standard delegated route fits, fix directly per step 8. The report notes in one line where a premium route would have applied. Standard supervisors: Opus 5.5 for Claude waves, its own executors included; Codex \`gpt-6.1-sol\` for Luna and Sol waves.'"
 check "the supervisor table default-ladder sentence counts an omitted ladder" \
   "grep -qF 'The rung rule counts the default ladder' '$MM' && grep -qF 'inherits the runner'\''s default ladder' '$MM'"
-check "Haiku and Sonnet supervisor rows route to Opus 5.5, with Fable 5.1 as premium" \
-  "[ \$(grep -cF 'Opus 5.5 (\`claude-opus-5-5\`); Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative' '$MM') -eq 2 ]"
-check "Opus 4.8 supervisor row offers standard Opus 5.5 or premium Fable 5.1" \
-  "grep -qF '| Opus 4.8 (\`claude-opus-4-8\`) | Opus 5.5 (\`claude-opus-5-5\`, standard) or Fable 5.1 (\`claude-fable-5-1\`, premium — \`approvals.premium\`) | high |' '$MM'"
-check "Fable 5.1 executor row requires approvals.premium at Gate 1" \
-  "grep -qF 'Fable 5.1 executor (\`claude-fable-5-1\`)' '$MM' && grep -qF 'only with \`approvals.premium\` recorded at Gate 1' '$MM'"
+check "Haiku, Sonnet and Opus 5 supervisor rows route to Opus 5.5, with Fable 5.2 as premium" \
+  "[ \$(grep -cF 'Opus 5.5 (\`claude-opus-5-5\`); Fable 5.2 (\`claude-fable-5-2\`) is the premium alternative' '$MM') -eq 3 ]"
+check "Opus 4.8 supervisor row offers standard Opus 5.5 or premium Fable 5.2" \
+  "grep -qF '| Opus 4.8 (\`claude-opus-4-8\`) | Opus 5.5 (\`claude-opus-5-5\`, standard) or Fable 5.2 (\`claude-fable-5-2\`, premium — \`approvals.premium\`) | high |' '$MM'"
+check "the Fable 5.2 executor effort row is premium, on the user's word" \
+  "grep -qF '| Fable 5.2 executor (\`claude-fable-5-2\`; premium, on the user'\''s word) |' '$MM' && grep -qF '| Fable 5.1 executor (\`claude-fable-5-1\`; deprecated, approved plans only) |' '$MM'"
 check "Opus 4.8 compiled-binary executor row stays" \
   "grep -qF '| Reverse-engineering / vulnerability discovery in compiled binaries | Opus 4.8 executor (\`claude-opus-4-8\`) |' '$MM'"
 check "Opus 5 executor row is marked a retired route" \
@@ -326,7 +326,7 @@ section "the Table step shows the supervisor, premium status, and cost, with pre
 check "process step 4 table adds supervisor and premium status, and forbids estimates" \
   "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The table also shows, per wave, the supervisor and whether it is premium.' && sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never a time or cost estimate — not in the table, a progress update or the completion summary (super-plan: \"No time or cost estimates\").'"
 check "process step 4 table gates premium on the user's word or a standing authorization, recorded in approvals.premium" \
-  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Premium models are never the subject of a question. A premium model (Fable 5.1 / GPT-6 Astra, any role) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source — never filled in by the orchestrator for a choice the user did not make.'"
+  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Premium models are never the subject of a question. A premium model (Fable 5.2 / GPT-6 Astra, any role) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source — never filled in by the orchestrator for a choice the user did not make.'"
 check "process step 3 groups for width by super-plan's Design for width rule" \
   "sed -n '/^3\. \*\*Plan\.\*\*/,/^4\. \*\*Table\.\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Group for width'"
 

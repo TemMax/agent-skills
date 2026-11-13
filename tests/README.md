@@ -823,7 +823,8 @@ linter and the runner accept Claude models by full ID only —
 `claude-haiku-5-5`, `claude-haiku-4-5-20251001` (a retired route that stays
 valid), `claude-sonnet-5-5`, `claude-sonnet-5` (a retired
 route that stays valid), `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`,
-`claude-fable-5-1` — and reject the aliases
+`claude-fable-5-2` (premium) and `claude-fable-5-1` (deprecated, valid for
+approved plans) — and reject the aliases
 `haiku`, `sonnet`, `opus` and `fable` by name, because an alias re-points
 silently when a model ships (probe wf_e635018e-8f3, 2026-09-22, in
 `tests/eval/wave-insession.md`). The aliases were re-probed on 2026-10-08
