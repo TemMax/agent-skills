@@ -148,7 +148,8 @@ function windowFilter(rows, from, to) {
 // ---------------------------------------------------------------------------
 // Token / role / model extraction
 
-function sumTokens(rows) {
+function sumTokens(rows, priceEntry) {
+  let cost = requestPriceRow(priceEntry, 0) ? 0 : null
   const totals = { input: 0, cachedInput: 0, output: 0, reasoningOutput: 0 }
   const requestInputs = []
   for (const row of rows) {
@@ -158,9 +159,17 @@ function sumTokens(rows) {
     totals.cachedInput += usage.cached_input_tokens || 0
     totals.output += usage.output_tokens || 0
     totals.reasoningOutput += usage.reasoning_output_tokens || 0
-    requestInputs.push(usage.input_tokens || 0)
+    const input = usage.input_tokens || 0
+    requestInputs.push(input)
+    // Codex records the write token count but omits its billable retention duration.
+    if (usage.cache_write_input_tokens > 0 && priceEntry?.cache_write_input_multiplier) cost = null
+    if (cost !== null) {
+      const cached = usage.cached_input_tokens || 0
+      const [inputPrice, cachedPrice, outputPrice] = requestPriceRow(priceEntry, input)
+      cost += ((input - cached) * inputPrice + cached * cachedPrice + (usage.output_tokens || 0) * outputPrice) / 1e6
+    }
   }
-  return { totals, requestInputs }
+  return { totals, requestInputs, cost }
 }
 
 function classifyRole(agentPath) {
@@ -391,28 +400,6 @@ export function concurrencyMs(intervals, from, to) {
   return buckets
 }
 
-// ---------------------------------------------------------------------------
-// Cost
-
-function priceFor(prices, model) {
-  const p = prices[model]
-  return Array.isArray(p) && p.length === 3 ? p : null
-}
-
-// Real Codex usage records report cached_input_tokens as a subset of
-// input_tokens and reasoning_output_tokens as a subset of output_tokens
-// (input_tokens + output_tokens == total_tokens), not additional pools on
-// top. Bill the non-cached slice of input at the input price, the cached
-// slice at the cached price, and the full output (reasoning is already
-// inside it) at the output price.
-function costFor(prices, model, totals) {
-  const p = priceFor(prices, model)
-  if (!p) return null
-  const [inputPrice, cachedPrice, outputPrice] = p
-  const billableInput = totals.input - totals.cachedInput
-  return billableInput / 1e6 * inputPrice + totals.cachedInput / 1e6 * cachedPrice + totals.output / 1e6 * outputPrice
-}
-
 const round = (n, places = 6) => {
   if (n === null || n === undefined) return n
   const f = 10 ** places
@@ -430,8 +417,8 @@ export function buildReport(run, opts) {
   const rootBucketsMs = timeBucketsMs(rootRows)
   const rootMinutes = {}
   for (const [name, ms] of Object.entries(rootBucketsMs)) rootMinutes[name] = round(ms / 60000, 4)
-  const { totals: rootTokenTotals, requestInputs: rootRequestInputs } = sumTokens(rootRows)
   const rootContext = lastTurnContext(rootRows)
+  const { totals: rootTokenTotals, requestInputs: rootRequestInputs, cost: rootCost } = sumTokens(rootRows, prices[rootContext.model])
 
   const childNodes = run.children.map(node => {
     const rows = windowFilter(node.rows, from, to)
@@ -440,7 +427,7 @@ export function buildReport(run, opts) {
     const timestamps = rowTimestamps(rows)
     const interval = timestamps.length ? [Math.min(...timestamps), Math.max(...timestamps)] : null
     const wallMs = interval ? interval[1] - interval[0] : 0
-    const { totals, requestInputs } = sumTokens(rows)
+    const { totals, requestInputs, cost } = sumTokens(rows, prices[context.model])
     const buckets = timeBucketsMs(rows)
     const modelMs = buckets.model || 0
     let toolMs = 0
@@ -453,6 +440,7 @@ export function buildReport(run, opts) {
       effort: context.effort ?? null,
       wallMinutes: round(wallMs / 60000, 4),
       requests: requestInputs.length,
+      cost,
       tokens: { ...totals, total: totals.input + totals.output },
       modelMinutes: round(modelMs / 60000, 4),
       toolMinutes: round(toolMs / 60000, 4),
@@ -460,7 +448,7 @@ export function buildReport(run, opts) {
       threadLimitErrorsInWindow: countThreadLimitErrors(rows),
     }
   })
-  const children = childNodes.map(({ interval, threadLimitErrorsInWindow, ...rest }) => rest)
+  const children = childNodes.map(({ interval, threadLimitErrorsInWindow, cost, ...rest }) => rest)
 
   const concurrency = concurrencyMs(childNodes.filter(c => c.interval).map(c => c.interval), from, to)
   const concurrencyMinutes = {}
@@ -470,22 +458,23 @@ export function buildReport(run, opts) {
 
   // Cost by role x model.
   const groups = new Map()
-  const bump = (role, model, totals) => {
+  const bump = (role, model, totals, cost) => {
     const key = `${role}\u0000${model ?? '(unknown)'}`
-    if (!groups.has(key)) groups.set(key, { role, model, tokens: { input: 0, cachedInput: 0, output: 0, reasoningOutput: 0 } })
+    if (!groups.has(key)) groups.set(key, { role, model, cost: 0, tokens: { input: 0, cachedInput: 0, output: 0, reasoningOutput: 0 } })
     const g = groups.get(key)
+    g.cost = g.cost === null || cost === null ? null : g.cost + cost
     g.tokens.input += totals.input
     g.tokens.cachedInput += totals.cachedInput
     g.tokens.output += totals.output
     g.tokens.reasoningOutput += totals.reasoningOutput
   }
-  bump('orchestrator', rootContext.model ?? null, rootTokenTotals)
-  for (const c of children) bump(c.role, c.model, c.tokens)
+  bump('orchestrator', rootContext.model ?? null, rootTokenTotals, rootCost)
+  for (const c of childNodes) bump(c.role, c.model, c.tokens, c.cost)
 
   const byRoleModel = [], unpriced = []
   let total = 0
   for (const g of groups.values()) {
-    const cost = g.model ? costFor(prices, g.model, g.tokens) : null
+    const cost = g.cost
     if (cost === null) {
       unpriced.push({ role: g.role, model: g.model, tokens: { ...g.tokens, total: g.tokens.input + g.tokens.output } })
     } else {

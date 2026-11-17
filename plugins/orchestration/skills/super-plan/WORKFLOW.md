@@ -53,6 +53,8 @@ switch models, grant hook enforcement, or change the plan/subagent ID allowlists
 | `gpt-5.6-luna` | `../multi-model/references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `../multi-model/references/orchestrator-gpt-6-astra.md` |
 | `gpt-6-sol` | `../multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.2-astra` | `../multi-model/references/orchestrator-gpt-6-2-astra.md` |
+| `gpt-6.2-sol` | `../multi-model/references/orchestrator-gpt-6-2-sol.md` |
 | `gpt-6.1-sol` | `../multi-model/references/orchestrator-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `../multi-model/references/orchestrator-gpt-6-luna.md` |
 | unknown | `../multi-model/references/orchestrator-generic.md` |
@@ -67,7 +69,7 @@ While authoring or amending a plan, the active profile chooses executor, supervi
 For Codex, load the shared [route selection](../multi-model/references/codex-routing.md)
 before choosing children. It governs routing across profiles: use available
 explicit executors and the supervisor chosen at Gate 1 (premium Astra with
-`approvals.premium`, or standard `gpt-6.1-sol` for Luna and Sol waves) without a
+`approvals.premium`, or standard `gpt-6.2-sol` for Luna and Sol waves) without a
 separate calibration gate. Historical fixture failures inform verification;
 they do not block writing a concrete plan for the one start approval.
 
@@ -120,19 +122,17 @@ they do not block writing a concrete plan for the one start approval.
    user, and never ask the user to approve a route or a model. Use the
    standard route by default (Claude: Opus 5.5 supervising every wave, its
    own Opus 5.5 executors and rungs included, Sonnet 5.5 for a wave whose
-   tasks are all `claude-haiku-5-5` with `"ladder": []`; Codex: `gpt-6.1-sol`
-   for waves whose executors and rungs are `gpt-6-luna` or `gpt-6.1-sol`; the
-   same model may supervise work of its own tier from a fresh session, ADR 015
-   — supervisor fixture 9/9 on 2026-09-29; its predecessor
-   `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24
-   and three real small waves merge-ready first try — toy waves, correct
-   work only). A premium model (Fable 5.2 / GPT-6 Astra, any role) is used
+   tasks are all `claude-haiku-5-5` with `"ladder": []`; Codex: `gpt-6.2-sol`
+   for waves whose executors and rungs are `gpt-6-luna` or `gpt-6.2-sol`; the
+   same model may supervise work of its own tier from a fresh session, ADR 015.
+   GPT-6.2 Sol passed the supervisor fixture 9/9 and accepted a fresh
+   executor's verified commit on 2026-11-17). A premium model (Fable 5.2 / GPT-6.2 Astra, any role) is used
    only when the user said so in this session, or through a standing
    authorization written in the user's or the repository's instruction files
    (`AGENTS.md`, `CLAUDE.md`); record it in `approvals.premium` with the
    source in `reason`. Without an authorization, use the standard route. The
    supervisor is never a weaker tier than an executor or rung of its wave;
-   only a wave in which Astra executes needs `gpt-6-astra`. Route each task
+   an Astra executor or rung requires a fresh supervisor on its exact Astra ID. Route each task
    by what it needs and never cut reasoning work into mechanical tasks to fit
    a route. When a task has no standard delegated
    route and there is no premium authorization, cut it into tasks that have
@@ -143,8 +143,8 @@ they do not block writing a concrete plan for the one start approval.
    the user once, and name the standing authorization as the way to avoid
    the question. Record the model for ship's Stage 3
    critical-review child in the plan's `review` key here too: the standard measured review route
-   `gpt-6.1-sol` — strict review gate clean 10/10, planted 10/10; PR support
-   3/4 on 2026-09-30 — or `gpt-6-astra` only with a premium authorization, recorded in `approvals.premium`. ship never picks one. If
+   `gpt-6.2-sol` — strict review gate clean 10/10, planted 10/10; PR support
+   4/4 on 2026-11-17 — or `gpt-6.2-astra` only with a premium authorization, recorded in `approvals.premium`. ship never picks one. If
    the Tasks step later changes a wave so the chosen supervisor no longer
    fits (for example a Haiku wave under Sonnet 5.5 gains a `claude-opus-5-5`
    ladder rung, or a Codex wave gains an Astra rung), pick the fitting standard supervisor
@@ -329,7 +329,7 @@ they do not block writing a concrete plan for the one start approval.
    Agent tool with the alias `sonnet`, the effort parameter set to `medium`
    and that full ID named in the prompt (multi-model's alias table, probed
    2026-10-08), or as a one-agent Workflow `agent()` with that full ID and
-   effort; Codex: `gpt-6.1-sol`
+   effort; Codex: `gpt-6.2-sol`
    at `medium` — checks every contract against the code: each `must_run`
    command exists and runs the way CI runs it, every referenced path or API
    exists, the interfaces passed between tasks agree, and every recorded
@@ -493,17 +493,17 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      pipeline.
    - `approvals.premium`: `{"models": [...], "reason": "...", "approved_by":
      "...", "date": "..."}`, required whenever `claude-fable-5-2`,
-     `gpt-6-astra` or the deprecated `claude-fable-5-1` appears in any role —
+     `gpt-6.2-astra`, `gpt-6-astra` or the deprecated `claude-fable-5-1` appears in any role —
      supervisor, executor, or ladder rung. The example above shows it for the
      `claude-fable-5-2` supervisor.
    - `review`: optional (without it ship uses the standard measured review route without asking) — Claude plans never carry it, since Claude's Stage 3 review runs in the
      session. Names the model and effort for ship's Stage 3
      critical-review child, as an object, e.g.:
-     `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,
+     `"review": {"model": "gpt-6.2-astra", "effort": "high"}` (premium,
      recorded in `approvals.premium`) or
-     `"review": {"model": "gpt-6.1-sol", "effort": "high"}` (measured:
-     strict review gate clean 10/10, planted 10/10; PR support 3/4 on
-     2026-09-30; `gpt-6-sol` stays valid for approved plans).
+     `"review": {"model": "gpt-6.2-sol", "effort": "high"}` (measured:
+     strict review gate clean 10/10, planted 10/10; PR support 4/4 on
+     2026-11-17; `gpt-6-sol` stays valid for approved plans).
 
    The linter enforces all three: a plan missing `ci`, missing `e2e`, or
    missing a required `approvals.premium` fails lint. It also checks the
@@ -543,7 +543,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    | Plan host | Allowed model fields |
    |---|---|
    | Claude | `claude-haiku-5-5`, `claude-haiku-4-5-20251001`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-fable-5-2`, `claude-fable-5-1` |
-   | Codex | `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+   | Codex | `gpt-6.2-sol`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 
    `claude-fable-5-2` is premium: any plan role needs the user's word,
    recorded in `approvals.premium`. `claude-fable-5-1` is deprecated (ADR 020):
@@ -555,10 +555,10 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    plans route Haiku work to `claude-haiku-5-5`; `claude-haiku-4-5-20251001`
    remains valid on the same terms.
 
-   New Codex plans route executors to `gpt-6.1-sol` and `gpt-6-luna` per
+   New Codex plans route executors to `gpt-6.2-sol` and `gpt-6-luna` per
    shared Codex routing. `gpt-6-sol` remains valid so that already approved
    plans still execute, and it stays a valid review model for approved plans; the lower-cost final-review
-   option is `gpt-6.1-sol` since 2026-09-30. The GPT-5.6 IDs remain valid only so that already approved plans
+   option is `gpt-6.2-sol` at `high` since 2026-11-17. The GPT-5.6 IDs remain valid only so that already approved plans
    still execute.
 
    Aliases (`haiku`, `sonnet`, `opus`, `fable`) are rejected by the linter
@@ -566,13 +566,13 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    probe-dated alias mapping lives in multi-model's "Model identifiers"
    section.
 
-   Codex also permits `gpt-6-astra` as supervisor and, only when separately
+   Approved plans may still use `gpt-6.1-sol` or `gpt-6-astra` at their recorded efforts. An Astra approval names the exact generation.
+   Codex also permits `gpt-6.2-astra` as supervisor and, only when separately
    approved with `astra_executor_reason: "<concrete reason>"`, as the initial
    executor or final explicit ladder rung. That metadata records a reason; it
    never establishes authorization. An Astra executor needs both
    `astra_executor_reason` and `approvals.premium` — the reason alone is not
-   approval. A selected Astra executor requires a fresh separate Astra
-   supervisor. Shared Codex routing defines operational choices and evidence
+   approval. A selected Astra executor requires a fresh separate supervisor on the same exact Astra ID. Shared Codex routing defines operational choices and evidence
    limits; the Astra executor exception still needs approval.
 
    `gpt-5.6` is never a plan id. It is only an active-session alias after
@@ -676,7 +676,7 @@ When there is no user to answer gates (an eval harness runs you), skip both
 gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
 silently is the failure this mode exists to measure. A headless run uses
-standard supervisors — Opus 5.5 for Claude waves, `gpt-6.1-sol` for
+standard supervisors — Opus 5.5 for Claude waves, `gpt-6.2-sol` for
 Luna and Sol Codex waves — unless the request itself names a premium model
 for a role: that is the user's word, so the plan uses it in that role and
 records `approvals.premium` with the request as its source. A premium choice it

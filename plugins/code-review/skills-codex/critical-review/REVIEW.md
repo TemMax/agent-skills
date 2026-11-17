@@ -192,7 +192,9 @@ that thread.
 
 ## References
 
-- `../../skills/critical-review/references/reviewer-gpt-6-1-sol.md`,
+- `../../skills/critical-review/references/reviewer-gpt-6-2-astra.md`,
+  `../../skills/critical-review/references/reviewer-gpt-6-2-sol.md`,
+  `../../skills/critical-review/references/reviewer-gpt-6-1-sol.md`,
   `../../skills/critical-review/references/reviewer-gpt-6-sol.md`,
   `../../skills/critical-review/references/reviewer-gpt-6-luna.md`,
   `../../skills/critical-review/references/reviewer-gpt-6-astra.md`,
@@ -201,7 +203,8 @@ that thread.
   `../../skills/critical-review/references/reviewer-gpt-5-6-luna.md`,
   `../../skills/critical-review/references/reviewer-generic.md` — the reviewer profiles. Load exactly one,
   per Step 0.
-- `../../skills/critical-review/references/gpt-6-1-sol-reviewer-dossier.md`,
+- `../../skills/critical-review/references/gpt-6-2-reviewer-dossier.md`,
+  `../../skills/critical-review/references/gpt-6-1-sol-reviewer-dossier.md`,
   `../../skills/critical-review/references/gpt-6-sol-reviewer-dossier.md`,
   `../../skills/critical-review/references/gpt-6-luna-reviewer-dossier.md`,
   `../../skills/critical-review/references/gpt-6-astra-reviewer-dossier.md`,

@@ -10,6 +10,7 @@ import { join, isAbsolute, resolve, relative, sep } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { TASK_HEADING_SOURCE, malformedTaskHeadings, effectivePlan, resolveWorktreeEnv, executionPolicyErrors } from '../../multi-model/references/worktree-env.mjs'
+import { ASTRA_MODELS, CODEX_MODELS, CODEX_TIERS, isAstra } from '../../multi-model/references/codex-models.mjs'
 import { limitsErrors, supervisionErrors } from '../../multi-model/references/mechanical-verify.mjs'
 
 // Claude plans name models by full ID only; aliases re-point silently when
@@ -38,8 +39,6 @@ const defaultLadderFor = (execModel) => {
   return i === -1 ? [] : CLAUDE_DEFAULT_LADDER_ORDER.slice(i + 1)
 }
 const CLAUDE_ALIASES = ['haiku', 'sonnet', 'opus', 'fable']
-const CODEX_MODELS = ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
-const ASTRA = 'gpt-6-astra'
 // A supervisor is never a weaker tier than a model it judges. Tier is the
 // product class, not a benchmark score; the same model may judge its own
 // tier's work from a fresh session that is not told who wrote it.
@@ -47,16 +46,14 @@ const MODEL_TIER = {
   'claude-haiku-5-5': 1, 'claude-haiku-4-5-20251001': 1,
   'claude-sonnet-5-5': 2, 'claude-sonnet-5': 2,
   'claude-opus-5-5': 3, 'claude-opus-5': 3, 'claude-opus-4-8': 3, 'claude-fable-5-2': 3, 'claude-fable-5-1': 3,
-  'gpt-6-luna': 1, 'gpt-5.6-luna': 1,
-  'gpt-6.1-sol': 2, 'gpt-6-sol': 2, 'gpt-5.6-sol': 2, 'gpt-5.6-terra': 2,
-  'gpt-6-astra': 3,
+  ...CODEX_TIERS,
 }
 const MODELS = [...CLAUDE_MODELS, ...CODEX_MODELS]
-const EXECUTOR_MODELS = [...MODELS, ASTRA]
-const SUPERVISORS = [...MODELS, ASTRA]
+const EXECUTOR_MODELS = [...MODELS, ...ASTRA_MODELS]
+const SUPERVISORS = [...MODELS, ...ASTRA_MODELS]
 const providerForModel = (model) => CLAUDE_MODELS.includes(model)
   ? 'claude'
-  : CODEX_MODELS.includes(model) || model === ASTRA ? 'codex' : null
+  : CODEX_MODELS.includes(model) || isAstra(model) ? 'codex' : null
 const aliasError = (field, model) => field + ': "' + model
   + '" is an alias — aliases re-point silently; use a full ID ('
   + CLAUDE_MODELS.join(', ') + ')'
@@ -69,7 +66,7 @@ const CONTRACT_KEYS = ['files_allowed', 'files_forbidden', 'must_run',
 // route to them. Retired routes are a softer nudge — warnings, never errors.
 // claude-fable-5-1 is deprecated (ADR 020): premium still, accepted for
 // approved plans, never chosen for new ones.
-const PREMIUM_MODELS = ['claude-fable-5-2', 'claude-fable-5-1', 'gpt-6-astra']
+const PREMIUM_MODELS = ['claude-fable-5-2', 'claude-fable-5-1', ...ASTRA_MODELS]
 const RETIRED_GPT56 = ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -193,7 +190,7 @@ if (plan) {
     } else if (model === 'claude-haiku-4-5-20251001') {
       warn('retired route: claude-haiku-4-5-20251001 is no longer an executor route (use claude-haiku-5-5); approved plans still run')
     } else if (model === 'gpt-6-sol') {
-      warn('retired route: gpt-6-sol is no longer an executor route (use gpt-6.1-sol); approved plans still run')
+      warn('retired route: gpt-6-sol is no longer an executor route (use gpt-6.2-sol); approved plans still run')
     } else if (model === 'claude-opus-4-8') {
       warn('Opus 4.8 is routed only for compiled-binary work — ignore this warning if the task is compiled-binary reverse-engineering')
     }
@@ -222,7 +219,7 @@ if (plan) {
         checkPremium(at + '.supervisor.model', w.supervisor.model)
         retiredWarn(w.supervisor.model)
         if (w.supervisor.model === 'gpt-6-sol') {
-          warn('retired route: gpt-6-sol is no longer the standard supervisor (use gpt-6.1-sol); approved plans still run')
+          warn('retired route: gpt-6-sol is no longer the standard supervisor (use gpt-6.2-sol); approved plans still run')
         }
       }
       if (!Array.isArray(w.tasks) || w.tasks.length === 0) {
@@ -272,18 +269,18 @@ if (plan) {
         }
         const transitions = t.executor && EXECUTOR_MODELS.includes(t.executor.model)
           ? [t.executor.model, ...(Array.isArray(t.ladder) ? t.ladder : [])] : []
-        const usesAstra = transitions.includes(ASTRA)
+        const astra = transitions.find(isAstra)
         const astraReasonValid = typeof t.astra_executor_reason === 'string'
           && t.astra_executor_reason.trim() !== ''
-        if (usesAstra) {
+        if (astra) {
           if (!astraReasonValid) {
             err(tat + '.astra_executor_reason: non-empty string required for Astra execution')
           }
-          if (transitions.at(-1) !== ASTRA) {
-            err(tat + '.ladder: gpt-6-astra must be the final executor rung')
+          if (transitions.at(-1) !== astra) {
+            err(tat + '.ladder: ' + astra + ' must be the final executor rung')
           }
-          if (!w.supervisor || w.supervisor.model !== ASTRA) {
-            err(tat + ': Astra execution requires exact gpt-6-astra supervisor')
+          if (!w.supervisor || w.supervisor.model !== astra) {
+            err(tat + ': Astra execution requires exact ' + astra + ' supervisor')
           }
         } else if (Object.hasOwn(t, 'astra_executor_reason')) {
           err(tat + '.astra_executor_reason: only allowed when Astra is an executor or ladder rung')
@@ -479,13 +476,14 @@ if (plan) {
     if (!review || typeof review !== 'object' || Array.isArray(review)) {
       err('review: must be an object {"model", "effort"}')
     } else {
-      const reviewModelValid = [ASTRA, 'gpt-6.1-sol', 'gpt-6-sol'].includes(review.model)
+      const reviewModels = [...ASTRA_MODELS, 'gpt-6.2-sol', 'gpt-6.1-sol', 'gpt-6-sol']
+      const reviewModelValid = reviewModels.includes(review.model)
       if (!reviewModelValid) {
-        err('review.model: one of gpt-6-astra/gpt-6.1-sol/gpt-6-sol — the Codex final-review child chosen at Gate 1')
+        err('review.model: one of ' + reviewModels.join('/') + ' — the Codex final-review child chosen at Gate 1')
       } else {
         checkPremium('review.model', review.model)
         if (review.model === 'gpt-6-sol') {
-          warn('retired route: gpt-6-sol is no longer the lower-cost review option (use gpt-6.1-sol); approved plans still run')
+          warn('retired route: gpt-6-sol is no longer the lower-cost review option (use gpt-6.2-sol); approved plans still run')
         }
       }
       if (!EFFORTS.includes(review.effort)) {

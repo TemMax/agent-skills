@@ -35,13 +35,13 @@ The model page lists no `none` effort for this model.
   efforts, and bounded escalation. It governs routing across profiles
   without a separate calibration gate.
 - Every wave uses a fresh, separate supervisor at explicit `high` effort,
-  chosen at Gate 1 per shared Codex routing: the standard `gpt-6.1-sol` for waves of
-  `gpt-6-luna` and `gpt-6.1-sol` executors and rungs, or
-  the premium `gpt-6-astra` (plan records `approvals.premium`). The supervisor
+  chosen at Gate 1 per shared Codex routing: the standard `gpt-6.2-sol` for waves of
+  `gpt-6-luna` and `gpt-6.2-sol` executors and rungs, or
+  the premium `gpt-6.2-astra` (plan records `approvals.premium`). The supervisor
   may be the executor's own model, from a fresh session that is not told who
   wrote the work; it is never a weaker tier than an executor or rung.
-- GPT-6.1 Sol holds the standard supervisor seat of Luna waves since
-  2026-09-29, and of Sol waves since 2026-10-13 (ADR 015), on a supervisor-fixture pass (9/9) — a fixture,
+- GPT-6.1 Sol took the standard supervisor seat of Luna waves on
+  2026-09-29, and of Sol waves on 2026-10-13 (ADR 015), on a supervisor-fixture pass (9/9) — a fixture,
   not production calibration. On 2026-09-30, after a verdict-wording fix, it
   passed the strict review gate (clean 10/10, planted 10/10, PR support
   3/4) and became the lower-cost review option too; its 2026-09-29 run had
@@ -103,7 +103,7 @@ System Card scores do not certify routing reliability.
 - Selecting this profile from the bare "GPT-6" phrase or the name "Sol"
   instead of the exact ID.
 - Reading "comparable to GPT-6 Astra" as permission to let GPT-6.1 Sol
-  supervise a Sol executor or to skip the Astra supervisor.
+  skip the fresh supervisor or to assume a measured same-model preference.
 - Carrying GPT-6 Sol's measured supervisor and review routes over to
   GPT-6.1 Sol without a dated measurement.
 - Continuing past an environment warning because the rate improved.

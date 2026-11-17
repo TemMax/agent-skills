@@ -52,6 +52,8 @@ switch models, grant hook enforcement, or change the plan/subagent ID allowlists
 | `gpt-5.6-luna` | `../../skills/multi-model/references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `../../skills/multi-model/references/orchestrator-gpt-6-astra.md` |
 | `gpt-6-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.2-astra` | `../../skills/multi-model/references/orchestrator-gpt-6-2-astra.md` |
+| `gpt-6.2-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-2-sol.md` |
 | `gpt-6.1-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `../../skills/multi-model/references/orchestrator-gpt-6-luna.md` |
 | unknown | `../../skills/multi-model/references/orchestrator-generic.md` |
@@ -69,7 +71,7 @@ ladders.
 Load the shared [route selection](../../skills/multi-model/references/codex-routing.md)
 once, before choosing children. It governs routing across profiles: use
 available explicit executors and the supervisor chosen at Gate 1 (premium
-Astra with `approvals.premium`, or standard `gpt-6.1-sol` for Luna and Sol waves)
+Astra with `approvals.premium`, or standard `gpt-6.2-sol` for Luna and Sol waves)
 without a separate calibration gate. Historical fixture failures inform
 verification; they do not block writing a concrete plan for the one start
 approval.
@@ -86,8 +88,8 @@ approval.
    gap, not a detail to fill in later. For a large surface, fan out read-only
    research agents routed by codex-routing.md's research line — name an
    exact model ID and effort on every spawn (`gpt-6-luna` at `medium` for
-   exact enumeration, `gpt-6.1-sol` at `medium` for closed codebase
-   questions, `gpt-6.1-sol` at `high` for difficult investigation), and give
+   exact enumeration, `gpt-6.2-sol` at `medium` for closed codebase
+   questions, `gpt-6.2-sol` at `high` for difficult investigation), and give
    each agent multi-model's mandatory research-prompt lines. Synthesis and
    every decision stay with you — do not delegate decisions, executors
    silently fill gaps under ambiguity. Research also records the untracked
@@ -119,23 +121,21 @@ approval.
    on them. Routes are your decision: executor tiers, the supervisor and the
    review model. Never present a premium-or-standard choice to the user, and
    never ask the user to approve a route or a model. The supervisor is:
-   - standard, the default: `gpt-6.1-sol` for waves whose executors and rungs are
-     `gpt-6-luna` or `gpt-6.1-sol` — the same model may supervise work of
-     its own tier from a fresh session (ADR 015). Supervisor fixture 9/9 on
-     2026-09-29; its predecessor
-     `gpt-6-sol` held the seat with fixture 9/9 on 2026-09-23 and
-     2026-09-24 and three real small waves merge-ready first try — toy
-     waves, correct work only;
-   - premium: `gpt-6-astra`, used only when the user said so in this session,
+   - standard, the default: `gpt-6.2-sol` for waves whose executors and rungs are
+     `gpt-6-luna` or `gpt-6.2-sol` — the same model may supervise work of
+     its own tier from a fresh session (ADR 015). GPT-6.2 Sol passed the
+     supervisor fixture 9/9 and accepted a fresh executor's verified commit on
+     2026-11-17.
+   - premium: `gpt-6.2-astra`, used only when the user said so in this session,
      or through a standing authorization written in the user's or the
      repository's instruction files (`AGENTS.md`, `CLAUDE.md`); record it in
      `approvals.premium` with the source in `reason`. Without an
      authorization, use the standard route;
    - the supervisor is never a weaker tier than an executor or rung of its
-     wave: only a wave in which Astra executes needs `gpt-6-astra`.
+     wave: an Astra executor or rung requires a fresh supervisor on its exact Astra ID.
 
    Route each task by what it needs — mechanical to `gpt-6-luna`, anything
-   that needs reasoning to `gpt-6.1-sol`. Never cut reasoning work into
+   that needs reasoning to `gpt-6.2-sol`. Never cut reasoning work into
    mechanical tasks to fit a route.
 
    When a task has no standard delegated route and there is no premium
@@ -148,9 +148,9 @@ approval.
 
    Record the model for ship's Stage 3 critical-review child in the plan's
    `review` key here too, and name it in the Gate 1 report:
-   - `gpt-6.1-sol`, the standard measured review route — strict review
-     gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30;
-   - `gpt-6-astra` only with a premium authorization, recorded in `approvals.premium`.
+   - `gpt-6.2-sol`, the standard measured review route — strict review
+     gate clean 10/10, planted 10/10; PR support 4/4 on 2026-11-17;
+   - `gpt-6.2-astra` only with a premium authorization, recorded in `approvals.premium`.
      ship never picks one.
 
    If the Tasks step later changes a wave so the chosen supervisor no longer
@@ -193,7 +193,7 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    ladder rung — from multi-model's supervisor table; a supervisor of a
    weaker tier than an executor or rung is a lint error, and the supervisor
    may be the same model as one of them. Give every rung an exact
-   ID; a `gpt-6-luna` task takes `"ladder": ["gpt-6.1-sol"]`, so a task
+   ID; a `gpt-6-luna` task takes `"ladder": ["gpt-6.2-sol"]`, so a task
    rejected twice moves to the stronger model instead of stopping.
    Group into waves by file-independence: same-wave tasks must
    not share files — merge colliding tasks or split them across consecutive
@@ -331,7 +331,7 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    `## Review Focus`, on a plan-level section below a task, and on a
    fenced `## ` line inside a task.
 5. **Seam audit.** Between Tasks and Lint, spawn one read-only audit agent
-   on `gpt-6.1-sol` at `medium`. It checks every contract against the code:
+   on `gpt-6.2-sol` at `medium`. It checks every contract against the code:
    each `must_run` command exists and runs the way CI runs it, every
    referenced path or API exists, the interfaces passed between tasks
    agree, and every recorded base expectation is plausible. It also checks
@@ -453,7 +453,7 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
    ```json wave-plan
    { "waves": [
      { "wave": 1,
-       "supervisor": { "model": "gpt-6.1-sol", "effort": "high" },
+       "supervisor": { "model": "gpt-6.2-sol", "effort": "high" },
        "tasks": [
          { "id": "http-retry",
            "branch": "wave/http-retry",
@@ -487,17 +487,17 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
      `"not-applicable: <reason>"` when the feature is not a data-transforming
      pipeline.
    - `approvals.premium`: `{"models": [...], "reason": "...", "approved_by":
-     "...", "date": "..."}`, required whenever `gpt-6-astra` appears in any
+     "...", "date": "..."}`, required whenever `gpt-6.2-astra` appears in any
      role — supervisor, executor, ladder rung, or `review`. The example
-     above has none: its standard `gpt-6.1-sol` supervisor needs no
+     above has none: its standard `gpt-6.2-sol` supervisor needs no
      approval.
    - `review`: optional (without it ship uses the standard measured review route without asking). Names the model
      and effort for ship's Stage 3 critical-review child, as an object,
-     e.g.: `"review": {"model": "gpt-6-astra", "effort": "high"}` (premium,
+     e.g.: `"review": {"model": "gpt-6.2-astra", "effort": "high"}` (premium,
      recorded in `approvals.premium`) or
-     `"review": {"model": "gpt-6.1-sol", "effort": "high"}` (measured:
-     strict review gate clean 10/10, planted 10/10; PR support 3/4 on
-     2026-09-30; `gpt-6-sol` stays valid for approved plans).
+     `"review": {"model": "gpt-6.2-sol", "effort": "high"}` (measured:
+     strict review gate clean 10/10, planted 10/10; PR support 4/4 on
+     2026-11-17; `gpt-6-sol` stays valid for approved plans).
 
    The linter enforces these: a plan missing `ci`, missing `e2e`, or
    missing a required `approvals.premium` fails lint. It also checks the
@@ -536,22 +536,21 @@ One file in `docs/superpowers/plans/YYYY-MM-DD-<feature>.md`, three layers:
 
    | Plan host | Allowed model fields |
    |---|---|
-   | Codex | `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+   | Codex | `gpt-6.2-sol`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 
-   New Codex plans route executors to `gpt-6.1-sol` and `gpt-6-luna` per
+   New Codex plans route executors to `gpt-6.2-sol` and `gpt-6-luna` per
    shared Codex routing. `gpt-6-sol` remains valid so that already approved
    plans still execute, and it stays a valid review model for approved
-   plans; the lower-cost final-review option is `gpt-6.1-sol` since
-   2026-09-30. The GPT-5.6 IDs remain valid only so that already approved
+   plans; the lower-cost final-review option is `gpt-6.2-sol` at `high` since 2026-11-17. The GPT-5.6 IDs remain valid only so that already approved
    plans still execute.
 
-   Codex also permits `gpt-6-astra` as supervisor and, only when separately
+   Approved plans may still use `gpt-6.1-sol` or `gpt-6-astra` at their recorded efforts. An Astra approval names the exact generation.
+   Codex also permits `gpt-6.2-astra` as supervisor and, only when separately
    approved with `astra_executor_reason: "<concrete reason>"`, as the initial
    executor or final explicit ladder rung. That metadata records a reason; it
    never establishes authorization. An Astra executor needs both
    `astra_executor_reason` and `approvals.premium` — the reason alone is not
-   approval. A selected Astra executor requires a fresh separate Astra
-   supervisor. Shared Codex routing defines operational choices and evidence
+   approval. A selected Astra executor requires a fresh separate supervisor on the same exact Astra ID. Shared Codex routing defines operational choices and evidence
    limits; the Astra executor exception still needs approval.
 
    `gpt-5.6` is never a plan id. It is only an active-session alias after
@@ -659,10 +658,16 @@ When there is no user to answer gates (an eval harness runs you), skip both
 gates and record every fork you would have asked under a section titled
 `## Assumptions (would ask)` in the plan file. Deciding a product fork
 silently is the failure this mode exists to measure. A headless run uses
-standard supervisors only — `gpt-6.1-sol` for Luna and Sol waves; a wave that
-would need `gpt-6-astra`, and any premium choice it would have asked the
-user for, goes under `Assumptions (would ask)` instead, and the plan
-carries no `approvals.premium` invented by the model. It also leaves the `review` key unset and records the review choice under `## Assumptions (would ask)`.
+standard supervisors by default — `gpt-6.2-sol` for Luna and Sol waves.
+When the request explicitly authorizes an exact premium model for a role,
+put that model and effort in the machine-readable wave plan and record
+`approvals.premium` with the request as its source. For an authorized Astra
+executor, record `astra_executor_reason` on that task and give its wave a
+fresh supervisor on the same exact ID. A request to avoid premium calls
+while preparing the plan governs planning-time children. The authorized
+execution roles still belong in the plan. A premium option the user never
+authorized goes under `Assumptions (would ask)`; the plan carries no
+`approvals.premium` invented by the model. It also leaves the `review` key unset and records the review choice under `## Assumptions (would ask)`.
 
 ## Common Mistakes
 

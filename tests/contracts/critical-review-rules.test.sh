@@ -48,7 +48,7 @@ check "fix wave routing follows the plan format ci/e2e keys" \
   "one_line '$SKILL' | grep -qF 'A fix wave follows the plan format (\`ci\`, \`e2e\`)'"
 
 check "a premium model is used only on the user's word, recorded in approvals.premium with its source" \
-  "one_line '$SKILL' | grep -qF 'A premium model (Fable 5.2 / GPT-6 Astra) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source'"
+  "one_line '$SKILL' | grep -qF 'A premium model (Fable 5.2 / GPT-6.2 Astra) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source'"
 
 check "premium use is never inferred from the request to fix" \
   "one_line '$SKILL' | grep -qF 'The request to fix findings is not a premium authorization, and premium use is never inferred from it'"
@@ -63,7 +63,7 @@ check "without a premium authorization the standard route or a direct fix is use
   "one_line '$SKILL' | grep -qF 'Without an authorization use the standard route; when no standard delegated route fits, fix directly with the checks of a direct fix. The report notes in one line where a premium route would have applied'"
 
 check "the Codex twin states the same standing premium authorization" \
-  "one_line '$CODEX' | grep -qF 'A premium model (\`gpt-6-astra\`) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source'"
+  "one_line '$CODEX' | grep -qF 'A premium model (\`gpt-6.2-astra\` for new plans) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source'"
 
 check "the coordinator chooses the fix route itself and never asks to approve a route or a model" \
   "one_line '$SKILL' | grep -qF 'Choose the fix route yourself.** Never ask the user to approve a route or a model'"

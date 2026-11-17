@@ -84,10 +84,10 @@ check "gpt-6-astra profile exists" "[ -f '$ASTRA6' ]"
 
 for f in "$SOL6" "$ASTRA6" "$SOL" "$TERRA" "$LUNA"; do
   check "$f drops the fixed-Astra-only supervisor sentence" \
-    "! grep -qF 'Every wave uses a fixed, separate \`gpt-6-astra\` supervisor' '$f' && ! grep -qF 'Every wave uses a separate \`gpt-6-astra\` supervisor' '$f' && ! grep -qF 'independent Astra/high supervision' '$f'"
+    "! grep -qF 'Every wave uses a fixed, separate \`gpt-6.2-astra\` supervisor' '$f' && ! grep -qF 'Every wave uses a separate \`gpt-6.2-astra\` supervisor' '$f' && ! grep -qF 'independent Astra/high supervision' '$f'"
   check "$f states the Gate 1 supervisor choice" "grep -qF 'chosen at Gate 1' '$f'"
   check "$f names the premium and standard supervisor options" \
-    "grep -qF 'the premium \`gpt-6-astra\`' '$f' && grep -qF 'the standard \`gpt-6.1-sol\`' '$f'"
+    "grep -qF 'the premium \`gpt-6.2-astra\`' '$f' && grep -qF 'the standard \`gpt-6.2-sol\`' '$f'"
   check "$f allows the executor's own model and forbids a weaker tier" "grep -qF \"may be the executor's own model\" '$f' && grep -qF 'it is never a weaker tier than an executor or rung' '$f'"
   check "$f no longer requires Astra for a Sol executor" "! grep -qF 'needs Astra' '$f'"
 done
@@ -99,7 +99,7 @@ LUNA6_DOSSIER="$REFS/gpt-6-luna-dossier.md"
 for f in "$SOL6" "$SOL6_DOSSIER"; do
   check "$f has the 2026-09-29 route status" "grep -qF '## Route status (2026-09-29)' '$f'"
 done
-check "gpt-6-luna profile escalates refusals to gpt-6.1-sol" "grep -qF 'escalated to \`gpt-6.1-sol\`' '$LUNA6'"
+check "gpt-6-luna profile escalates refusals to gpt-6.2-sol" "grep -qF 'escalated to \`gpt-6.2-sol\`' '$LUNA6'"
 check "gpt-6-luna dossier names gpt-6.1-sol" "grep -qF 'gpt-6.1-sol' '$LUNA6_DOSSIER'"
 
 summary

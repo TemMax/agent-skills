@@ -68,8 +68,8 @@ check "Fable 5.1 is spawned only through Workflow agent()" \
   "one_line '$MM' | grep -qF 'A model without an alias (Opus 5, Opus 4.8, Fable 5.1, and the retired Sonnet 5 and Haiku 4.5) is spawned only through Workflow \`agent()\`.'"
 check "a spawn through fable is a premium spawn" \
   "one_line '$MM' | grep -qF '\`fable\` resolves to Fable 5.2, a premium model: spawn through it only for a role the user authorized for Fable 5.2 (ADR 020)'"
-check "the premium paragraph names Fable 5.2 and GPT-6 Astra" \
-  "one_line '$MM' | grep -qF '**Premium models.** Fable 5.2 and GPT-6 Astra are premium'"
+check "the premium paragraph names Fable 5.2 and GPT-6.2 Astra" \
+  "one_line '$MM' | grep -qF '**Premium models.** Fable 5.2 and GPT-6.2 Astra are premium'"
 check "every supervisor row offers Fable 5.2, not Fable 5.1, as the premium alternative" \
   "[ \"\$(grep -cF 'Fable 5.2 (\`claude-fable-5-2\`) is the premium alternative' '$MM')\" -ge 4 ] && ! grep -qF 'Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative' '$MM'"
 check "the high-risk untrusted-content route goes to Opus 5.5, not Fable" \
@@ -83,7 +83,7 @@ check "super-plan's allowed Claude models include claude-fable-5-2" \
 check "super-plan's premium example uses claude-fable-5-2" \
   "grep -qF '\"supervisor\": { \"model\": \"claude-fable-5-2\", \"effort\": \"high\" },' '$SP' && grep -qF '\"models\": [\"claude-fable-5-2\"],' '$SP'"
 check "the linter accepts claude-fable-5-2 as a premium tier-3 model" \
-  "grep -qF \"'claude-fable-5-2',\" '$PL' && grep -qF \"'claude-fable-5-2': 3\" '$PL' && grep -qF \"const PREMIUM_MODELS = ['claude-fable-5-2', 'claude-fable-5-1', 'gpt-6-astra']\" '$PL'"
+  "grep -qF \"'claude-fable-5-2',\" '$PL' && grep -qF \"'claude-fable-5-2': 3\" '$PL' && grep -qF \"const PREMIUM_MODELS = ['claude-fable-5-2', 'claude-fable-5-1', ...ASTRA_MODELS]\" '$PL'"
 check "the linter warns that claude-fable-5-1 is deprecated" \
   "grep -qF 'deprecated: claude-fable-5-1 is not chosen for new plans (use claude-fable-5-2, premium); approved plans still run' '$PL'"
 check "the runner accepts claude-fable-5-2 at tier 3 and keeps it off the default ladder" \
@@ -91,7 +91,7 @@ check "the runner accepts claude-fable-5-2 at tier 3 and keeps it off the defaul
 check "the Codex wave state knows claude-fable-5-2" \
   "grep -qF \"'claude-fable-5-2'\" plugins/orchestration/skills/multi-model/references/codex-wave-state.mjs"
 check "critical-review's premium rule names Fable 5.2" \
-  "one_line plugins/code-review/skills/critical-review/FIXES.md | grep -qF 'premium model (Fable 5.2 / GPT-6 Astra) is used only when the user said so'"
+  "one_line plugins/code-review/skills/critical-review/FIXES.md | grep -qF 'premium model (Fable 5.2 / GPT-6.2 Astra) is used only when the user said so'"
 check "no shipped text still offers Fable 5.1 as a premium route" \
   "! grep -rqF 'Fable 5.1 / GPT-6 Astra' plugins && ! grep -rqF 'Fable 5.1 (\`claude-fable-5-1\`) is the premium alternative' plugins"
 check "headless planning uses a premium model the request itself names" \

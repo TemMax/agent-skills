@@ -41,9 +41,9 @@ packaged [evidence limits](gpt-calibration-evidence.md).
   explicit efforts and bounded escalation. It governs routing across profiles
   without a separate calibration gate.
 - Every wave uses a fresh, separate supervisor at explicit `high` effort,
-  chosen at Gate 1 per shared Codex routing: the standard `gpt-6.1-sol` for waves of
-  `gpt-6-luna` and `gpt-6.1-sol` executors and rungs, or
-  the premium `gpt-6-astra` (plan records `approvals.premium`). The supervisor
+  chosen at Gate 1 per shared Codex routing: the standard `gpt-6.2-sol` for waves of
+  `gpt-6-luna` and `gpt-6.2-sol` executors and rungs, or
+  the premium `gpt-6.2-astra` (plan records `approvals.premium`). The supervisor
   may be the executor's own model, from a fresh session that is not told who
   wrote the work; it is never a weaker tier than an executor or rung.
 - Preserve isolated worktrees, task contracts, mechanical checks and fresh

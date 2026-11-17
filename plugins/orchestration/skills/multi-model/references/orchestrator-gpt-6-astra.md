@@ -17,7 +17,7 @@ the model name or configuration defaults.
 
 Astra owns research synthesis, task decomposition, contracts, coordination,
 and integrated review in `super-plan`, `multi-model`, and `ship`. Delegate
-implementation to named `gpt-6.1-sol` and `gpt-6-luna` executors (approved
+implementation to named `gpt-6.2-sol` and `gpt-6-luna` executors (approved
 older plans may still name `gpt-6-sol`) in isolated worktrees. Reading code,
 running checks, and preparing task contracts are still the orchestrator's work.
 Do not turn an executor failure into an inline implementation by Astra. A
@@ -40,9 +40,9 @@ every other Sol-led pairing in this profile remains unmeasured
 (`gpt-6-sol-dossier.md`). On 2026-09-29 the standard supervisor seat moved to `gpt-6.1-sol` (supervisor fixture 9/9; `gpt-6-1-sol-dossier.md`); on 2026-09-30 the lower-cost review route moved to `gpt-6.1-sol` as well (strict gate clean 10/10, planted 10/10, PR support 3/4).
 
 Every wave uses a fresh, separate supervisor at explicit `high` effort,
-chosen at Gate 1 per shared Codex routing: the standard `gpt-6.1-sol` for waves of
-`gpt-6-luna` and `gpt-6.1-sol` executors and rungs, or
-the premium `gpt-6-astra` (plan records `approvals.premium`). The supervisor
+chosen at Gate 1 per shared Codex routing: the standard `gpt-6.2-sol` for waves of
+`gpt-6-luna` and `gpt-6.2-sol` executors and rungs, or
+the premium `gpt-6.2-astra` (plan records `approvals.premium`). The supervisor
 may be the executor's own model, from a fresh session that is not told who
 wrote the work; it is never a weaker tier than an executor or rung.
 Write full exact IDs in the plan; escalated rungs use `high`. Pick the initial

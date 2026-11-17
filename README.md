@@ -193,10 +193,12 @@ is deliberately narrower than a claim that every profile is a production route:
 | Codex | `gpt-5.6-sol` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-terra` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
 | Codex | `gpt-5.6-luna` | Exact profile exists; no executor, orchestrator, reviewer, or supervisor role/effort is production-supported by the 2026-09-04–05 UTC calibration. |
-| Codex | `gpt-6-astra` | Active-session orchestration and review profiles; GPT-5.6 executors with a separate Astra supervisor are calibration candidates, not production-qualified routes. A separately approved Astra initial executor or final rung is uncalibrated and requires a fresh Astra supervisor. |
-| Codex | `gpt-6-sol` | Exact profiles and dossiers; retired as an executor route (default executors moved to `gpt-6.1-sol`, decision 011), still valid for approved plans, but no longer the lower-cost review option; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review unsupported; supervisor only as the standard all-Luna supervisor (policy, uncalibrated). |
-| Codex | `gpt-6.1-sol` | Exact profiles and dossiers; default ordinary/difficult executor, Luna ladder rung, research and seam-audit route, and the standard supervisor of Luna and Sol waves (fixture 9/9, 2026-09-29; its own model's work since 2026-10-13, decision 015); review route measured-supported (strict gate 10/10, 10/10, PR 3/4, 2026-09-30). Record: [`tests/eval/gpt-6-1-sol-results-2026-09-29.md`](tests/eval/gpt-6-1-sol-results-2026-09-29.md). |
-| Codex | `gpt-6-luna` | Exact profiles and dossiers; default Codex executors per shared routing; 2026-09-23 calibration ([`tests/eval/gpt-6-results-2026-09-23.md`](tests/eval/gpt-6-results-2026-09-23.md)) — review and supervisor routes unsupported. |
+| Codex | `gpt-6-astra` | Previous Astra. Its exact profiles and explicitly approved premium plans remain available. |
+| Codex | `gpt-6-sol` | Retained for previously approved plans. Earlier executor, supervisor and reviewer measurements are in the [September calibration](tests/eval/gpt-6-results-2026-09-23.md). |
+| Codex | `gpt-6.2-sol` | Standard executor, Luna escalation rung, research agent, seam auditor, fresh wave supervisor and final reviewer. Both plugins recognize the exact active seat. |
+| Codex | `gpt-6.2-astra` | Active orchestrator or reviewer. As a child it requires authorization for the exact model and role. An Astra executor needs a separate supervisor of the same generation. |
+| Codex | `gpt-6.1-sol` | Advisory drift judge and a measured final reviewer for earlier approved plans. Approved earlier execution plans keep their exact IDs. [Review qualification](tests/eval/gpt-6-1-sol-results-2026-09-29.md) |
+| Codex | `gpt-6-luna` | Standard executor for narrow edits with complete instructions. The optional escalation rung for new plans is GPT-6.2 Sol. |
 | Either | any other model ID | The generic profile applies; missing identity/effort stay unknown, and no model-specific reliability claim follows. |
 
 A bare family label such as **GPT-6** does not select any exact profile by
@@ -218,23 +220,9 @@ routing decision upward to a separately supported provider route or an
 authorized calibration. The result does not turn invalid or failed cells into
 support.
 
-When a skill starts on **Astra**, Astra remains in the active seat: it plans,
-coordinates, and reviews. A supervised implementation wave ordinarily uses only
-Luna, Terra, or Sol, with a separate Astra supervisor. A separately approved
-Astra initial executor or final rung requires `astra_executor_reason` and a
-fresh Astra supervisor; Sol exhaustion never promotes, resets, or raises effort
-automatically. A fresh Astra reviewer provides context separation, not a
-different-model check. The drift hook judges every GPT-6 orchestrator — Astra, GPT-6.1 Sol, GPT-6 Sol and GPT-6 Luna — with `gpt-6.1-sol` at `high` in a separate session ([decision 012](docs/decisions/012-drift-judge-gpt-6-1-sol.md), [decision 015](docs/decisions/015-same-model-supervision.md)). On Claude Code the judge is `claude-haiku-5-5` at `low`, started without MCP servers ([decision 014](docs/decisions/014-haiku-5-5.md)). Other profiles retain their
-existing rules. See [the role decision](docs/decisions/005-astra-active-seat.md)
-and the [Astra dossier](plugins/orchestration/skills/multi-model/references/gpt-6-astra-dossier.md).
-The [bounded Astra pilot](tests/eval/gpt-6-astra-pilot-2026-09-07.md) records
-offline checks, bounded live cases, preserved failures and scorer disagreement,
-and the remaining end-to-end calibration gaps. Per
-[decision 006](docs/decisions/006-gpt-6-family.md), Codex routing for new
-plans moves to `gpt-6-sol`/`gpt-6-luna` executors with the fixed
-`gpt-6-astra`/`high` supervisor: GPT-5.6 IDs are no longer chosen for new
-plans, but an already-approved plan carrying GPT-5.6 fields still runs to
-completion.
+An Astra session can plan and review without purchasing an Astra child. New Codex waves assign mechanical work to Luna and ordinary or difficult work to GPT-6.2 Sol. Sol supervises from a fresh session at `high`. When the user authorizes Astra execution, record the exact ID in `approvals.premium`, the reason in `astra_executor_reason`, and a separate supervisor with that same ID. Approved plans keep their recorded IDs. [GPT-6.2 routing decision](docs/decisions/021-gpt-6-2.md)
+
+The drift hook sends both 6.2 seats to the existing `gpt-6.1-sol` judge at `high`. Claude Code uses `claude-haiku-5-5` at `low`. The system card describes the models' ability to carry out tasks. The project's review and supervision fixtures measure how they judge someone else's work. [GPT-6.2 card analysis](plugins/orchestration/skills/multi-model/references/gpt-6-2-dossier.md) · [Local evaluation](tests/eval/gpt-6-2-results-2026-11-17.md)
 
 Claude Code 2.1.287+ loads a UI-free lifecycle mod with each plugin. It obtains
 the main session model directly from the host, including headless sessions, and
@@ -429,7 +417,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.24.0, code-review 1.22.0):
+orchestration 4.25.0, code-review 1.23.0):
 
 | Before | After |
 |---|---|
@@ -577,6 +565,8 @@ plugins/
           supervisor-prompt.md
           orchestrator-{opus-5-5,fable-5-2,fable-5-1,fable-5,opus-5,opus-4-8}.md
           orchestrator-gpt-5-6-{sol,terra,luna}.md
+          orchestrator-gpt-6-2-astra.md
+          orchestrator-gpt-6-2-sol.md
           orchestrator-gpt-6-astra.md
           orchestrator-gpt-6-sol.md
           orchestrator-gpt-6-1-sol.md
@@ -584,6 +574,7 @@ plugins/
           orchestrator-generic.md
           model-dossiers.md
           gpt-5-6-dossier.md
+          gpt-6-2-dossier.md
           gpt-6-astra-dossier.md
           gpt-6-sol-dossier.md
           gpt-6-1-sol-dossier.md
@@ -602,6 +593,8 @@ plugins/
         references/
           reviewer-{opus-5-5,fable-5-2,fable-5-1,fable-5,opus-5,opus-4-8}.md
           reviewer-gpt-5-6-{sol,terra,luna}.md
+          reviewer-gpt-6-2-astra.md
+          reviewer-gpt-6-2-sol.md
           reviewer-gpt-6-astra.md
           reviewer-gpt-6-sol.md
           reviewer-gpt-6-1-sol.md
@@ -609,6 +602,7 @@ plugins/
           reviewer-generic.md
           reviewer-dossier.md
           gpt-5-6-reviewer-dossier.md
+          gpt-6-2-reviewer-dossier.md
           gpt-6-astra-reviewer-dossier.md
           gpt-6-sol-reviewer-dossier.md
           gpt-6-1-sol-reviewer-dossier.md

@@ -55,7 +55,7 @@ never authors code.
      review route when the host can spawn one. The report says plainly when no
      independent check ran.
    - **Premium.** Premium models are never the subject of a question. A
-     premium model (`gpt-6-astra`) is used only when the user said
+     premium model (`gpt-6.2-astra` for new plans) is used only when the user said
      so: in this session, or through a standing authorization written in the
      user's or the repository's instruction files (`AGENTS.md`, `CLAUDE.md`),
      which counts as the user's choice and is recorded in `approvals.premium`

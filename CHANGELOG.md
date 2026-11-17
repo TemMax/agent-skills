@@ -4,6 +4,28 @@ Release notes for the orchestration and code-review plugins, newest
 first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review bump is stated inside it.
 
+## 4.25.0
+
+### Highlights
+
+**multi-model**
+- GPT-6.2 Sol executes and supervises standard Codex waves
+- GPT-6.2 Astra executes or supervises with explicit premium approval
+
+**super-plan**
+- New plans use exact 6.2 IDs for execution, research and supervision
+
+**ship**
+- Approved plans retain the exact Astra generation they authorize
+
+**critical-review**
+- Both 6.2 reviewers surface required checks that could not run
+
+Orchestration 4.25.0 and code-review 1.23.0 ship exact profiles on both host packages.
+GPT-6.2 Sol qualified for standard final review. The advisory drift judge keeps its measured 6.1 route.
+The card analysis records both improvements and regressions. Per-request telemetry uses the
+published 6.2 Standard short- and long-context prices. [Decision](docs/decisions/021-gpt-6-2.md) · [Checks and limitations](tests/eval/gpt-6-2-results-2026-11-17.md)
+
 ## 4.24.0
 
 ### Highlights

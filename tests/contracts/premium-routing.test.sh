@@ -10,16 +10,16 @@ MMS="$(mktemp)"
 trap 'rm -f "$MMS"' EXIT
 python3 tests/lib/skill-source.py plugins/orchestration/skills/multi-model/SKILL.md > "$MMS"
 
-section "codex-routing: ordinary/difficult waves have no standard supervisor"
+section "codex-routing: standard supervision for ordinary and difficult waves"
 
 check "codex-routing states ordinary and difficult tasks route to Sol" \
-  "grep -qF '| ordinary | \`gpt-6.1-sol\` | \`medium\` | none |' '$CP_ROUTING' && grep -qF '| difficult | \`gpt-6.1-sol\` | \`high\` | none |' '$CP_ROUTING'"
+  "grep -qF '| ordinary | \`gpt-6.2-sol\` | \`medium\` | none |' '$CP_ROUTING' && grep -qF '| difficult | \`gpt-6.2-sol\` | \`high\` | none |' '$CP_ROUTING'"
 check "codex-routing states GPT-6 Sol is no longer chosen for new executor routes" \
   "grep -qF 'GPT-6 Sol is no longer chosen for new executor routes' '$CP_ROUTING'"
 check "codex-routing states the standard supervisor covers every task class" \
-  "grep -qF 'The standard \`gpt-6.1-sol\` supervisor covers every row of this table' '$CP_ROUTING' && ! grep -qF 'has no standard supervisor' '$CP_ROUTING'"
-check "codex-routing requires the premium gpt-6-astra supervisor only when Astra executes" \
-  "grep -qF 'required as the supervisor only when Astra' '$CP_ROUTING'"
+  "grep -qF 'The standard \`gpt-6.2-sol\` supervisor covers every row of this table' '$CP_ROUTING' && ! grep -qF 'has no standard supervisor' '$CP_ROUTING'"
+check "codex-routing requires the premium gpt-6.2-astra supervisor only when Astra executes" \
+  "grep -qF 'An Astra executor or final rung needs a separate supervisor' '$CP_ROUTING' && grep -qF 'with the same exact Astra ID.' '$CP_ROUTING'"
 
 section "codex-routing: Astra execution needs astra_executor_reason and approvals.premium"
 
@@ -29,23 +29,23 @@ check "codex-routing states Astra execution needs astra_executor_reason and appr
 section "codex-routing: ship's final review child is chosen by the plan's review key"
 
 check "codex-routing runs Stage 3 in a fresh child of the plan's review-key model" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'If the plan has no \`review\` key, use the standard measured review route \`gpt-6.1-sol\` without asking; a premium review model is used only on the user'\''s word.'"
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'If the plan has no \`review\` key, use \`gpt-6.2-sol\` at \`high\`. Honor the model and effort recorded in an existing plan.'"
 check "codex-routing states the review child is chosen by the coordinator at Gate 1, never priced" \
   "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'chosen by the coordinator at Gate 1, never by a question to the user:' && ! grep -qF 'estimated cost' '$CP_ROUTING'"
 check "codex-routing keeps a premium review model on the user's word only" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'a premium review model is used only on the user'\''s word.'"
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'A premium review model requires the user'\''s authorization.'"
 
 section "codex-wave-protocol: the supervisor is the one chosen at Gate 1"
 
 check "codex-wave-protocol names the Gate 1 supervisor choice, standard or premium" \
-  "grep -qF 'The supervisor is the one chosen' '$CP_PROTOCOL' && grep -qF 'at Gate 1 — the standard \`gpt-6.1-sol\` for a wave of \`gpt-6-luna\` and' '$CP_PROTOCOL' && grep -qF 'executors and rungs, or the premium \`gpt-6-astra\`.' '$CP_PROTOCOL'"
+  "grep -qF 'The supervisor is the one chosen' '$CP_PROTOCOL' && grep -qF 'at Gate 1 — the standard \`gpt-6.2-sol\` for a wave of \`gpt-6-luna\` and' '$CP_PROTOCOL' && grep -qF 'executors and rungs, or the premium \`gpt-6.2-astra\`.' '$CP_PROTOCOL'"
 check "codex-wave-protocol requires astra_executor_reason and approvals.premium for an Astra executor or rung" \
   "grep -qF 'An Astra executor or rung needs' '$CP_PROTOCOL' && grep -qF '\`astra_executor_reason: \"<concrete reason>\"\` and \`approvals.premium\`' '$CP_PROTOCOL'"
 
 section "ship: Stage 3 critical-review child is chosen by the plan's review key"
 
 check "ship runs Stage 3 in a fresh child of the plan's review-key model" \
-  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'if the plan has no \`review\` key, use the standard measured review route \`gpt-6.1-sol\` without asking; a premium review model is used only on the user'\''s word.'"
+  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'runs in a fresh child of the model the plan' && tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'if the plan has no \`review\` key, use \`gpt-6.2-sol\` at \`high\`. Honor the model and effort recorded in an existing plan.'"
 check "ship's PR body line for a gpt-6-sol review child reads Review route: gpt-6-sol" \
   "grep -qF 'Review route: gpt-6-sol' '$SH' && ! grep -qi 'uncalibrated' '$SH'"
 
@@ -59,20 +59,20 @@ section "ship: Failure map covers a red ci.commands command after the final wave
 check "ship Failure map holds the push when a plan ci.commands command is red, and fixes without asking" \
   "grep -qF '| A plan \`ci.commands\` command is red after the final wave | Hold the push and show the output. The fix follows the row above, without asking: a direct fix, or a one-task supervised fix wave from the red tip pushed to the feature branch only. Never to the default branch. |' '$SH' && grep -qF '| The suite is red after a merge | Show the output, then fix without asking, by multi-model'\''s step 8: directly when its conditions hold; otherwise push the red tip to the feature branch only, say so, and run a one-task supervised fix wave from that pushed tip. Never push it to the default branch. |' '$SH'"
 
-section "Sol 6.1 standard supervisor: review route is gpt-6.1-sol"
+section "Sol 6.1 standard supervisor: review route is gpt-6.2-sol"
 
 check "codex-routing names gpt-6.1-sol as the lower-cost final-review option" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'The lower-cost final-review option is \`gpt-6.1-sol\`'"
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'The lower-cost final-review option moved to \`gpt-6.1-sol\`'"
 check "multi-model records the 2026-09-30 review route move to gpt-6.1-sol" \
   "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'On 2026-09-30 the review route moved to \`gpt-6.1-sol\` too: after a verdict-wording fix it passed the strict review gate (clean 10/10, planted 10/10, PR support 3/4; its first run on 2026-09-29 had clean 4/5 and 5/5).'"
 check "ship's PR body line for a gpt-6.1-sol review child carries the 2026-09-30 counts" \
   "grep -qF 'Review route: gpt-6.1-sol final review (measured 2026-09-30: clean 10/10, planted 10/10, PR support 3/4)' '$SH' && ! grep -qi 'uncalibrated' '$SH' '$MMS'"
-check "codex-routing Verification and stops names gpt-6.1-sol measured 2026-09-30" \
-  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'or \`gpt-6.1-sol\` (measured 2026-09-30'"
+check "codex-routing Verification and stops names gpt-6.2-sol measured 2026-11-17" \
+  "tr '\\n' ' ' < '$CP_ROUTING' | tr -s ' ' | grep -qF 'or \`gpt-6.2-sol\` (measured 2026-11-17'"
 check "multi-model records the 2026-09-29 supervisor move to gpt-6.1-sol" \
   "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'On 2026-09-29 the standard supervisor of all-\`gpt-6-luna\` waves moved to \`gpt-6.1-sol\`'"
-check "multi-model names Codex gpt-6.1-sol for Luna and Sol waves" \
-  "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'Codex \`gpt-6.1-sol\` for Luna and Sol waves.'"
+check "multi-model names Codex gpt-6.2-sol for Luna and Sol waves" \
+  "tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'Codex \`gpt-6.2-sol\` for Luna and Sol waves.'"
 check "multi-model no longer names standard gpt-6-sol for all-Luna waves" \
   "! tr '\\n' ' ' < '$MMS' | tr -s ' ' | grep -qF 'standard \`gpt-6-sol\` for all-Luna waves'"
 

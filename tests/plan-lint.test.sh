@@ -977,7 +977,7 @@ PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-6-sol executor under Astra exits 0 with retired warning" "0" "$rc"
 contains "gpt-6-sol executor retired route warned" \
-  'retired route: gpt-6-sol is no longer an executor route (use gpt-6.1-sol); approved plans still run' "$out"
+  'retired route: gpt-6-sol is no longer an executor route (use gpt-6.2-sol); approved plans still run' "$out"
 
 python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY'
 import sys
@@ -990,7 +990,7 @@ PY
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "gpt-6-sol supervisor over gpt-6-luna exits 0" "0" "$rc"
 contains "gpt-6-sol supervisor retired route warned" \
-  'retired route: gpt-6-sol is no longer the standard supervisor (use gpt-6.1-sol); approved plans still run' "$out"
+  'retired route: gpt-6-sol is no longer the standard supervisor (use gpt-6.2-sol); approved plans still run' "$out"
 
 python3 - "$GPT6_CLEAN" "$W/m.md" <<'PY2'
 import sys
@@ -1009,7 +1009,7 @@ codex_mutate '"e2e": { "task": "divide-guard" }' \
   "review": { "model": "gpt-6-sol", "effort": "high" }'
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 contains "review gpt-6-sol warns as a retired review route" \
-  'retired route: gpt-6-sol is no longer the lower-cost review option (use gpt-6.1-sol); approved plans still run' "$out"
+  'retired route: gpt-6-sol is no longer the lower-cost review option (use gpt-6.2-sol); approved plans still run' "$out"
 
 codex_mutate '"e2e": { "task": "divide-guard" }' \
   '"e2e": { "task": "divide-guard" },
@@ -1738,7 +1738,7 @@ codex_mutate '"e2e": { "task": "divide-guard" }' \
 out="$(node "$LINT" "$W/m.md" 2>&1)"; rc=$?
 expect "review bad model exits 1" "1" "$rc"
 contains "review bad model named" \
-  'review.model: one of gpt-6-astra/gpt-6.1-sol/gpt-6-sol — the Codex final-review child chosen at Gate 1' "$out"
+  'review.model: one of gpt-6.2-astra/gpt-6-astra/gpt-6.2-sol/gpt-6.1-sol/gpt-6-sol — the Codex final-review child chosen at Gate 1' "$out"
 
 codex_mutate '"e2e": { "task": "divide-guard" }' \
   '"e2e": { "task": "divide-guard" },

@@ -47,6 +47,8 @@ switch models, grant hook enforcement, or change the plan/subagent ID allowlists
 | `gpt-5.6-luna` | `references/reviewer-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `references/reviewer-gpt-6-astra.md` |
 | `gpt-6-sol` | `references/reviewer-gpt-6-sol.md` |
+| `gpt-6.2-astra` | `references/reviewer-gpt-6-2-astra.md` |
+| `gpt-6.2-sol` | `references/reviewer-gpt-6-2-sol.md` |
 | `gpt-6.1-sol` | `references/reviewer-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `references/reviewer-gpt-6-luna.md` |
 | unknown | `references/reviewer-generic.md` |
@@ -100,6 +102,10 @@ Gate 1 choice — the review runs as a measured route. Keep the 2026-09-24
 strict-gate counts (10/10 clean, 10/10 planted) and the PR-support caveat (3/4, one withheld-case miss) in the internal review
 evidence packet; include them when answering a model-selection question.
 Never claim a supported GPT-6 Luna or Astra review route.
+
+### GPT-6.2 Astra and Sol
+
+Both exact IDs can perform a requested review. Use the model-specific artifact and blocker checks. A new generation does not inherit a measured final-review route from its predecessor. The standard review child is `gpt-6.2-sol` at `high`. The 2026-11-17 strict gate recorded 10/10 clean reviews, 10/10 planted findings and 4/4 local PR boundaries. A premium `gpt-6.2-astra` review child requires exact user authorization.
 
 ### GPT-6.1 Sol — 2026-09-29 and 2026-09-30 UTC
 
