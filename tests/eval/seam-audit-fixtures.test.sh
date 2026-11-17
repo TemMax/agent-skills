@@ -140,7 +140,7 @@ contains "codex prompt holds the skills-codex step" "$CX_STEP" "$(cat "$KEEP/cod
 case "$(cat "$KEEP/claude/clean-one-1/prompt.md")" in *"$CX_STEP"*) fail "claude prompt must not hold the codex step" ;; *) pass "claude prompt lacks the codex step" ;; esac
 case "$(cat "$KEEP/codex/clean-one-1/prompt.md")" in *"$CL_STEP"*) fail "codex prompt must not hold the claude step" ;; *) pass "codex prompt lacks the claude step" ;; esac
 run "$T/a-empty" --provider codex --only clean-one
-contains "codex default model" "clean-one${TAB}codex${TAB}gpt-6.1-sol${TAB}1${TAB}pass" "$OUT"
+contains "codex default model" "clean-one${TAB}codex${TAB}gpt-6.2-sol${TAB}1${TAB}pass" "$OUT"
 run "$T/a-empty" --model m-x --only clean-one
 contains "--model overrides" "clean-one${TAB}claude${TAB}m-x${TAB}1" "$OUT"
 

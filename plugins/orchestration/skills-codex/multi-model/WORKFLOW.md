@@ -54,7 +54,7 @@ Use it when the whole change is one task: one deliverable, one executor, `files_
    start approval (its Gate 2): show it there, and wait on nothing else.
    Never a time or cost estimate — not in the table, a progress update or the
    completion summary (super-plan: "No time or cost estimates"). Premium
-   models are never the subject of a question. A premium model (GPT-6 Astra,
+   models are never the subject of a question. A premium model (GPT-6.2 Astra,
    any role) is used only when the user said so: in this session, or
    through a standing authorization written in the user's or the
    repository's instruction files
@@ -312,7 +312,7 @@ base: 7c05ff5
 ```json wave-plan
 { "waves": [
   { "wave": 1,
-    "supervisor": { "model": "gpt-6.1-sol", "effort": "high" },
+    "supervisor": { "model": "gpt-6.2-sol", "effort": "high" },
     "tasks": [
       { "id": "http-retry",
         "branch": "wave/http-retry",
@@ -446,7 +446,7 @@ Details: `../../skills/multi-model/references/execution-cost-controls.md`.
 - A wave has one supervisor: pick it by the strongest model any task in the
   wave can run, ladder rungs included. A supervisor of a weaker tier than a
   rung is rejected.
-- **Premium models.** `gpt-6-astra` is premium, in any role. Premium models are
+- **Premium models.** `gpt-6.2-astra` is premium, in any role. Premium models are
   never the subject of a question. It is used only when the user said so: in
   this session, or through a standing authorization written in the user's or
   the repository's
@@ -459,8 +459,8 @@ Details: `../../skills/multi-model/references/execution-cost-controls.md`.
   fix and recovery waves while the models and roles stay the same. Without an
   authorization use the standard route; when no standard delegated route fits,
   fix directly per step 8. The report notes in one line where a premium route
-  would have applied. The standard supervisor `gpt-6.1-sol` covers waves
-  whose executors and rungs are `gpt-6-luna` or `gpt-6.1-sol`.
+  would have applied. The standard supervisor `gpt-6.2-sol` covers waves
+  whose executors and rungs are `gpt-6-luna` or `gpt-6.2-sol`.
 - Never name the executor's model in the judge prompt.
 
 **The supervisor trusts artifacts only.** A verdict is `{"ok", "violations",

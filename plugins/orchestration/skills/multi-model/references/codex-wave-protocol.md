@@ -6,8 +6,8 @@ other tasks retain the selected model supervisor. Artifact-cache opt-in and
 per-task limits do not change model routes or premium authorization.
 
 Use this protocol only for a Codex-only wave. The supervisor is the one chosen
-at Gate 1 — the standard `gpt-6.1-sol` for a wave of `gpt-6-luna` and
-`gpt-6.1-sol` executors and rungs, or the premium `gpt-6-astra`. An Astra executor or rung needs
+at Gate 1 — the standard `gpt-6.2-sol` for a wave of `gpt-6-luna` and
+`gpt-6.2-sol` executors and rungs, or the premium `gpt-6.2-astra`. Approved plans retain their exact historical IDs. An Astra executor or rung needs
 `astra_executor_reason: "<concrete reason>"` and `approvals.premium`, which
 never authorizes it by itself.
 This is the host adapter for the

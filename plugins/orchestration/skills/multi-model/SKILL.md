@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.24.0
+  version: 4.25.0
 ---
 
 # Orchestrating Multi-Model Development
@@ -148,6 +148,8 @@ switch models, grant hook enforcement, or change the plan/subagent ID allowlists
 | `gpt-5.6-luna` | `references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `references/orchestrator-gpt-6-astra.md` |
 | `gpt-6-sol` | `references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.2-astra` | `references/orchestrator-gpt-6-2-astra.md` |
+| `gpt-6.2-sol` | `references/orchestrator-gpt-6-2-sol.md` |
 | `gpt-6.1-sol` | `references/orchestrator-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `references/orchestrator-gpt-6-luna.md` |
 | unknown | `references/orchestrator-generic.md` |

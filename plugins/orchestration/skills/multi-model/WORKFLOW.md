@@ -47,7 +47,7 @@ and update this table before routing through an alias.
 For Codex plan authoring, load [codex-routing.md](references/codex-routing.md).
 It governs executor, research, supervisor and effort selection across active-seat
 profiles; the Claude quick-reference tables below apply to Claude waves only.
-Historical calibration informs task scope and verification, not a blanket veto
+For new Codex waves use GPT-6.2 Sol for standard execution and supervision. The following measurements concern earlier generations. Historical calibration informs task scope and verification, not a blanket veto
 or an additional user calibration gate. The final `medium` matrices recorded
 63/87 default and 162/204 critical passes; failures remain failures. These
 workflow fixtures did not measure GPT-5.6 executors under independent Astra
@@ -121,7 +121,7 @@ English does not mean English replies.
    Never a time or cost estimate — not in the table, a progress update or the
    completion summary (super-plan: "No time or cost estimates"). Premium
    models are never the subject of a question. A premium model (Fable 5.2 /
-   GPT-6 Astra, any role) is used only when the user said so: in this
+   GPT-6.2 Astra, any role) is used only when the user said so: in this
    session, or through a standing authorization written in the user's or the
    repository's
    instruction files (`AGENTS.md`, `CLAUDE.md`), which counts as the user's
@@ -677,7 +677,7 @@ The rung rule counts the default ladder: an omitted `ladder` field is not an
 empty one — it inherits the runner's default ladder, which reaches
 `claude-opus-5-5`, so only an explicit `"ladder": []` opts a task out of it.
 
-**Premium models.** Fable 5.2 and GPT-6 Astra are premium; so is the
+**Premium models.** Fable 5.2 and GPT-6.2 Astra are premium; so is the
 deprecated Fable 5.1 in the approved plans that still name it. Premium models are
 never the subject of a question. They are used — as supervisor, executor or
 ladder rung — only when the user said so: in this session, or through a
@@ -695,7 +695,7 @@ recorded for the deprecated Fable 5.1 covers Fable 5.2 in the same roles
 authorization use the standard route; when no standard delegated route fits,
 fix directly per step 8. The report notes in one line where a premium route
 would have applied. Standard supervisors: Opus 5.5 for Claude waves, its own
-executors included; Codex `gpt-6.1-sol` for Luna and Sol waves.
+executors included; Codex `gpt-6.2-sol` for Luna and Sol waves.
 
 Plans name every supervisor by its full ID (see Model identifiers above): Fable
 5.2 is `claude-fable-5-2`. Fable 5 is no longer addressable and keeps its
@@ -760,7 +760,7 @@ supervised wave, stop before publication rather than push around the gate.
   generates the launch script and invokes the shipped runner).
 - Codex-only wave (GPT-6 Sol/Luna or GPT-5.6 executors, or separately approved
   Astra initial/final rung; supervisor per shared Codex routing (premium Astra
-  with `approvals.premium`, or standard `gpt-6.1-sol` for Luna and Sol waves)): read
+  with `approvals.premium`, or standard `gpt-6.2-sol` for Luna and Sol waves)): read
   and follow `references/codex-wave-protocol.md`; do not invoke Claude
   Workflow. Its default adapter is `references/codex-wave-runner.mjs`, as
   described there, with the native action loop as fallback. Launch

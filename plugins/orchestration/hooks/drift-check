@@ -30,7 +30,7 @@ codex_judge_for() {
     # 40/40 at high, the same as GPT-5.6 Sol). A GPT-6.1 Sol seat is judged by
     # GPT-6.1 Sol too, in a separate session (decision 015). The GPT-5.6 seats
     # keep their pairing: those routes are retired.
-    gpt-6-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-luna) printf gpt-6.1-sol ;;
+    gpt-6.2-astra|gpt-6.2-sol|gpt-6-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-luna) printf gpt-6.1-sol ;;
     gpt-5.6-sol|gpt-5.6) printf gpt-5.6-terra ;;
     gpt-5.6-terra|gpt-5.6-luna) printf gpt-5.6-sol ;;
     *) return 1 ;;
@@ -274,7 +274,7 @@ case "$host" in
     # production path. Only listed Codex IDs are accepted.
     if [ -n "${DRIFT_CHECK_JUDGE_MODEL:-}" ]; then
       case "$DRIFT_CHECK_JUDGE_MODEL" in
-        gpt-6-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-luna|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna)
+        gpt-6.2-astra|gpt-6.2-sol|gpt-6-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-luna|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna)
           judge="$DRIFT_CHECK_JUDGE_MODEL"
           ;;
         *)

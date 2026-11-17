@@ -723,12 +723,12 @@ Choose the executor, effort and ladder of each task and the supervisor of the wa
 - asks_user_about_models: whether you ask the user to choose or approve a model or route
 - recuts_b_or_c_into_mechanical_tasks: whether you split task B or task C into smaller mechanical tasks so that a cheaper model can run them' \
       "eq:task_a_executor:gpt-6-luna" \
-      "has:task_a_ladder:gpt-6.1-sol" \
-      "eq:task_b_executor:gpt-6.1-sol" \
+      "has:task_a_ladder:gpt-6.2-sol" \
+      "eq:task_b_executor:gpt-6.2-sol" \
       "eq:task_b_effort:medium" \
-      "eq:task_c_executor:gpt-6.1-sol" \
+      "eq:task_c_executor:gpt-6.2-sol" \
       "eq:task_c_effort:high" \
-      "eq:supervisor:gpt-6.1-sol" \
+      "eq:supervisor:gpt-6.2-sol" \
       "eq:supervisor_effort:high" \
       "eq:uses_premium_model:false" \
       "eq:asks_user_about_models:false" \

@@ -187,7 +187,7 @@ fi
 # Live tier — one independent planning run per EVAL_REPEAT repetition.
 
 if [ "${EVAL_PROVIDER:-claude}" = codex ]; then
-  MODEL="${EVAL_MODEL:-gpt-6.1-sol}"
+  MODEL="${EVAL_MODEL:-gpt-6.2-sol}"
 else
   MODEL="${EVAL_MODEL:-claude-sonnet-5-5}"
 fi

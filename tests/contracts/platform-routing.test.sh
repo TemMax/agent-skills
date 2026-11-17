@@ -124,7 +124,7 @@ check "plan-format table names every full Claude plan identifier" \
 check "example wave-plan block uses a full Claude supervisor id" \
   "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' '$SP' | grep -qF '\"model\": \"claude-fable-5-2\"'"
 check "plan-format table names every exact Codex plan identifier" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Codex | \`gpt-6.1-sol\`, \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '| Codex | \`gpt-6.2-sol\`, \`gpt-6.1-sol\`, \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
 check "the bare GPT alias is never a plan identifier" \
   "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' '$SP' | grep -qF '\`gpt-5.6\` is never a plan id'"
 check "the active profile owns all planning routes" \
@@ -238,7 +238,7 @@ check "drift hook remains executable" "[ -x '$DH' ]"
 section "premium models gate Fable 5.1 and GPT-6 Astra behind approvals.premium"
 
 check "multi-model states the premium-approval paragraph" \
-  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna and Sol waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.2 and GPT-6 Astra are premium; so is the deprecated Fable 5.1 in the approved plans that still name it. Premium models are never the subject of a question. They are used — as supervisor, executor or ladder rung — only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice. The plan records it in \`approvals.premium\`; the linter enforces it.' && sed -n '/^\*\*Premium models\.\*\*/,/for Luna and Sol waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Without an authorization use the standard route; when no standard delegated route fits, fix directly per step 8. The report notes in one line where a premium route would have applied. Standard supervisors: Opus 5.5 for Claude waves, its own executors included; Codex \`gpt-6.1-sol\` for Luna and Sol waves.'"
+  "sed -n '/^\*\*Premium models\.\*\*/,/for Luna and Sol waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Fable 5.2 and GPT-6.2 Astra are premium; so is the deprecated Fable 5.1 in the approved plans that still name it. Premium models are never the subject of a question. They are used — as supervisor, executor or ladder rung — only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice. The plan records it in \`approvals.premium\`; the linter enforces it.' && sed -n '/^\*\*Premium models\.\*\*/,/for Luna and Sol waves\.\$/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Without an authorization use the standard route; when no standard delegated route fits, fix directly per step 8. The report notes in one line where a premium route would have applied. Standard supervisors: Opus 5.5 for Claude waves, its own executors included; Codex \`gpt-6.2-sol\` for Luna and Sol waves.'"
 check "the supervisor table default-ladder sentence counts an omitted ladder" \
   "grep -qF 'The rung rule counts the default ladder' '$MM' && grep -qF 'inherits the runner'\''s default ladder' '$MM'"
 check "Haiku, Sonnet and Opus 5 supervisor rows route to Opus 5.5, with Fable 5.2 as premium" \
@@ -266,27 +266,27 @@ section "executor prompts prohibit touching credential files"
 check "Task Prompt Template forbids opening, printing, copying or transmitting credentials" \
   "sed -n '/^4\. \*\*Prohibitions:\*\*/,/^5\. \*\*Definition of done/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never open, print, copy or transmit credentials, tokens or configuration files that hold them (for example \`~/.codex\`, \`~/.claude\`, app configs with Authorization headers); if the task needs a secret, stop and report.'"
 
-section "Codex routing offers a standard gpt-6.1-sol supervisor for all-Luna waves"
+section "Codex routing offers a standard gpt-6.2-sol supervisor for all-Luna waves"
 
-check "codex-routing names gpt-6-astra as the premium supervisor needing approvals.premium" \
-  "grep -qF '\`gpt-6-astra\` remains the premium supervisor and needs \`approvals.premium\`' '$CP_ROUTING'"
+check "codex-routing names gpt-6.2-astra as the premium supervisor needing approvals.premium" \
+  "grep -qF 'Use premium \`gpt-6.2-astra\` only for the role and exact ID authorized in \`approvals.premium\`' '$CP_ROUTING'"
 check "codex-routing states the standard supervisor option" \
-  "sed -n '/The \*\*standard supervisor\*\* is a fresh/,/premium and the standard supervisor\.\$/p' '$CP_ROUTING' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The **standard supervisor** is a fresh \`gpt-6.1-sol\` at \`high\` for waves of \`gpt-6-luna\` and \`gpt-6.1-sol\` executors and rungs. The supervisor fixture recorded GPT-6.1 Sol 9/9 on 2026-09-29 (the previous standard supervisor, \`gpt-6-sol\`, 9/9 twice on 2026-09-23); that is a repeated fixture pass, not production calibration, and no source measures how it judges its own model'\''s work: same-model supervision is a decision of 2026-10-13 (ADR 015), not a measured result. \`gpt-6-sol\` stays valid in that seat so that approved plans still run. Every stop rule below still applies unchanged to both the premium and the standard supervisor.'"
+  "grep -qF 'The **standard supervisor** is a fresh \`gpt-6.2-sol\` at \`high\`' '$CP_ROUTING' && grep -qF 'Keep the exact IDs and recorded approvals of older plans' '$CP_ROUTING'"
 check "codex-routing keeps the mandatory-stop rule for missing capabilities" \
   "grep -qF 'stop before launching and name the missing capability' '$CP_ROUTING'"
 
 section "codex-routing and ship choose the wave supervisor at Gate 1, premium or standard"
 
 check "codex-routing no longer names an available Astra supervisor as the default authoring choice" \
-  "! grep -qF 'with an available independent \`gpt-6-astra\` supervisor' '$CP_ROUTING'"
+  "! grep -qF 'with an available independent \`gpt-6.2-astra\` supervisor' '$CP_ROUTING'"
 check "codex-routing's Authoring decision paragraph names the Gate 1 choice" \
   "grep -qF 'chosen at Gate 1' '$CP_ROUTING'"
 check "codex-routing lets the standard supervisor cover the Luna->Sol rung and Sol executors" \
-  "grep -qF 'The standard \`gpt-6.1-sol\` supervisor covers every row of this table, the' '$CP_ROUTING' && grep -qF 'Luna→Sol rung and Sol executors included' '$CP_ROUTING' && ! grep -qF 'available only under an Astra supervisor' '$CP_ROUTING'"
+  "grep -qF 'The standard \`gpt-6.2-sol\` supervisor covers every row of this table, the' '$CP_ROUTING' && grep -qF 'Luna→Sol rung and Sol executors included' '$CP_ROUTING' && ! grep -qF 'available only under an Astra supervisor' '$CP_ROUTING'"
 check "ship no longer names a fresh Astra/high supervisor as the default GPT-5.6 route" \
   "! grep -qF 'Available GPT-5.6 executors with a fresh Astra/high supervisor' '$SH'"
 check "ship names the Gate 1 supervisor choice, premium or standard, for GPT-6 executors" \
-  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'Available GPT-6 executors under the supervisor chosen at Gate 1 — premium \`gpt-6-astra\`/high with \`approvals.premium\`, or the standard \`gpt-6.1-sol\`/high for Luna and Sol waves — form an operational route through super-plan and multi-model without a separate calibration gate.'"
+  "tr '\\n' ' ' < '$SH' | tr -s ' ' | grep -qF 'Available GPT-6 executors under the supervisor chosen at Gate 1 — premium \`gpt-6.2-astra\`/high with \`approvals.premium\`, or the standard \`gpt-6.2-sol\`/high for Luna and Sol waves — form an operational route through super-plan and multi-model without a separate calibration gate.'"
 
 section "ship runs the plan's ci.commands after the final wave"
 
@@ -326,7 +326,7 @@ section "the Table step shows the supervisor, premium status, and cost, with pre
 check "process step 4 table adds supervisor and premium status, and forbids estimates" \
   "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'The table also shows, per wave, the supervisor and whether it is premium.' && sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Never a time or cost estimate — not in the table, a progress update or the completion summary (super-plan: \"No time or cost estimates\").'"
 check "process step 4 table gates premium on the user's word or a standing authorization, recorded in approvals.premium" \
-  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Premium models are never the subject of a question. A premium model (Fable 5.2 / GPT-6 Astra, any role) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source — never filled in by the orchestrator for a choice the user did not make.'"
+  "sed -n '/^4\. \*\*Table\.\*\*/,/^5\. \*\*Write the wave plan file\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Premium models are never the subject of a question. A premium model (Fable 5.2 / GPT-6.2 Astra, any role) is used only when the user said so: in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`), which counts as the user'\''s choice and is recorded in \`approvals.premium\` with its source — never filled in by the orchestrator for a choice the user did not make.'"
 check "process step 3 groups for width by super-plan's Design for width rule" \
   "sed -n '/^3\. \*\*Plan\.\*\*/,/^4\. \*\*Table\.\*\*/p' '$MM' | tr '\n' ' ' | tr -s ' ' | grep -qF 'Group for width'"
 

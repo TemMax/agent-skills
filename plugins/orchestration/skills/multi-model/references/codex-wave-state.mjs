@@ -12,22 +12,17 @@ import {
   applyLinks, detectEnvironmentBlock, effectivePlan, excludeFromGit, reportEnvironmentBlock,
   resolveWorktreeEnv, TASK_HEADING_SOURCE, executionPolicyErrors,
 } from './worktree-env.mjs'
+import { ASTRA_MODELS, CODEX_MODELS, CODEX_TIERS, isAstra } from './codex-models.mjs'
 import { limitsErrors, supervisionErrors, verifyPipeline } from './mechanical-verify.mjs'
 import { seedBuildDirs } from './build-dirs.mjs'
 
-export const CODEX_MODELS = ['gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
-const ASTRA = 'gpt-6-astra'
-const CODEX_EXECUTOR_MODELS = [...CODEX_MODELS, ASTRA]
-const CODEX_SUPERVISORS = [...CODEX_MODELS, ASTRA]
+export { CODEX_MODELS }
+const CODEX_EXECUTOR_MODELS = [...CODEX_MODELS, ...ASTRA_MODELS]
+const CODEX_SUPERVISORS = [...CODEX_MODELS, ...ASTRA_MODELS]
 // A supervisor is never a weaker tier than a model it judges; the same model
 // may judge its own tier's work from a fresh session that is not told who wrote it.
-const MODEL_TIER = {
-  'gpt-6-luna': 1, 'gpt-5.6-luna': 1,
-  'gpt-6.1-sol': 2, 'gpt-6-sol': 2, 'gpt-5.6-sol': 2, 'gpt-5.6-terra': 2,
-  [ASTRA]: 3,
-}
 const strongerThan = (supervisorModel, models) =>
-  models.find((model) => MODEL_TIER[model] > (MODEL_TIER[supervisorModel] ?? Infinity))
+  models.find((model) => CODEX_TIERS[model] > (CODEX_TIERS[supervisorModel] ?? Infinity))
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 export const ACTIONS = ['spawn-executor', 'verify', 'spawn-supervisor', 'merge-ready', 'stop']
 
@@ -212,18 +207,18 @@ export function validateCodexWave(wave, index) {
     }
     const transitions = executor && CODEX_EXECUTOR_MODELS.includes(executor.model)
       ? [executor.model, ...(Array.isArray(task.ladder) ? task.ladder : [])] : []
-    const usesAstra = transitions.includes(ASTRA)
+    const astra = transitions.find(isAstra)
     const astraReasonValid = typeof task.astra_executor_reason === 'string'
       && task.astra_executor_reason.trim() !== ''
-    if (usesAstra) {
+    if (astra) {
       if (!astraReasonValid) {
         errors.push(tat + '.astra_executor_reason: non-empty string required for Astra execution')
       }
-      if (transitions.at(-1) !== ASTRA) {
-        errors.push(tat + '.ladder: gpt-6-astra must be the final executor rung')
+      if (transitions.at(-1) !== astra) {
+        errors.push(tat + '.ladder: ' + astra + ' must be the final executor rung')
       }
-      if (!supervisor || supervisor.model !== ASTRA) {
-        errors.push(tat + ': Astra execution requires exact gpt-6-astra supervisor')
+      if (!supervisor || supervisor.model !== astra) {
+        errors.push(tat + ': Astra execution requires exact ' + astra + ' supervisor')
       }
     } else if (Object.hasOwn(task, 'astra_executor_reason')) {
       errors.push(tat + '.astra_executor_reason: only allowed when Astra is an executor or ladder rung')
@@ -550,8 +545,8 @@ function validateStoredState(state, statePath) {
       || task.rungs.some((model) => !CODEX_EXECUTOR_MODELS.includes(model))) {
       err('tasks.' + id + '.rungs', 'non-empty distinct supported Codex models required')
     } else {
-      const usesAstra = task.rungs.includes(ASTRA)
-      if (usesAstra && (task.rungs.at(-1) !== ASTRA || state.supervisor.model !== ASTRA)) {
+      const astra = task.rungs.find(isAstra)
+      if (astra && (task.rungs.at(-1) !== astra || state.supervisor.model !== astra)) {
         err('tasks.' + id + '.rungs', 'Astra requires a final rung and exact Astra supervisor')
       }
       const stronger = strongerThan(state.supervisor.model, task.rungs)
@@ -649,7 +644,7 @@ function currentEffort(state, id, task) {
 function executorPrompt(state, id, task, spec) {
   const prior = task.verdicts.at(-1)
   const outside = outsideSandboxCmds(state, spec)
-  const astraException = task.rungs[task.rung] === ASTRA
+  const astraException = isAstra(task.rungs[task.rung])
   return [
     '# Task: ' + id,
     '',
@@ -706,6 +701,9 @@ function executorPrompt(state, id, task, spec) {
     'report_must_answer question. Commit every change before reporting —',
     'unless you stopped under the dead-end protocol (for example',
     '`blocked-on-sibling`), in which case commit nothing and say so.',
+    ['gpt-6.2-astra', 'gpt-6.2-sol'].includes(task.rungs[task.rung])
+      ? 'Report each unfinished requirement or unavailable check and its effect. Keep the task report focused on artifacts and commands. Omit model identities and internal handoff details.'
+      : null,
     'Also paste: git log --oneline ' + state.base + '..HEAD (non-empty) and',
     'git status --porcelain (empty). A pass claim without required pasted output',
     'is a contract violation.',
@@ -766,7 +764,7 @@ export function nextAction(state) {
         action: 'spawn-executor',
         model: task.rungs[task.rung],
         effort: currentEffort(state, id, task),
-        ...(task.rungs[task.rung] === ASTRA
+        ...(isAstra(task.rungs[task.rung])
           ? { astraExecutorReason: spec.astra_executor_reason } : {}),
         ...(latest && latest.escalation ? { reason: latest.escalation } : {}),
         prompt: executorPrompt(state, id, task, spec),
@@ -775,7 +773,7 @@ export function nextAction(state) {
     }
     if (task.status === 'reported') return { ...common, action: 'verify' }
     if (task.status === 'verified') {
-      const sameModelReview = task.rungs[task.rung] === ASTRA
+      const sameModelReview = isAstra(task.rungs[task.rung])
       return {
         ...common,
         action: 'spawn-supervisor',
@@ -1263,10 +1261,10 @@ function environmentSummary(task) {
 export function summarize(state) {
   const stateTasks = Object.entries(state.tasks ?? {})
   const tasks = stateTasks.map(([id, task]) => {
-    const usesAstra = task.rungs.includes(ASTRA)
-    const spec = usesAstra ? taskSpec(state, id) : null
-    const astraDispatched = usesAstra && (task.rungs[task.rung] === ASTRA
-      && task.attemptOnRung > 0 || task.verdicts.some((entry) => entry.model === ASTRA))
+    const astra = task.rungs.find(isAstra)
+    const spec = astra ? taskSpec(state, id) : null
+    const astraDispatched = astra && (isAstra(task.rungs[task.rung])
+      && task.attemptOnRung > 0 || task.verdicts.some((entry) => entry.model === astra))
     const environment = environmentSummary(task)
     return {
       id,
@@ -1274,7 +1272,7 @@ export function summarize(state) {
       branch: task.branch,
       attempts: clone(task.verdicts),
       ...(environment ? { environment } : {}),
-      ...(usesAstra ? {
+      ...(astra ? {
         astraExecutor: {
           reason: spec.astra_executor_reason,
           dispatched: astraDispatched,
@@ -1405,7 +1403,7 @@ function initCommand(options, adoption = null) {
         task.status = 'ready'
         // The strongest rung: the highest tier, the later one among equals.
         task.rung = task.rungs.reduce((best, model, index) =>
-          (MODEL_TIER[model] ?? 0) >= (MODEL_TIER[task.rungs[best]] ?? 0) ? index : best, 0)
+          (CODEX_TIERS[model] ?? 0) >= (CODEX_TIERS[task.rungs[best]] ?? 0) ? index : best, 0)
       }
       task.reports = Array.from({ length: saved.executorCalls }, (_, i) => i === saved.executorCalls - 1
         ? saved.report : 'Historical invocation; original report remains in the previous run artifacts.')

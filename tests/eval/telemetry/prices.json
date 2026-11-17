@@ -1,4 +1,6 @@
 {
+  "gpt-6.2-astra": { "prompt_limit": 272000, "up_to_limit": [8, 0.4, 40], "over_limit": [16, 0.8, 60], "cache_write_input_multiplier": {"30m": 1.25, "12h": 2.5} },
+  "gpt-6.2-sol": { "prompt_limit": 272000, "up_to_limit": [2, 0.1, 10], "over_limit": [4, 0.2, 15], "cache_write_input_multiplier": {"30m": 1.25, "12h": 2.5} },
   "gpt-6-astra": [10, 1, 50],
   "gpt-6-sol": [2, 0.2, 10],
   "gpt-6.1-sol": [2, 0.1, 10],

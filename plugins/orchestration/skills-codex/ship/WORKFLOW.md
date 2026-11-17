@@ -53,6 +53,8 @@ switch models, grant hook enforcement, or change the plan/subagent ID allowlists
 | `gpt-5.6-luna` | `../../skills/multi-model/references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `../../skills/multi-model/references/orchestrator-gpt-6-astra.md` |
 | `gpt-6-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.2-astra` | `../../skills/multi-model/references/orchestrator-gpt-6-2-astra.md` |
+| `gpt-6.2-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-2-sol.md` |
 | `gpt-6.1-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `../../skills/multi-model/references/orchestrator-gpt-6-luna.md` |
 | unknown | `../../skills/multi-model/references/orchestrator-generic.md` |
@@ -64,16 +66,16 @@ user in the language the user writes in.
 
 Load [shared route selection](../../skills/multi-model/references/codex-routing.md).
 Available GPT-6 executors under the supervisor chosen at Gate 1 — premium
-`gpt-6-astra`/high with `approvals.premium`, or the standard `gpt-6.1-sol`/high
+`gpt-6.2-astra`/high with `approvals.premium`, or the standard `gpt-6.2-sol`/high
 for Luna and Sol waves — form an operational route through `super-plan` and
 `multi-model` without a separate calibration gate. Check actual capabilities
 before launch; preserve the approvals below. Stage 3 `critical-review` runs in
 a fresh child of the model the plan's `review` key names (chosen at Gate 1;
-`gpt-6-astra` recorded in `approvals.premium`, or `gpt-6.1-sol`,
-measured 2026-09-30: clean 10/10, planted 10/10, PR support 3/4);
-if the plan has no `review` key, use the standard measured review route
-`gpt-6.1-sol` without asking; a premium review model is used only on the
-user's word. When the review capability is missing, ship does not stop
+`gpt-6.2-astra` recorded in `approvals.premium`, or `gpt-6.2-sol`,
+measured 2026-11-17: clean 10/10, planted 10/10, PR support 4/4);
+if the plan has no `review` key, use `gpt-6.2-sol` at `high`. Honor the
+model and effort recorded in an existing plan. A premium review model
+requires the user's authorization. When the review capability is missing, ship does not stop
 and does not ask: it opens the pull request with the explicit line
 `independent review not performed` in the body and in the handoff report,
 and leaves the review and the merge to the user. It never presents its
@@ -207,6 +209,8 @@ from a pre-approved plan. After approval, consume the approved plan’s provider
    vanishes from the PR resurfaces as a production defect found by hand.
    When the review child is `gpt-6-sol`, the body also carries the line
    `Review route: gpt-6-sol final review (measured 2026-09-24: clean 10/10, planted 10/10, PR support 3/4)`.
+   When the review child is `gpt-6.2-sol`, the body also carries the line
+   `Review route: gpt-6.2-sol final review (measured 2026-11-17: clean 10/10, planted 10/10, PR support 4/4)`.
    When the review child is `gpt-6.1-sol`, the body also carries the line
    `Review route: gpt-6.1-sol final review (measured 2026-09-30: clean 10/10, planted 10/10, PR support 3/4)`.
    The body also always carries one line: `Runtime pass: ran with <capability>`

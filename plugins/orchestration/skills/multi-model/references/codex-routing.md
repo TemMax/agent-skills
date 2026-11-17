@@ -6,8 +6,7 @@ other tasks retain the selected model supervisor. Artifact-cache opt-in and
 per-task limits do not change model routes or premium authorization.
 
 Read for Codex authoring in multi-model, super-plan and ship. This shared policy
-governs child routing for Astra, GPT-5.6 and generic seats; it does not change
-active-seat identity guards or Claude routing. Unknown coordinator identity or
+governs child routing for all Codex seats. Each seat keeps its own identity guard. Unknown coordinator identity or
 effort stays unknown; available exact child IDs can still establish a route.
 
 ## Authoring decision
@@ -15,9 +14,9 @@ effort stays unknown; available exact child IDs can still establish a route.
 Choose from the host's actually available children and supported efforts.
 The wave's supervisor is chosen at Gate 1 by the coordinator, and is never
 put to the user as a premium-or-standard choice: by default the standard
-`gpt-6.1-sol` at `high`, for every wave whose executors and rungs are
-`gpt-6-luna` or `gpt-6.1-sol` (see Verification and stops); the premium
-`gpt-6-astra` at `high` only with authorization — the user's word in this session or a
+`gpt-6.2-sol` at `high`, for every wave whose executors and rungs are
+`gpt-6-luna` or `gpt-6.2-sol` (see Verification and stops); the premium
+`gpt-6.2-astra` at `high` only with authorization — the user's word in this session or a
 standing authorization in instruction files (`AGENTS.md`, `CLAUDE.md`),
 recorded in `approvals.premium` with the source in `reason`. Then use the
 task table below. Availability is a
@@ -29,31 +28,31 @@ existing authorization remains valid.
 
 | Task class | Initial executor | Effort | Optional ladder, in order |
 |---|---|---|---|
-| mechanical | `gpt-6-luna` | `medium` | `gpt-6.1-sol` |
-| ordinary | `gpt-6.1-sol` | `medium` | none |
-| difficult | `gpt-6.1-sol` | `high` | none |
+| mechanical | `gpt-6-luna` | `medium` | `gpt-6.2-sol` |
+| ordinary | `gpt-6.2-sol` | `medium` | none |
+| difficult | `gpt-6.2-sol` | `high` | none |
 
-The standard `gpt-6.1-sol` supervisor covers every row of this table, the
+The standard `gpt-6.2-sol` supervisor covers every row of this table, the
 Luna→Sol rung and Sol executors included: the same model may judge its own
 tier's work from a fresh session that is not told who wrote it (ADR 015,
 `docs/decisions/015-same-model-supervision.md`). Route each task by what it
 needs. Never cut work that needs reasoning into mechanical tasks to fit a
 route: Luna is for narrow edits with complete instructions, and a task routed
-below its class fails review and stops. `gpt-6-astra` stays premium — used
-only with authorization, and required as the supervisor only when Astra
-itself executes.
+below its class fails review and stops. `gpt-6.2-astra` stays premium — used
+for an authorized role. An Astra executor or final rung needs a separate supervisor
+with the same exact Astra ID.
 
 Mechanical means a narrow edit with complete instructions and checkable output;
 ordinary means a closed implementation across call sites; difficult means a
 bounded bug or implementation requiring substantial reasoning. Resolve product
 ambiguity before dispatch. Select the initial tier by task needs, not by the
 coordinator's model. If it is unavailable, choose an available higher tier before
-plan approval and record why; the task takes the initial effort of the row it moves to — a mechanical task moved to `gpt-6.1-sol` takes the ordinary row's `medium`; `high` only with a recorded task-needs reason — since this is initial selection, not runtime escalation. Omit unavailable optional rungs. If no suitable
+plan approval and record why; the task takes the initial effort of the row it moves to — a mechanical task moved to `gpt-6.2-sol` takes the ordinary row's `medium`; `high` only with a recorded task-needs reason — since this is initial selection, not runtime escalation. Omit unavailable optional rungs. If no suitable
 executor exists, report that capability gap. Every rung is an exact model ID;
 escalated rungs use `high`. Never default to `max`.
 
-Read-only research uses Luna/medium for exact enumeration, GPT-6.1 Sol/medium for
-closed codebase questions, or GPT-6.1 Sol/high for difficult investigation. Preserve the
+Read-only research uses Luna/medium for exact enumeration, GPT-6.2 Sol/medium for
+closed codebase questions, or GPT-6.2 Sol/high for difficult investigation. Preserve the
 mandatory evidence, missing-data and source-reading instructions in multi-model.
 Research never replaces independent supervision or the coordinator's decisions.
 
@@ -72,16 +71,18 @@ outcomes in realistic work environments (1.94% against 4.93%) — dossier
 (1.50% against 1.30%), so artifact checks stay mandatory. Already approved
 plans that name `gpt-6-sol` still execute. The standard supervisor
 of all-`gpt-6-luna` waves moved to `gpt-6.1-sol`
-on 2026-09-29 (supervisor fixture 9/9, Codex CLI 0.159.0). The lower-cost final-review option is `gpt-6.1-sol` since 2026-09-30:
+on 2026-09-29 (supervisor fixture 9/9, Codex CLI 0.159.0). The lower-cost final-review option moved to `gpt-6.1-sol` on 2026-09-30:
 after a verdict-wording fix it passed the strict review gate (clean
 10/10, planted 10/10, PR support 3/4); its first run on 2026-09-29 had
 missed it (clean 4/5 and 5/5). `gpt-6-sol` stays valid as a review model
 so that approved plans still run.
 
+For new waves, use the 6.2 rows above. Keep the exact IDs and recorded approvals of older plans, including `gpt-6.1-sol` and `gpt-6-astra`. A previous Astra approval covers only the generation and roles it names. Current seats and premium children are distinct choices. The advisory drift judge remains `gpt-6.1-sol`/high in a separate session. See the [GPT-6.2 evidence](gpt-6-2-dossier.md).
+
 ## Verification and stops
 
 Every wave's fixed supervisor is a fresh separate child at explicit `high`:
-the standard `gpt-6.1-sol`, or the premium `gpt-6-astra` with authorization.
+the standard `gpt-6.2-sol`, or the premium `gpt-6.2-astra` with authorization.
 It is never a weaker tier than an executor or rung of its wave (Luna, then
 Sol, then Astra; the linter and the state helper reject a weaker one) and it
 may be the same model as an executor. Give it the contract and actual artifacts
@@ -93,18 +94,7 @@ verdict and integrated review. Do not skip the supervisor for a mechanical Codex
 task. Historical [calibration evidence](gpt-calibration-evidence.md) motivates
 these checks; it does not certify this pairing or disqualify a whole model family.
 
-`gpt-6-astra` remains the premium supervisor and needs `approvals.premium`
-recorded at Gate 1, the same gate multi-model applies to Fable 5.2, enforced by
-the linter. The **standard supervisor** is a fresh `gpt-6.1-sol` at `high`
-for waves of `gpt-6-luna` and `gpt-6.1-sol` executors and rungs. The
-supervisor fixture recorded GPT-6.1 Sol 9/9 on
-2026-09-29 (the previous standard supervisor, `gpt-6-sol`, 9/9 twice on
-2026-09-23); that is a repeated fixture pass, not production calibration,
-and no source measures how it judges its own model's work: same-model
-supervision is a decision of 2026-10-13 (ADR 015), not a measured result.
-`gpt-6-sol` stays valid in that seat so that
-approved plans still run. Every stop rule below still
-applies unchanged to both the premium and the standard supervisor.
+The **standard supervisor** is a fresh `gpt-6.2-sol` at `high`. Use premium `gpt-6.2-astra` only for the role and exact ID authorized in `approvals.premium`. An Astra executor or final rung requires its own reason and a separate supervisor on that same exact Astra ID.
 
 If the required separate supervisor, native dispatch, isolation, or required
 check cannot be provided, stop before launching and name the missing capability.
@@ -129,13 +119,13 @@ its own), ship's feature-branch discipline,
 and critical-review's fix/publication gates. A failed integration suite stops
 publication. Ship merges the PR only when the user asks and never deploys. Ship's final critical-review
 runs in a fresh child of the model the plan's `review` key names — chosen by
-the coordinator at Gate 1, never by a question to the user: `gpt-6-astra`
+the coordinator at Gate 1, never by a question to the user: `gpt-6.2-astra`
 (premium, only with authorization, recorded
-in `approvals.premium`) or `gpt-6.1-sol` (measured 2026-09-30: clean 10/10,
-planted 10/10, PR support 3/4; the PR says so), the standard route and the
+in `approvals.premium`) or `gpt-6.2-sol` (measured 2026-11-17: clean 10/10,
+planted 10/10, PR support 4/4; the PR says so), the standard route and the
 default. If the plan has no `review`
-key, use the standard measured review route `gpt-6.1-sol` without asking; a
-premium review model is used only on the user's word. The fresh
+key, use `gpt-6.2-sol` at `high`. Honor the model and effort recorded in
+an existing plan. A premium review model requires the user's authorization. The fresh
 child keeps a GPT-5.6 main seat
 from selecting a GPT-5.6 consequential-reviewer profile and keeps the review
 independent from the coordinator's context.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live check of the premium rule in planning (ADR 020).
+"""Live check of the premium rule in planning (ADRs 020 and 021).
 
 One headless super-plan run on a real host CLI and model, against
 plan-content-live.py's `interfaces` repository, with the working tree's
@@ -15,9 +15,11 @@ Cases:
             `claude-fable-5-2`, an `approvals.premium` that lists it with
             approved_by "user", no executor or rung on a Fable model, and no
             `claude-fable-5-1` anywhere. The supervisor's effort is recorded.
+  On Codex the asked case authorizes GPT-6.2 Astra for wave supervision and
+  one parser implementation task. Other tasks use the standard route.
   unasked — the same request without that sentence. Expected: a lint-clean
             plan with no premium model in any role (`claude-fable-5-2`,
-            `claude-fable-5-1`, `gpt-6-astra`) and no `approvals.premium`.
+            `claude-fable-5-1`, `gpt-6.2-astra`, `gpt-6-astra`) and no `approvals.premium`.
 
 On Claude the seat's own profile read is recorded (fable-seat-live.py's seat
 checks) when the seat is a Fable 5.2 session.
@@ -46,13 +48,19 @@ plan_live = load('plan_live', 'plan-content-live.py')
 seat_live = load('seat_live', 'fable-seat-live.py')
 bench = plan_live.bench
 ASKED = 'Надзор за каждой волной давай fable 5.2 medium.'
-PREMIUM = ('claude-fable-5-2', 'claude-fable-5-1', 'gpt-6-astra')
-MARK = 'Fable 5.2 / GPT-6 Astra, any role'
+PREMIUM = ('claude-fable-5-2', 'claude-fable-5-1', 'gpt-6.2-astra', 'gpt-6-astra')
+MARK = 'Fable 5.2 / GPT-6.2 Astra, any role'
 
 
-def request(case):
+def request(case, provider):
     base = plan_live.REQUESTS['interfaces']
-    return base + ('\n\n' + ASKED if case == 'asked' else '')
+    if case != 'asked':
+        return base
+    authorization = ASKED if provider == 'claude' else (
+        'Я разрешаю gpt-6.2-astra лично исполнить одну задачу реализации парсера '
+        'из src/durations.py на medium и независимо проверять каждую волну на high. '
+        'Для остальных задач используй обычный маршрут. В планировании премиальных агентов не запускай.')
+    return base + '\n\n' + authorization
 
 
 def prompt_for(case, provider, plan_rel):
@@ -61,7 +69,7 @@ def prompt_for(case, provider, plan_rel):
             f"skill's headless evaluation mode. Write the plan to {plan_rel} in this repository, "
             "run the skill's Lint step on it and fix every error. Do not implement anything and do "
             'not change any other file. When the plan is lint-clean, reply with its path only.\n\n'
-            f'Change: {request(case)}\n')
+            f'Change: {request(case, provider)}\n')
 
 
 def wave_plan(text):
@@ -85,12 +93,30 @@ def roles(plan):
     return out
 
 
-def premium_checks(case, plan_text):
+def premium_checks(case, plan_text, provider):
     plan = wave_plan(plan_text) or {}
     rs = roles(plan)
     premium = (plan.get('approvals') or {}).get('premium')
     facts = {'roles': rs, 'approvals_premium': premium}
-    if case == 'asked':
+    if case == 'asked' and provider == 'codex':
+        model = 'gpt-6.2-astra'
+        supervisors = [(m, e) for r, m, e in rs if r == 'supervisor']
+        granted_tasks = [t for w in plan.get('waves', []) for t in w.get('tasks', [])
+                         if (t.get('executor') or {}).get('model') == model]
+        checks = {
+            'exact_supervisors': bool(supervisors) and all(pair == (model, 'high') for pair in supervisors),
+            'one_authorized_executor': len(granted_tasks) == 1
+                and granted_tasks[0]['executor'].get('effort') == 'medium'
+                and bool((granted_tasks[0].get('astra_executor_reason') or '').strip())
+                and 'src/durations.py' in granted_tasks[0].get('contract', {}).get('files_allowed', []),
+            'exact_user_approval': isinstance(premium, dict)
+                and premium.get('models') == [model]
+                and bool(re.fullmatch(r'(?:the )?user(?: in (?:the |this )?(?:current )?(?:request|session))?',
+                                      str(premium.get('approved_by', '')).strip(), re.I)),
+            'no_other_premium': not any(m in PREMIUM and (m != model or r == 'rung') for r, m, _ in rs)
+                and (plan.get('review') or {}).get('model') not in PREMIUM,
+        }
+    elif case == 'asked':
         sups = [m for r, m, _ in rs if r == 'supervisor']
         checks = {
             'every_supervisor_is_claude_fable_5_2': bool(sups) and all(m == 'claude-fable-5-2' for m in sups),
@@ -116,11 +142,9 @@ def main():
     p.add_argument('--timeout', type=int, default=1500)
     p.add_argument('--out', required=True, type=Path)
     args = p.parse_args(); out = args.out.resolve()
-    if args.case == 'asked' and args.provider != 'claude':
-        p.error('the asked case names a Claude model; Codex plans name GPT models only')
     if out.exists(): p.error('Fresh result directory required; do not overwrite failures')
     if out.is_relative_to(ROOT): p.error('Results must be outside the repository')
-    model = args.model or ('claude-fable-5-2' if args.provider == 'claude' else 'gpt-6.1-sol')
+    model = args.model or ('claude-fable-5-2' if args.provider == 'claude' else 'gpt-6.2-sol')
     os.umask(0o077); out.mkdir(parents=True)
     pkg, _, versions = bench.snapshot(out, 'new', 'HEAD')
     workflow = pkg / 'plugins/orchestration' / ('skills' if args.provider == 'claude' else 'skills-codex') / 'super-plan/WORKFLOW.md'
@@ -131,7 +155,10 @@ def main():
     expected = {'case': args.case, 'provider': args.provider, 'model': model, 'effort': args.effort,
                 'run_complete': True, 'plan_written': True, 'lint_ok': True,
                 'workflow_loaded_from_snapshot': True, 'no_other_product_file_changed': True}
-    if args.case == 'asked':
+    if args.case == 'asked' and args.provider == 'codex':
+        expected.update(exact_supervisors=True, one_authorized_executor=True,
+                        exact_user_approval=True, no_other_premium=True)
+    elif args.case == 'asked':
         expected.update(every_supervisor_is_claude_fable_5_2=True, approval_lists_claude_fable_5_2=True,
                         no_fable_executor_or_rung=True, no_claude_fable_5_1=True,
                         recorded='the supervisor effort the plan chose')
@@ -179,7 +206,7 @@ def main():
               'lint_ok': bool(re.search(r'(?m)^OK: 0 error', lint_out)),
               'workflow_loaded_from_snapshot': 'super-plan/WORKFLOW.md' in trace and str(pkg) in trace,
               'no_other_product_file_changed': not changed}
-    pchecks, facts = premium_checks(args.case, plan_text)
+    pchecks, facts = premium_checks(args.case, plan_text, args.provider)
     checks.update(pchecks)
     if args.provider == 'claude' and model == 'claude-fable-5-2':
         seat, seat_facts = seat_live.seat_checks(rows, 'orchestrator-fable-5-2.md')

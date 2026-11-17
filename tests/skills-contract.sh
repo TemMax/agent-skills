@@ -205,11 +205,11 @@ check "headless mode records assumptions"       "grep -q 'Assumptions (would ask
 check "superpowers attribution survives"        "grep -q 'Jesse Vincent' $SP"
 check "the MIT notice ships"                    "[ -f plugins/orchestration/skills/super-plan/references/LICENSE-superpowers ]"
 check "plan model fields are provider-specific" \
-  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '| Codex | \`gpt-6.1-sol\`, \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
+  "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '| Codex | \`gpt-6.2-sol\`, \`gpt-6.1-sol\`, \`gpt-6-sol\`, \`gpt-6-luna\`, \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, \`gpt-5.6-luna\` |'"
 check "profile table lists gpt-6.1-sol" \
   "grep -qF '| \`gpt-6.1-sol\` | \`../multi-model/references/orchestrator-gpt-6-1-sol.md\` |' $SP"
-check "new Codex plans route executors to gpt-6.1-sol" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'New Codex plans route executors to \`gpt-6.1-sol\`'"
+check "new Codex plans route executors to gpt-6.2-sol" \
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'New Codex plans route executors to \`gpt-6.2-sol\`'"
 check "bare GPT alias is excluded from plan fields" \
   "sed -n '/^## Plan Format$/,/^## Acceptance References$/p' $SP | grep -qF '\`gpt-5.6\` is never a plan id'"
 check "profile rather than host defaults routes every plan role" \
@@ -231,17 +231,17 @@ check "plan format documents the ci key"            "grep -qF '\`ci\`:' $SP"
 check "plan format documents the e2e key"            "grep -qF '\`e2e\`:' $SP"
 check "plan format documents approvals.premium"      "grep -qF '\`approvals.premium\`:' $SP"
 check "approvals.premium is tied to the premium models" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'whenever \`claude-fable-5-2\`, \`gpt-6-astra\` or the deprecated \`claude-fable-5-1\` appears in any role'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'whenever \`claude-fable-5-2\`, \`gpt-6.2-astra\`, \`gpt-6-astra\` or the deprecated \`claude-fable-5-1\` appears in any role'"
 check "the linter is said to enforce ci, e2e and approvals.premium" \
   "grep -qF 'The linter enforces all three' $SP"
 check "the example wave-plan shows approvals.premium for its fable-5.2 supervisor" \
   "sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"claude-fable-5-2\"' && sed -n '/^   \`\`\`json wave-plan$/,/^   \`\`\`$/p' $SP | grep -qF '\"premium\"'"
 check "premium supervision needs the user's word or a standing authorization" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A premium model (Fable 5.2 / GPT-6 Astra, any role) is used only when the user said so in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`); record it in \`approvals.premium\` with the source in \`reason\`. Without an authorization, use the standard route.'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A premium model (Fable 5.2 / GPT-6.2 Astra, any role) is used only when the user said so in this session, or through a standing authorization written in the user'\''s or the repository'\''s instruction files (\`AGENTS.md\`, \`CLAUDE.md\`); record it in \`approvals.premium\` with the source in \`reason\`. Without an authorization, use the standard route.'"
 check "the Seam audit step exists"                     "grep -qF '**Seam audit.**' $SP"
 check "the Seam audit runs before lint"                "grep -qF 'Fix what it finds before lint' $SP"
 check "the Seam audit uses the cheap route" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5-5\` at \`medium\`, spawned through the Agent tool with the alias \`sonnet\`, the effort parameter set to \`medium\` and that full ID named in the prompt (multi-model'\''s alias table, probed 2026-10-08), or as a one-agent Workflow \`agent()\` with that full ID and effort; Codex: \`gpt-6.1-sol\` at \`medium\`'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'claude-sonnet-5-5\` at \`medium\`, spawned through the Agent tool with the alias \`sonnet\`, the effort parameter set to \`medium\` and that full ID named in the prompt (multi-model'\''s alias table, probed 2026-10-08), or as a one-agent Workflow \`agent()\` with that full ID and effort; Codex: \`gpt-6.2-sol\` at \`medium\`'"
 check "the Seam audit explicitly checks the same-task rule for changed formats/signatures/fixtures" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the same-task rule' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'for every changed format, signature or fixture, find every reader of it and require that reader be in the same task as the change'"
 check "the Seam audit lists per-task artifacts absent at the wave's base and fails on same-wave sibling production" \
@@ -269,7 +269,7 @@ check "the e2e task sits after every task whose entrypoints or fixtures it runs"
 check "e2e fixture/output documentation stays in the e2e task or a later documentation-only wave" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'goes into the e2e task or a later documentation-only wave'"
 check "the Sol supervisor line names its measured fixture and wave evidence" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'Codex: \`gpt-6.1-sol\` for waves whose executors and rungs are \`gpt-6-luna\` or \`gpt-6.1-sol\`; the same model may supervise work of its own tier from a fresh session, ADR 015 — supervisor fixture 9/9 on 2026-09-29; its predecessor \`gpt-6-sol\` held the seat with fixture 9/9 on 2026-09-23 and 2026-09-24 and three real small waves merge-ready first try — toy waves, correct work only)'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'GPT-6.2 Sol passed the supervisor fixture 9/9 and accepted a fresh executor'\''s verified commit on 2026-11-17)'"
 WCM=tests/eval/wave-cost-measurements-2026-09-24.md
 check "measurements record their price source"         "grep -qF 'tests/eval/telemetry/prices.json' $WCM"
 check "measurements record Opus 5"                     "grep -qF '| \`claude-opus-5\` | 5 | 0.5 | 25 |' $WCM"
@@ -279,22 +279,22 @@ check "Gate 1 fixes wave shape before the supervisor choice" \
 check "a changed wave shape takes the fitting standard supervisor, said in the Gate 2 message" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'pick the fitting standard supervisor and say so in the Gate 2 message; when no standard supervisor fits and there is no premium authorization, apply the rule above for a task with no standard delegated route. Never carry the stale supervisor forward.'"
 check "only a wave in which Astra executes needs the Astra supervisor" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'only a wave in which Astra executes needs \`gpt-6-astra\`' && ! tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'executor has no standard supervisor'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'an Astra executor or rung requires a fresh supervisor on its exact Astra ID' && ! tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'executor has no standard supervisor'"
 check "super-plan records ship's Stage 3 review child in the plan's review key, Sol measured with a strict-gate line" \
-  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the standard measured review route \`gpt-6.1-sol\` — strict review gate clean 10/10, planted 10/10; PR support 3/4 on 2026-09-30 — or \`gpt-6-astra\` only with a premium authorization, recorded in \`approvals.premium\`. ship never picks one.'"
+  "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'critical-review child' && tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the standard measured review route \`gpt-6.2-sol\` — strict review gate clean 10/10, planted 10/10; PR support 4/4 on 2026-11-17 — or \`gpt-6.2-astra\` only with a premium authorization, recorded in \`approvals.premium\`. ship never picks one.'"
 check "super-plan documents the optional review key next to ci/e2e/approvals" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'optional (without it ship uses the standard measured review route without asking)' && grep -qF '\"review\"' $SP"
 check "super-plan says the linter also checks the review key" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'It also checks the optional \`review\` key'"
 check "the review key is documented as an object with model and effort" \
-  "grep -qF '\"review\": {\"model\": \"gpt-6.1-sol\", \"effort\": \"high\"}' $SP && grep -qF '\"review\": {\"model\":' $SP"
+  "grep -qF '\"review\": {\"model\": \"gpt-6.2-sol\", \"effort\": \"high\"}' $SP && grep -qF '\"review\": {\"model\":' $SP"
 check "no wording in super-plan is left uncalibrated" \
   "! grep -qi 'uncalibrated' $SP"
 check "the supervisor-vs-executor example names Opus 5.5 as its own rung's supervisor" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'a \`claude-sonnet-5-5\` executor with a \`claude-opus-5-5\` rung is supervised by Opus 5.5'"
 check "an omitted ladder is left omitted so a rejected task can escalate" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'leave it omitted so a rejected task can escalate' && ! tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'collides with the supervisor'"
-check "headless mode uses standard supervisors only" \
+check "headless mode uses standard supervisors by default" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'A headless run uses'"
 check "headless mode invents no approvals.premium" \
   "tr '\\n' ' ' < $SP | tr -s ' ' | grep -qF 'the plan carries no \`approvals.premium\` invented by the model'"

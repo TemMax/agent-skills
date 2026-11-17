@@ -3,7 +3,7 @@ name: multi-model
 description: 'Use when implementation work should be delegated, parallelized, or routed across Claude or Codex agents, especially when isolated worktrees and independent supervision are required. Do not use for single-agent work. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 4.24.0
+  version: 4.25.0
 ---
 
 # Orchestrating Multi-Model Development (Codex)
@@ -135,14 +135,15 @@ switch models, grant hook enforcement, or change the plan/subagent ID allowlists
 | `gpt-5.6-luna` | `../../skills/multi-model/references/orchestrator-gpt-5-6-luna.md` |
 | `gpt-6-astra` | `../../skills/multi-model/references/orchestrator-gpt-6-astra.md` |
 | `gpt-6-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-sol.md` |
+| `gpt-6.2-astra` | `../../skills/multi-model/references/orchestrator-gpt-6-2-astra.md` |
+| `gpt-6.2-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-2-sol.md` |
 | `gpt-6.1-sol` | `../../skills/multi-model/references/orchestrator-gpt-6-1-sol.md` |
 | `gpt-6-luna` | `../../skills/multi-model/references/orchestrator-gpt-6-luna.md` |
 | unknown | `../../skills/multi-model/references/orchestrator-generic.md` |
 
 The alias `gpt-5.6` selects Sol only after the runtime-context handler has
 normalized it to `gpt-5.6-sol`. An exact supplied effort may be used; otherwise
-effort is unknown and receives no effort-specific claim. Load the selected profile silently before planning. That profile amends the numbered steps in WORKFLOW.md; where it
-amends a step, the amendment wins.
+effort is unknown and receives no effort-specific claim. Silently load the profile before planning. Its amendments take precedence over the corresponding WORKFLOW.md steps.
 
 Profiles choose model and effort routes while authoring a wave plan or explicitly
 amending one. Once a lint-clean plan is explicitly user-approved, its exact

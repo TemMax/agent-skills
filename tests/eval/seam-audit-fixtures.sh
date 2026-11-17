@@ -40,7 +40,7 @@ case "$REPEAT" in ''|*[!0-9]*) usage ;; esac
 if [ -z "$MODEL" ]; then
   case "$PROVIDER" in
     claude) MODEL=claude-sonnet-5-5 ;;
-    codex) MODEL=gpt-6.1-sol ;;
+    codex) MODEL=gpt-6.2-sol ;;
   esac
 fi
 

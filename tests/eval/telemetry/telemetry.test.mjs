@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
-import { timeBucketsMs } from './telemetry.mjs'
+import { buildReport, timeBucketsMs } from './telemetry.mjs'
 import { loadCodexRun, readRolloutMeta } from './codex.mjs'
 
 const CLI = fileURLToPath(new URL('./telemetry.mjs', import.meta.url))
@@ -33,6 +33,27 @@ const call = (minutes, callId, name) => row(minutes, 'response_item', { type: 'f
 const callOutput = (minutes, callId, output) => row(minutes, 'response_item', { type: 'function_call_output', call_id: callId, output })
 const usage = (minutes, input, cached, output, reasoning) =>
   row(minutes, 'token_usage_record', { usage: { input_tokens: input, cached_input_tokens: cached, output_tokens: output, reasoning_output_tokens: reasoning } })
+
+test('GPT-6.2 Standard prices use each whole request at its own context tier', () => {
+  const prices = JSON.parse(readFileSync(PRICES, 'utf8'))
+  for (const [model, expected] of [['gpt-6.2-sol', 1.595019], ['gpt-6.2-astra', 6.380076]]) {
+    const rows = [row(0, 'turn_context', { model }), usage(1, 272000, 20000, 100, 10),
+      usage(2, 272001, 0, 1, 0)]
+    const result = buildReport({ root: { id: ROOT, rows }, children: [] }, { prices })
+    assert.equal(result.cost.total, expected)
+  }
+})
+
+test('GPT-6.2 cache writes with unknown retention keep measured tokens and mark the cost unpriced', () => {
+  const prices = JSON.parse(readFileSync(PRICES, 'utf8'))
+  const request = usage(1, 10000, 5000, 100, 0)
+  request.payload.usage.cache_write_input_tokens = 200
+  const model = 'gpt-6.2-sol'
+  const rows = [row(0, 'turn_context', { model }), request]
+  const result = buildReport({ root: { id: ROOT, rows }, children: [] }, { prices })
+  assert.equal(result.cost.byRoleModel.length, 0)
+  assert.equal(result.cost.unpriced[0].tokens.input, 10000)
+})
 
 function jsonl(rows) {
   return rows.map(r => JSON.stringify(r)).join('\n') + '\n'
