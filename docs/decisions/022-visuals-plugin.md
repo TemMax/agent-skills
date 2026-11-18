@@ -135,7 +135,8 @@ expectations frozen first, about $2.81 of reported Claude cost:
   change, took its own screenshot and answered in text. The demo description
   now names that case (a change the user can see, then "show me" or
   "покажи") and says a text description or a loose screenshot is not a
-  substitute. Reworded, not yet re-measured.
+  substitute. Re-measured on Sonnet at b3d6707: 4 of 4 such requests built
+  the page, and 4 edits with nothing to see built none.
 - A browser profile made for a capture ended up in a page's `work/` folder
   (1.8 MB); the standard now sends it to a temporary directory the agent
   creates for the run, or deletes it after the capture.

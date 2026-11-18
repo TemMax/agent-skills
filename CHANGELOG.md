@@ -71,7 +71,8 @@ gave its path as code or bold text; after the new reply section, a re-measure
 found 1 of 10 Claude replies repeating the page, 0 of 10 plain paths and
 Codex 0 of 2. Sonnet built a demo page in only 2 of 4 edit requests that
 ended with "show me the result"; the demo description now names that case,
-reworded and not yet re-measured. The checker no longer fails a script that
+and it then built the page in 4 of 4, with no false trigger in 4 edits
+that have nothing to see. The checker no longer fails a script that
 only turns addresses into links, a `vh` mentioned in prose, or a version pin
 read as a PIN; the 32 pages of both rounds pass with no warning. Decision 022.
 
