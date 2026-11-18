@@ -1,0 +1,18 @@
+{
+  "name": "visuals",
+  "displayName": "Visual Pages",
+  "version": "0.1.0",
+  "description": "Dual-host page building for Claude Code and Codex: agents show what they explain or built as one self-contained HTML page instead of walls of text, ASCII diagrams or loose images in the chat — an explanation page with the verdict first, one main picture and numbered decisions, or a demo page of real renders, screenshots and recordings with what was not verified — checked by a shipped zero-dependency page validator.",
+  "author": {
+    "name": "TemMax",
+    "url": "https://github.com/TemMax"
+  },
+  "repository": "https://github.com/TemMax/agent-skills",
+  "keywords": [
+    "visualization",
+    "html",
+    "demo",
+    "explanation",
+    "evidence"
+  ]
+}

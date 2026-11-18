@@ -214,6 +214,13 @@ cover. The drift hook's gates run offline through `CLAUDE_DRIFT_CHECK_DRYRUN=1`,
 which prints the decision instead of calling the model, and the logic after the
 call through `CLAUDE_DRIFT_CHECK_FAKE_ANSWER`. Real assertions about real
 behaviour, and the cheapest tier that can find a genuine bug.
+`tests/lib/page-check.test.mjs` covers the visuals page checker the same way:
+each rule against a page written at run time to break only that rule (fake
+secrets are assembled from parts, never stored), and the two shipped templates
+as the passing cases. `tests/contracts/visuals.test.sh` pins the visuals
+descriptions, links, standard and templates. The visuals live check used the
+`--plugin-dir` snapshot method above; its record is in
+[decision 022](../docs/decisions/022-visuals-plugin.md).
 
 **evaluation (live)** — asks whether the prompts *work* on fixed scenarios.
 The [adjudication decision](../docs/decisions/004-adversarial-evaluation.md)

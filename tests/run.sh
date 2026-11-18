@@ -38,6 +38,7 @@ run "behaviour — sandbox grants" node --test tests/lib/sandbox-grants.test.mjs
 run "behaviour — shared build outputs" node --test tests/lib/build-dirs.test.mjs
 run "behaviour — worktree environment helper" node --test tests/lib/worktree-env.test.mjs
 run "behaviour — wave cleanup" node --test tests/lib/wave-cleanup.test.mjs
+run "behaviour — visuals page validator" node --test tests/lib/page-check.test.mjs
 run "behaviour — Telegram release announcement" bash tests/telegram-notify.test.sh
 run "behaviour — model CLI adapter" bash tests/eval/model-cli.test.sh
 run "behaviour — retained Codex rollout diagnostics" node --test tests/eval/codex-rollouts.test.mjs

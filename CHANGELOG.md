@@ -1,8 +1,62 @@
 # Changelog
 
-Release notes for the orchestration and code-review plugins, newest
-first. Each release is one `## X.Y.Z` section named after the
-orchestration version; a code-review bump is stated inside it.
+Release notes for the orchestration, code-review and visuals plugins,
+newest first. Each release is one `## X.Y.Z` section named after the
+orchestration version; a code-review or visuals bump is stated inside it.
+
+## 4.25.1
+
+### Highlights
+
+**visual-explanation**
+- New: explanations come as one HTML page, not a wall of text
+- The verdict first, one picture, numbered questions with a pick
+
+**visual-demo**
+- New: finished work comes as a demo page of real screenshots
+- Each demo says plainly what was not verified
+
+Visuals 0.1.0 is a new plugin for Claude Code and Codex. Orchestration
+4.25.1 is unchanged apart from its version number, which names this
+release; code-review stays at 1.23.0.
+
+**What was wrong.** Agents answered with long text, ASCII diagrams and
+loose screenshots or videos dropped into the chat. Text is slow to read and
+an ASCII diagram is hard to read at all; loose media carry no verdict, no
+method and no list of what was not checked, and a hand-made HTML mock-up was
+sometimes shown where a real render was asked for.
+
+**What changes.** The `visuals` plugin ships two skills on both hosts.
+`visual-explanation` builds one self-contained HTML page when the user must
+understand something with structure: the verdict in two or three lines, one
+main picture built in HTML, CSS or SVG, the options side by side with one
+recommended, numbered questions with lettered options, collapsed details and
+the sources. `visual-demo` builds one page from real renders, screenshots and
+recordings: the verdict, what was not verified, how it was checked
+(including the animation scales; motion is recorded with animations on), a
+labelled states gallery beside the design reference, the recording with 1×
+and 0.25× buttons and key frames, before and after, and findings linked to
+their frames. Both follow one page standard: no network request, local media
+by relative path, `.context/visuals/<date>-<slug>/index.html`, shown with the
+host's renderer (T3 Code's `html_render`) or as a link, kept after cleanup
+unless the user approves deleting it, and laid out for the T3 Code frame and
+a browser in light and dark. A zero-dependency checker,
+`page-check.mjs --kind explanation|demo`, fails a page that loads anything
+from the network, references missing media, lacks a required section or a
+verdict, has an image without alt text or a video without controls, uses
+`vh` or `height:100%` on html or body, holds text that looks like a token or
+private key, or draws an ASCII diagram in `<pre>`; it warns past 25 MB.
+Decision 022.
+
+**Checked.** Offline: each checker rule fails a page built to break only
+that rule, the two templates pass, and the structure and contract tiers cover
+both hosts' entrypoints. Live on Claude Code 2.1.327 (Sonnet 5.5, candidate
+from a disposable snapshot): with the shipped description, "explain how these
+two files differ, I want to see it" loaded `visual-explanation` and produced a
+page that passes the checker, and a one-line question loaded nothing. Two
+earlier descriptions that only allowed the skill were not used for the same
+request. Limits: one run per case; `visual-demo` and Codex were not run live.
+Decision 022.
 
 ## 4.25.0
 

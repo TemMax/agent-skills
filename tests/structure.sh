@@ -45,6 +45,7 @@ for p in plugins/*/; do
   case "$(basename "$p")" in
     orchestration) contains "orchestration capability description" "machine-checkable contracts" "$cdsc" ;;
     code-review) contains "code-review capability description" "evidence-based code review" "$cdsc" ;;
+    visuals) contains "visuals capability description" "self-contained HTML page" "$cdsc" ;;
   esac
   if printf '%s' "$cdsc" | grep -Eq 'for Claude Code:|Grounded in Anthropic system cards'; then
     fail "provider-neutral manifest description: $(basename "$p")" "$cdsc"
@@ -84,11 +85,11 @@ for f in \
   plugins/orchestration/.claude-plugin/plugin.json \
   plugins/orchestration/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "orchestration release version: $f" "4.25.0" "$v"
+  expect "orchestration release version: $f" "4.25.1" "$v"
 done
 for f in plugins/orchestration/skills/*/SKILL.md plugins/orchestration/skills-codex/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "orchestration skill release version: $f" "4.25.0" "$v"
+  expect "orchestration skill release version: $f" "4.25.1" "$v"
 done
 for f in \
   plugins/code-review/.claude-plugin/plugin.json \
@@ -99,6 +100,20 @@ done
 for f in plugins/code-review/skills/*/SKILL.md plugins/code-review/skills-codex/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
   expect "code-review skill release version: $f" "1.23.0" "$v"
+done
+for f in \
+  plugins/visuals/.claude-plugin/plugin.json \
+  plugins/visuals/.codex-plugin/plugin.json; do
+  v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
+  expect "visuals release version: $f" "0.1.0" "$v"
+done
+for f in plugins/visuals/skills/*/SKILL.md plugins/visuals/skills-codex/*/SKILL.md; do
+  v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
+  expect "visuals skill release version: $f" "0.1.0" "$v"
+done
+for p in orchestration code-review visuals; do
+  check "Claude marketplace lists $p" "python3 -c 'import json,sys;sys.exit(0 if \"$p\" in [x[\"name\"] for x in json.load(open(\".claude-plugin/marketplace.json\"))[\"plugins\"]] else 1)'"
+  check "Codex marketplace lists $p" "python3 -c 'import json,sys;sys.exit(0 if \"$p\" in [x[\"name\"] for x in json.load(open(\".agents/plugins/marketplace.json\"))[\"plugins\"]] else 1)'"
 done
 for marker in \
   "Claude Code installation" \
@@ -140,6 +155,9 @@ for marker in \
   "gpt-6-sol-reviewer-dossier.md" \
   "gpt-6-luna-reviewer-dossier.md" \
   "code-review/hooks/" \
+  "visuals/" \
+  "page-standard.md" \
+  "page-check.mjs" \
   "CHANGELOG.md" \
   "announce.yml"; do
   check "README source/layout inventory: $marker" "grep -Fq '$marker' README.md"
@@ -276,6 +294,11 @@ for f in plugins/*/hooks/*; do
   [ -f "$f" ] || continue
   check "executable: $(basename "$f")" "[ -x '$f' ]"
   check "shell syntax: $(basename "$f")" "bash -n '$f'"
+done
+
+for f in plugins/visuals/skills/*/references/*.mjs; do
+  [ -e "$f" ] || continue
+  check "JavaScript syntax: $(basename "$f")" "node --check '$f'"
 done
 
 section "Repository-wide prohibitions"

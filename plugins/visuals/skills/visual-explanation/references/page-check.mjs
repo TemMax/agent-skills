@@ -1,0 +1,352 @@
+#!/usr/bin/env node
+// page-check.mjs — validate a visuals page against page-standard.md.
+//
+//   node page-check.mjs <index.html> --kind explanation|demo
+//
+// Prints one line per problem: `FAIL <rule> <where>: <what>` or
+// `WARN <rule> <where>: <what>`, then `OK ...` when nothing failed.
+// Exit 0 when nothing failed (warnings allowed), 1 when anything failed,
+// 2 on a usage error. Deterministic: no network, no model, no dependencies.
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { dirname, extname, isAbsolute, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+export const SECTIONS = {
+  explanation: {
+    order: ['verdict', 'picture', 'options', 'questions', 'details', 'sources'],
+    required: ['verdict', 'picture'],
+  },
+  demo: {
+    order: ['verdict', 'not-verified', 'method', 'states', 'motion', 'before-after', 'findings', 'questions'],
+    required: ['verdict', 'not-verified', 'method', 'states'],
+  },
+}
+
+export const SIZE_WARN_BYTES = 25 * 1024 * 1024
+
+const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'])
+const MEDIA_ATTRS = ['src', 'poster', 'srcset', 'data']
+
+const SECRETS = [
+  ['GitHub token', /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,})/],
+  ['OpenAI-style key', /\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}/],
+  ['Slack token', /\bxox[abposr]-[A-Za-z0-9-]{10,}/],
+  ['AWS access key', /\bAKIA[0-9A-Z]{16}\b/],
+  ['Google API key', /\bAIza[0-9A-Za-z_-]{35}/],
+  ['private key', /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/],
+]
+
+const NETWORK_APIS = [
+  ['fetch()', /\bfetch\s*\(/],
+  ['XMLHttpRequest', /\bXMLHttpRequest\b/],
+  ['WebSocket', /\bnew\s+WebSocket\b/],
+  ['EventSource', /\bnew\s+EventSource\b/],
+  ['sendBeacon', /\bsendBeacon\s*\(/],
+  ['remote import', /\bimport\s*(?:\(\s*|[^;'"]*?\bfrom\s*)['"](?:[a-z][a-z0-9+.-]*:)?\/\//i],
+]
+
+const BOX_CHARS = /[─-▟]/g
+const ASCII_CHARS = /[+|\-]/g
+
+function lineAt(text, index) {
+  let n = 1
+  for (let i = 0; i < index && i < text.length; i++) if (text.charCodeAt(i) === 10) n++
+  return n
+}
+
+function decode(s) {
+  return s
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&amp;/gi, '&')
+}
+
+// Blank out comments and the bodies of raw-text elements so that tag scanning
+// never reads markup inside them; offsets and line numbers stay unchanged.
+function blank(s) { return s.replace(/[^\n]/g, ' ') }
+
+function parse(html) {
+  const noComments = html.replace(/<!--[\s\S]*?-->/g, blank)
+  const scripts = []
+  const styles = []
+  const masked = noComments.replace(/(<(script|style)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi, (m, open, name, body, close, offset) => {
+    const start = offset + open.length
+    ;(name.toLowerCase() === 'script' ? scripts : styles).push({ body, start, open })
+    return open + blank(body) + close
+  })
+  const tags = []
+  const tagRe = /<(\/?)([a-zA-Z][\w-]*)((?:\s+[^\s=/>]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*)\s*(\/?)>/g
+  let m
+  while ((m = tagRe.exec(masked))) {
+    const attrs = {}
+    const attrRe = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g
+    let a
+    while ((a = attrRe.exec(m[3]))) {
+      const name = a[1].toLowerCase()
+      if (!(name in attrs)) attrs[name] = decode(a[2] ?? a[3] ?? a[4] ?? '')
+    }
+    tags.push({ close: m[1] === '/', name: m[2].toLowerCase(), attrs, start: m.index, end: m.index + m[0].length, selfClosing: m[4] === '/' })
+  }
+  return { html, masked, tags, scripts, styles }
+}
+
+// The element opened by tags[i] ends at its matching close tag, or at the
+// end of the document when the close tag is missing.
+function extent(doc, i) {
+  const open = doc.tags[i]
+  if (VOID.has(open.name) || open.selfClosing) return { start: open.start, inner: open.end, innerEnd: open.end, end: open.end, last: i }
+  let depth = 0
+  for (let j = i + 1; j < doc.tags.length; j++) {
+    const t = doc.tags[j]
+    if (t.name !== open.name || t.selfClosing) continue
+    if (!t.close) depth++
+    else if (depth === 0) return { start: open.start, inner: open.end, innerEnd: t.start, end: t.end, last: j }
+    else depth--
+  }
+  return { start: open.start, inner: open.end, innerEnd: doc.masked.length, end: doc.masked.length, last: doc.tags.length - 1 }
+}
+
+function tagsWithin(doc, ext) {
+  return doc.tags.filter((t) => t.start >= ext.inner && t.end <= ext.innerEnd)
+}
+
+function textOf(doc, ext) {
+  return decode(doc.masked.slice(ext.inner, ext.innerEnd).replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim()
+}
+
+function isExternal(url) {
+  return /^\s*(?:(?:https?|ftp|wss?):|\/\/)/i.test(url)
+}
+
+function urlsOf(name, value) {
+  if (name !== 'srcset') return [value]
+  return value.split(',').map((part) => part.trim().split(/\s+/)[0]).filter(Boolean)
+}
+
+function cssBlocks(doc) {
+  const blocks = doc.styles.map((s) => ({ css: s.body, start: s.start }))
+  for (const t of doc.tags) if (!t.close && t.attrs.style !== undefined) blocks.push({ css: t.attrs.style, start: t.start, inline: t })
+  return blocks
+}
+
+function rootSelector(selector) {
+  return selector.split(',').some((part) => /^(?:html|body|:root)$/i.test(part.trim()))
+}
+
+function cssRules(css) {
+  const out = []
+  const re = /([^{}]+)\{([^{}]*)\}/g
+  let m
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, blank)
+  while ((m = re.exec(clean))) out.push({ selector: m[1].trim(), body: m[2], index: m.index })
+  return out
+}
+
+function diagramLine(line) {
+  const visible = line.replace(/\s+/g, '')
+  if (visible.length < 3) return false
+  const box = (visible.match(BOX_CHARS) || []).length
+  if (box >= 2) return true
+  const ascii = (visible.match(ASCII_CHARS) || []).length
+  if (ascii / visible.length >= 0.5) return true
+  return /[+|][-=]{2,}|[-=]{2,}[+|]|-{2,}>|<-{2,}/.test(line) || /^\s*\|.*\|\s*$/.test(line)
+}
+
+function localPath(pageDir, url) {
+  const clean = url.trim().split('#')[0].split('?')[0]
+  if (!clean) return null
+  let decoded = clean
+  try { decoded = decodeURIComponent(clean) } catch { /* keep the raw path */ }
+  return resolve(pageDir, decoded)
+}
+
+export function checkPage(file, kind) {
+  const errors = []
+  const warnings = []
+  const fail = (rule, where, what) => errors.push({ rule, where, what })
+  const warn = (rule, where, what) => warnings.push({ rule, where, what })
+
+  if (!SECTIONS[kind]) {
+    fail('usage', '-', `unknown --kind ${JSON.stringify(kind)}; expected explanation or demo`)
+    return { errors, warnings }
+  }
+  if (!/\.html?$/i.test(extname(file))) {
+    fail('file', file, 'the page must be an .html file')
+    return { errors, warnings }
+  }
+  if (!existsSync(file) || !statSync(file).isFile()) {
+    fail('file', file, 'no such file')
+    return { errors, warnings }
+  }
+  const html = readFileSync(file, 'utf8')
+  const doc = parse(html)
+  const pageDir = dirname(resolve(file))
+  const at = (index) => `line ${lineAt(html, index)}`
+  const opens = doc.tags.filter((t) => !t.close)
+
+  // No network: every resource is inline or a local file next to the page.
+  for (const t of opens) {
+    for (const name of MEDIA_ATTRS) {
+      if (t.attrs[name] === undefined) continue
+      for (const url of urlsOf(name, t.attrs[name])) {
+        if (isExternal(url)) fail('external-resource', at(t.start), `<${t.name} ${name}> loads ${url.split('?')[0]} from the network`)
+      }
+    }
+    if (t.name === 'link' && t.attrs.href !== undefined) {
+      const rel = (t.attrs.rel || '').toLowerCase()
+      if (isExternal(t.attrs.href)) fail('external-resource', at(t.start), `<link rel="${rel}"> loads ${t.attrs.href.split('?')[0]} from the network`)
+      else if (/\bstylesheet\b/.test(rel)) fail('external-resource', at(t.start), 'a stylesheet must be inline in <style>, not a separate file')
+    }
+    if (t.name === 'script' && t.attrs.src !== undefined && !isExternal(t.attrs.src)) {
+      fail('external-resource', at(t.start), 'a script must be inline, not a separate file')
+    }
+  }
+  for (const block of cssBlocks(doc)) {
+    const css = block.css.replace(/\/\*[\s\S]*?\*\//g, blank)
+    for (const m of css.matchAll(/@import\b/gi)) fail('external-resource', at(block.start + (block.inline ? 0 : m.index)), '@import pulls in another stylesheet; inline it')
+    for (const m of css.matchAll(/url\(\s*(['"]?)([^'")]*)\1\s*\)/gi)) {
+      if (isExternal(m[2])) fail('external-resource', at(block.start + (block.inline ? 0 : m.index)), `url() loads ${m[2].split('?')[0]} from the network`)
+    }
+  }
+  for (const s of doc.scripts) {
+    for (const [label, re] of NETWORK_APIS) {
+      const m = re.exec(s.body)
+      if (m) fail('external-resource', at(s.start + m.index), `the script uses ${label}; a page makes no network request`)
+    }
+  }
+
+  // Local media exists, is not empty, and lives in the page's folder.
+  const media = new Set()
+  for (const t of opens) {
+    for (const name of MEDIA_ATTRS) {
+      if (t.attrs[name] === undefined || (name === 'data' && t.name !== 'object')) continue
+      for (const url of urlsOf(name, t.attrs[name])) {
+        if (isExternal(url) || /^\s*(?:data|blob):/i.test(url) || /^\s*#/.test(url)) continue
+        if (!url.trim()) { fail('local-media', at(t.start), `<${t.name} ${name}> is empty`); continue }
+        if (/^\s*file:/i.test(url) || isAbsolute(url.trim())) {
+          fail('local-media', at(t.start), `<${t.name} ${name}="${url}"> must be a path relative to the page`)
+          continue
+        }
+        const path = localPath(pageDir, url)
+        if (!path) continue
+        if (relative(pageDir, path).startsWith('..')) {
+          fail('local-media', at(t.start), `${url} lies outside the page's folder; copy it next to the page`)
+          continue
+        }
+        if (!existsSync(path) || !statSync(path).isFile()) fail('local-media', at(t.start), `${url} does not exist`)
+        else if (statSync(path).size === 0) fail('local-media', at(t.start), `${url} is empty`)
+        else media.add(path)
+      }
+    }
+  }
+
+  // Sections.
+  const spec = SECTIONS[kind]
+  const sections = []
+  doc.tags.forEach((t, i) => {
+    if (!t.close && t.attrs['data-section'] !== undefined) sections.push({ name: t.attrs['data-section'].trim(), index: i, tag: t })
+  })
+  for (const name of spec.required) {
+    if (!sections.some((s) => s.name === name)) fail('section-missing', '-', `no element with data-section="${name}" (required on ${kind} pages)`)
+  }
+  for (const s of sections) {
+    if (!spec.order.includes(s.name)) warn('section-unknown', at(s.tag.start), `data-section="${s.name}" is not a section of ${kind} pages (${spec.order.join(', ')})`)
+  }
+  const known = sections.filter((s) => spec.order.includes(s.name)).map((s) => s.name)
+  const seen = [...new Set(known)]
+  const expected = [...seen].sort((a, b) => spec.order.indexOf(a) - spec.order.indexOf(b))
+  if (seen.join() !== expected.join()) warn('section-order', '-', `sections appear as ${seen.join(', ')}; the standard order is ${expected.join(', ')}`)
+
+  for (const s of sections.filter((x) => x.name === 'verdict')) {
+    if (!textOf(doc, extent(doc, s.index))) fail('verdict-empty', at(s.tag.start), 'the verdict has no text')
+  }
+  if (kind === 'demo') {
+    for (const s of sections.filter((x) => x.name === 'states')) {
+      const inner = tagsWithin(doc, extent(doc, s.index))
+      if (!inner.some((t) => !t.close && (t.name === 'img' || t.name === 'video'))) fail('states-media', at(s.tag.start), 'the states section shows no <img> or <video>')
+    }
+  }
+
+  // Accessible, self-describing media.
+  doc.tags.forEach((t, i) => {
+    if (t.close) return
+    if (t.name === 'figure') {
+      if (!tagsWithin(doc, extent(doc, i)).some((x) => !x.close && x.name === 'figcaption')) fail('figure-caption', at(t.start), '<figure> has no <figcaption>')
+    }
+    if (t.name === 'img' && !(t.attrs.alt || '').trim()) fail('img-alt', at(t.start), `<img src="${t.attrs.src || ''}"> has no alt text`)
+    if (t.name === 'video' && t.attrs.controls === undefined) fail('video-controls', at(t.start), '<video> has no controls attribute')
+  })
+
+  // The conversation frame sizes itself from the content.
+  for (const block of cssBlocks(doc)) {
+    const css = block.css.replace(/\/\*[\s\S]*?\*\//g, blank)
+    for (const m of css.matchAll(/(?<![\w-])\d*\.?\d+\s*[dsl]?vh\b/gi)) {
+      fail('viewport-height', at(block.start + (block.inline ? 0 : m.index)), `"${m[0]}": vh units loop or are rejected in a conversation frame`)
+    }
+    if (block.inline) {
+      if (['html', 'body'].includes(block.inline.name)) {
+        if (/(?:^|;)\s*(?:min-)?height\s*:\s*100%/i.test(css)) fail('viewport-height', at(block.start), `height:100% on <${block.inline.name}> loops in a conversation frame`)
+        if (/(?:^|;)\s*background(?:-color|-image)?\s*:/i.test(css)) warn('frame-background', at(block.start), `<${block.inline.name}> sets a background; leave html and body without one`)
+      }
+      continue
+    }
+    for (const rule of cssRules(css)) {
+      if (!rootSelector(rule.selector)) continue
+      if (/(?:^|;)\s*(?:min-)?height\s*:\s*100%/i.test(rule.body)) fail('viewport-height', at(block.start + rule.index), `height:100% on ${rule.selector} loops in a conversation frame`)
+      if (/(?:^|;)\s*background(?:-color|-image)?\s*:/i.test(rule.body)) warn('frame-background', at(block.start + rule.index), `${rule.selector} sets a background; leave html and body without one`)
+    }
+  }
+
+  // Nothing secret on the page.
+  for (const [label, re] of SECRETS) {
+    const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g')
+    for (const m of html.matchAll(g)) fail('secret', at(m.index), `text that looks like a ${label}; remove it`)
+  }
+
+  // Pictures are drawn in HTML, CSS or SVG, never as ASCII art.
+  doc.tags.forEach((t, i) => {
+    if (t.close || t.name !== 'pre') return
+    const ext = extent(doc, i)
+    const text = decode(doc.masked.slice(ext.inner, ext.innerEnd).replace(/<[^>]*>/g, ''))
+    const lines = text.split('\n').filter(diagramLine)
+    if (lines.length >= 3) fail('ascii-diagram', at(t.start), `<pre> holds an ASCII diagram (${lines.length} drawing lines); draw it in HTML, CSS or SVG`)
+  })
+
+  let total = Buffer.byteLength(html)
+  for (const path of media) total += statSync(path).size
+  if (total > SIZE_WARN_BYTES) warn('size', '-', `the page and its media weigh ${(total / 1048576).toFixed(1)} MB (over 25 MB); compress the video or trim frames`)
+
+  return { errors, warnings }
+}
+
+export function format({ errors, warnings }) {
+  return [
+    ...errors.map((e) => `FAIL ${e.rule} ${e.where}: ${e.what}`),
+    ...warnings.map((w) => `WARN ${w.rule} ${w.where}: ${w.what}`),
+  ]
+}
+
+function main(argv) {
+  const args = [...argv]
+  let kind
+  const k = args.indexOf('--kind')
+  if (k !== -1) { kind = args[k + 1]; args.splice(k, 2) }
+  const eq = args.findIndex((a) => a.startsWith('--kind='))
+  if (eq !== -1) { kind = args[eq].slice(7); args.splice(eq, 1) }
+  if (args.length !== 1 || !kind) {
+    process.stderr.write('usage: page-check.mjs <index.html> --kind explanation|demo\n')
+    return 2
+  }
+  const result = checkPage(args[0], kind)
+  for (const line of format(result)) process.stdout.write(line + '\n')
+  if (result.errors.length) return 1
+  process.stdout.write(`OK ${kind}: ${args[0]}\n`)
+  return 0
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  process.exitCode = main(process.argv.slice(2))
+}
