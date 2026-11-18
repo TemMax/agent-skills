@@ -17,7 +17,10 @@ _spec = spec_from_file_location("skill_source", os.path.join(os.path.dirname(__f
 _source = module_from_spec(_spec); _spec.loader.exec_module(_source)
 skill_text = _source.skill_text
 
-KINDS = ("multi-model", "super-plan", "ship", "critical-review")
+KINDS = ("multi-model", "super-plan", "ship", "critical-review", "visual-explanation", "visual-demo")
+# Page-building skills share no session rules, profiles or routing with the
+# orchestration and review skills; they share the page standard and checker.
+VISUAL_KINDS = ("visual-explanation", "visual-demo")
 
 RULES = [
     '''Load this skill once per session. Its text and every reference you have read stay in your context: do not read them again with `cat`, `sed` or any other tool on a later turn — not on "continue", not on a one-word approval, and not when a newer `PLUGIN_RUNTIME_CONTEXT_V1` line repeats the same model and effort. Re-read one section only when a detail you need is no longer in your context, and read only that range.''',
@@ -78,6 +81,25 @@ PHRASES = {
         "Not verified — manual QA needed",
         "Never a time or cost estimate",
         "then fix without asking, by multi-model's step 8",
+    ],
+    "visual-explanation": [
+        "page-standard.md",
+        "explanation.html",
+        "page-check.mjs",
+        "--kind explanation",
+        "Fix every `FAIL` line",
+        "never name, quote or link this skill's instruction files",
+    ],
+    "visual-demo": [
+        "page-standard.md",
+        "demo.html",
+        "and only that file",
+        "page-check.mjs",
+        "--kind demo",
+        "system animations on",
+        "nothing is drawn in its place",
+        "Fix every `FAIL` line",
+        "never name, quote or link this skill's instruction files",
     ],
     "critical-review": [
         "Never load more than one active-seat profile",
@@ -157,6 +179,10 @@ def check_phrases(kind, claude, codex, fails):
 
 
 def check_rules(kind, codex, fails):
+    if kind in VISUAL_KINDS:
+        if "Resolve relative resource paths from this SKILL.md's physical directory." not in norm(codex):
+            fails.append(("resource-paths", "missing the physical-directory resolution rule"))
+        return
     if not re.search(r"^## Codex session rules[ \t]*$", codex, re.M):
         fails.append(("session-rules", "missing line `## Codex session rules`"))
     nx = norm(codex)
@@ -197,10 +223,13 @@ def link_targets(codex):
     return out
 
 
-def check_links(codex_path, codex, fails):
+def check_links(codex_path, codex, fails, kind=None):
     base = os.path.dirname(os.path.abspath(codex_path))
     for target, line in link_targets(codex):
         if any(c in target for c in "<>*$"):
+            continue
+        # A visual skill's reply examples link a page by its absolute path.
+        if kind in VISUAL_KINDS and target.startswith("/"):
             continue
         t = target.split("#", 1)[0]
         t = re.sub(r":\d+(-\d+)?$", "", t)
@@ -270,10 +299,10 @@ def main(argv):
     check_rules(kind, codex, fails)
     check_single_task(kind, codex, fails)
     check_forbidden(codex, fails)
-    check_links(codex_path, codex, fails)
-    if not len(codex.splitlines()) < len(claude.splitlines()):
+    check_links(codex_path, codex, fails, kind)
+    if kind not in VISUAL_KINDS and not len(codex.splitlines()) < len(claude.splitlines()):
         fails.append(("smaller", "Codex file has %d lines, Claude file has %d" % (len(codex.splitlines()), len(claude.splitlines()))))
-    if kind != "critical-review" and "codex-routing.md" not in codex:
+    if kind not in ("critical-review",) + VISUAL_KINDS and "codex-routing.md" not in codex:
         fails.append(("routing", "Codex file does not contain `codex-routing.md`"))
     if re.search(r"kent|respawn", codex, re.I):
         fails.append(("banned-words", "Codex file matches kent|respawn"))

@@ -8,6 +8,9 @@ import re
 
 skills = [*Path('plugins/orchestration').glob('skills*/**/SKILL.md'),
           *Path('plugins/code-review').glob('skills*/**/SKILL.md')]
+# Page-building skills select no profile, so only the communication heading and
+# the instruction-file rule apply to them.
+visual_skills = [*Path('plugins/visuals').glob('skills*/**/SKILL.md')]
 errors = []
 for path in skills:
     text = path.read_text()
@@ -42,6 +45,17 @@ for path in skills:
         if phrase not in flat:
             errors.append(f'{path}: missing {phrase!r}')
 
+for path in visual_skills:
+    flat = ' '.join(path.read_text().split())
+    for phrase in ['### User-facing communication',
+                   "In every message to the user, never name, quote or link this skill's instruction files",
+                   "unless the user's request is about them",
+                   'The page you built is not an instruction file: link it.']:
+        if phrase not in flat:
+            errors.append(f'{path}: missing {phrase!r}')
+if len(visual_skills) != 4:
+    errors.append(f'expected 4 visuals entrypoints, found {len(visual_skills)}')
+
 for path in Path('plugins/code-review/skills/critical-review/references').glob('reviewer-*.md'):
     text = path.read_text()
     for pattern in [r'calibration\s+status belongs in the `Not verified` field',
@@ -52,5 +66,5 @@ for path in Path('plugins/code-review/skills/critical-review/references').glob('
 
 if errors:
     raise SystemExit('\n'.join(errors))
-print(f'PASS: communication contract in {len(skills)} entrypoints; reviewer disclosure conflicts absent')
+print(f'PASS: communication contract in {len(skills) + len(visual_skills)} entrypoints; reviewer disclosure conflicts absent')
 PY

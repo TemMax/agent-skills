@@ -15,7 +15,9 @@ for pair in \
   "orchestration multi-model" \
   "orchestration super-plan" \
   "orchestration ship" \
-  "code-review critical-review"; do
+  "code-review critical-review" \
+  "visuals visual-explanation" \
+  "visuals visual-demo"; do
   set -- $pair
   plugin="$1"; name="$2"
   out="$(python3 "$CHECK" "plugins/$plugin/skills/$name/SKILL.md" "plugins/$plugin/skills-codex/$name/SKILL.md" "$name" 2>&1)"; rc=$?

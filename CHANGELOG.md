@@ -1,8 +1,80 @@
 # Changelog
 
-Release notes for the orchestration and code-review plugins, newest
-first. Each release is one `## X.Y.Z` section named after the
-orchestration version; a code-review bump is stated inside it.
+Release notes for the orchestration, code-review and visuals plugins,
+newest first. Each release is one `## X.Y.Z` section named after the
+orchestration version; a code-review or visuals bump is stated inside it.
+
+## 4.25.1
+
+### Highlights
+
+**visual-explanation**
+- New: explanations come as one HTML page, not a wall of text
+- The verdict first, one picture, numbered questions with a pick
+- The reply links the page and repeats none of it
+
+**visual-demo**
+- New: finished work comes as a demo page of real screenshots
+- Each demo says plainly what was not verified
+- "Show me the result" after a visible change builds a demo page
+
+Visuals 0.1.0 is a new plugin for Claude Code and Codex. Orchestration
+4.25.1 is unchanged apart from its version number, which names this
+release; code-review stays at 1.23.0.
+
+**What was wrong.** Agents answered with long text, ASCII diagrams and
+loose screenshots or videos dropped into the chat. Text is slow to read and
+an ASCII diagram is hard to read at all; loose media carry no verdict, no
+method and no list of what was not checked, and a hand-made HTML mock-up was
+sometimes shown where a real render was asked for.
+
+**What changes.** The `visuals` plugin ships two skills on both hosts.
+`visual-explanation` builds one self-contained HTML page when the user must
+understand something with structure: the verdict in two or three lines, one
+main picture built in HTML, CSS or SVG, the options side by side with one
+recommended, numbered questions with lettered options, collapsed details and
+the sources. `visual-demo` builds one page from real renders, screenshots and
+recordings: the verdict, what was not verified, how it was checked
+(including the animation scales; motion is recorded with animations on), a
+labelled states gallery beside the design reference, the recording with 1×
+and 0.25× buttons and key frames, before and after, and findings linked to
+their frames. Both follow one page standard: no network request, local media
+by relative path, `.context/visuals/<date>-<slug>/index.html`, shown with the
+host's own renderer when it has one (T3 Code's `html_render`, for example)
+or as a link, kept after cleanup unless the user approves deleting it, and
+laid out for a browser and for a narrow conversation frame in light and dark.
+Working files for a page (capture scripts, raw captures) stay in the page's
+own `work/` folder, never at a fixed name in a shared temp directory. The
+reply after the page is the page as a link plus, at most, the one question
+that needs an answer now; each entrypoint shows a good and a bad reply in
+English and Russian. A zero-dependency checker,
+`page-check.mjs --kind explanation|demo`, fails a page that loads anything
+from the network (including SVG `href`s and addresses a script would load),
+references missing media or a template placeholder, lacks a required section
+or a verdict, has an image without alt text or a video without controls, uses
+`vh` (in CSS, a style attribute or a style a script sets) or `height:100%`
+on html or body,
+holds text that looks like a token or private key, or draws an ASCII diagram
+in `<pre>` or a `white-space:pre` block. It warns past 25 MB, on a demo state
+drawn as SVG or a `data:` URI, and on text that looks like a phone number or
+a password or PIN with its value. Decision 022.
+
+**Checked.** Offline: each checker rule fails or warns on a page built to
+break only that rule, every rule added after the live test was
+mutation-checked, the two templates pass, and the 20 pages the live test
+produced still pass with no warning. Live: 31 calls on Claude Code 2.1.327
+(Sonnet 5.5, Opus 5.5) and Codex 0.170.0 (GPT-6.2 Sol), candidate from a
+disposable snapshot. The skills triggered in 17 of 17 cases that called for a
+page and in 0 of 11 that did not; all 20 pages passed the checker and every
+demo used real screenshots. 8 of 15 Claude replies summarised the page and 5
+gave its path as code or bold text; after the new reply section, a re-measure
+found 1 of 10 Claude replies repeating the page, 0 of 10 plain paths and
+Codex 0 of 2. Sonnet built a demo page in only 2 of 4 edit requests that
+ended with "show me the result"; the demo description now names that case,
+and it then built the page in 4 of 4, with no false trigger in 4 edits
+that have nothing to see. The checker no longer fails a script that
+only turns addresses into links, a `vh` mentioned in prose, or a version pin
+read as a PIN; the 32 pages of both rounds pass with no warning. Decision 022.
 
 ## 4.25.0
 

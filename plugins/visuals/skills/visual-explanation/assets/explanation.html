@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explanation — replace with the topic</title>
+<!--
+  Explanation template. Copy to .context/visuals/<YYYY-MM-DD>-<slug>/index.html,
+  replace every example text, keep the data-section blocks in this order, delete
+  the optional blocks you do not need (options, questions, details, sources),
+  then run page-check.mjs with --kind explanation.
+  Write in the user's language and set <html lang> to it.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --v-fg: var(--foreground, #1f2328);
+    --v-muted: var(--muted-foreground, #59636e);
+    --v-card: var(--card, #f6f8fa);
+    --v-border: var(--border, #d1d9e0);
+    --v-primary: var(--primary, #0969da);
+    --v-primary-fg: var(--primary-foreground, #ffffff);
+    --v-secondary: var(--secondary, #eaeef2);
+    --v-success: var(--success, #1a7f37);
+    --v-warning: var(--warning, #9a6700);
+    --v-destructive: var(--destructive, #cf222e);
+    --v-chart-1: var(--chart-1, #0969da);
+    --v-chart-2: var(--chart-2, #1a7f37);
+    --v-chart-3: var(--chart-3, #9a6700);
+    --v-chart-4: var(--chart-4, #8250df);
+    --v-chart-5: var(--chart-5, #cf222e);
+    --v-chart-6: var(--chart-6, #59636e);
+    --v-radius: var(--radius, 8px);
+    --v-sans: var(--font-sans, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+    --v-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --v-fg: var(--foreground, #e6edf3);
+      --v-muted: var(--muted-foreground, #9198a1);
+      --v-card: var(--card, #151b23);
+      --v-border: var(--border, #3d444d);
+      --v-primary: var(--primary, #4493f8);
+      --v-primary-fg: var(--primary-foreground, #0d1117);
+      --v-secondary: var(--secondary, #212830);
+      --v-success: var(--success, #3fb950);
+      --v-warning: var(--warning, #d29922);
+      --v-destructive: var(--destructive, #f85149);
+      --v-chart-1: var(--chart-1, #4493f8);
+      --v-chart-2: var(--chart-2, #3fb950);
+      --v-chart-3: var(--chart-3, #d29922);
+      --v-chart-4: var(--chart-4, #ab7df8);
+      --v-chart-5: var(--chart-5, #f85149);
+      --v-chart-6: var(--chart-6, #9198a1);
+    }
+  }
+  body { color: var(--v-fg); font-family: var(--v-sans); line-height: 1.5; }
+  .page { max-width: 760px; margin: 0 auto; display: grid; gap: 24px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; line-height: 1.3; }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  p { margin: 0 0 8px; }
+  code { font-family: var(--v-mono); font-size: 0.9em; }
+  .muted { color: var(--v-muted); }
+  .verdict p { font-size: 1.02rem; }
+  .box { background: var(--v-card); border: 1px solid var(--v-border); border-radius: var(--v-radius); padding: 16px; }
+
+  /* Main picture: a flow of steps. Swap for a tree, timeline, table or matrix when the content asks for it. */
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .flow li { flex: 1 1 140px; display: flex; align-items: stretch; gap: 8px; }
+  .step { flex: 1; border: 1px solid var(--v-border); border-top: 4px solid var(--v-chart-1); border-radius: var(--v-radius); padding: 12px; background: var(--v-card); }
+  .step b { display: block; }
+  .step.risk { border-top-color: var(--v-destructive); }
+  .step.new { border-top-color: var(--v-success); }
+  .arrow { align-self: center; color: var(--v-muted); font-size: 1.2rem; }
+  .flow li:last-child .arrow { display: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 0.85rem; color: var(--v-muted); }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+  @media (max-width: 480px) {
+    .flow { flex-direction: column; }
+    .flow li { flex-direction: column; }
+    .arrow { transform: rotate(90deg); }
+  }
+
+  .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .option { border: 1px solid var(--v-border); border-radius: var(--v-radius); padding: 16px; }
+  .option.recommended { border: 2px solid var(--v-primary); }
+  .option h3 { font-size: 1rem; margin: 0 0 6px; }
+  .badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--v-primary); color: var(--v-primary-fg); margin-left: 6px; vertical-align: 1px; }
+  .option ul { margin: 6px 0 0; padding-left: 18px; }
+  .pro::marker { content: "+  "; color: var(--v-success); }
+  .con::marker { content: "−  "; color: var(--v-destructive); }
+
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--v-border); vertical-align: top; }
+  th { color: var(--v-muted); font-weight: 600; }
+  .yes { color: var(--v-success); font-weight: 600; }
+  .no { color: var(--v-destructive); font-weight: 600; }
+
+  .questions { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
+  .questions ol { list-style: upper-alpha; padding-left: 22px; margin: 6px 0 0; }
+  .questions .rec { font-weight: 600; }
+  .questions .rec .muted { font-weight: 400; }
+
+  details { border: 1px solid var(--v-border); border-radius: var(--v-radius); padding: 10px 16px; }
+  details + details { margin-top: 8px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details[open] summary { margin-bottom: 8px; }
+  .sources { margin: 0; padding-left: 18px; font-size: 0.9rem; word-break: break-word; }
+  a { color: var(--v-primary); }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <section data-section="verdict" class="verdict">
+    <h1>Keep the cache in memory; move it to disk only for the offline mode</h1>
+    <p>Reads take 2 ms from memory against 40 ms from disk, and the data rebuilds in under a second after a restart.
+       One decision is yours: whether offline mode ships in this release (question 1).</p>
+  </section>
+
+  <section data-section="picture">
+    <h2>How a read flows today</h2>
+    <figure style="margin:0">
+      <ol class="flow">
+        <li><div class="step"><b>Screen asks</b><span class="muted">for the feed</span></div><span class="arrow" aria-hidden="true">→</span></li>
+        <li><div class="step new"><b>Memory cache</b><span class="muted">hit in 2 ms</span></div><span class="arrow" aria-hidden="true">→</span></li>
+        <li><div class="step"><b>Network</b><span class="muted">on a miss, 300 ms</span></div><span class="arrow" aria-hidden="true">→</span></li>
+        <li><div class="step risk"><b>Disk write</b><span class="muted">40 ms, blocks the list</span></div><span class="arrow" aria-hidden="true">→</span></li>
+      </ol>
+      <figcaption class="legend">
+        <span style="--c: var(--v-success)">proposed</span>
+        <span style="--c: var(--v-destructive)">the slow step</span>
+        <span style="--c: var(--v-chart-1)">unchanged</span>
+      </figcaption>
+    </figure>
+  </section>
+
+  <section data-section="options">
+    <h2>Options</h2>
+    <div class="options">
+      <div class="option recommended">
+        <h3>A. Memory only <span class="badge">Recommended</span></h3>
+        <p class="muted">Fastest and simplest; the disk step goes away.</p>
+        <ul>
+          <li class="pro">2 ms reads, no blocking</li>
+          <li class="con">Empty after a cold start (rebuilt in 0.8 s)</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h3>B. Memory and disk</h3>
+        <p class="muted">Needed only if offline mode ships now.</p>
+        <ul>
+          <li class="pro">Works without network</li>
+          <li class="con">A second store to keep in sync</li>
+        </ul>
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-top:12px">
+      <table>
+        <caption class="muted" style="caption-side:bottom; text-align:left; padding-top:6px">Measured on the test device, median of 20 reads.</caption>
+        <thead><tr><th>What</th><th>A. Memory only</th><th>B. Memory and disk</th></tr></thead>
+        <tbody>
+          <tr><td>Read</td><td class="yes">2 ms</td><td class="yes">2 ms</td></tr>
+          <tr><td>Cold start</td><td class="no">0.8 s rebuild</td><td class="yes">40 ms</td></tr>
+          <tr><td>Offline</td><td class="no">No</td><td class="yes">Yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section data-section="questions">
+    <h2>Questions for you</h2>
+    <ol class="questions">
+      <li>Does offline mode ship in this release?
+        <ol>
+          <li class="rec">No — take option A now <span class="badge">Recommended</span><br><span class="muted">Offline is not in this release's scope, and A is half the code.</span></li>
+          <li>Yes — take option B</li>
+        </ol>
+      </li>
+    </ol>
+  </section>
+
+  <section data-section="details">
+    <details>
+      <summary>How the numbers were measured</summary>
+      <p>Twenty reads per store on the same build; the median is shown. Commands and raw output are in the sources below.</p>
+    </details>
+  </section>
+
+  <section data-section="sources">
+    <h2>Sources</h2>
+    <ul class="sources">
+      <li><code>src/cache/FeedCache.kt</code> — the cache today</li>
+      <li><code>bench/cache-read.txt</code> — raw timings</li>
+      <li><a href="https://example.com/design-doc">Design note on offline mode</a></li>
+    </ul>
+  </section>
+
+</main>
+</body>
+</html>

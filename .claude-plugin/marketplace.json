@@ -13,6 +13,11 @@
       "name": "code-review",
       "source": "./plugins/code-review",
       "description": "Claude Code and Codex critical review of uncommitted changes or a GitHub PR, with an optional post-review fix phase that answers and resolves the PR threads its findings came from."
+    },
+    {
+      "name": "visuals",
+      "source": "./plugins/visuals",
+      "description": "Claude Code and Codex visual pages: agents explain structure and show finished work as one self-contained HTML page — a verdict, one main picture and numbered decisions, or real renders and recordings with what was not verified — checked by a shipped page validator."
     }
   ]
 }

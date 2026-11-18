@@ -1,8 +1,8 @@
 # agent-skills
 
-A dual Claude Code and Codex plugin marketplace (`temmax`) with two
-plugins covering the full development pipeline: plan → supervised execution →
-review. Model-specific guidance is scoped to cited first-party Anthropic and
+A dual Claude Code and Codex plugin marketplace (`temmax`) with three
+plugins: two cover the full development pipeline (plan → supervised execution →
+review), and one makes agents show their work as HTML pages. Model-specific guidance is scoped to cited first-party Anthropic and
 OpenAI sources; shared safety rules stay provider-neutral. Load-bearing logic
 ships as tested code, not prose — a Claude wave runner, a Codex state/verifier
 helper, a plan linter, and the offline release suite (see `tests/README.md`).
@@ -16,6 +16,10 @@ helper, a plan linter, and the offline release suite (see `tests/README.md`).
   by a separate supervisor session that is never told which model wrote the work.
 - **`code-review`** — critical, evidence-based review of uncommitted changes or
   a GitHub PR, performed by the session's own model.
+- **`visuals`** — agents show what they explain or built as one self-contained
+  HTML page instead of walls of text, ASCII diagrams or loose images: an
+  explanation page or a demo page of real renders, checked by a shipped
+  validator. It has no model profiles; it works the same on any model.
 
 Each skill works on **whatever model the session runs on**: it reads its own
 model identity and loads the matching profile from `references/`. There is no
@@ -27,6 +31,8 @@ model identity and loads the matching profile from `references/`. There is no
 | `orchestration` | `ship` | The pipeline conductor: one command from request to reviewed PR — super-plan → supervised waves on a feature branch → critical-review of the PR and its threads. Adds no machinery or gate of its own: the branch and the PR are stated in planning's one start approval, fixes routed by behavior change, and the merge always stays with the user. |
 | `orchestration` | `multi-model` | Model routing, effort selection, task-prompt template, review checklist, and supervised waves executed by native Claude/Codex drivers using the shipped policy — isolated executors judged against a machine-checkable contract by a separate supervisor session, never a weaker tier than the executor, with the escalation ladder as tested code — plus an orchestrator-drift advisory hook that watches the orchestrator session itself. |
 | `code-review` | `critical-review` | Scope detection, PR description+threads protocol, tiered findings table (Blocker → Nit), and a post-review fix phase that answers and resolves the PR threads its findings came from. |
+| `visuals` | `visual-explanation` | When the user must understand something with structure (a flow, an architecture, options, a plan, findings, a decision): one self-contained HTML page with the verdict first, one main picture built in HTML/CSS/SVG, options with one recommended, numbered questions, collapsed details and sources. |
+| `visuals` | `visual-demo` | When work has a result that can be seen: one HTML page of real renders, screenshots and recordings — the verdict, what was not verified, how it was checked (animations on for motion), a states gallery beside the design, the recording at 1× and 0.25×, before and after, findings linked to frames. |
 
 ## How the model routing works
 
@@ -264,6 +270,7 @@ fallback for a host or session that cannot run the runner script.
 /plugin marketplace add TemMax/agent-skills
 /plugin install orchestration@temmax
 /plugin install code-review@temmax
+/plugin install visuals@temmax
 ```
 
 ### Codex installation
@@ -276,6 +283,7 @@ codex plugin marketplace add /absolute/path/to/agent-skills
 codex plugin list --marketplace temmax --available --json
 codex plugin add orchestration@temmax --json
 codex plugin add code-review@temmax --json
+codex plugin add visuals@temmax --json
 codex plugin list --marketplace temmax --json
 ```
 
@@ -406,8 +414,15 @@ when reviewing a PR, verifies findings by running what is cheap, and delivers a
 short summary plus one findings table tiered Blocker / Important / Medium / Low
 / Nit. The review is read-only — fixes happen only when you ask afterwards.
 
+**What to expect from visuals.** Ask to see something ("show me how X differs
+from Y", "visualize the plan") or finish work that can be seen, and the agent
+writes `.context/visuals/<date>-<slug>/index.html` in the workspace, checks it
+with `page-check.mjs`, renders it in the conversation when the host can (T3
+Code's `html_render`, for example) or links its path, and replies only with what the page
+does not say. The page stays after cleanup unless you approve deleting it.
+
 To verify the plugins are installed, run `/plugin` and look for
-`orchestration` and `code-review` with their skills listed.
+`orchestration`, `code-review` and `visuals` with their skills listed.
 
 ## Release history
 
@@ -417,7 +432,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.25.0, code-review 1.23.0):
+orchestration 4.25.1, code-review 1.23.0, visuals 0.1.0):
 
 | Before | After |
 |---|---|
@@ -433,6 +448,9 @@ A release PR raises the versions: both `plugin.json` files per plugin, the
 skills' `version:` frontmatter, and the literals in `tests/structure.sh`. It
 also adds a `## X.Y.Z` section at the top of [CHANGELOG.md](CHANGELOG.md);
 `tests/structure.sh` checks that heading against the orchestration version.
+A release that changes only another plugin still raises the orchestration
+patch version, since that version names the release (4.25.1 shipped visuals
+0.1.0 with orchestration otherwise unchanged).
 
 Every release section starts with a `### Highlights` block written for the
 channel's readers, not for the changelog's own readers: bullets are very
@@ -485,6 +503,7 @@ Previewing locally: `scripts/announce-changelog.sh --dry-run --version <version>
 ```bash
 claude --plugin-dir /path/to/agent-skills/plugins/orchestration
 claude --plugin-dir /path/to/agent-skills/plugins/code-review
+claude --plugin-dir /path/to/agent-skills/plugins/visuals
 ```
 
 Run the offline release suite before changing a plugin:
@@ -607,6 +626,24 @@ plugins/
           gpt-6-sol-reviewer-dossier.md
           gpt-6-1-sol-reviewer-dossier.md
           gpt-6-luna-reviewer-dossier.md
+  visuals/
+    .claude-plugin/plugin.json
+    .codex-plugin/plugin.json      # no hooks: the plugin selects no model profile
+    skills-codex/                  # Codex entrypoints; shared files stay in skills/
+      visual-explanation/SKILL.md
+      visual-demo/SKILL.md
+    skills/
+      visual-explanation/
+        SKILL.md
+        references/
+          page-standard.md         # the page rules both skills follow
+          page-check.mjs           # zero-dependency page validator (tests/lib/page-check.test.mjs)
+        assets/explanation.html    # explanation template
+      visual-demo/
+        SKILL.md
+        assets/
+          demo.html                # demo template
+          media/placeholder-*      # placeholders the template passes with; a copied page must replace them
 tests/                           # structure / contracts / behaviour / live eval
   run.sh                         # ./tests/run.sh [--live]
 ```

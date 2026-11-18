@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo — replace with what was built</title>
+<!--
+  Demo template. Copy this file alone to .context/visuals/<YYYY-MM-DD>-<slug>/index.html
+  and put the real screenshots, renders and recordings in a media/ folder beside it.
+  Capture scripts, raw captures and temporary copies of the app go in a work/ folder
+  beside it, never at a fixed name in a shared temp directory.
+  Every media/placeholder-* path below must be replaced by a real file: the placeholders
+  are not shipped with the copy, so page-check.mjs fails until each one is replaced.
+  Keep the data-section blocks in this order; delete motion, before-after, findings and
+  questions when they do not apply. Write in the user's language and set <html lang>.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --v-fg: var(--foreground, #1f2328);
+    --v-muted: var(--muted-foreground, #59636e);
+    --v-card: var(--card, #f6f8fa);
+    --v-border: var(--border, #d1d9e0);
+    --v-primary: var(--primary, #0969da);
+    --v-primary-fg: var(--primary-foreground, #ffffff);
+    --v-secondary: var(--secondary, #eaeef2);
+    --v-success: var(--success, #1a7f37);
+    --v-warning: var(--warning, #9a6700);
+    --v-destructive: var(--destructive, #cf222e);
+    --v-chart-1: var(--chart-1, #0969da);
+    --v-radius: var(--radius, 8px);
+    --v-sans: var(--font-sans, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+    --v-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --v-fg: var(--foreground, #e6edf3);
+      --v-muted: var(--muted-foreground, #9198a1);
+      --v-card: var(--card, #151b23);
+      --v-border: var(--border, #3d444d);
+      --v-primary: var(--primary, #4493f8);
+      --v-primary-fg: var(--primary-foreground, #0d1117);
+      --v-secondary: var(--secondary, #212830);
+      --v-success: var(--success, #3fb950);
+      --v-warning: var(--warning, #d29922);
+      --v-destructive: var(--destructive, #f85149);
+      --v-chart-1: var(--chart-1, #4493f8);
+    }
+  }
+  body { color: var(--v-fg); font-family: var(--v-sans); line-height: 1.5; }
+  .page { max-width: 760px; margin: 0 auto; display: grid; gap: 24px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; line-height: 1.3; }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  h3 { font-size: 0.95rem; margin: 0 0 8px; }
+  p { margin: 0 0 8px; }
+  code { font-family: var(--v-mono); font-size: 0.9em; }
+  a { color: var(--v-primary); }
+  .muted { color: var(--v-muted); }
+  .verdict p { font-size: 1.02rem; }
+
+  .not-verified { border-left: 4px solid var(--v-warning); background: var(--v-card); border-radius: var(--v-radius); padding: 16px; }
+  .not-verified ul { margin: 0; padding-left: 18px; }
+
+  .method { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; font-size: 0.92rem; }
+  .method dt { color: var(--v-muted); }
+  .method dd { margin: 0; }
+  @media (max-width: 420px) { .method { grid-template-columns: 1fr; } .method dd { margin-bottom: 6px; } }
+
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  figure { margin: 0; }
+  figure img, figure video { display: block; width: 100%; height: auto; border: 1px solid var(--v-border); border-radius: var(--v-radius); }
+  figcaption { font-size: 0.85rem; margin-top: 6px; }
+  figcaption b { display: block; }
+  .state { scroll-margin-top: 16px; }
+  .state:target img { outline: 3px solid var(--v-primary); outline-offset: 2px; }
+  .tag { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 0 6px; border-radius: 999px; border: 1px solid var(--v-border); color: var(--v-muted); }
+  .tag.real { color: var(--v-success); border-color: var(--v-success); }
+
+  .motion video { max-width: 360px; margin: 0 auto; }
+  .speed { display: flex; gap: 8px; justify-content: center; margin: 10px 0 14px; }
+  .speed button { font: inherit; font-size: 0.85rem; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--v-border); background: transparent; color: var(--v-fg); cursor: pointer; }
+  .speed button[aria-pressed="true"] { background: var(--v-primary); border-color: var(--v-primary); color: var(--v-primary-fg); }
+  .strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(90px, 1fr); gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .strip button { all: unset; cursor: pointer; display: block; }
+  .strip button:focus-visible img { outline: 2px solid var(--v-primary); }
+
+  .findings { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+  .sev { font-size: 0.72rem; font-weight: 700; padding: 0 6px; border-radius: 4px; color: var(--v-primary-fg); background: var(--v-muted); margin-right: 6px; }
+  .sev.high { background: var(--v-destructive); }
+  .sev.low { background: var(--v-chart-1); }
+
+  .questions { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
+  .questions ol { list-style: upper-alpha; padding-left: 22px; margin: 6px 0 0; }
+  .rec { font-weight: 600; }
+  .rec .muted { font-weight: 400; }
+  .badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--v-primary); color: var(--v-primary-fg); margin-left: 6px; }
+  details { border: 1px solid var(--v-border); border-radius: var(--v-radius); padding: 10px 16px; margin-top: 12px; }
+  summary { cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <section data-section="verdict" class="verdict">
+    <h1>The settings screen works on the device; one spacing differs from the design</h1>
+    <p>All three states render on a real phone and the sheet opens and closes smoothly at normal animation speed.
+       The list gap is 12 px where the design has 16 px (finding 1); everything else matches.</p>
+  </section>
+
+  <section data-section="not-verified" class="not-verified">
+    <h2>Not verified</h2>
+    <ul>
+      <li>Dark theme: only the light theme was run on the device.</li>
+      <li>Tablets and landscape: not run.</li>
+    </ul>
+  </section>
+
+  <section data-section="method">
+    <h2>How it was checked</h2>
+    <dl class="method">
+      <dt>Device</dt><dd>Phone emulator, Android 16, 1080 × 2400</dd>
+      <dt>Build</dt><dd><code>devDebug</code> from commit <code>abc1234</code></dd>
+      <dt>Backend</dt><dd>Local stand <code>my-branch</code></dd>
+      <dt>Animations</dt><dd>Window, transition and animator scales all 1 (read back before recording)</dd>
+      <dt>Captured with</dt><dd>Screenshots and a screen recording from the device itself</dd>
+    </dl>
+  </section>
+
+  <section data-section="states">
+    <h2>States</h2>
+    <div class="gallery">
+      <figure class="state" id="state-loading">
+        <img src="media/placeholder-screen.svg" alt="Settings screen while loading: three grey rows" loading="lazy">
+        <figcaption><b>1. Loading</b><span class="tag real">device</span></figcaption>
+      </figure>
+      <figure class="state" id="state-filled">
+        <img src="media/placeholder-screen.svg" alt="Settings screen with all rows filled" loading="lazy">
+        <figcaption><b>2. Filled</b><span class="tag real">device</span></figcaption>
+      </figure>
+      <figure class="state" id="state-error">
+        <img src="media/placeholder-screen.svg" alt="Settings screen with the error banner and Try again" loading="lazy">
+        <figcaption><b>3. Error</b><span class="tag real">device</span></figcaption>
+      </figure>
+    </div>
+    <h3 style="margin-top:16px">Filled state against the design</h3>
+    <div class="pair">
+      <figure>
+        <img src="media/placeholder-design.svg" alt="Design export of the filled settings screen" loading="lazy">
+        <figcaption><b>Design</b><span class="tag">reference</span></figcaption>
+      </figure>
+      <figure>
+        <img src="media/placeholder-screen.svg" alt="Device screenshot of the filled settings screen" loading="lazy">
+        <figcaption><b>Device</b><span class="tag real">device</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section data-section="motion" class="motion">
+    <h2>Motion: opening and closing the sheet</h2>
+    <figure>
+      <video id="motion" controls muted playsinline preload="metadata" src="media/placeholder-motion.mp4"></video>
+      <figcaption class="muted" style="text-align:center">Screen recording at normal animation speed. Tap a key frame to jump to it.</figcaption>
+    </figure>
+    <div class="speed" role="group" aria-label="Playback speed">
+      <button type="button" data-rate="1" aria-pressed="true">1×</button>
+      <button type="button" data-rate="0.25" aria-pressed="false">0.25×</button>
+    </div>
+    <div class="strip">
+      <figure><button type="button" data-time="0.0"><img src="media/placeholder-frame.svg" alt="Key frame at 0.0 s: sheet closed"></button><figcaption>0.0 s — closed</figcaption></figure>
+      <figure><button type="button" data-time="0.5"><img src="media/placeholder-frame.svg" alt="Key frame at 0.5 s: sheet halfway up"></button><figcaption>0.5 s — halfway</figcaption></figure>
+      <figure><button type="button" data-time="1.0"><img src="media/placeholder-frame.svg" alt="Key frame at 1.0 s: sheet open"></button><figcaption>1.0 s — open</figcaption></figure>
+    </div>
+  </section>
+
+  <section data-section="before-after">
+    <h2>Before and after</h2>
+    <div class="pair">
+      <figure>
+        <img src="media/placeholder-screen.svg" alt="Before: the old settings screen" loading="lazy">
+        <figcaption><b>Before</b><span class="muted">main, same device</span></figcaption>
+      </figure>
+      <figure>
+        <img src="media/placeholder-screen.svg" alt="After: the new settings screen" loading="lazy">
+        <figcaption><b>After</b><span class="muted">this branch, same device</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section data-section="findings">
+    <h2>Findings</h2>
+    <ol class="findings">
+      <li><span class="sev">Medium</span>The list gap is 12 px; the design has 16 px. <a href="#state-filled">See state 2</a>.</li>
+      <li><span class="sev low">Low</span>The error banner text wraps on two lines. <a href="#state-error">See state 3</a>.</li>
+    </ol>
+  </section>
+
+  <section data-section="questions">
+    <h2>Questions for you</h2>
+    <ol class="questions">
+      <li>Fix the list gap in this change?
+        <ol>
+          <li class="rec">Yes, now <span class="badge">Recommended</span><br><span class="muted">It is a one-line change and the screen ships with this release.</span></li>
+          <li>Later, in a separate change</li>
+        </ol>
+      </li>
+    </ol>
+    <details>
+      <summary>Commands and logs</summary>
+      <p class="muted">The exact commands, their output and the crash check go here.</p>
+    </details>
+  </section>
+
+</main>
+<script>
+  (function () {
+    var video = document.getElementById('motion');
+    if (!video) return;
+    var buttons = document.querySelectorAll('.speed button');
+    buttons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        video.playbackRate = Number(button.dataset.rate);
+        buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b === button)); });
+      });
+    });
+    document.querySelectorAll('.strip button').forEach(function (button) {
+      button.addEventListener('click', function () {
+        video.pause();
+        video.currentTime = Number(button.dataset.time);
+      });
+    });
+    video.addEventListener('ratechange', function () {
+      buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(Number(b.dataset.rate) === video.playbackRate)); });
+    });
+  })();
+</script>
+</body>
+</html>

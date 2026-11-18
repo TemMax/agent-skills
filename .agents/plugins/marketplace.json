@@ -11,6 +11,11 @@
       "name": "code-review",
       "source": { "source": "local", "path": "./plugins/code-review" },
       "description": "Claude Code and Codex evidence-based code and pull-request reviews; lifecycle hooks are host-dependent."
+    },
+    {
+      "name": "visuals",
+      "source": { "source": "local", "path": "./plugins/visuals" },
+      "description": "Claude Code and Codex visual pages: explanations and demos as one self-contained, checked HTML page."
     }
   ]
 }
