@@ -194,8 +194,22 @@ path, agents fell back to a bare link.
 **What a measurement must count from now on.** Over-triggering as well as
 under-triggering: a set of prompts that should be answered in text, scored
 for pages built. And the reply on its own: whether a reader who never opens
-the page gets the conclusion and every question. No live run has measured
-0.1.1 yet.
+the page gets the conclusion and every question.
+
+Measured at 25b67b8 with 31 calls (Sonnet 22, Opus 5, GPT-6.2 Sol 4), candidate
+files only, expectations frozen first. Text prompts (a why question, a linear
+flow, the summary of a finished task, a status, a short choice, an edit): 0
+pages in 16 runs. Page prompts (an explicit request to see, in English and
+Russian; two demos): a page in 12 of 12, each passing the checker, every demo
+state a real screenshot, and every reply carrying the conclusion, every
+question with its options and the link. Four Sonnet replies repeated a table
+or a list from the page and were longer than the two or three lines asked for;
+left as it is, because pressing on brevity is what produced page-only replies.
+A comparison of three options against five criteria, with no request to see
+it, got a text answer with a Markdown table in 3 of 3 runs: a page on the
+agent's own judgment is not shown to trigger. One text answer drew two ASCII
+diagrams; the rule against them lives in the skill, which a text answer does
+not load.
 
 ## Implementation anchors
 

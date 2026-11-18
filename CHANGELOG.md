@@ -56,9 +56,14 @@ checker is unchanged. Decision 022, addendum.
 **Checked.** Offline: the contract tier pins both descriptions, the reply
 section and its examples on both hosts (a helper checks that each good reply
 has its conclusion, a lettered question and the link, in English and in
-Russian), and that the page-only wording is gone. Not checked live: this
-change made no model calls, so the new trigger balance and the new reply are
-not yet measured.
+Russian), and that the page-only wording is gone. Live, 31 calls on Sonnet,
+Opus and GPT-6.2 Sol: no page was built in any of 16 runs of six prompts that
+text should answer; in the 12 runs that built a page, the reply carried the
+conclusion, every question and the link every time, and none sent the reader
+to the page for the result. Four Sonnet replies were longer than asked,
+repeating a table or a list from the page. A comparison of three options
+against five criteria got a text answer with a table in 3 of 3 runs, so a page
+on the agent's own judgment is not shown to trigger yet.
 
 ## 4.25.1
 
