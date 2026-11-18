@@ -85,11 +85,11 @@ for f in \
   plugins/orchestration/.claude-plugin/plugin.json \
   plugins/orchestration/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "orchestration release version: $f" "4.25.1" "$v"
+  expect "orchestration release version: $f" "4.25.2" "$v"
 done
 for f in plugins/orchestration/skills/*/SKILL.md plugins/orchestration/skills-codex/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "orchestration skill release version: $f" "4.25.1" "$v"
+  expect "orchestration skill release version: $f" "4.25.2" "$v"
 done
 for f in \
   plugins/code-review/.claude-plugin/plugin.json \
@@ -105,11 +105,11 @@ for f in \
   plugins/visuals/.claude-plugin/plugin.json \
   plugins/visuals/.codex-plugin/plugin.json; do
   v="$(python3 -c "import json;print(json.load(open('$f'))['version'])" 2>/dev/null)"
-  expect "visuals release version: $f" "0.1.0" "$v"
+  expect "visuals release version: $f" "0.1.1" "$v"
 done
 for f in plugins/visuals/skills/*/SKILL.md plugins/visuals/skills-codex/*/SKILL.md; do
   v="$(sed -n 's/^  version: \(.*\)/\1/p' "$f" | head -1)"
-  expect "visuals skill release version: $f" "0.1.0" "$v"
+  expect "visuals skill release version: $f" "0.1.1" "$v"
 done
 for p in orchestration code-review visuals; do
   check "Claude marketplace lists $p" "python3 -c 'import json,sys;sys.exit(0 if \"$p\" in [x[\"name\"] for x in json.load(open(\".claude-plugin/marketplace.json\"))[\"plugins\"]] else 1)'"

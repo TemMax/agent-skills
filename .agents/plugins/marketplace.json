@@ -15,7 +15,7 @@
     {
       "name": "visuals",
       "source": { "source": "local", "path": "./plugins/visuals" },
-      "description": "Claude Code and Codex visual pages: explanations and demos as one self-contained, checked HTML page."
+      "description": "Claude Code and Codex visual pages: a checked, self-contained HTML page added to a reply that stands on its own."
     }
   ]
 }

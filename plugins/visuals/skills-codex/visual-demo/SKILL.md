@@ -1,9 +1,9 @@
 ---
 name: visual-demo
-description: 'Use when showing the result of work that can be seen, and whenever you changed something the user can see — a colour, a layout, a text on screen, a state, an animation or gesture — and the user asks to see the result or to be shown, in any language ("show me the result", "покажи"); also for a device, emulator or stand run, a rendered preview, a chart, or a before and after of a UI change. Finish the change, then build one self-contained HTML demo page from real renders, screenshots and recordings, with what was not verified, as the evidence that it is done. A text description of the change or a loose screenshot in the reply is not a substitute. Do not use when there is nothing to see, or to draw a mock-up in place of a real render. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
+description: 'Use when showing the result of work that can be seen, and whenever you changed something the user can see — a colour, a layout, a text on screen, a state, an animation or gesture — and the user asks to see the result or to be shown, in any language ("show me the result", "покажи"); also for a device, emulator or stand run, a rendered preview, a chart, or a before and after of a UI change. Finish the change, then build one self-contained HTML demo page from real renders, screenshots and recordings, with what was not verified, as the evidence that it is done. A text description of the change alone, or a loose screenshot, is not a substitute for the page. Do not use when there is nothing to see, or to draw a mock-up in place of a real render. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Showing the result on a demo page
@@ -41,29 +41,53 @@ the base for the standard, template and checker paths below.
 4. Check it with [page-check.mjs](../../skills/visual-explanation/references/page-check.mjs):
    `node <this plugin's folder>/skills/visual-explanation/references/page-check.mjs <page> --kind demo`.
    Fix every `FAIL` line and read every `WARN` line.
-5. Show the page in the conversation when the host can render it, otherwise
-   link it. Then reply as the next section says, and stop.
+5. Show the page: render it in the conversation when the host can render
+   HTML, and give the Markdown link to the file as well, because the user
+   shares the file; when the host has no renderer, the link alone. A bare link
+   is not enough when a renderer exists. Then reply as the next section says.
 
-### The reply after the page
+### The reply
 
-The reply is the page, shown in the conversation or given as a Markdown link
-with the absolute path, and then at most the one question that needs an
-answer now or one sentence the page cannot carry. It is never a summary: not
-the verdict again, not the findings again, not the not-verified list again,
-and not the path as code or bold text.
+The reply stands on its own: the user can read it and answer without opening
+the page.
 
-- Good: “[Settings screen on the emulator](/abs/path/.context/visuals/2026-11-18-settings/index.html) — fix the list gap now (question 1)?”
-- Good: «[Экран настроек на эмуляторе](/abs/path/.context/visuals/2026-11-18-settings/index.html) — исправить отступ списка сейчас (вопрос 1)?»
-- Bad: “Done: `/abs/path/…/index.html`. All three states work, dark theme not verified, the gap is 12 px…”
-- Bad: «Готово: **/abs/path/…/index.html**. Все три состояния работают, тёмная тема не проверена, отступ 12 px…»
+- What works, what does not and what was not verified, in two or three lines.
+- Every question the user must answer, written out with its lettered options
+  and the recommended one, so the user can answer "1A 2B" in the chat. The
+  same questions are on the page.
+- The page, rendered in the conversation when the host can, and always the
+  Markdown link to the file with its absolute path.
+
+The page carries the picture, the evidence and the detail, so the reply does
+not paste the page's tables, findings list or not-verified list in full. Never
+write "see the page for the result" or "answer the questions on the page".
+
+Good:
+
+> All three states of the settings screen work on the emulator; the list gap is 12 px where the design has 16 px. Not verified: dark theme, tablets.
+>
+> 1. Fix the gap now? A. Yes (recommended: one line) B. Later.
+>
+> [Settings screen on the emulator](/abs/path/.context/visuals/2026-11-18-settings/index.html)
+
+> Все три состояния экрана настроек работают на эмуляторе; отступ списка 12 px, в макете 16 px. Не проверено: тёмная тема, планшеты.
+>
+> 1. Исправить отступ сейчас? A. Да (рекомендую: одна строка) B. Позже.
+>
+> [Экран настроек на эмуляторе](/abs/path/.context/visuals/2026-11-18-settings/index.html)
+
+Bad (the result and the questions are hidden in the file):
+
+> [Demo](/abs/path/.context/visuals/2026-11-18-settings/index.html). See the page for the result; question 1 is at the bottom.
+
+> [Демо](/abs/path/.context/visuals/2026-11-18-settings/index.html). Результат на странице, вопрос 1 внизу.
 
 ### User-facing communication
 
 The opening update names what you will show, for example: “I’ll capture the
 three states on the emulator and put them on one page.” / «Сниму три состояния
 на эмуляторе и соберу их на одной странице». Read the standard and the template
-as one internal preparation step, without announcing it. The final message is
-the page plus a short reply.
+as one internal preparation step, without announcing it. The final message is the reply above, with the page.
 
 In every message to the user, never name, quote or link this skill's
 instruction files unless the user's request is about them. The page you built

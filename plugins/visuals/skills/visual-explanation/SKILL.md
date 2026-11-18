@@ -1,17 +1,19 @@
 ---
 name: visual-explanation
-description: 'Show, do not tell. Use whenever the reply would explain how something works or how two things differ, compare options or versions, or lay out a flow, an architecture, a plan, findings, a state table, a before and after of a design or a decision to take — and whenever the user asks to see, show or visualize something ("I want to see it", "show me how X differs from Y"): build one self-contained HTML page, then reply in a few lines. A Markdown table, a pasted diff, code excerpts or an ASCII diagram in the reply is not a substitute. Do not use for a one-line answer or a status update. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
+description: 'Use when the user asks to see, show or visualize something, in any language ("show me", "I want to see it", "покажи"), or when a picture is clearly the faster way to understand: a flow with branches, several options against several criteria, a state matrix, a before and after, something spatial or visual. Then add one self-contained HTML page to a complete text answer; the page never replaces the answer. Do not use for a status update, a short or one-line answer, a linear list of steps, a yes or no with its reason, a summary of finished work that fits in a few lines, or an ordinary explanation in conversation; when in doubt, answer in text. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 0.1.0
+  version: 0.1.1
 ---
 
-# Explaining with a page
+# Adding a page to an explanation
 
-Text is slow to read and a picture is fast. When what the user must take in
-has structure, show it as one HTML page: the verdict first, one main picture,
-the options and the questions, with the evidence on the page. A one-line
-answer or a status update stays plain text.
+A page helps when the user has to take in a shape that text lays out slowly:
+branches, several options against several criteria, states, a before and
+after. It is added to a good text answer, never in its place: the reply in the
+chat still carries the conclusion and every question. When a text answer is
+enough, and that is the usual case, answer in text and build no page. A small
+table in a text reply is fine; an ASCII diagram is not.
 
 ## Steps
 
@@ -27,28 +29,53 @@ answer or a status update stays plain text.
 4. Check it with [page-check.mjs](references/page-check.mjs):
    `node <this skill's folder>/references/page-check.mjs <page> --kind explanation`.
    Fix every `FAIL` line and read every `WARN` line.
-5. Show the page in the conversation when the host can render it, otherwise
-   link it. Then reply as the next section says, and stop.
+5. Show the page: render it in the conversation when the host can render
+   HTML, and give the Markdown link to the file as well, because the user
+   shares the file; when the host has no renderer, the link alone. A bare link
+   is not enough when a renderer exists. Then reply as the next section says.
 
-### The reply after the page
+### The reply
 
-The reply is the page, shown in the conversation or given as a Markdown link
-with the absolute path, and then at most the one question that needs an
-answer now or one sentence the page cannot carry. It is never a summary: not
-the verdict again, not the findings again, not the not-verified list again,
-and not the path as code or bold text.
+The reply stands on its own: the user can read it and answer without opening
+the page.
 
-- Good: “[Retry: fixed vs backoff](/abs/path/.context/visuals/2026-11-18-retry/index.html) — question 1 needs your answer before I touch the callers.”
-- Good: «[Повторы: фиксированные и с отсрочкой](/abs/path/.context/visuals/2026-11-18-retry/index.html) — нужен ответ на вопрос 1, прежде чем я трону вызовы.»
-- Bad: “Page: `/abs/path/…/index.html`. In short: the first retries every error, the second only network errors…”
-- Bad: «Страница: **/abs/path/…/index.html**. Коротко: первая версия повторяет любую ошибку, вторая — только сетевые…»
+- The conclusion in two or three lines.
+- Every question the user must answer, written out with its lettered options
+  and the recommended one, so the user can answer "1A 2B" in the chat. The
+  same questions are on the page.
+- The page, rendered in the conversation when the host can, and always the
+  Markdown link to the file with its absolute path.
+
+The page carries the picture, the evidence and the detail, so the reply does
+not paste the page's tables, findings list or not-verified list in full. Never
+write "see the page for the result" or "answer the questions on the page".
+
+Good:
+
+> Backoff is the safer default: it retries only network errors and spreads the retries out, while the fixed version also retries bugs.
+>
+> 1. Switch the callers now? A. Yes, in this change (recommended: two call sites, both tested) B. Later, separately.
+>
+> [Retry: fixed vs backoff](/abs/path/.context/visuals/2026-11-18-retry/index.html)
+
+> Надёжнее вариант с отсрочкой: он повторяет только сетевые ошибки и разносит попытки по времени, а фиксированный повторяет и ошибки в коде.
+>
+> 1. Перевести вызовы сейчас? A. Да, в этом изменении (рекомендую: два места, оба покрыты тестами) B. Позже, отдельно.
+>
+> [Повторы: фиксированные и с отсрочкой](/abs/path/.context/visuals/2026-11-18-retry/index.html)
+
+Bad (the result and the questions are hidden in the file):
+
+> [Results](/abs/path/.context/visuals/2026-11-18-retry/index.html). Need answers to questions 1 and 2 at the bottom of the page.
+
+> [Результаты](/abs/path/.context/visuals/2026-11-18-retry/index.html). Нужны ответы на вопросы 1 и 2 внизу страницы.
 
 ### User-facing communication
 
 The opening update names what you will explain, for example: “I’ll put the
 two options side by side on one page.” / «Соберу оба варианта на одной
 странице». Read the standard and the template as one internal preparation
-step, without announcing it. The final message is the page plus a short reply.
+step, without announcing it. The final message is the reply above, with the page.
 
 In every message to the user, never name, quote or link this skill's
 instruction files unless the user's request is about them. The page you built

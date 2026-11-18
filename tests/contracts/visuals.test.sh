@@ -12,11 +12,11 @@ flat() { tr '\n' ' ' < "$1" | tr -s ' '; }
 
 section "discovery descriptions are trigger-first and equal on both hosts"
 EXPL_DESC="$(cat <<'EOF'
-description: 'Show, do not tell. Use whenever the reply would explain how something works or how two things differ, compare options or versions, or lay out a flow, an architecture, a plan, findings, a state table, a before and after of a design or a decision to take — and whenever the user asks to see, show or visualize something ("I want to see it", "show me how X differs from Y"): build one self-contained HTML page, then reply in a few lines. A Markdown table, a pasted diff, code excerpts or an ASCII diagram in the reply is not a substitute. Do not use for a one-line answer or a status update. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
+description: 'Use when the user asks to see, show or visualize something, in any language ("show me", "I want to see it", "покажи"), or when a picture is clearly the faster way to understand: a flow with branches, several options against several criteria, a state matrix, a before and after, something spatial or visual. Then add one self-contained HTML page to a complete text answer; the page never replaces the answer. Do not use for a status update, a short or one-line answer, a linear list of steps, a yes or no with its reason, a summary of finished work that fits in a few lines, or an ordinary explanation in conversation; when in doubt, answer in text. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 EOF
 )"
 DEMO_DESC="$(cat <<'EOF'
-description: 'Use when showing the result of work that can be seen, and whenever you changed something the user can see — a colour, a layout, a text on screen, a state, an animation or gesture — and the user asks to see the result or to be shown, in any language ("show me the result", "покажи"); also for a device, emulator or stand run, a rendered preview, a chart, or a before and after of a UI change. Finish the change, then build one self-contained HTML demo page from real renders, screenshots and recordings, with what was not verified, as the evidence that it is done. A text description of the change or a loose screenshot in the reply is not a substitute. Do not use when there is nothing to see, or to draw a mock-up in place of a real render. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
+description: 'Use when showing the result of work that can be seen, and whenever you changed something the user can see — a colour, a layout, a text on screen, a state, an animation or gesture — and the user asks to see the result or to be shown, in any language ("show me the result", "покажи"); also for a device, emulator or stand run, a rendered preview, a chart, or a before and after of a UI change. Finish the change, then build one self-contained HTML demo page from real renders, screenshots and recordings, with what was not verified, as the evidence that it is done. A text description of the change alone, or a loose screenshot, is not a substitute for the page. Do not use when there is nothing to see, or to draw a mock-up in place of a real render. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 EOF
 )"
 for tree in skills skills-codex; do
@@ -45,20 +45,40 @@ done
 for f in $V/skills/*/SKILL.md $V/skills-codex/*/SKILL.md; do
   E="$(flat "$f")"
   for phrase in \
-    "### The reply after the page" \
-    "The reply is the page, shown in the conversation or given as a Markdown link with the absolute path" \
-    "at most the one question that needs an answer now or one sentence the page cannot carry" \
-    "It is never a summary: not the verdict again, not the findings again, not the not-verified list again, and not the path as code or bold text." \
-    "Then reply as the next section says, and stop."; do
+    "### The reply" \
+    "The reply stands on its own: the user can read it and answer without opening the page." \
+    "Every question the user must answer, written out with its lettered options and the recommended one, so the user can answer \"1A 2B\" in the chat. The same questions are on the page." \
+    "The page, rendered in the conversation when the host can, and always the Markdown link to the file with its absolute path." \
+    "does not paste the page's tables, findings list or not-verified list in full" \
+    "Never write \"see the page for the result\" or \"answer the questions on the page\"." \
+    "render it in the conversation when the host can render HTML, and give the Markdown link to the file as well" \
+    "A bare link is not enough when a renderer exists." \
+    "Bad (the result and the questions are hidden in the file):"; do
     contains "reply rule in $f: $phrase" "$phrase" "$E"
   done
-  for label in "- Good: “[" "- Good: «[" "- Bad: “" "- Bad: «"; do
-    contains "reply example in $f: $label" "$label" "$E"
+  for phrase in "at most the one question" "It is never a summary" "### The reply after the page"; do
+    check "old page-only reply rule is gone from $f: $phrase" "! grep -qF '$phrase' '$f'"
   done
+  good="$(python3 tests/lib/visuals-good-replies.py "$f")"
+  expect "two good replies (English, Russian), each with its conclusion, lettered question and link: $f" "ok" "$good"
   check "the reply section comes before the communication section: $f" \
-    "[ \$(grep -n '^### The reply after the page' '$f' | cut -d: -f1) -lt \$(grep -n '^### User-facing communication' '$f' | cut -d: -f1) ]"
+    "[ \$(grep -n '^### The reply$' '$f' | cut -d: -f1) -lt \$(grep -n '^### User-facing communication' '$f' | cut -d: -f1) ]"
 done
-for phrase in "whenever you changed something the user can see" '"show me the result", "покажи"' "A text description of the change or a loose screenshot in the reply is not a substitute." "Do not use when there is nothing to see"; do
+E="$(flat $V/skills/visual-explanation/SKILL.md)"
+contains "explanation bad reply is the real one" "Need answers to questions 1 and 2 at the bottom of the page." "$E"
+contains "explanation bad reply in Russian" "Нужны ответы на вопросы 1 и 2 внизу страницы." "$E"
+for phrase in "When a text answer is enough, and that is the usual case, answer in text and build no page." "A small table in a text reply is fine; an ASCII diagram is not." "It is added to a good text answer, never in its place"; do
+  contains "explanation body keeps text the default: $phrase" "$phrase" "$E"
+done
+check "explanation body no longer opens with 'Text is slow to read'" "! grep -qF 'Text is slow to read' $V/skills/visual-explanation/SKILL.md $V/skills-codex/visual-explanation/SKILL.md"
+for phrase in "Use when the user asks to see, show or visualize something, in any language" "a picture is clearly the faster way to understand" "the page never replaces the answer" "Do not use for a status update, a short or one-line answer, a linear list of steps, a yes or no with its reason, a summary of finished work that fits in a few lines, or an ordinary explanation in conversation" "when in doubt, answer in text"; do
+  contains "explanation trigger is a balance: $phrase" "$phrase" "$EXPL_DESC"
+done
+case "$EXPL_DESC" in
+  *"is not a substitute"*|*"Show, do not tell"*|*"whenever the reply"*) fail "explanation description drops the always-a-page wording" ;;
+  *) pass "explanation description drops the always-a-page wording" ;;
+esac
+for phrase in "whenever you changed something the user can see" '"show me the result", "покажи"' "A text description of the change alone, or a loose screenshot, is not a substitute for the page." "Do not use when there is nothing to see"; do
   contains "demo trigger covers edits the user asks to see: $phrase" "$phrase" "$DEMO_DESC"
 done
 contains "demo keeps working files in work/" "in a \`work/\` folder inside the page's own folder, never at a fixed name in a shared temp directory" "$(flat $V/skills/visual-demo/SKILL.md)"
@@ -78,11 +98,17 @@ for phrase in \
   "Do not upload, publish or attach the page anywhere unless the user asks" \
   "needs the user's approval, and a cleanup report lists it as kept" \
   "html_render" \
-  "give the absolute path as a link" \
+  "Give the page both ways." \
+  "also give the Markdown link to the file with its absolute path, because the user shares the file with others" \
+  "When the host offers no renderer, give the link alone. A bare link is not enough when a renderer exists." \
+  "when it refuses a path, pass the file's content as \`html\` with the media paths made absolute" \
+  "The reply in the chat stands on its own" \
+  "every question the user must answer, written out with its lettered options" \
+  "never says \"see the page for the result\" or \"answer the questions on the page\"" \
+  "The same questions, with the same numbers and letters, are on the page and in the reply." \
   "Never paste loose images or videos into the chat as the demo" \
   "never draw an ASCII diagram" \
   "never present a hand-made HTML mock-up of a UI as if it were the real render" \
-  "says only what the page does not" \
   "The verdict comes first, in two or three lines" \
   "in the language the user writes in" \
   "every claim on the page has its evidence on the page" \

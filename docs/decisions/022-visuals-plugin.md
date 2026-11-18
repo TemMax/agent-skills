@@ -145,6 +145,58 @@ An earlier round of four Sonnet calls found that a description which only
 allows the skill does not make the model use it; the shipped description
 directs it ("Show, do not tell …").
 
+## Addendum — visuals 0.1.1 (release 4.25.2): the reply stands on its own
+
+**What was wrong.** In real use, 0.1.0 made agents answer almost only through
+pages. A long experiment ended with this as the whole final reply:
+"[Results](…/index.html). Need answers to questions 1 and 2 at the bottom of
+the page." The result and the questions were in a file, and the page was not
+rendered in the conversation.
+
+**The wrong metric.** The first release was tuned and validated on two
+numbers. The trigger rate was measured only against under-triggering: a
+request that called for a page and got text counted as a miss, while a page
+built for an ordinary answer did not. The reply was scored on how rarely it
+repeated the page. Both numbers improved round after round (17 of 17
+triggers, replies repeating the page down from 8 of 15 to 1 of 10), and both
+pushed the same way: more pages, less in the chat. Neither asked whether the
+reply answered the user. The text that followed from them had three faults:
+the explanation description fired "whenever the reply would explain…" and
+called a Markdown table in a reply no substitute; the reply rule forbade the
+verdict and allowed at most one question; and when the host refused a file
+path, agents fell back to a bare link.
+
+**Decision.**
+
+- The reply in the chat stands on its own: the conclusion in two or three
+  lines (for a demo, what works, what does not and what was not verified) and
+  every question the user must answer, with its lettered options and the
+  recommended one, so the user answers "1A 2B" in the chat. The page carries
+  the picture, the evidence and the detail; the reply does not paste the
+  page's tables, findings list or not-verified list in full, and never points
+  to the page for the result or for the questions.
+- The page is given both ways: rendered in the conversation when the host can
+  render HTML, and always as a Markdown link to the file, which the user
+  shares. A bare link is not enough when a renderer exists. A renderer stays
+  optional and host-neutral; T3 Code's `html_render` is the example.
+- `visual-explanation` is a balance: it is used when the user asks to see,
+  show or visualize something, or when a picture is clearly the faster way to
+  understand (a flow with branches, several options against several criteria,
+  a state matrix, a before and after, something spatial). It is not used for a
+  status, a short answer, a linear list of steps, a yes or no with its reason,
+  a summary of finished work that fits in a few lines, or an ordinary
+  explanation. When in doubt, the answer is text. A page is added to a good
+  text answer; it never turns the answer into a page. A small table in a text
+  reply is fine; only ASCII diagrams stay forbidden.
+- `visual-demo` keeps its trigger and gets the same reply rule.
+- The page checker does not change.
+
+**What a measurement must count from now on.** Over-triggering as well as
+under-triggering: a set of prompts that should be answered in text, scored
+for pages built. And the reply on its own: whether a reader who never opens
+the page gets the conclusion and every question. No live run has measured
+0.1.1 yet.
+
 ## Implementation anchors
 
 - [Page standard](../../plugins/visuals/skills/visual-explanation/references/page-standard.md),

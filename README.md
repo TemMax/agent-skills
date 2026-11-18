@@ -16,10 +16,12 @@ helper, a plan linter, and the offline release suite (see `tests/README.md`).
   by a separate supervisor session that is never told which model wrote the work.
 - **`code-review`** — critical, evidence-based review of uncommitted changes or
   a GitHub PR, performed by the session's own model.
-- **`visuals`** — agents show what they explain or built as one self-contained
-  HTML page instead of walls of text, ASCII diagrams or loose images: an
+- **`visuals`** — when you ask to see something, a picture is clearly faster
+  than text, or work has a result that can be seen, agents add one
+  self-contained HTML page to a reply that still stands on its own: an
   explanation page or a demo page of real renders, checked by a shipped
-  validator. It has no model profiles; it works the same on any model.
+  validator. Ordinary answers stay text. It has no model profiles; it works the
+  same on any model.
 
 Each skill works on **whatever model the session runs on**: it reads its own
 model identity and loads the matching profile from `references/`. There is no
@@ -31,7 +33,7 @@ model identity and loads the matching profile from `references/`. There is no
 | `orchestration` | `ship` | The pipeline conductor: one command from request to reviewed PR — super-plan → supervised waves on a feature branch → critical-review of the PR and its threads. Adds no machinery or gate of its own: the branch and the PR are stated in planning's one start approval, fixes routed by behavior change, and the merge always stays with the user. |
 | `orchestration` | `multi-model` | Model routing, effort selection, task-prompt template, review checklist, and supervised waves executed by native Claude/Codex drivers using the shipped policy — isolated executors judged against a machine-checkable contract by a separate supervisor session, never a weaker tier than the executor, with the escalation ladder as tested code — plus an orchestrator-drift advisory hook that watches the orchestrator session itself. |
 | `code-review` | `critical-review` | Scope detection, PR description+threads protocol, tiered findings table (Blocker → Nit), and a post-review fix phase that answers and resolves the PR threads its findings came from. |
-| `visuals` | `visual-explanation` | When the user must understand something with structure (a flow, an architecture, options, a plan, findings, a decision): one self-contained HTML page with the verdict first, one main picture built in HTML/CSS/SVG, options with one recommended, numbered questions, collapsed details and sources. |
+| `visuals` | `visual-explanation` | When the user asks to see something, or a picture is clearly faster to understand than text (a flow with branches, options against criteria, a state matrix, a before and after): one self-contained HTML page added to a complete text answer — the verdict, one main picture built in HTML/CSS/SVG, options with one recommended, numbered questions, collapsed details and sources. Ordinary answers stay text. |
 | `visuals` | `visual-demo` | When work has a result that can be seen: one HTML page of real renders, screenshots and recordings — the verdict, what was not verified, how it was checked (animations on for motion), a states gallery beside the design, the recording at 1× and 0.25×, before and after, findings linked to frames. |
 
 ## How the model routing works
@@ -415,11 +417,15 @@ short summary plus one findings table tiered Blocker / Important / Medium / Low
 / Nit. The review is read-only — fixes happen only when you ask afterwards.
 
 **What to expect from visuals.** Ask to see something ("show me how X differs
-from Y", "visualize the plan") or finish work that can be seen, and the agent
-writes `.context/visuals/<date>-<slug>/index.html` in the workspace, checks it
-with `page-check.mjs`, renders it in the conversation when the host can (T3
-Code's `html_render`, for example) or links its path, and replies only with what the page
-does not say. The page stays after cleanup unless you approve deleting it.
+from Y", "visualize the plan"), ask a question whose answer is clearly a
+picture, or finish work that can be seen, and the agent writes
+`.context/visuals/<date>-<slug>/index.html` in the workspace and checks it with
+`page-check.mjs`. Its reply still stands on its own: the conclusion in two or
+three lines and every question you must answer, with lettered options you can
+answer in the chat; then the page, rendered in the conversation when the host
+can (T3 Code's `html_render`, for example), and always a link to the file.
+Ordinary answers stay text. The page stays after cleanup unless you approve
+deleting it.
 
 To verify the plugins are installed, run `/plugin` and look for
 `orchestration`, `code-review` and `visuals` with their skills listed.
@@ -432,7 +438,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.25.1, code-review 1.23.0, visuals 0.1.0):
+orchestration 4.25.2, code-review 1.23.0, visuals 0.1.1):
 
 | Before | After |
 |---|---|
