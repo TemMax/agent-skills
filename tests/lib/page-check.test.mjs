@@ -310,3 +310,36 @@ test('personal-data: a phone number or a password or PIN with its value warns wi
   warnsOnly(t, explanation({ body: '<p>Пароль: qwerty</p>' }), 'explanation', 'personal-data')
   clean(t, explanation({ body: '<p>The password field is masked; version 1.2.3 shipped 2026-11-18 14:05; +3 more; PIN entry screen.</p>' }), 'explanation')
 })
+
+test('a script that only turns network addresses into links passes', (t) => {
+  const links = `<section data-section="sources"><ul id="s"></ul></section><script>
+    const links = [['Retry docs', 'https://docs.python.org/3/library/time.html']]
+    for (const [text, url] of links) {
+      const a = document.createElement('a')
+      a.textContent = text
+      a.href = url
+      document.getElementById('s').append(a)
+    }
+  </script>`
+  clean(t, explanation({ body: links }), 'explanation')
+})
+
+test('script-address: a network address in a script that loads from a variable warns without failing', (t) => {
+  const dynamic = `<script>
+    const shots = ['https://example.com/a.png']
+    for (const u of shots) { const img = new Image(); img.src = u; document.body.append(img) }
+  </script>`
+  warnsOnly(t, explanation({ body: dynamic }), 'explanation', 'script-address')
+})
+
+test('a vh value in a script string passes as prose and fails as a style', (t) => {
+  clean(t, explanation({ body: '<script>const tip = "Avoid 100vh in embedded frames"; document.body.title = tip</script>' }), 'explanation')
+  failsOnly(t, explanation({ body: '<script>document.body.style.cssText = "min-height: 100vh"</script>' }), 'explanation', 'viewport-height')
+  failsOnly(t, explanation({ body: '<script>const css = document.createElement("style"); css.textContent = ".hero { height: 80vh }"</script>' }), 'explanation', 'viewport-height')
+  failsOnly(t, explanation({ body: `<script>document.body.insertAdjacentHTML('beforeend', '<div style="height:50vh">x</div>')</script>` }), 'explanation', 'viewport-height')
+})
+
+test('a dependency pin is not a PIN', (t) => {
+  clean(t, explanation({ body: '<p>Pin the dependency: pin = 3.11 in pyproject; pin: 1.2.3; PIN 12; pin to 2.0.</p>' }), 'explanation')
+  warnsOnly(t, explanation({ body: '<p>pin-code: 482913</p>' }), 'explanation', 'personal-data')
+})

@@ -16,6 +16,7 @@ orchestration version; a code-review or visuals bump is stated inside it.
 **visual-demo**
 - New: finished work comes as a demo page of real screenshots
 - Each demo says plainly what was not verified
+- "Show me the result" after a visible change builds a demo page
 
 Visuals 0.1.0 is a new plugin for Claude Code and Codex. Orchestration
 4.25.1 is unchanged apart from its version number, which names this
@@ -48,10 +49,11 @@ reply after the page is the page as a link plus, at most, the one question
 that needs an answer now; each entrypoint shows a good and a bad reply in
 English and Russian. A zero-dependency checker,
 `page-check.mjs --kind explanation|demo`, fails a page that loads anything
-from the network (including SVG `href`s and addresses held in a script),
+from the network (including SVG `href`s and addresses a script would load),
 references missing media or a template placeholder, lacks a required section
 or a verdict, has an image without alt text or a video without controls, uses
-`vh` (in CSS, a style attribute or a script) or `height:100%` on html or body,
+`vh` (in CSS, a style attribute or a style a script sets) or `height:100%`
+on html or body,
 holds text that looks like a token or private key, or draws an ASCII diagram
 in `<pre>` or a `white-space:pre` block. It warns past 25 MB, on a demo state
 drawn as SVG or a `data:` URI, and on text that looks like a phone number or
@@ -65,8 +67,13 @@ produced still pass with no warning. Live: 31 calls on Claude Code 2.1.327
 disposable snapshot. The skills triggered in 17 of 17 cases that called for a
 page and in 0 of 11 that did not; all 20 pages passed the checker and every
 demo used real screenshots. 8 of 15 Claude replies summarised the page and 5
-gave its path as code or bold text; the new reply section fixes that, not yet
-re-measured. Decision 022.
+gave its path as code or bold text; after the new reply section, a re-measure
+found 1 of 10 Claude replies repeating the page, 0 of 10 plain paths and
+Codex 0 of 2. Sonnet built a demo page in only 2 of 4 edit requests that
+ended with "show me the result"; the demo description now names that case,
+reworded and not yet re-measured. The checker no longer fails a script that
+only turns addresses into links, a `vh` mentioned in prose, or a version pin
+read as a PIN; the 32 pages of both rounds pass with no warning. Decision 022.
 
 ## 4.25.0
 

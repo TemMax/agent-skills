@@ -15,7 +15,10 @@ EXPL_DESC="$(cat <<'EOF'
 description: 'Show, do not tell. Use whenever the reply would explain how something works or how two things differ, compare options or versions, or lay out a flow, an architecture, a plan, findings, a state table, a before and after of a design or a decision to take — and whenever the user asks to see, show or visualize something ("I want to see it", "show me how X differs from Y"): build one self-contained HTML page, then reply in a few lines. A Markdown table, a pasted diff, code excerpts or an ASCII diagram in the reply is not a substitute. Do not use for a one-line answer or a status update. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 EOF
 )"
-DEMO_DESC="description: 'Use when showing the result of work that can be seen — a screen or UI state, an animation or gesture, a device, emulator or stand run, a rendered preview, a chart, a before and after of a UI change — as the evidence that it is done: build one self-contained HTML demo page from real renders, screenshots and recordings, with what was not verified. Do not use when there is nothing to see, or to draw a mock-up in place of a real render. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'"
+DEMO_DESC="$(cat <<'EOF'
+description: 'Use when showing the result of work that can be seen, and whenever you changed something the user can see — a colour, a layout, a text on screen, a state, an animation or gesture — and the user asks to see the result or to be shown, in any language ("show me the result", "покажи"); also for a device, emulator or stand run, a rendered preview, a chart, or a before and after of a UI change. Finish the change, then build one self-contained HTML demo page from real renders, screenshots and recordings, with what was not verified, as the evidence that it is done. A text description of the change or a loose screenshot in the reply is not a substitute. Do not use when there is nothing to see, or to draw a mock-up in place of a real render. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
+EOF
+)"
 for tree in skills skills-codex; do
   expect "visual-explanation description ($tree)" "$EXPL_DESC" "$(sed -n '3p' $V/$tree/visual-explanation/SKILL.md)"
   expect "visual-demo description ($tree)" "$DEMO_DESC" "$(sed -n '3p' $V/$tree/visual-demo/SKILL.md)"
@@ -54,6 +57,9 @@ for f in $V/skills/*/SKILL.md $V/skills-codex/*/SKILL.md; do
   done
   check "the reply section comes before the communication section: $f" \
     "[ \$(grep -n '^### The reply after the page' '$f' | cut -d: -f1) -lt \$(grep -n '^### User-facing communication' '$f' | cut -d: -f1) ]"
+done
+for phrase in "whenever you changed something the user can see" '"show me the result", "покажи"' "A text description of the change or a loose screenshot in the reply is not a substitute." "Do not use when there is nothing to see"; do
+  contains "demo trigger covers edits the user asks to see: $phrase" "$phrase" "$DEMO_DESC"
 done
 contains "demo keeps working files in work/" "in a \`work/\` folder inside the page's own folder, never at a fixed name in a shared temp directory" "$(flat $V/skills/visual-demo/SKILL.md)"
 check "explanation links its template (Claude)" "grep -q '](assets/explanation.html)' $V/skills/visual-explanation/SKILL.md"
@@ -95,7 +101,9 @@ for phrase in \
   "nothing is drawn in its place" \
   "under 25 MB" \
   "live in a \`work/\` folder inside the page's own folder, never at a fixed name in a shared temp directory" \
-  "the page references only \`media/\`"; do
+  "the page references only \`media/\`" \
+  "A browser profile or cache made for a capture goes to a temporary directory the agent creates for the run, or is deleted after the capture" \
+  "\`work/\` keeps only what explains how the captures were made"; do
   contains "standard: $phrase" "$phrase" "$S"
 done
 for var in --background --foreground --muted-foreground --card --border --primary --secondary --success --warning --destructive --chart-1 --chart-6 --radius --font-sans --font-mono; do

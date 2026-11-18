@@ -16,7 +16,9 @@ file) checks the ones a program can check; the rest are yours to keep.
    of the app) live in a `work/` folder inside the page's own folder, never at
    a fixed name in a shared temp directory, because agents running side by
    side overwrite and delete each other's fixed names; the page references
-   only `media/`.
+   only `media/`. A browser profile or cache made for a capture goes to a
+   temporary directory the agent creates for the run, or is deleted after the
+   capture, so `work/` keeps only what explains how the captures were made.
 5. Check that `.context/` is ignored by git (`git check-ignore -q .context/visuals`).
    If it is not, say so in the reply and do not commit the page, because a page
    is working evidence, not source.

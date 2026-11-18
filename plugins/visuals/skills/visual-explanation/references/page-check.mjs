@@ -38,14 +38,27 @@ const SHIPPED_TEMPLATES = new Set([resolve(DEMO_ASSETS, 'demo.html'), resolve(HE
 
 const PHONE = /\+\d[\d\s().-]{7,18}\d/g
 const CREDENTIAL_LABELS = [
-  /(?<![\p{L}\p{N}])(?:password|passcode|пароль|pin(?:[\s-]*code)?|пин(?:-код)?)\s*(?:[:=—–-]|is|это)\s*\S+/giu,
+  /(?<![\p{L}\p{N}])(?:password|passcode|пароль)\s*(?:[:=—–-]|is|это)\s*\S+/giu,
   /(?<![\p{L}\p{N}])(?:password|passcode|пароль)\s+[^\s<]*\d[^\s<]*/giu,
-  /(?<![\p{L}\p{N}])PIN\s+\d{4,8}(?![\p{L}\p{N}])/gu,
+  // A PIN is 4 to 8 digits on their own; "pin = 3.11" pins a version.
+  /(?<![\p{L}\p{N}])(?:pin(?:[\s-]*code)?|пин(?:-код)?)\s*(?:[:=—–-]|is|это)?\s*\d{4,8}(?![.,]?\d)(?![\p{L}_-])/giu,
 ]
 
-// Literals a script may hold without loading them: XML namespaces and plain
-// link targets (an href, a location, window.open).
+// A network address in a script fails only where the script would load it:
+// right after a loading property or call, or inside markup or CSS the script
+// writes. A link target (an href, a location, window.open) or plain text
+// loads nothing.
+const SCRIPT_LOAD_CONTEXT = /(?:\b(?:src|srcset|poster|data)\s*=\s*\\?['"`]?|\bsetAttribute\(\s*['"`](?:src|srcset|poster|data)['"`]\s*,\s*['"`]|\burl\(\s*\\?['"`]?|\b(?:new\s+(?:Shared)?Worker|importScripts)\(\s*['"`])$/i
 const SCRIPT_LINK_CONTEXT = /(?:\bhref\s*[=:]\s*\\?['"`]?|\blocation(?:\.href)?\s*=\s*['"`]|\.open\(\s*['"`])$/i
+// Loading sinks fed from a variable: an address held elsewhere in the script
+// may reach one, which the checker cannot follow.
+const SCRIPT_DYNAMIC_LOAD = /\.(?:src|srcset|poster|data)\s*=\s*[^\s'"`=]|\bsetAttribute\(\s*['"`](?:src|srcset|poster|data)['"`]\s*,\s*[^\s'"`]|\bnew\s+(?:Image|(?:Shared)?Worker)\b|\burl\(\s*['"`]?\s*(?:\$\{|['"`]\s*\+)/
+
+// A vh value takes effect only when the script sets it as a style: through
+// .style, cssText or setProperty, or in CSS or a style attribute it writes.
+const SCRIPT_STYLE_CONTEXT = /(?:\.style(?:\.[\w-]+|\[['"`][\w-]+['"`]\])?|\.cssText)\s*\+?=\s*(?:[^;\n]*\+\s*)?$|\bsetProperty\(\s*['"`][^'"`]*['"`]\s*,\s*(?:[^;\n]*\+\s*)?$/
+const CSS_VH_DECLARATION = /(?:^|[;{\s'"])[\w-]+\s*:\s*[^;{}'"]*?(?<![\w-])\d*\.?\d+\s*[dsl]?vh\b|\bstyle\s*=\s*\\?['"][^'"]*?\d\s*[dsl]?vh\b/i
+const STRING_LITERAL = /(['"])((?:\\.|(?!\1)[^\\\n])*)\1|`((?:\\.|[^\\`])*)`/g
 
 const SECRETS = [
   ['GitHub token', /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,})/],
@@ -263,10 +276,15 @@ export function checkPage(file, kind) {
       const m = re.exec(s.body)
       if (m) fail('external-resource', at(s.start + m.index), `the script uses ${label}; a page makes no network request`)
     }
+    const dynamic = SCRIPT_DYNAMIC_LOAD.test(s.body)
     for (const m of s.body.matchAll(/https?:\/\/[^\s'"`<>)\\]+/gi)) {
       if (/^http:\/\/www\.w3\.org\//i.test(m[0])) continue
-      if (SCRIPT_LINK_CONTEXT.test(s.body.slice(Math.max(0, m.index - 40), m.index))) continue
-      fail('external-resource', at(s.start + m.index), `the script holds the network address ${m[0].split('?')[0]}; a page loads nothing from the network`)
+      const before = s.body.slice(Math.max(0, m.index - 60), m.index)
+      if (SCRIPT_LOAD_CONTEXT.test(before)) {
+        fail('external-resource', at(s.start + m.index), `the script loads the network address ${m[0].split('?')[0]}; a page loads nothing from the network`)
+      } else if (!SCRIPT_LINK_CONTEXT.test(before) && dynamic) {
+        warn('script-address', at(s.start + m.index), `the script holds the network address ${m[0].split('?')[0]} and loads from a variable elsewhere; make sure it only ever becomes a link`)
+      }
     }
   }
 
@@ -377,8 +395,13 @@ export function checkPage(file, kind) {
   }
 
   for (const s of doc.scripts) {
-    for (const m of s.body.matchAll(/['"`][^'"`\n]*?(?<![\w-])\d*\.?\d+\s*[dsl]?vh\b[^'"`\n]*['"`]/gi)) {
-      fail('viewport-height', at(s.start + m.index), 'the script sets a vh unit; vh units loop or are rejected in a conversation frame')
+    for (const m of s.body.matchAll(STRING_LITERAL)) {
+      const value = m[2] ?? m[3] ?? ''
+      if (!/(?<![\w-])(?:\d*\.?\d+\s*)?[dsl]?vh\b/i.test(value)) continue
+      const asStyle = SCRIPT_STYLE_CONTEXT.test(s.body.slice(Math.max(0, m.index - 80), m.index))
+      if (asStyle || CSS_VH_DECLARATION.test(value)) {
+        fail('viewport-height', at(s.start + m.index), 'the script sets a vh unit as a style; vh units loop or are rejected in a conversation frame')
+      }
     }
   }
 

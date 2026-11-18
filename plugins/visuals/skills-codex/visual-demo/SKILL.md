@@ -1,6 +1,6 @@
 ---
 name: visual-demo
-description: 'Use when showing the result of work that can be seen — a screen or UI state, an animation or gesture, a device, emulator or stand run, a rendered preview, a chart, a before and after of a UI change — as the evidence that it is done: build one self-contained HTML demo page from real renders, screenshots and recordings, with what was not verified. Do not use when there is nothing to see, or to draw a mock-up in place of a real render. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
+description: 'Use when showing the result of work that can be seen, and whenever you changed something the user can see — a colour, a layout, a text on screen, a state, an animation or gesture — and the user asks to see the result or to be shown, in any language ("show me the result", "покажи"); also for a device, emulator or stand run, a rendered preview, a chart, or a before and after of a UI change. Finish the change, then build one self-contained HTML demo page from real renders, screenshots and recordings, with what was not verified, as the evidence that it is done. A text description of the change or a loose screenshot in the reply is not a substitute. Do not use when there is nothing to see, or to draw a mock-up in place of a real render. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
   version: 0.1.0
