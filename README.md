@@ -418,7 +418,7 @@ short summary plus one findings table tiered Blocker / Important / Medium / Low
 from Y", "visualize the plan") or finish work that can be seen, and the agent
 writes `.context/visuals/<date>-<slug>/index.html` in the workspace, checks it
 with `page-check.mjs`, renders it in the conversation when the host can (T3
-Code's `html_render`) or links its path, and replies only with what the page
+Code's `html_render`, for example) or links its path, and replies only with what the page
 does not say. The page stays after cleanup unless you approve deleting it.
 
 To verify the plugins are installed, run `/plugin` and look for

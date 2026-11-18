@@ -12,70 +12,80 @@ file) checks the ones a program can check; the rest are yours to keep.
 3. It lives in the owning workspace (the worktree the task runs in) at
    `.context/visuals/<YYYY-MM-DD>-<slug>/index.html`, with its media in a
    `media/` folder beside it, so each page keeps its evidence together.
-4. Check that `.context/` is ignored by git (`git check-ignore -q .context/visuals`).
+4. Working files for a page (capture scripts, raw captures, temporary copies
+   of the app) live in a `work/` folder inside the page's own folder, never at
+   a fixed name in a shared temp directory, because agents running side by
+   side overwrite and delete each other's fixed names; the page references
+   only `media/`.
+5. Check that `.context/` is ignored by git (`git check-ignore -q .context/visuals`).
    If it is not, say so in the reply and do not commit the page, because a page
    is working evidence, not source.
-5. Do not upload, publish or attach the page anywhere unless the user asks,
+6. Do not upload, publish or attach the page anywhere unless the user asks,
    because it can hold private work.
-6. Keep the page. Deleting it on cleanup or after a merge needs the user's
+7. Keep the page. Deleting it on cleanup or after a merge needs the user's
    approval, and a cleanup report lists it as kept, because it is the record of
    what the user was shown.
 
 ## Showing it
 
-7. When the host offers a tool that renders a local HTML file inside the
-   conversation, use it: in T3 Code, `html_render` with the absolute `path` and
-   the `contentHeight` that `html_preview` measured as `height`. When the tool
-   refuses a path (it takes one only in full-access threads), pass the file's
-   content as `html` with the media paths made absolute, and keep the file.
-   Otherwise give the absolute path as a link. Either way the user sees the
-   page, not a description of it.
-8. Never paste loose images or videos into the chat as the demo, never draw an
+8. When the host offers a tool that renders an HTML page inside the
+   conversation, use it, by that tool's own rules for input and size; when it
+   offers none, give the absolute path as a link. Either way the user sees the
+   page, not a description of it, and the file stays on disk. The page does
+   not depend on any one host: it is a plain file that opens in a browser.
+   One host's tools, as an example: in T3 Code, `html_render` takes the
+   absolute `path` and, as `height`, the `contentHeight` that `html_preview`
+   measured; when it refuses a path, pass the file's content as `html` with
+   the media paths made absolute.
+9. Never paste loose images or videos into the chat as the demo, never draw an
    ASCII diagram, and never present a hand-made HTML mock-up of a UI as if it
    were the real render, because the user must be able to trust that what
    looks like the product is the product.
-9. The text reply after the page is short and says only what the page does
+10. The text reply after the page is short and says only what the page does
    not, such as a question that needs an answer now, because the user already
    has the page in front of them. It links the page file and repeats none of
    the page's points.
 
 ## Content
 
-10. The verdict comes first, in two or three lines: what is true, what is done,
+11. The verdict comes first, in two or three lines: what is true, what is done,
     what is needed from the user, so a reader who stops there still knows.
-11. Simple words, in the language the user writes in, because the page is read
+12. Simple words, in the language the user writes in, because the page is read
     fast.
-12. Simple but complete: every claim on the page has its evidence on the page
+13. Simple but complete: every claim on the page has its evidence on the page
     (a screenshot, a recording, a command with its output, a file path, a link),
     because a claim without evidence is one the user must check by hand.
-13. A decision the user must take is a numbered question; its options carry
+14. A decision the user must take is a numbered question; its options carry
     letters (A, B, C) and one is marked Recommended with its reason, so the user
     can answer "1A" in one line.
-14. Detail that most readers skip goes into a collapsed `<details>` whose
+15. Detail that most readers skip goes into a collapsed `<details>` whose
     `<summary>` says what is inside, so the page stays short without losing it.
-15. No secret, token, PIN, password, phone number or private key on the page,
+16. No secret, token, PIN, password, phone number or private key on the page,
     screenshots included (crop or cover them), because a page outlives the task
     and travels.
-16. Every top-level block carries a `data-section` attribute naming it (lists
+17. Every top-level block carries a `data-section` attribute naming it (lists
     below), in the order given, so the checker and the reader find each part.
-17. Every picture sits in a `<figure>` with a `<figcaption>`, every `<img>` has
+18. Every picture sits in a `<figure>` with a `<figcaption>`, every `<img>` has
     an `alt` text, and every `<video>` has `controls`, so each one says what it
     shows and can be paused.
 
 ## Layout: the conversation frame and the browser
 
-The same file must read well inside T3 Code's frame and opened as a file in a
-browser, in light and dark. Start from a template; it already does all of this.
+The same file must read well opened in a browser and inside a conversation
+frame, where a host that can render HTML embeds it, in light and dark. The
+rules below keep a page safe in a narrow embedded frame and cost nothing in a
+browser; the numbers come from T3 Code's frame, the one they were measured
+against. Start from a template; it already does all of this.
 
-18. No background colour on `html` or `body`, and no outer card, border, banner
+19. No background colour on `html` or `body`, and no outer card, border, banner
     or side padding, because the frame sits on the thread's own background and
     adds its own gutter.
-19. Fluid widths only: the frame is about 728 px wide on desktop and about
+20. Fluid widths only: the frame is about 728 px wide on desktop and about
     360 px on phones, so grids wrap and wide tables scroll inside their own box.
-20. No `vh` units anywhere and no `height:100%` on `html` or `body`, because the
+21. No `vh` units anywhere and no `height:100%` on `html` or `body`, because the
     frame takes its height from the content and both loop or are rejected.
-21. Charts get fixed pixel heights, for the same reason.
-22. Colours come from the host's theme variables with fallbacks: `--background`,
+22. Charts get fixed pixel heights, for the same reason.
+23. Colours come from the host's theme variables with fallbacks: `--background`,
     `--foreground`, `--muted-foreground`, `--card`, `--border`, `--primary`,
     `--secondary`, `--success`, `--warning`, `--destructive`, `--chart-1` to
     `--chart-6`, `--radius`, `--font-sans`, `--font-mono`. Define the page's own
@@ -83,9 +93,9 @@ browser, in light and dark. Start from a template; it already does all of this.
     `@media (prefers-color-scheme: dark)` with dark fallbacks, and set
     `color-scheme: light dark` on `:root`, so the host's theme wins in the frame
     and the system theme wins in a browser.
-23. A box that needs its own background gets 16 px padding and
+24. A box that needs its own background gets 16 px padding and
     `var(--radius)` corners, so it matches the host's boxes.
-24. Keep the page with its media under 25 MB (H.264 video, long side at most
+25. Keep the page with its media under 25 MB (H.264 video, long side at most
     1280 px), because larger pages load slowly and are hard to keep.
 
 ## Check before showing

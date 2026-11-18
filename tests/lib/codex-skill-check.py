@@ -223,10 +223,13 @@ def link_targets(codex):
     return out
 
 
-def check_links(codex_path, codex, fails):
+def check_links(codex_path, codex, fails, kind=None):
     base = os.path.dirname(os.path.abspath(codex_path))
     for target, line in link_targets(codex):
         if any(c in target for c in "<>*$"):
+            continue
+        # A visual skill's reply examples link a page by its absolute path.
+        if kind in VISUAL_KINDS and target.startswith("/"):
             continue
         t = target.split("#", 1)[0]
         t = re.sub(r":\d+(-\d+)?$", "", t)
@@ -296,7 +299,7 @@ def main(argv):
     check_rules(kind, codex, fails)
     check_single_task(kind, codex, fails)
     check_forbidden(codex, fails)
-    check_links(codex_path, codex, fails)
+    check_links(codex_path, codex, fails, kind)
     if kind not in VISUAL_KINDS and not len(codex.splitlines()) < len(claude.splitlines()):
         fails.append(("smaller", "Codex file has %d lines, Claude file has %d" % (len(codex.splitlines()), len(claude.splitlines()))))
     if kind not in ("critical-review",) + VISUAL_KINDS and "codex-routing.md" not in codex:

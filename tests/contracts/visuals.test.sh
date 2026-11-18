@@ -24,12 +24,12 @@ done
 section "entrypoints stay short and every link resolves"
 for f in $V/skills/*/SKILL.md $V/skills-codex/*/SKILL.md; do
   size="$(wc -c < "$f" | tr -d ' ')"
-  check "entrypoint under 4 KB: $f ($size bytes)" "[ '$size' -lt 4096 ]"
+  check "entrypoint under 7.5 KB: $f ($size bytes)" "[ '$size' -lt 7500 ]"
   links="$(python3 - "$f" <<'PY'
 import os, re, sys
 p = sys.argv[1]
 for t in re.findall(r'\]\(([^)#]+)\)', open(p).read()):
-    if not t.startswith(('http', 'mailto:')):
+    if not t.startswith(('http', 'mailto:', '/')):
         print(os.path.normpath(os.path.join(os.path.dirname(p), t)))
 PY
 )"
@@ -39,6 +39,23 @@ PY
   check "entrypoint links the page standard: $f" "grep -q 'references/page-standard.md)' '$f'"
   check "entrypoint links the checker: $f" "grep -q 'references/page-check.mjs)' '$f'"
 done
+for f in $V/skills/*/SKILL.md $V/skills-codex/*/SKILL.md; do
+  E="$(flat "$f")"
+  for phrase in \
+    "### The reply after the page" \
+    "The reply is the page, shown in the conversation or given as a Markdown link with the absolute path" \
+    "at most the one question that needs an answer now or one sentence the page cannot carry" \
+    "It is never a summary: not the verdict again, not the findings again, not the not-verified list again, and not the path as code or bold text." \
+    "Then reply as the next section says, and stop."; do
+    contains "reply rule in $f: $phrase" "$phrase" "$E"
+  done
+  for label in "- Good: “[" "- Good: «[" "- Bad: “" "- Bad: «"; do
+    contains "reply example in $f: $label" "$label" "$E"
+  done
+  check "the reply section comes before the communication section: $f" \
+    "[ \$(grep -n '^### The reply after the page' '$f' | cut -d: -f1) -lt \$(grep -n '^### User-facing communication' '$f' | cut -d: -f1) ]"
+done
+contains "demo keeps working files in work/" "in a \`work/\` folder inside the page's own folder, never at a fixed name in a shared temp directory" "$(flat $V/skills/visual-demo/SKILL.md)"
 check "explanation links its template (Claude)" "grep -q '](assets/explanation.html)' $V/skills/visual-explanation/SKILL.md"
 check "demo links its template (Claude)" "grep -q '](assets/demo.html)' $V/skills/visual-demo/SKILL.md"
 check "shared files exist once, under skills/visual-explanation" \
@@ -76,7 +93,9 @@ for phrase in \
   "Motion is recorded with the system animations on" \
   "A design export is a reference, never the result" \
   "nothing is drawn in its place" \
-  "under 25 MB"; do
+  "under 25 MB" \
+  "live in a \`work/\` folder inside the page's own folder, never at a fixed name in a shared temp directory" \
+  "the page references only \`media/\`"; do
   contains "standard: $phrase" "$phrase" "$S"
 done
 for var in --background --foreground --muted-foreground --card --border --primary --secondary --success --warning --destructive --chart-1 --chart-6 --radius --font-sans --font-mono; do

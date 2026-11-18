@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { closeSync, copyFileSync, mkdirSync, mkdtempSync, openSync, rmSync, writeFileSync, ftruncateSync } from 'node:fs'
+import { closeSync, copyFileSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync, ftruncateSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,6 +15,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const CHECK = join(ROOT, 'plugins/visuals/skills/visual-explanation/references/page-check.mjs')
 const EXPLANATION_TEMPLATE = join(ROOT, 'plugins/visuals/skills/visual-explanation/assets/explanation.html')
 const DEMO_TEMPLATE = join(ROOT, 'plugins/visuals/skills/visual-demo/assets/demo.html')
+const MEDIA = join(ROOT, 'plugins/visuals/skills/visual-demo/assets/media')
 
 const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4c50000000049454e44ae426082', 'hex')
 
@@ -52,6 +53,20 @@ function page(t, html, { media = { 'media/a.png': PNG } } = {}) {
 
 function rules(result) { return result.errors.map((e) => e.rule) }
 
+function warnsOnly(t, html, kind, rule, options) {
+  const { file } = page(t, html, options)
+  const result = checkPage(file, kind)
+  assert.deepEqual(result.errors, [], JSON.stringify(result.errors))
+  assert.ok(result.warnings.length > 0, `expected ${rule} to warn`)
+  assert.deepEqual([...new Set(result.warnings.map((w) => w.rule))], [rule], JSON.stringify(result.warnings))
+  return result
+}
+
+function clean(t, html, kind, options) {
+  const result = checkPage(page(t, html, options).file, kind)
+  assert.deepEqual(result, { errors: [], warnings: [] })
+}
+
 function failsOnly(t, html, kind, rule, options) {
   const { file } = page(t, html, options)
   const result = checkPage(file, kind)
@@ -83,8 +98,21 @@ test('the demo template copied without its media fails until real captures repla
   t.after(() => rmSync(dir, { recursive: true, force: true }))
   copyFileSync(DEMO_TEMPLATE, join(dir, 'index.html'))
   const result = checkPage(join(dir, 'index.html'), 'demo')
+  assert.ok(result.errors.some((e) => e.rule === 'local-media'))
+  assert.ok(result.errors.every((e) => e.rule === 'local-media' || e.rule === 'placeholder-media'), JSON.stringify(result.errors))
+})
+
+test('the demo template copied with its placeholder media still fails, on the placeholders alone', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'page-check-copy-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  copyFileSync(DEMO_TEMPLATE, join(dir, 'index.html'))
+  mkdirSync(join(dir, 'media'))
+  for (const name of ['placeholder-screen.svg', 'placeholder-design.svg', 'placeholder-frame.svg', 'placeholder-motion.mp4']) {
+    copyFileSync(join(MEDIA, name), join(dir, 'media', name))
+  }
+  const result = checkPage(join(dir, 'index.html'), 'demo')
   assert.ok(result.errors.length > 0)
-  assert.ok(result.errors.every((e) => e.rule === 'local-media'), JSON.stringify(result.errors))
+  assert.deepEqual([...new Set(rules(result))], ['placeholder-media'], JSON.stringify(result.errors))
 })
 
 test('file: a missing page or a page that is not HTML fails', (t) => {
@@ -222,4 +250,63 @@ test('command line: usage errors exit 2, failures exit 1 with one line per probl
   const lines = r.stdout.trim().split('\n')
   assert.deepEqual(lines.map((l) => l.split(' ')[1]).sort(), ['figure-caption', 'img-alt', 'local-media'])
   assert.ok(lines.every((l) => l.startsWith('FAIL ')))
+})
+
+test('placeholder-media: a template placeholder, by name or by its bytes, fails in states and motion', (t) => {
+  const named = demo({ states: '<figure><img src="media/placeholder-screen.png" alt="x"><figcaption>x</figcaption></figure>' })
+  failsOnly(t, named, 'demo', 'placeholder-media', { media: { 'media/a.png': PNG, 'media/placeholder-screen.png': PNG } })
+  const motion = readFileSync(join(MEDIA, 'placeholder-motion.mp4'))
+  const copied = demo({ states: '<figure><video controls src="media/a.mp4"></video><figcaption>x</figcaption></figure>' })
+  failsOnly(t, copied, 'demo', 'placeholder-media', { media: { 'media/a.mp4': motion } })
+  const poster = demo({ body: '<section data-section="motion"><figure><video controls src="media/a.png" poster="media/placeholder-poster.png"></video><figcaption>m</figcaption></figure></section>' })
+  failsOnly(t, poster, 'demo', 'placeholder-media', { media: { 'media/a.png': PNG, 'media/placeholder-poster.png': PNG } })
+  clean(t, demo(), 'demo')
+})
+
+test('external-resource: an SVG image or use that points to the network fails', (t) => {
+  failsOnly(t, explanation({ body: '<figure><svg width="10" height="10"><image href="https://example.com/x.png" width="10" height="10"/></svg><figcaption>x</figcaption></figure>' }), 'explanation', 'external-resource')
+  failsOnly(t, explanation({ body: '<figure><svg width="10" height="10"><image xlink:href="//cdn.example.com/x.png"/></svg><figcaption>x</figcaption></figure>' }), 'explanation', 'external-resource')
+  clean(t, explanation({ body: '<figure><svg width="10" height="10"><use href="#dot"/></svg><figcaption>x</figcaption></figure>' }), 'explanation')
+})
+
+test('external-resource: a network address assigned from a script fails, a link target does not', (t) => {
+  failsOnly(t, explanation({ body: '<script>new Image().src = "https://example.com/t.gif"</script>' }), 'explanation', 'external-resource')
+  failsOnly(t, explanation({ body: `<script>document.body.insertAdjacentHTML('beforeend', '<img src=https://example.com/a.png alt=a>')</script>` }), 'explanation', 'external-resource')
+  const links = `<script>
+    document.querySelector('a').href = 'https://example.com/doc'
+    document.querySelector('button').onclick = () => window.open('https://example.com/page')
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    const html = '<a href="https://example.com/x">x</a>'
+  </script>`
+  clean(t, explanation({ body: links }), 'explanation')
+})
+
+test('viewport-height: a vh unit set from a script or an inline style fails', (t) => {
+  failsOnly(t, explanation({ body: '<script>document.body.style.minHeight = "100vh"</script>' }), 'explanation', 'viewport-height')
+  failsOnly(t, explanation({ body: '<script>el.style.setProperty(`height`, `calc(50svh - 10px)`)</script>' }), 'explanation', 'viewport-height')
+  failsOnly(t, explanation({ body: '<div style="min-height:100vh">x</div>' }), 'explanation', 'viewport-height')
+  clean(t, explanation({ body: '<script>const via = "vhs"; el.style.height = "240px"</script>' }), 'explanation')
+})
+
+test('ascii-diagram: a box drawing in an element styled white-space:pre fails', (t) => {
+  const box = ['+-------+     +-------+', '| fetch | --&gt; | store |', '+-------+     +-------+'].join('\n')
+  failsOnly(t, explanation({ body: `<div style="white-space:pre;font-family:monospace">${box}</div>` }), 'explanation', 'ascii-diagram')
+  failsOnly(t, explanation({ head: '<style>.art { white-space: pre-wrap }</style>', body: `<p class="note art">${box}</p>` }), 'explanation', 'ascii-diagram')
+  clean(t, explanation({ body: '<div style="white-space:pre-wrap">Line one\nLine two - with a dash\nLine three</div>' }), 'explanation')
+})
+
+test('state-capture: a drawn state (SVG file, data: URI or inline svg) warns without failing', (t) => {
+  warnsOnly(t, demo({ states: '<figure><img src="media/screen.svg" alt="x"><figcaption>x</figcaption></figure>' }), 'demo', 'state-capture', { media: { 'media/screen.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>' } })
+  warnsOnly(t, demo({ states: '<figure><img src="data:image/png;base64,AAAA" alt="x"><figcaption>x</figcaption></figure>' }), 'demo', 'state-capture')
+  warnsOnly(t, demo({ states: '<figure><img src="media/a.png" alt="x"><svg width="10" height="10"></svg><figcaption>x</figcaption></figure>' }), 'demo', 'state-capture')
+  clean(t, explanation({ body: '<figure><img src="data:image/png;base64,AAAA" alt="x"><figcaption>x</figcaption></figure>' }), 'explanation')
+})
+
+test('personal-data: a phone number or a password or PIN with its value warns without failing', (t) => {
+  const r = warnsOnly(t, explanation({ body: '<p>Call +44 7700 900123.</p>' }), 'explanation', 'personal-data')
+  assert.ok(!r.warnings.some((w) => w.what.includes('7700')), 'the number itself must not be printed')
+  warnsOnly(t, explanation({ body: '<p>Signed in with password hunter2.</p>' }), 'explanation', 'personal-data')
+  warnsOnly(t, explanation({ body: '<p>Unlock with PIN 1337.</p>' }), 'explanation', 'personal-data')
+  warnsOnly(t, explanation({ body: '<p>Пароль: qwerty</p>' }), 'explanation', 'personal-data')
+  clean(t, explanation({ body: '<p>The password field is masked; version 1.2.3 shipped 2026-11-18 14:05; +3 more; PIN entry screen.</p>' }), 'explanation')
 })

@@ -11,6 +11,7 @@ orchestration version; a code-review or visuals bump is stated inside it.
 **visual-explanation**
 - New: explanations come as one HTML page, not a wall of text
 - The verdict first, one picture, numbered questions with a pick
+- The reply links the page and repeats none of it
 
 **visual-demo**
 - New: finished work comes as a demo page of real screenshots
@@ -38,25 +39,34 @@ labelled states gallery beside the design reference, the recording with 1×
 and 0.25× buttons and key frames, before and after, and findings linked to
 their frames. Both follow one page standard: no network request, local media
 by relative path, `.context/visuals/<date>-<slug>/index.html`, shown with the
-host's renderer (T3 Code's `html_render`) or as a link, kept after cleanup
-unless the user approves deleting it, and laid out for the T3 Code frame and
-a browser in light and dark. A zero-dependency checker,
+host's own renderer when it has one (T3 Code's `html_render`, for example)
+or as a link, kept after cleanup unless the user approves deleting it, and
+laid out for a browser and for a narrow conversation frame in light and dark.
+Working files for a page (capture scripts, raw captures) stay in the page's
+own `work/` folder, never at a fixed name in a shared temp directory. The
+reply after the page is the page as a link plus, at most, the one question
+that needs an answer now; each entrypoint shows a good and a bad reply in
+English and Russian. A zero-dependency checker,
 `page-check.mjs --kind explanation|demo`, fails a page that loads anything
-from the network, references missing media, lacks a required section or a
-verdict, has an image without alt text or a video without controls, uses
-`vh` or `height:100%` on html or body, holds text that looks like a token or
-private key, or draws an ASCII diagram in `<pre>`; it warns past 25 MB.
-Decision 022.
+from the network (including SVG `href`s and addresses held in a script),
+references missing media or a template placeholder, lacks a required section
+or a verdict, has an image without alt text or a video without controls, uses
+`vh` (in CSS, a style attribute or a script) or `height:100%` on html or body,
+holds text that looks like a token or private key, or draws an ASCII diagram
+in `<pre>` or a `white-space:pre` block. It warns past 25 MB, on a demo state
+drawn as SVG or a `data:` URI, and on text that looks like a phone number or
+a password or PIN with its value. Decision 022.
 
-**Checked.** Offline: each checker rule fails a page built to break only
-that rule, the two templates pass, and the structure and contract tiers cover
-both hosts' entrypoints. Live on Claude Code 2.1.327 (Sonnet 5.5, candidate
-from a disposable snapshot): with the shipped description, "explain how these
-two files differ, I want to see it" loaded `visual-explanation` and produced a
-page that passes the checker, and a one-line question loaded nothing. Two
-earlier descriptions that only allowed the skill were not used for the same
-request. Limits: one run per case; `visual-demo` and Codex were not run live.
-Decision 022.
+**Checked.** Offline: each checker rule fails or warns on a page built to
+break only that rule, every rule added after the live test was
+mutation-checked, the two templates pass, and the 20 pages the live test
+produced still pass with no warning. Live: 31 calls on Claude Code 2.1.327
+(Sonnet 5.5, Opus 5.5) and Codex 0.170.0 (GPT-6.2 Sol), candidate from a
+disposable snapshot. The skills triggered in 17 of 17 cases that called for a
+page and in 0 of 11 that did not; all 20 pages passed the checker and every
+demo used real screenshots. 8 of 15 Claude replies summarised the page and 5
+gave its path as code or bold text; the new reply section fixes that, not yet
+re-measured. Decision 022.
 
 ## 4.25.0
 

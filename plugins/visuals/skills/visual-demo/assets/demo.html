@@ -7,6 +7,8 @@
 <!--
   Demo template. Copy this file alone to .context/visuals/<YYYY-MM-DD>-<slug>/index.html
   and put the real screenshots, renders and recordings in a media/ folder beside it.
+  Capture scripts, raw captures and temporary copies of the app go in a work/ folder
+  beside it, never at a fixed name in a shared temp directory.
   Every media/placeholder-* path below must be replaced by a real file: the placeholders
   are not shipped with the copy, so page-check.mjs fails until each one is replaced.
   Keep the data-section blocks in this order; delete motion, before-after, findings and
@@ -91,6 +93,7 @@
   .questions { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
   .questions ol { list-style: upper-alpha; padding-left: 22px; margin: 6px 0 0; }
   .rec { font-weight: 600; }
+  .rec .muted { font-weight: 400; }
   .badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--v-primary); color: var(--v-primary-fg); margin-left: 6px; }
   details { border: 1px solid var(--v-border); border-radius: var(--v-radius); padding: 10px 16px; margin-top: 12px; }
   summary { cursor: pointer; font-weight: 600; }

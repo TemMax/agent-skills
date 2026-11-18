@@ -33,18 +33,35 @@ live once, in `skills/visual-explanation/references/page-standard.md`, beside
 the checker; each skill owns its template. Codex entrypoints in `skills-codex/`
 reach the shared files by relative path, as the other plugins do (decision 013).
 
-**A checker in code, not prose.** The rules a program can decide — no network
-request, local media present and inside the page's folder, required sections
-and a non-empty verdict, captions, alt text, video controls, a demo states
-section with a real image or video, no `vh` or `height:100%` on html or body,
-no text that looks like a token or private key, no ASCII diagram in `<pre>` —
-are decided by `page-check.mjs`, a zero-dependency Node script with unit tests
-that build one failing page per rule. It is deterministic and costs no model
-call, so an agent runs it on every page and fixes what it reports instead of
-judging its own page. It warns, without failing, on section order, unknown
-sections, a background on html or body, and a page over 25 MB. What it cannot
-decide (that a screenshot is real, that the verdict is true) stays in the
-standard.
+**A checker in code, not prose.** The rules a program can decide are decided
+by `page-check.mjs`, a zero-dependency Node script with unit tests that build
+one page per rule, broken only by that rule. It fails a page that:
+
+- loads anything from the network: a `src`, `srcset`, `poster` or SVG
+  `<image>`/`<use>` `href` that points to a network address, a stylesheet or
+  script file, `@import`, a network `url()`, a network API in a script, or a
+  network address held in a script for anything but a plain link target;
+- references local media that is missing, empty, absolute or outside the
+  page's folder, or, in a demo's `states` or `motion`, a template placeholder
+  (named `placeholder-*` or byte-identical to a shipped one);
+- lacks a required section or a verdict, has a figure without a caption, an
+  image without alt text, a video without controls, or a demo `states`
+  section with no image or video;
+- uses `vh` units (in CSS, an inline style or a script) or `height:100%` on
+  html or body;
+- holds text that looks like a token or a private key;
+- draws an ASCII diagram in `<pre>` or in an element styled `white-space:pre`
+  or `pre-wrap`.
+
+It warns, without failing, on section order, unknown sections, a background on
+html or body, a page over 25 MB, a demo state drawn as SVG or a `data:` URI
+(a state must be a real capture), and text that looks like a phone number or
+a password or PIN with its value; those last two have too many false positives
+to fail on. The shipped templates are exempt from the placeholder and
+drawn-state rules in place only. It is deterministic and costs no model call,
+so an agent runs it on every page and fixes what it reports instead of judging
+its own page. What it cannot decide (that a screenshot is real, that the
+verdict is true) stays in the standard.
 
 **Release number.** The changelog names each release after the orchestration
 version and the structure tier checks that. Visuals 0.1.0 therefore ships as
@@ -69,31 +86,41 @@ inlining absolute local paths only).
 
 ## Validation
 
-Offline: the checker's unit tests build one page per rule that breaks only
-that rule, and the two templates pass; four rules were mutation-checked (the
-figure caption, video controls, secret and ASCII-diagram rules: each disabled,
-its test went red, restored). The structure and contract tiers cover both
-hosts' entrypoints, the descriptions, every link and the standard's section
-tables against the checker's.
+Offline: each checker rule fails (or warns) on a page built to break only that
+rule, and the two templates pass. Every rule added after the live test was
+mutation-checked (each disabled, its test red, restored): placeholder media,
+SVG `href`, script network addresses, `vh` from a script, `white-space:pre`
+diagrams, drawn states, phone numbers and password or PIN values; so were four
+earlier rules (figure caption, video controls, secret, ASCII diagram in
+`<pre>`). The 20 pages the live test produced still pass, with no warning. The
+structure and contract tiers cover both hosts' entrypoints, the descriptions,
+the reply section, every link and the standard's section tables against the
+checker's.
 
-Live, on Claude Code 2.1.327 with `claude-sonnet-5-5` at medium effort, the
-candidate loaded from a disposable snapshot through `--plugin-dir` with user
-and project settings off (the method in `tests/README.md`); every init event
-named the snapshot's path and version 0.1.0, and the snapshot's hashes were
-unchanged after each call. Expectations were frozen before the first call.
-Four calls in all, about $0.26:
+Live, 31 calls on Claude Code 2.1.327 (Sonnet 5.5 and Opus 5.5) and Codex
+0.170.0 (GPT-6.2 Sol), the candidate loaded from a disposable snapshot with
+expectations frozen first, about $2.81 of reported Claude cost:
 
-| Call | Prompt | Outcome |
-|---|---|---|
-| 1 | "Explain to me how retry_fixed.py differs from retry_backoff.py in this repository. I want to see it." | **Failed**: the skill was listed but not loaded; the answer was a pasted diff. |
-| 2 | the same, after the description named "see", "show" and "compare" | **Failed**: the full description reached the model's skill listing; the answer was text, code excerpts and a Markdown table. |
-| 3 | the same, with the shipped description ("Show, do not tell. Use whenever the reply would explain how something works or how two things differ … A Markdown table, a pasted diff, code excerpts or an ASCII diagram in the reply is not a substitute.") | **Passed**: the skill loaded from the snapshot, the agent read the standard and the template, wrote `.context/visuals/2026-11-18-retry-fixed-vs-backoff/index.html`, which passes `page-check.mjs --kind explanation` (rerun independently), checked that `.context/` is ignored, and committed nothing. Its reply gave the path in code rather than as a link and repeated the page's main points in three bullets. |
-| 4 | "What Python version does pyproject.toml require? Answer in one line." | **Passed**: no skill loaded, no page, a one-line answer naming 3.11. |
+- The skills triggered in 17 of 17 cases that called for a page, and in 0 of
+  11 that did not (a one-line question, a yes-or-no status, a rename across
+  files, a docstring with nothing to see).
+- All 20 pages passed the checker, and every demo used real screenshots.
+- The reply repeated the page: 8 of 15 Claude replies summarised it and 5 gave
+  the path as code or bold text instead of a link; Codex replies were clean.
+  Each entrypoint now has its own section on the reply, with a good and a bad
+  example in English and Russian. Fixed, not yet re-measured.
+- Agents wrote capture scripts to fixed names in a shared temp directory and
+  reset them with `rm -rf`, which lets agents running side by side clobber each
+  other; the standard and the demo skill now keep working files in the page's
+  own `work/` folder.
+- Hand-made bad pages that the checker passed (placeholder media, a drawn
+  state, an SVG or script network load, `vh` from a script, a diagram in a
+  `white-space:pre` block, a phone number and a password) became the rules
+  above; a page holding a diff in `<pre>` still passes.
 
-Not run: `visual-demo` live (it needs a device, emulator or renderer to
-capture); any Codex live check; repetitions, so one pass is "can", not a rate.
-Calls 1 and 2 show that a description that only allows the skill does not make
-Sonnet use it; the shipped description directs it.
+An earlier round of four Sonnet calls found that a description which only
+allows the skill does not make the model use it; the shipped description
+directs it ("Show, do not tell …").
 
 ## Implementation anchors
 

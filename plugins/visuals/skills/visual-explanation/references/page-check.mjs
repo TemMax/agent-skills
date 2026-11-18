@@ -7,8 +7,9 @@
 // `WARN <rule> <where>: <what>`, then `OK ...` when nothing failed.
 // Exit 0 when nothing failed (warnings allowed), 1 when anything failed,
 // 2 on a usage error. Deterministic: no network, no model, no dependencies.
-import { existsSync, readFileSync, statSync } from 'node:fs'
-import { dirname, extname, isAbsolute, relative, resolve } from 'node:path'
+import { createHash } from 'node:crypto'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const SECTIONS = {
@@ -26,6 +27,25 @@ export const SIZE_WARN_BYTES = 25 * 1024 * 1024
 
 const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'])
 const MEDIA_ATTRS = ['src', 'poster', 'srcset', 'data']
+// SVG elements that load an image or a document through href.
+const SVG_HREF_TAGS = new Set(['image', 'use', 'feimage'])
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const DEMO_ASSETS = resolve(HERE, '../../visual-demo/assets')
+// The shipped templates pass in place, beside their placeholder media; a copy
+// of one is a page and gets every rule.
+const SHIPPED_TEMPLATES = new Set([resolve(DEMO_ASSETS, 'demo.html'), resolve(HERE, '../assets/explanation.html')])
+
+const PHONE = /\+\d[\d\s().-]{7,18}\d/g
+const CREDENTIAL_LABELS = [
+  /(?<![\p{L}\p{N}])(?:password|passcode|пароль|pin(?:[\s-]*code)?|пин(?:-код)?)\s*(?:[:=—–-]|is|это)\s*\S+/giu,
+  /(?<![\p{L}\p{N}])(?:password|passcode|пароль)\s+[^\s<]*\d[^\s<]*/giu,
+  /(?<![\p{L}\p{N}])PIN\s+\d{4,8}(?![\p{L}\p{N}])/gu,
+]
+
+// Literals a script may hold without loading them: XML namespaces and plain
+// link targets (an href, a location, window.open).
+const SCRIPT_LINK_CONTEXT = /(?:\bhref\s*[=:]\s*\\?['"`]?|\blocation(?:\.href)?\s*=\s*['"`]|\.open\(\s*['"`])$/i
 
 const SECRETS = [
   ['GitHub token', /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,})/],
@@ -126,6 +146,36 @@ function urlsOf(name, value) {
   return value.split(',').map((part) => part.trim().split(/\s+/)[0]).filter(Boolean)
 }
 
+function mediaRefs(t) {
+  const refs = []
+  for (const name of MEDIA_ATTRS) {
+    if (t.attrs[name] === undefined || (name === 'data' && t.name !== 'object')) continue
+    for (const url of urlsOf(name, t.attrs[name])) refs.push([name, url])
+  }
+  if (SVG_HREF_TAGS.has(t.name)) {
+    for (const name of ['href', 'xlink:href']) {
+      if (t.attrs[name] === undefined || /^\s*#/.test(t.attrs[name])) continue
+      refs.push([name, t.attrs[name]])
+    }
+  }
+  return refs
+}
+
+let placeholderHashes
+function shippedPlaceholders() {
+  if (placeholderHashes) return placeholderHashes
+  placeholderHashes = new Set()
+  const dir = join(DEMO_ASSETS, 'media')
+  try {
+    for (const name of readdirSync(dir)) {
+      if (name.startsWith('placeholder-')) placeholderHashes.add(sha256(readFileSync(join(dir, name))))
+    }
+  } catch { /* checker copied without the plugin: the name rule still applies */ }
+  return placeholderHashes
+}
+
+function sha256(bytes) { return createHash('sha256').update(bytes).digest('hex') }
+
 function cssBlocks(doc) {
   const blocks = doc.styles.map((s) => ({ css: s.body, start: s.start }))
   for (const t of doc.tags) if (!t.close && t.attrs.style !== undefined) blocks.push({ css: t.attrs.style, start: t.start, inline: t })
@@ -189,11 +239,8 @@ export function checkPage(file, kind) {
 
   // No network: every resource is inline or a local file next to the page.
   for (const t of opens) {
-    for (const name of MEDIA_ATTRS) {
-      if (t.attrs[name] === undefined) continue
-      for (const url of urlsOf(name, t.attrs[name])) {
-        if (isExternal(url)) fail('external-resource', at(t.start), `<${t.name} ${name}> loads ${url.split('?')[0]} from the network`)
-      }
+    for (const [name, url] of mediaRefs(t)) {
+      if (isExternal(url)) fail('external-resource', at(t.start), `<${t.name} ${name}> loads ${url.split('?')[0]} from the network`)
     }
     if (t.name === 'link' && t.attrs.href !== undefined) {
       const rel = (t.attrs.rel || '').toLowerCase()
@@ -216,30 +263,32 @@ export function checkPage(file, kind) {
       const m = re.exec(s.body)
       if (m) fail('external-resource', at(s.start + m.index), `the script uses ${label}; a page makes no network request`)
     }
+    for (const m of s.body.matchAll(/https?:\/\/[^\s'"`<>)\\]+/gi)) {
+      if (/^http:\/\/www\.w3\.org\//i.test(m[0])) continue
+      if (SCRIPT_LINK_CONTEXT.test(s.body.slice(Math.max(0, m.index - 40), m.index))) continue
+      fail('external-resource', at(s.start + m.index), `the script holds the network address ${m[0].split('?')[0]}; a page loads nothing from the network`)
+    }
   }
 
   // Local media exists, is not empty, and lives in the page's folder.
   const media = new Set()
   for (const t of opens) {
-    for (const name of MEDIA_ATTRS) {
-      if (t.attrs[name] === undefined || (name === 'data' && t.name !== 'object')) continue
-      for (const url of urlsOf(name, t.attrs[name])) {
-        if (isExternal(url) || /^\s*(?:data|blob):/i.test(url) || /^\s*#/.test(url)) continue
-        if (!url.trim()) { fail('local-media', at(t.start), `<${t.name} ${name}> is empty`); continue }
-        if (/^\s*file:/i.test(url) || isAbsolute(url.trim())) {
-          fail('local-media', at(t.start), `<${t.name} ${name}="${url}"> must be a path relative to the page`)
-          continue
-        }
-        const path = localPath(pageDir, url)
-        if (!path) continue
-        if (relative(pageDir, path).startsWith('..')) {
-          fail('local-media', at(t.start), `${url} lies outside the page's folder; copy it next to the page`)
-          continue
-        }
-        if (!existsSync(path) || !statSync(path).isFile()) fail('local-media', at(t.start), `${url} does not exist`)
-        else if (statSync(path).size === 0) fail('local-media', at(t.start), `${url} is empty`)
-        else media.add(path)
+    for (const [name, url] of mediaRefs(t)) {
+      if (isExternal(url) || /^\s*(?:data|blob):/i.test(url) || /^\s*#/.test(url)) continue
+      if (!url.trim()) { fail('local-media', at(t.start), `<${t.name} ${name}> is empty`); continue }
+      if (/^\s*file:/i.test(url) || isAbsolute(url.trim())) {
+        fail('local-media', at(t.start), `<${t.name} ${name}="${url}"> must be a path relative to the page`)
+        continue
       }
+      const path = localPath(pageDir, url)
+      if (!path) continue
+      if (relative(pageDir, path).startsWith('..')) {
+        fail('local-media', at(t.start), `${url} lies outside the page's folder; copy it next to the page`)
+        continue
+      }
+      if (!existsSync(path) || !statSync(path).isFile()) fail('local-media', at(t.start), `${url} does not exist`)
+      else if (statSync(path).size === 0) fail('local-media', at(t.start), `${url} is empty`)
+      else media.add(path)
     }
   }
 
@@ -267,6 +316,33 @@ export function checkPage(file, kind) {
     for (const s of sections.filter((x) => x.name === 'states')) {
       const inner = tagsWithin(doc, extent(doc, s.index))
       if (!inner.some((t) => !t.close && (t.name === 'img' || t.name === 'video'))) fail('states-media', at(s.tag.start), 'the states section shows no <img> or <video>')
+    }
+    if (!SHIPPED_TEMPLATES.has(resolve(file))) {
+      const shipped = shippedPlaceholders()
+      for (const s of sections.filter((x) => x.name === 'states' || x.name === 'motion')) {
+        for (const t of tagsWithin(doc, extent(doc, s.index))) {
+          if (t.close) continue
+          for (const [name, url] of mediaRefs(t)) {
+            if (isExternal(url) || /^\s*(?:data|blob):/i.test(url)) continue
+            const path = localPath(pageDir, url)
+            if (!path) continue
+            const named = basename(path).startsWith('placeholder-')
+            const copied = !named && existsSync(path) && statSync(path).isFile() && shipped.has(sha256(readFileSync(path)))
+            if (named || copied) fail('placeholder-media', at(t.start), `<${t.name} ${name}="${url}"> is ${named ? 'a template placeholder' : 'a copy of a template placeholder'}; replace it with a real capture`)
+          }
+        }
+      }
+      for (const s of sections.filter((x) => x.name === 'states')) {
+        for (const t of tagsWithin(doc, extent(doc, s.index))) {
+          if (t.close) continue
+          if (t.name === 'svg') { warn('state-capture', at(t.start), 'a state drawn as inline <svg>; a state must be a real capture (a screenshot, a recording or a preview render)'); continue }
+          if (!['img', 'source', 'video'].includes(t.name)) continue
+          for (const [name, url] of mediaRefs(t)) {
+            const drawn = /^\s*data:/i.test(url) ? 'a data: URI' : /\.svg(?:[?#].*)?$/i.test(url.trim()) ? 'an SVG file' : null
+            if (drawn) warn('state-capture', at(t.start), `<${t.name} ${name}> shows ${drawn}; a state must be a real capture (a screenshot, a recording or a preview render), with a design export labelled as the reference`)
+          }
+        }
+      }
     }
   }
 
@@ -300,19 +376,50 @@ export function checkPage(file, kind) {
     }
   }
 
+  for (const s of doc.scripts) {
+    for (const m of s.body.matchAll(/['"`][^'"`\n]*?(?<![\w-])\d*\.?\d+\s*[dsl]?vh\b[^'"`\n]*['"`]/gi)) {
+      fail('viewport-height', at(s.start + m.index), 'the script sets a vh unit; vh units loop or are rejected in a conversation frame')
+    }
+  }
+
   // Nothing secret on the page.
   for (const [label, re] of SECRETS) {
     const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g')
     for (const m of html.matchAll(g)) fail('secret', at(m.index), `text that looks like a ${label}; remove it`)
   }
+  const visible = doc.masked.replace(/<[^>]*>/g, (tag) => blank(tag))
+  for (const m of visible.matchAll(PHONE)) {
+    const digits = m[0].replace(/\D/g, '').length
+    if (digits >= 9 && digits <= 15) warn('personal-data', at(m.index), 'text that looks like a phone number; remove it unless it is clearly fake')
+  }
+  for (const re of CREDENTIAL_LABELS) {
+    for (const m of visible.matchAll(re)) warn('personal-data', at(m.index), 'a password or PIN label followed by a value; remove the value')
+  }
 
   // Pictures are drawn in HTML, CSS or SVG, never as ASCII art.
+  const preClasses = new Set()
+  const preTags = new Set(['pre'])
+  for (const block of cssBlocks(doc)) {
+    if (block.inline) continue
+    for (const rule of cssRules(block.css)) {
+      if (!/(?:^|;)\s*white-space\s*:\s*pre(?:-wrap)?\s*(?:;|$|!)/i.test(rule.body)) continue
+      for (const part of rule.selector.split(',')) {
+        const m = /^\s*([a-z][\w-]*)?(?:\.([\w-]+))?\s*$/i.exec(part)
+        if (!m) continue
+        if (m[2]) preClasses.add(m[2])
+        else if (m[1]) preTags.add(m[1].toLowerCase())
+      }
+    }
+  }
   doc.tags.forEach((t, i) => {
-    if (t.close || t.name !== 'pre') return
+    if (t.close) return
+    const styled = /(?:^|;)\s*white-space\s*:\s*pre(?:-wrap)?\s*(?:;|$|!)/i.test(t.attrs.style || '')
+    const classed = (t.attrs.class || '').split(/\s+/).some((c) => preClasses.has(c))
+    if (!preTags.has(t.name) && !styled && !classed) return
     const ext = extent(doc, i)
     const text = decode(doc.masked.slice(ext.inner, ext.innerEnd).replace(/<[^>]*>/g, ''))
     const lines = text.split('\n').filter(diagramLine)
-    if (lines.length >= 3) fail('ascii-diagram', at(t.start), `<pre> holds an ASCII diagram (${lines.length} drawing lines); draw it in HTML, CSS or SVG`)
+    if (lines.length >= 3) fail('ascii-diagram', at(t.start), `<${t.name}> holds an ASCII diagram (${lines.length} drawing lines); draw it in HTML, CSS or SVG`)
   })
 
   let total = Buffer.byteLength(html)

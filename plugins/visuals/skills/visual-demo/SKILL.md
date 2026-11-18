@@ -24,6 +24,9 @@ and never a hand-made mock-up in place of the real render.
    state before and after when existing UI changed, and the design reference
    when one exists. Whatever you could not capture goes on the not-verified
    list; nothing is drawn in its place.
+   Keep the working files (capture scripts, raw captures, temporary copies of
+   the app) in a `work/` folder inside the page's own folder, never at a fixed
+   name in a shared temp directory; the page references only `media/`.
 3. Copy [the demo template](assets/demo.html), and only that file, to
    `<workspace>/.context/visuals/<YYYY-MM-DD>-<slug>/index.html`. Put the
    captures in a `media/` folder beside it and point every `media/placeholder-*`
@@ -35,9 +38,20 @@ and never a hand-made mock-up in place of the real render.
    `node <the visual-explanation skill's folder>/references/page-check.mjs <page> --kind demo`.
    Fix every `FAIL` line and read every `WARN` line.
 5. Show the page in the conversation when the host can render it, otherwise
-   link its absolute path. Then reply in a few lines with only what the page
-   does not say. Link the page
-   file in that reply and repeat none of its points.
+   link it. Then reply as the next section says, and stop.
+
+### The reply after the page
+
+The reply is the page, shown in the conversation or given as a Markdown link
+with the absolute path, and then at most the one question that needs an
+answer now or one sentence the page cannot carry. It is never a summary: not
+the verdict again, not the findings again, not the not-verified list again,
+and not the path as code or bold text.
+
+- Good: “[Settings screen on the emulator](/abs/path/.context/visuals/2026-11-18-settings/index.html) — fix the list gap now (question 1)?”
+- Good: «[Экран настроек на эмуляторе](/abs/path/.context/visuals/2026-11-18-settings/index.html) — исправить отступ списка сейчас (вопрос 1)?»
+- Bad: “Done: `/abs/path/…/index.html`. All three states work, dark theme not verified, the gap is 12 px…”
+- Bad: «Готово: **/abs/path/…/index.html**. Все три состояния работают, тёмная тема не проверена, отступ 12 px…»
 
 ### User-facing communication
 

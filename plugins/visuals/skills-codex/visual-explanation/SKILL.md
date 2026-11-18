@@ -32,9 +32,20 @@ the base for the standard, template and checker paths below.
    `node <this plugin's folder>/skills/visual-explanation/references/page-check.mjs <page> --kind explanation`.
    Fix every `FAIL` line and read every `WARN` line.
 5. Show the page in the conversation when the host can render it, otherwise
-   link its absolute path. Then reply in a few lines with only what the page
-   does not say. Link the page
-   file in that reply and repeat none of its points.
+   link it. Then reply as the next section says, and stop.
+
+### The reply after the page
+
+The reply is the page, shown in the conversation or given as a Markdown link
+with the absolute path, and then at most the one question that needs an
+answer now or one sentence the page cannot carry. It is never a summary: not
+the verdict again, not the findings again, not the not-verified list again,
+and not the path as code or bold text.
+
+- Good: “[Retry: fixed vs backoff](/abs/path/.context/visuals/2026-11-18-retry/index.html) — question 1 needs your answer before I touch the callers.”
+- Good: «[Повторы: фиксированные и с отсрочкой](/abs/path/.context/visuals/2026-11-18-retry/index.html) — нужен ответ на вопрос 1, прежде чем я трону вызовы.»
+- Bad: “Page: `/abs/path/…/index.html`. In short: the first retries every error, the second only network errors…”
+- Bad: «Страница: **/abs/path/…/index.html**. Коротко: первая версия повторяет любую ошибку, вторая — только сетевые…»
 
 ### User-facing communication
 
