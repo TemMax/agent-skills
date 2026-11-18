@@ -4,6 +4,67 @@ Release notes for the orchestration, code-review and visuals plugins,
 newest first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review or visuals bump is stated inside it.
 
+## 4.25.2
+
+### Highlights
+
+**visual-explanation**
+- The answer is in the chat again; a page is added, not instead
+- A page only when asked to see, or when a picture is clearly faster
+- Every question is in the reply, answerable as "1A 2B"
+
+**visual-demo**
+- The reply says what works, what does not and what was not checked
+- The page is shown in the chat and linked as a file
+
+Visuals 0.1.1 applies to Claude Code and Codex. Orchestration 4.25.2 is
+unchanged apart from its version number, which names this release;
+code-review stays at 1.23.0.
+
+**What was wrong.** With 0.1.0, agents answered almost only through pages.
+A long experiment ended with this as the whole final reply: "[Results](…/index.html).
+Need answers to questions 1 and 2 at the bottom of the page." The result and
+the questions were hidden in a file, and the page was not even rendered in
+the conversation. The cause was the metric the first release was tuned for.
+It counted how often the skills triggered, measured only against
+under-triggering (a request that called for a page and got text), and how
+rarely the reply repeated the page. Neither number asked whether the reply
+answered the user. So the explanation description fired on any explanation
+("whenever the reply would explain…"), the reply rule forbade the verdict and
+allowed at most one question, and when the host refused a file path, agents
+fell back to a bare link.
+
+**What changes.** The reply in the chat stands on its own: the conclusion in
+two or three lines (for a demo, what works, what does not and what was not
+verified) and every question the user must answer, written out with its
+lettered options, so the user can answer "1A 2B" without opening anything.
+The page carries the picture, the evidence and the detail; the reply does not
+paste its tables, findings or not-verified list in full, and never says "see
+the page" or "answer the questions on the page". The page is given both ways:
+rendered in the conversation when the host can render HTML, and always as a
+Markdown link to the file; a bare link is not enough when a renderer exists.
+`visual-explanation` now triggers when the user asks to see, show or
+visualize something, or when a picture is clearly faster to understand (a
+flow with branches, options against criteria, a state matrix, a before and
+after); not for a status, a short answer, a linear list of steps, a yes or no,
+a summary of finished work or an ordinary explanation. When in doubt, the
+agent answers in text. A small table in a text reply is fine again; only ASCII
+diagrams stay out. `visual-demo` keeps its trigger and gets the same reply
+rule. The page standard's showing and question rules say the same; the page
+checker is unchanged. Decision 022, addendum.
+
+**Checked.** Offline: the contract tier pins both descriptions, the reply
+section and its examples on both hosts (a helper checks that each good reply
+has its conclusion, a lettered question and the link, in English and in
+Russian), and that the page-only wording is gone. Live, 31 calls on Sonnet,
+Opus and GPT-6.2 Sol: no page was built in any of 16 runs of six prompts that
+text should answer; in the 12 runs that built a page, the reply carried the
+conclusion, every question and the link every time, and none sent the reader
+to the page for the result. Four Sonnet replies were longer than asked,
+repeating a table or a list from the page. A comparison of three options
+against five criteria got a text answer with a table in 3 of 3 runs, so a page
+on the agent's own judgment is not shown to trigger yet.
+
 ## 4.25.1
 
 ### Highlights

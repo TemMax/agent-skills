@@ -30,23 +30,29 @@ file) checks the ones a program can check; the rest are yours to keep.
 
 ## Showing it
 
-8. When the host offers a tool that renders an HTML page inside the
-   conversation, use it, by that tool's own rules for input and size; when it
-   offers none, give the absolute path as a link. Either way the user sees the
-   page, not a description of it, and the file stays on disk. The page does
-   not depend on any one host: it is a plain file that opens in a browser.
-   One host's tools, as an example: in T3 Code, `html_render` takes the
-   absolute `path` and, as `height`, the `contentHeight` that `html_preview`
-   measured; when it refuses a path, pass the file's content as `html` with
-   the media paths made absolute.
+8. Give the page both ways. When the host offers a tool that renders an HTML
+   page inside the conversation, render it there, by that tool's own rules for
+   input and size, and also give the Markdown link to the file with its
+   absolute path, because the user shares the file with others. When the host
+   offers no renderer, give the link alone. A bare link is not enough when a
+   renderer exists. The file stays on disk, and the page does not depend on
+   any one host: it is a plain file that opens in a browser. One host's tools,
+   as an example: in T3 Code, `html_render` takes the absolute `path` and, as
+   `height`, the `contentHeight` that `html_preview` measured; when it refuses
+   a path, pass the file's content as `html` with the media paths made
+   absolute.
 9. Never paste loose images or videos into the chat as the demo, never draw an
    ASCII diagram, and never present a hand-made HTML mock-up of a UI as if it
    were the real render, because the user must be able to trust that what
    looks like the product is the product.
-10. The text reply after the page is short and says only what the page does
-   not, such as a question that needs an answer now, because the user already
-   has the page in front of them. It links the page file and repeats none of
-   the page's points.
+10. The reply in the chat stands on its own, because the user reads the chat
+    first and may never open the file: the conclusion in two or three lines
+    (for a demo, what works, what does not and what was not verified) and every
+    question the user must answer, written out with its lettered options, so
+    the user can answer "1A 2B" without opening anything. The page carries the
+    picture, the evidence and the detail; the reply does not paste the page's
+    tables, findings list or not-verified list in full, and never says "see the
+    page for the result" or "answer the questions on the page".
 
 ## Content
 
@@ -59,7 +65,8 @@ file) checks the ones a program can check; the rest are yours to keep.
     because a claim without evidence is one the user must check by hand.
 14. A decision the user must take is a numbered question; its options carry
     letters (A, B, C) and one is marked Recommended with its reason, so the user
-    can answer "1A" in one line.
+    can answer "1A" in one line. The same questions, with the same numbers and
+    letters, are on the page and in the reply.
 15. Detail that most readers skip goes into a collapsed `<details>` whose
     `<summary>` says what is inside, so the page stays short without losing it.
 16. No secret, token, PIN, password, phone number or private key on the page,

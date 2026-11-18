@@ -1,8 +1,8 @@
 {
   "name": "visuals",
   "displayName": "Visual Pages",
-  "version": "0.1.0",
-  "description": "Dual-host page building for Claude Code and Codex: agents show what they explain or built as one self-contained HTML page instead of walls of text, ASCII diagrams or loose images in the chat — an explanation page with the verdict first, one main picture and numbered decisions, or a demo page of real renders, screenshots and recordings with what was not verified — checked by a shipped zero-dependency page validator.",
+  "version": "0.1.1",
+  "description": "Dual-host page building for Claude Code and Codex: when the user asks to see something, a picture is clearly faster than text, or work has a result that can be seen, agents add one self-contained HTML page to a reply that still stands on its own — an explanation page with one main picture and numbered decisions, or a demo page of real renders, screenshots and recordings with what was not verified — checked by a shipped zero-dependency page validator. Ordinary answers stay text.",
   "author": {
     "name": "TemMax",
     "url": "https://github.com/TemMax"
