@@ -3,7 +3,7 @@ name: visual-demo
 description: 'Use when showing the result of work that can be seen, and whenever you changed something the user can see — a colour, a layout, a text on screen, a state, an animation or gesture — and the user asks to see the result or to be shown, in any language ("show me the result", "покажи"); also for a device, emulator or stand run, a rendered preview, a chart, or a before and after of a UI change. Finish the change, then build one self-contained HTML demo page from real renders, screenshots and recordings, with what was not verified, as the evidence that it is done. A text description of the change alone, or a loose screenshot, is not a substitute for the page. Do not use when there is nothing to see, or to draw a mock-up in place of a real render. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Showing the result on a demo page
@@ -50,7 +50,8 @@ the page.
 - What works, what does not and what was not verified, in two or three lines.
 - Every question the user must answer, written out with its lettered options
   and the recommended one, so the user can answer "1A 2B" in the chat. The
-  same questions are on the page.
+  questions are in the reply only: the page does not repeat them, it marks the
+  place a decision bears on with a short label such as "question 1".
 - The page, rendered in the conversation when the host can, and always the
   Markdown link to the file with its absolute path.
 

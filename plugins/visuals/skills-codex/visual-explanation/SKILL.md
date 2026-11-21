@@ -3,7 +3,7 @@ name: visual-explanation
 description: 'Use when the user asks to see, show or visualize something, in any language ("show me", "I want to see it", "покажи"), or when a picture is clearly the faster way to understand: a flow with branches, several options against several criteria, a state matrix, a before and after, something spatial or visual. Then add one self-contained HTML page to a complete text answer; the page never replaces the answer. Do not use for a status update, a short or one-line answer, a linear list of steps, a yes or no with its reason, a summary of finished work that fits in a few lines, or an ordinary explanation in conversation; when in doubt, answer in text. Keep skill names and instruction/profile filenames/loading out of updates, including before loading; state the task.'
 metadata:
   author: https://github.com/TemMax
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Adding a page to an explanation
@@ -11,9 +11,9 @@ metadata:
 A page helps when the user has to take in a shape that text lays out slowly:
 branches, several options against several criteria, states, a before and
 after. It is added to a good text answer, never in its place: the reply in the
-chat still carries the conclusion and every question. When a text answer is
-enough, and that is the usual case, answer in text and build no page. A small
-table in a text reply is fine; an ASCII diagram is not.
+chat still carries the conclusion, and it alone carries the questions. When a
+text answer is enough, and that is the usual case, answer in text and build no
+page. A small table in a text reply is fine; an ASCII diagram is not.
 
 Resolve relative resource paths from this SKILL.md's physical directory.
 Resolve a symlinked skill directory to its target first; repository cwd is not
@@ -46,7 +46,8 @@ the page.
 - The conclusion in two or three lines.
 - Every question the user must answer, written out with its lettered options
   and the recommended one, so the user can answer "1A 2B" in the chat. The
-  same questions are on the page.
+  questions are in the reply only: the page does not repeat them, it marks the
+  place a decision bears on with a short label such as "question 1".
 - The page, rendered in the conversation when the host can, and always the
   Markdown link to the file with its absolute path.
 

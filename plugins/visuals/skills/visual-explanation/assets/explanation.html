@@ -7,7 +7,9 @@
 <!--
   Explanation template. Copy to .context/visuals/<YYYY-MM-DD>-<slug>/index.html,
   replace every example text, keep the data-section blocks in this order, delete
-  the optional blocks you do not need (options, questions, details, sources),
+  the optional blocks you do not need (options, details, sources),
+  and ask every question in the reply, never on the page: the page only marks the
+  place a decision bears on with a short label such as "question 1",
   then run page-check.mjs with --kind explanation.
   Write in the user's language and set <html lang> to it.
 -->
@@ -97,11 +99,6 @@
   .yes { color: var(--v-success); font-weight: 600; }
   .no { color: var(--v-destructive); font-weight: 600; }
 
-  .questions { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
-  .questions ol { list-style: upper-alpha; padding-left: 22px; margin: 6px 0 0; }
-  .questions .rec { font-weight: 600; }
-  .questions .rec .muted { font-weight: 400; }
-
   details { border: 1px solid var(--v-border); border-radius: var(--v-radius); padding: 10px 16px; }
   details + details { margin-top: 8px; }
   summary { cursor: pointer; font-weight: 600; }
@@ -116,7 +113,7 @@
   <section data-section="verdict" class="verdict">
     <h1>Keep the cache in memory; move it to disk only for the offline mode</h1>
     <p>Reads take 2 ms from memory against 40 ms from disk, and the data rebuilds in under a second after a restart.
-       One decision is yours: whether offline mode ships in this release (question 1).</p>
+       One decision is yours: whether offline mode ships in this release (question 1 in the chat).</p>
   </section>
 
   <section data-section="picture">
@@ -167,18 +164,6 @@
         </tbody>
       </table>
     </div>
-  </section>
-
-  <section data-section="questions">
-    <h2>Questions for you</h2>
-    <ol class="questions">
-      <li>Does offline mode ship in this release?
-        <ol>
-          <li class="rec">No — take option A now <span class="badge">Recommended</span><br><span class="muted">Offline is not in this release's scope, and A is half the code.</span></li>
-          <li>Yes — take option B</li>
-        </ol>
-      </li>
-    </ol>
   </section>
 
   <section data-section="details">

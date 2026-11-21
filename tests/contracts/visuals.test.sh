@@ -47,7 +47,7 @@ for f in $V/skills/*/SKILL.md $V/skills-codex/*/SKILL.md; do
   for phrase in \
     "### The reply" \
     "The reply stands on its own: the user can read it and answer without opening the page." \
-    "Every question the user must answer, written out with its lettered options and the recommended one, so the user can answer \"1A 2B\" in the chat. The same questions are on the page." \
+    "Every question the user must answer, written out with its lettered options and the recommended one, so the user can answer \"1A 2B\" in the chat. The questions are in the reply only: the page does not repeat them, it marks the place a decision bears on with a short label such as \"question 1\"." \
     "The page, rendered in the conversation when the host can, and always the Markdown link to the file with its absolute path." \
     "does not paste the page's tables, findings list or not-verified list in full" \
     "Never write \"see the page for the result\" or \"answer the questions on the page\"." \
@@ -56,7 +56,7 @@ for f in $V/skills/*/SKILL.md $V/skills-codex/*/SKILL.md; do
     "Bad (the result and the questions are hidden in the file):"; do
     contains "reply rule in $f: $phrase" "$phrase" "$E"
   done
-  for phrase in "at most the one question" "It is never a summary" "### The reply after the page"; do
+  for phrase in "at most the one question" "It is never a summary" "### The reply after the page" "The same questions are on the page"; do
     check "old page-only reply rule is gone from $f: $phrase" "! grep -qF '$phrase' '$f'"
   done
   good="$(python3 tests/lib/visuals-good-replies.py "$f")"
@@ -105,7 +105,11 @@ for phrase in \
   "The reply in the chat stands on its own" \
   "every question the user must answer, written out with its lettered options" \
   "never says \"see the page for the result\" or \"answer the questions on the page\"" \
-  "The same questions, with the same numbers and letters, are on the page and in the reply." \
+  "A decision the user must take is asked in the reply only, as a numbered question" \
+  "The page never repeats a question, its options or its recommendation, and has no questions section" \
+  "mark that place with a short label carrying the reply's number, such as \"question 1\"" \
+  "write the decision as a fact and remove the label" \
+  "An \`options\` comparison is not a repeat: it stays, with the recommended option marked; only the question about it is asked in the reply." \
   "Never paste loose images or videos into the chat as the demo" \
   "never draw an ASCII diagram" \
   "never present a hand-made HTML mock-up of a UI as if it were the real render" \
@@ -156,6 +160,8 @@ JS
 )"
 contains "explanation sections match" "explanation same" "$out"
 contains "demo sections match" "demo same" "$out"
+check "the standard has no questions section" "! grep -q '^| .questions. |' $STD"
+check "the checker has no questions section" "! grep -qE \"order: .*'questions'\" $CHK"
 
 section "templates follow the frame rules and ship their placeholders"
 for t in $V/skills/visual-explanation/assets/explanation.html $V/skills/visual-demo/assets/demo.html; do
@@ -165,6 +171,10 @@ for t in $V/skills/visual-explanation/assets/explanation.html $V/skills/visual-d
   done
   contains "$(basename "$t") follows the system theme in a browser" "color-scheme: light dark" "$T"
   contains "$(basename "$t") has dark fallbacks" "@media (prefers-color-scheme: dark)" "$T"
+done
+for t in $V/skills/visual-explanation/assets/explanation.html $V/skills/visual-demo/assets/demo.html; do
+  check "$(basename "$t") has no questions section" "! grep -qiE 'data-section=\"questions\"|Questions for you|class=\"questions\"' '$t'"
+  check "$(basename "$t") tells the author where questions go" "flat '$t' | grep -qiF 'ask every question in the reply, never on the page'"
 done
 D="$(flat $V/skills/visual-demo/assets/demo.html)"
 contains "demo template has the 1x speed button" 'data-rate="1"' "$D"

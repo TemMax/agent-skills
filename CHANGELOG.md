@@ -4,6 +4,61 @@ Release notes for the orchestration, code-review and visuals plugins,
 newest first. Each release is one `## X.Y.Z` section named after the
 orchestration version; a code-review or visuals bump is stated inside it.
 
+## 4.25.3
+
+### Highlights
+
+**visual-explanation**
+- Questions are asked once, in the reply; the page repeats none
+- The page marks where a decision applies with a short label
+
+**visual-demo**
+- No "Questions" section on the page; the checker rejects one
+- Commands and logs move under "How it was checked"
+
+Visuals 0.1.2 applies to Claude Code and Codex. Orchestration 4.25.3 is
+unchanged apart from its version number, which names this release;
+code-review stays at 1.23.0.
+
+**What was wrong.** With 0.1.1 the reply carried every question, as it
+should, and the page carried the same questions again: the standard said "the
+same questions, with the same numbers and letters, are on the page and in the
+reply", and both templates shipped a "Questions for you" section. A host that
+renders the page in the conversation shows it right beside the reply, so the
+user read each question twice. A page also outlives its questions: once they
+are answered it still asks them.
+
+**What changes.** A decision the user must take is asked in the reply only, as
+a numbered question with lettered options and a recommendation. The page has
+no questions section and never repeats a question, its options or its
+recommendation. Where a decision bears on the page (a row, a state, a
+finding), the page marks that place with a short label carrying the reply's
+number, such as "question 1"; the verdict may say that a decision is open.
+When a page is updated after the user has answered, the decision is written
+as a fact and the label goes. The `options` section stays: a side-by-side
+comparison is a picture, not a question. The `questions` section is removed
+from both templates, from the standard's section tables and from the checker,
+which now fails a page that has one (`questions-on-page`). The demo
+template's "Commands and logs" block moves into `method`. Decision 022,
+second addendum.
+
+**Checked.** Offline: the checker test fails a page with a questions
+section on both kinds; the contract tier pins the new reply and standard
+wording on both hosts, that neither template asks a question, and that the
+standard's section tables still equal the checker's. Live, 8 calls with the
+candidate files, expectations frozen first: Sonnet 5.5 on Claude Code (5) and
+GPT-6.2 Sol on Codex (3). Six runs built a page, three per host (four
+explanations with two open decisions each, two demos with one): in 6 of 6
+the page passed the checker, had no questions
+section and asked nothing, the reply asked every question with lettered
+options and a recommendation and linked the page, and the page marked the
+place of each decision with a "question N" label. Two Claude runs built no
+page from this plugin and are not counted: in one the session used Claude
+Code's built-in Artifact tool instead of the skill (later runs disabled that
+tool), in one "show me clearly" got a text answer. Triggering is unchanged by
+this release. Not checked live: a host that renders the page in the
+conversation, since the headless hosts have no renderer.
+
 ## 4.25.2
 
 ### Highlights

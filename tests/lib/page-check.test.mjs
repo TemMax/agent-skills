@@ -230,6 +230,15 @@ test('size: a page with its media over 25 MB warns without failing', (t) => {
   assert.match(r.stdout, /^WARN size /m)
 })
 
+test('questions-on-page: a questions section fails on both kinds, because questions are asked in the reply', (t) => {
+  const asked = '<section data-section="questions"><ol><li>Ship it? A. Yes B. No</li></ol></section>'
+  failsOnly(t, explanation({ body: asked }), 'explanation', 'questions-on-page')
+  const r = checkPage(page(t, demo({ body: asked })).file, 'demo')
+  assert.deepEqual(r.errors.map((e) => e.rule), ['questions-on-page'])
+  assert.deepEqual(r.warnings, [])
+  failsOnly(t, explanation({ body: asked.replace('"questions"', '"Questions"') }), 'explanation', 'questions-on-page')
+})
+
 test('warnings: section order, unknown sections and a background on html or body do not fail', (t) => {
   const swapped = explanation({ body: '<section data-section="sources"><p>s</p></section><section data-section="options"><p>o</p></section><section data-section="extra"><p>e</p></section>' })
   const r1 = checkPage(page(t, swapped).file, 'explanation')

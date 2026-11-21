@@ -85,6 +85,7 @@ PHRASES = {
     "visual-explanation": [
         "The reply stands on its own",
         "Every question the user must answer, written out with its lettered options",
+        "The questions are in the reply only: the page does not repeat them",
         "always the Markdown link to the file",
         "A bare link is not enough when a renderer exists.",
         "Never write \"see the page for the result\" or \"answer the questions on the page\".",
@@ -100,6 +101,7 @@ PHRASES = {
     "visual-demo": [
         "The reply stands on its own",
         "Every question the user must answer, written out with its lettered options",
+        "The questions are in the reply only: the page does not repeat them",
         "always the Markdown link to the file",
         "A bare link is not enough when a renderer exists.",
         "Never write \"see the page for the result\" or \"answer the questions on the page\".",

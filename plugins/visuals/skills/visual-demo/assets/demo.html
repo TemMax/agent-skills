@@ -11,8 +11,10 @@
   beside it, never at a fixed name in a shared temp directory.
   Every media/placeholder-* path below must be replaced by a real file: the placeholders
   are not shipped with the copy, so page-check.mjs fails until each one is replaced.
-  Keep the data-section blocks in this order; delete motion, before-after, findings and
-  questions when they do not apply. Write in the user's language and set <html lang>.
+  Keep the data-section blocks in this order; delete motion, before-after and findings
+  when they do not apply. Ask every question in the reply, never on the page: the page only
+  marks the place a decision bears on with a short label such as "question 1".
+  Write in the user's language and set <html lang>.
 -->
 <style>
   :root {
@@ -90,11 +92,6 @@
   .sev.high { background: var(--v-destructive); }
   .sev.low { background: var(--v-chart-1); }
 
-  .questions { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
-  .questions ol { list-style: upper-alpha; padding-left: 22px; margin: 6px 0 0; }
-  .rec { font-weight: 600; }
-  .rec .muted { font-weight: 400; }
-  .badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--v-primary); color: var(--v-primary-fg); margin-left: 6px; }
   details { border: 1px solid var(--v-border); border-radius: var(--v-radius); padding: 10px 16px; margin-top: 12px; }
   summary { cursor: pointer; font-weight: 600; }
 </style>
@@ -125,6 +122,10 @@
       <dt>Animations</dt><dd>Window, transition and animator scales all 1 (read back before recording)</dd>
       <dt>Captured with</dt><dd>Screenshots and a screen recording from the device itself</dd>
     </dl>
+    <details>
+      <summary>Commands and logs</summary>
+      <p class="muted">The exact commands, their output and the crash check go here.</p>
+    </details>
   </section>
 
   <section data-section="states">
@@ -190,25 +191,9 @@
   <section data-section="findings">
     <h2>Findings</h2>
     <ol class="findings">
-      <li><span class="sev">Medium</span>The list gap is 12 px; the design has 16 px. <a href="#state-filled">See state 2</a>.</li>
+      <li><span class="sev">Medium</span>The list gap is 12 px; the design has 16 px. <a href="#state-filled">See state 2</a>. <span class="muted">Question 1 in the chat.</span></li>
       <li><span class="sev low">Low</span>The error banner text wraps on two lines. <a href="#state-error">See state 3</a>.</li>
     </ol>
-  </section>
-
-  <section data-section="questions">
-    <h2>Questions for you</h2>
-    <ol class="questions">
-      <li>Fix the list gap in this change?
-        <ol>
-          <li class="rec">Yes, now <span class="badge">Recommended</span><br><span class="muted">It is a one-line change and the screen ships with this release.</span></li>
-          <li>Later, in a separate change</li>
-        </ol>
-      </li>
-    </ol>
-    <details>
-      <summary>Commands and logs</summary>
-      <p class="muted">The exact commands, their output and the crash check go here.</p>
-    </details>
   </section>
 
 </main>

@@ -211,6 +211,51 @@ agent's own judgment is not shown to trigger. One text answer drew two ASCII
 diagrams; the rule against them lives in the skill, which a text answer does
 not load.
 
+## Addendum — visuals 0.1.2 (release 4.25.3): questions are asked once
+
+**What was wrong.** 0.1.1 put every question in the reply and kept the same
+questions on the page: rule 14 of the standard required both, and both
+templates had a "Questions for you" section. In T3 Code the page is rendered
+in the conversation beside the reply, so the user read each question twice. In
+the reported case a page listing where models are configured ended with two
+questions, and the reply under it asked the same two, word for word.
+
+**Decision.**
+
+- Questions live in the reply only. The page has no questions section and
+  does not repeat a question, its options or its recommendation.
+- Where a decision bears on the page, that place carries a short label with
+  the reply's number ("question 1"). The verdict may say that a decision is
+  open, named in a few words. A page updated after the answer states the
+  decision as a fact and drops the label.
+- `options` stays on explanation pages, with the recommended option marked: a
+  comparison is a picture. The question about it is asked in the reply.
+- The checker fails a page with `data-section="questions"`
+  (`questions-on-page`), so an agent working from memory of the old template
+  is told where the questions go.
+
+**Accepted cost.** A page shared with someone outside the conversation shows
+that a decision is open and where, not its options.
+
+Measured on the working tree before the release commit, with a copy of
+`plugins/visuals` as the candidate (hashes unchanged after the runs) and
+expectations frozen first; 8 calls: Sonnet 5.5 on Claude Code 5 (`--plugin-dir`,
+no user settings), GPT-6.2 Sol on Codex 3 (workspace skills, plugins
+disabled). Scenarios: an explanation of two retry implementations with two
+open decisions, and a demo of a button colour change with one open decision.
+Codex: 3 of 3 runs (two explanations, one demo) built a page. Claude: 3 of 5
+(two explanations, one demo). In all 6 pages: checker OK, no questions
+section, no question, option list or answer choice on the page, a
+"question N" label at the place of each decision; in all 6 replies: every
+question numbered with lettered options and a recommendation, and the link.
+The two Claude runs without a page are trigger results, not results of this
+change: one session reached for Claude Code's built-in Artifact tool and never
+loaded the skill (the later Claude runs disallowed that tool), and one request
+worded "show me clearly" was answered in text; only when the prompt asked for
+an HTML page did Sonnet load the skill (2 of 2). Not measured: a host that
+renders the page beside the reply, and Codex plugin discovery, which this
+release does not change.
+
 ## Implementation anchors
 
 - [Page standard](../../plugins/visuals/skills/visual-explanation/references/page-standard.md),
