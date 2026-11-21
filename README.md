@@ -33,7 +33,7 @@ model identity and loads the matching profile from `references/`. There is no
 | `orchestration` | `ship` | The pipeline conductor: one command from request to reviewed PR — super-plan → supervised waves on a feature branch → critical-review of the PR and its threads. Adds no machinery or gate of its own: the branch and the PR are stated in planning's one start approval, fixes routed by behavior change, and the merge always stays with the user. |
 | `orchestration` | `multi-model` | Model routing, effort selection, task-prompt template, review checklist, and supervised waves executed by native Claude/Codex drivers using the shipped policy — isolated executors judged against a machine-checkable contract by a separate supervisor session, never a weaker tier than the executor, with the escalation ladder as tested code — plus an orchestrator-drift advisory hook that watches the orchestrator session itself. |
 | `code-review` | `critical-review` | Scope detection, PR description+threads protocol, tiered findings table (Blocker → Nit), and a post-review fix phase that answers and resolves the PR threads its findings came from. |
-| `visuals` | `visual-explanation` | When the user asks to see something, or a picture is clearly faster to understand than text (a flow with branches, options against criteria, a state matrix, a before and after): one self-contained HTML page added to a complete text answer — the verdict, one main picture built in HTML/CSS/SVG, options with one recommended, numbered questions, collapsed details and sources. Ordinary answers stay text. |
+| `visuals` | `visual-explanation` | When the user asks to see something, or a picture is clearly faster to understand than text (a flow with branches, options against criteria, a state matrix, a before and after): one self-contained HTML page added to a complete text answer — the verdict, one main picture built in HTML/CSS/SVG, options with one recommended, collapsed details and sources; questions stay in the reply. Ordinary answers stay text. |
 | `visuals` | `visual-demo` | When work has a result that can be seen: one HTML page of real renders, screenshots and recordings — the verdict, what was not verified, how it was checked (animations on for motion), a states gallery beside the design, the recording at 1× and 0.25×, before and after, findings linked to frames. |
 
 ## How the model routing works
@@ -422,7 +422,7 @@ picture, or finish work that can be seen, and the agent writes
 `.context/visuals/<date>-<slug>/index.html` in the workspace and checks it with
 `page-check.mjs`. Its reply still stands on its own: the conclusion in two or
 three lines and every question you must answer, with lettered options you can
-answer in the chat; then the page, rendered in the conversation when the host
+answer in the chat (the page does not repeat them); then the page, rendered in the conversation when the host
 can (T3 Code's `html_render`, for example), and always a link to the file.
 Ordinary answers stay text. The page stays after cleanup unless you approve
 deleting it.
@@ -438,7 +438,7 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 The orchestration 1.4.0 / code-review 1.1.0 releases collapsed the per-model
 skill variants and dropped the sonnet-only experiment (current versions:
-orchestration 4.25.2, code-review 1.23.0, visuals 0.1.1):
+orchestration 4.25.3, code-review 1.23.0, visuals 0.1.2):
 
 | Before | After |
 |---|---|

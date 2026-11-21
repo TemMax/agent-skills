@@ -17,7 +17,7 @@
     {
       "name": "visuals",
       "source": "./plugins/visuals",
-      "description": "Claude Code and Codex visual pages: when a picture is clearly faster than text or work has a result to see, agents add one self-contained HTML page to a reply that still stands on its own — one main picture and numbered decisions, or real renders and recordings with what was not verified — checked by a shipped page validator."
+      "description": "Claude Code and Codex visual pages: when a picture is clearly faster than text or work has a result to see, agents add one self-contained HTML page to a reply that still stands on its own — one main picture and the options side by side, or real renders and recordings with what was not verified — checked by a shipped page validator."
     }
   ]
 }

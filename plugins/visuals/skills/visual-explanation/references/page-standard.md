@@ -57,16 +57,24 @@ file) checks the ones a program can check; the rest are yours to keep.
 ## Content
 
 11. The verdict comes first, in two or three lines: what is true, what is done,
-    what is needed from the user, so a reader who stops there still knows.
+    and that a decision is open when one is (named in a few words, not asked),
+    so a reader who stops there still knows.
 12. Simple words, in the language the user writes in, because the page is read
     fast.
 13. Simple but complete: every claim on the page has its evidence on the page
     (a screenshot, a recording, a command with its output, a file path, a link),
     because a claim without evidence is one the user must check by hand.
-14. A decision the user must take is a numbered question; its options carry
-    letters (A, B, C) and one is marked Recommended with its reason, so the user
-    can answer "1A" in one line. The same questions, with the same numbers and
-    letters, are on the page and in the reply.
+14. A decision the user must take is asked in the reply only, as a numbered
+    question; its options carry letters (A, B, C) and one is marked Recommended
+    with its reason, so the user can answer "1A" in one line. The page never
+    repeats a question, its options or its recommendation, and has no questions
+    section, because the user reads the page right beside the reply and would
+    read each question twice. Where a decision bears on the page (a row, a
+    state, a finding), mark that place with a short label carrying the reply's
+    number, such as "question 1". An `options` comparison is not a repeat: it
+    stays, with the recommended option marked; only the question about it is
+    asked in the reply. When you update a page after the user has answered,
+    write the decision as a fact and remove the label.
 15. Detail that most readers skip goes into a collapsed `<details>` whose
     `<summary>` says what is inside, so the page stays short without losing it.
 16. No secret, token, PIN, password, phone number or private key on the page,
@@ -125,7 +133,6 @@ Sections, in this order:
 | `verdict` | yes | The answer in two or three lines. |
 | `picture` | yes | One main picture built in HTML, CSS or inline SVG. |
 | `options` | no | The options side by side, the recommended one marked, with what each costs and gives. |
-| `questions` | no | Numbered questions with lettered options and a recommendation. |
 | `details` | no | Collapsed `<details>` for what most readers skip. |
 | `sources` | no | File paths and links the page rests on. |
 
@@ -142,14 +149,13 @@ Sections, in this order:
 
 | `data-section` | Required | What it holds |
 |---|---|---|
-| `verdict` | yes | What works, what does not, what the user must decide. |
+| `verdict` | yes | What works, what does not, and that a decision is open when one is. |
 | `not-verified` | yes | What was not checked, stated plainly. Write "Everything listed was verified." only when that is true. |
-| `method` | yes | How it was checked: device, emulator or preview renderer; build variant; stand or backend; system animation scales. |
+| `method` | yes | How it was checked: device, emulator or preview renderer; build variant; stand or backend; system animation scales. Commands and logs go in a collapsed `<details>` here. |
 | `states` | yes | A gallery of labelled states, each a real render or screenshot, with the design reference (for example a Figma export) beside it when one exists. |
 | `motion` | no | `<video controls>` with 1× and 0.25× speed buttons, and a strip of key frames. |
 | `before-after` | no | The same state before and after, on the same device, when existing UI changed. |
 | `findings` | no | Each finding linked to the frame that shows it (`<a href="#state-…">`). |
-| `questions` | no | Numbered open questions with lettered options and a recommendation. |
 
 - A real render is a screenshot or recording from the device, emulator or
   stand, or an image from a preview renderer that draws the actual UI code;

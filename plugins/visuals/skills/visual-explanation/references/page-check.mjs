@@ -14,11 +14,11 @@ import { fileURLToPath } from 'node:url'
 
 export const SECTIONS = {
   explanation: {
-    order: ['verdict', 'picture', 'options', 'questions', 'details', 'sources'],
+    order: ['verdict', 'picture', 'options', 'details', 'sources'],
     required: ['verdict', 'picture'],
   },
   demo: {
-    order: ['verdict', 'not-verified', 'method', 'states', 'motion', 'before-after', 'findings', 'questions'],
+    order: ['verdict', 'not-verified', 'method', 'states', 'motion', 'before-after', 'findings'],
     required: ['verdict', 'not-verified', 'method', 'states'],
   },
 }
@@ -320,7 +320,9 @@ export function checkPage(file, kind) {
     if (!sections.some((s) => s.name === name)) fail('section-missing', '-', `no element with data-section="${name}" (required on ${kind} pages)`)
   }
   for (const s of sections) {
-    if (!spec.order.includes(s.name)) warn('section-unknown', at(s.tag.start), `data-section="${s.name}" is not a section of ${kind} pages (${spec.order.join(', ')})`)
+    // Questions are asked in the reply only; a page that repeats them makes the user read each one twice.
+    if (s.name.toLowerCase() === 'questions') fail('questions-on-page', at(s.tag.start), 'a page has no questions section: ask the questions in the reply, and mark the place a decision bears on with a short label such as "question 1"')
+    else if (!spec.order.includes(s.name)) warn('section-unknown', at(s.tag.start), `data-section="${s.name}" is not a section of ${kind} pages (${spec.order.join(', ')})`)
   }
   const known = sections.filter((s) => spec.order.includes(s.name)).map((s) => s.name)
   const seen = [...new Set(known)]
